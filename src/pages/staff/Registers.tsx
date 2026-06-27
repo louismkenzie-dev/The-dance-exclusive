@@ -1,0 +1,435 @@
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useStaffMember } from "@/hooks/useStaffMember";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, LogIn, LogOut, ScanLine, AlertTriangle, Heart, Check } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { differenceInYears } from "date-fns";
+import StudentProfileDrawer from "@/components/staff/StudentProfileDrawer";
+import QrScannerDialog from "@/components/staff/QrScannerDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+const StaffRegisters = () => {
+  const { staff } = useStaffMember();
+  const { toast } = useToast();
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [attendance, setAttendance] = useState<Record<string, any[]>>({});
+  const [loading, setLoading] = useState(true);
+  const [profileBooking, setProfileBooking] = useState<{ booking: any; sessionId: string; classId: string } | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [collectorPrompt, setCollectorPrompt] = useState<{
+    booking: any;
+    sessionId: string;
+    classId: string;
+    method: "qr" | "manual";
+  } | null>(null);
+  const [collectorName, setCollectorName] = useState("");
+
+  useEffect(() => {
+    if (!staff?.id) return;
+    void load();
+  }, [staff?.id, date]);
+
+  const load = async () => {
+    if (!staff) return;
+    setLoading(true);
+
+    const { data: explicit } = await supabase
+      .from("session_instructors")
+      .select(`class_sessions!inner ( id, session_date, start_time, end_time, class_id, classes:class_id ( name, class_type, venues:venue_id ( name ) ) )`)
+      .eq("staff_id", staff.id);
+
+    const { data: classAssignments } = await supabase
+      .from("class_instructors")
+      .select("class_id")
+      .eq("staff_id", staff.id);
+
+    let defaults: any[] = [];
+    const classIds = (classAssignments ?? []).map((c) => c.class_id);
+    if (classIds.length > 0) {
+      const { data } = await supabase
+        .from("class_sessions")
+        .select(`id, session_date, start_time, end_time, class_id, classes:class_id ( name, class_type, venues:venue_id ( name ) )`)
+        .in("class_id", classIds)
+        .eq("session_date", date);
+      const { data: overrides } = await supabase.from("session_instructors").select("session_id").in("session_id", (data ?? []).map((s) => s.id));
+      const overrideIds = new Set((overrides ?? []).map((o: any) => o.session_id));
+      defaults = (data ?? []).filter((s) => !overrideIds.has(s.id));
+    }
+
+    const all = [...((explicit ?? []).map((r: any) => r.class_sessions)), ...defaults]
+      .filter((s) => s.session_date === date)
+      .sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+    setSessions(all);
+
+    // Fetch attendance + bookings per session
+    const map: Record<string, any[]> = {};
+    for (const s of all) {
+      const { data: bookings } = await supabase
+        .from("bookings")
+        .select(`id, student_id, students:student_id ( first_name, last_name, profile_photo, date_of_birth, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info )`)
+        .eq("class_id", s.class_id)
+        .eq("status", "confirmed");
+      const { data: att } = await supabase
+        .from("attendance")
+        .select("*")
+        .eq("class_session_id", s.id);
+      const attByBooking: Record<string, any> = {};
+      att?.forEach((a: any) => (attByBooking[a.booking_id] = a));
+      map[s.id] = (bookings ?? []).map((b: any) => ({ ...b, attendance: attByBooking[b.id] || null }));
+    }
+    setAttendance(map);
+    setLoading(false);
+  };
+
+  const markAbsent = async (sessionId: string, classId: string, booking: any) => {
+    if (!booking.student_id) return;
+    if (booking.attendance) {
+      await supabase.from("attendance").update({ status: "absent", checked_in_at: null, checked_out_at: null }).eq("id", booking.attendance.id);
+    } else {
+      await supabase.from("attendance").insert({
+        booking_id: booking.id,
+        class_id: classId,
+        class_session_id: sessionId,
+        student_id: booking.student_id,
+        session_date: date,
+        status: "absent",
+      });
+    }
+    toast({ title: "Marked absent" });
+    void load();
+  };
+
+  const clearAttendance = async (booking: any) => {
+    if (!booking.attendance) return;
+    await supabase.from("attendance").delete().eq("id", booking.attendance.id);
+    toast({ title: "Status cleared" });
+    void load();
+  };
+
+  const performCheckIn = async (booking: any, sessionId: string, classId: string, method: "qr" | "manual", collector: string | null) => {
+    if (!booking.student_id) return;
+    const now = new Date().toISOString();
+    if (booking.attendance) {
+      await supabase.from("attendance").update({
+        status: "present",
+        checked_in_at: now,
+        checked_out_at: null,
+        check_in_method: method,
+        collector_name: collector,
+      }).eq("id", booking.attendance.id);
+    } else {
+      await supabase.from("attendance").insert({
+        booking_id: booking.id,
+        class_id: classId,
+        class_session_id: sessionId,
+        student_id: booking.student_id,
+        session_date: date,
+        status: "present",
+        checked_in_at: now,
+        check_in_method: method,
+        collector_name: collector,
+      });
+    }
+    toast({ title: "Checked in", description: collector ? `Dropped off by ${collector}` : undefined });
+    void load();
+  };
+
+  const performCheckOut = async (booking: any, method: "qr" | "manual", collector: string | null) => {
+    if (!booking.attendance) return;
+    const now = new Date().toISOString();
+    await supabase.from("attendance").update({
+      checked_out_at: now,
+      check_out_method: method,
+      collector_name: collector ?? booking.attendance.collector_name,
+    }).eq("id", booking.attendance.id);
+    toast({ title: "Checked out", description: collector ? `Collected by ${collector}` : undefined });
+    void load();
+  };
+
+  // Triggered by clicking "In" / "Out" buttons → asks for collector name
+  const beginManualCheckIn = (sessionId: string, classId: string, booking: any) => {
+    setCollectorName("");
+    setCollectorPrompt({ booking, sessionId, classId, method: "manual" });
+  };
+  const beginManualCheckOut = (booking: any) => {
+    setCollectorName("");
+    setCollectorPrompt({ booking, sessionId: booking.attendance.class_session_id, classId: booking.attendance.class_id, method: "manual" });
+  };
+
+  const submitCollectorPrompt = async () => {
+    if (!collectorPrompt) return;
+    const { booking, sessionId, classId, method } = collectorPrompt;
+    const isCheckOut = !!booking.attendance?.checked_in_at && !booking.attendance?.checked_out_at;
+    const trimmed = collectorName.trim() || null;
+    if (isCheckOut) await performCheckOut(booking, method, trimmed);
+    else await performCheckIn(booking, sessionId, classId, method, trimmed);
+    setCollectorPrompt(null);
+  };
+
+  // Scanner result → look up token and toggle in/out
+  const handleScannedToken = async (token: string) => {
+    setScannerOpen(false);
+    const { data: t } = await supabase
+      .from("booking_qr_tokens")
+      .select("booking_id, valid_until")
+      .eq("token", token)
+      .maybeSingle();
+    if (!t) {
+      toast({ title: "Code not recognised", description: "Ask the parent to refresh their QR code.", variant: "destructive" });
+      return;
+    }
+    if (new Date(t.valid_until) < new Date()) {
+      toast({ title: "Code expired", description: "Ask the parent to open a fresh code.", variant: "destructive" });
+      return;
+    }
+    // Find which of today's sessions this booking belongs to.
+    let matchSessionId: string | null = null;
+    let matchBooking: any = null;
+    for (const [sessionId, rows] of Object.entries(attendance)) {
+      const found = (rows as any[]).find((b) => b.id === t.booking_id);
+      if (found) {
+        matchSessionId = sessionId;
+        matchBooking = found;
+        break;
+      }
+    }
+    if (!matchSessionId || !matchBooking) {
+      toast({
+        title: "Not on today's register",
+        description: "This QR is valid, but the booking isn't scheduled in any of today's classes.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const session = sessions.find((s) => s.id === matchSessionId);
+    const isCheckOut = !!matchBooking.attendance?.checked_in_at && !matchBooking.attendance?.checked_out_at;
+    if (isCheckOut) await performCheckOut(matchBooking, "qr", null);
+    else await performCheckIn(matchBooking, matchSessionId, session?.class_id ?? matchBooking.attendance?.class_id, "qr", null);
+  };
+
+  const shiftDate = (days: number) => {
+    const d = new Date(date);
+    d.setDate(d.getDate() + days);
+    setDate(d.toISOString().split("T")[0]);
+  };
+
+  const statusInfo = (att: any) => {
+    if (att?.status === "absent") return { label: "Absent", badge: "bg-destructive text-destructive-foreground hover:bg-destructive", row: "border-l-2 border-l-destructive" };
+    if (att?.checked_out_at) return { label: "Departed", badge: "bg-blue-500 text-white hover:bg-blue-500", row: "border-l-2 border-l-blue-500" };
+    if (att?.checked_in_at) return { label: "Arrived", badge: "bg-success text-success-foreground hover:bg-success", row: "border-l-2 border-l-success" };
+    return { label: "Unaccounted", badge: "bg-muted text-foreground hover:bg-muted", row: "border-l-2 border-l-border" };
+  };
+
+  return (
+    <div className="p-6 md:p-8 max-w-5xl mx-auto">
+      <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
+        <div>
+          <h1 className="text-3xl font-display font-bold mb-1">Registers</h1>
+          <p className="text-muted-foreground">Mark attendance for your classes</p>
+        </div>
+        <Button onClick={() => setScannerOpen(true)} size="lg" className="gap-2">
+          <ScanLine className="w-4 h-4" /> Scan QR
+        </Button>
+      </div>
+
+      <div className="flex items-center justify-between mb-6 gap-3">
+        <Button variant="outline" size="icon" onClick={() => shiftDate(-1)}><ChevronLeft className="w-4 h-4" /></Button>
+        <div className="flex-1 text-center">
+          <p className="text-lg font-semibold">{new Date(date).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="text-xs text-muted-foreground bg-transparent border-none focus:outline-none" />
+        </div>
+        <Button variant="outline" size="icon" onClick={() => shiftDate(1)}><ChevronRight className="w-4 h-4" /></Button>
+      </div>
+
+      {loading ? (
+        <p className="text-muted-foreground text-sm">Loading...</p>
+      ) : sessions.length === 0 ? (
+        <Card><CardContent className="py-12 text-center text-muted-foreground">No classes scheduled for this day.</CardContent></Card>
+      ) : (
+        <div className="space-y-4">
+          {sessions.map((s) => (
+            <Card key={s.id}>
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
+                  <div>
+                    <h3 className="font-semibold text-lg">{s.classes?.name}</h3>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                      <Clock className="w-3 h-3" /> {s.start_time.slice(0, 5)} – {s.end_time.slice(0, 5)} • {s.classes?.venues?.name || "Venue TBC"}
+                    </p>
+                  </div>
+                  <Badge variant="outline">{(attendance[s.id] || []).length} students</Badge>
+                </div>
+                {(attendance[s.id] || []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">No bookings yet for this class.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[34%]">Student</TableHead>
+                        <TableHead className="w-[80px]">Age</TableHead>
+                        <TableHead className="w-[90px] text-center">Medical</TableHead>
+                        <TableHead>Arrival / Departure</TableHead>
+                        <TableHead className="text-right w-[130px]">Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {attendance[s.id].map((b: any) => {
+                        const att = b.attendance;
+                        const isIn = att?.checked_in_at && !att?.checked_out_at;
+                        const isOut = !!att?.checked_out_at;
+                        const isAbsent = att?.status === "absent";
+                        const student = b.students;
+                        const age = student?.date_of_birth ? differenceInYears(new Date(), new Date(student.date_of_birth)) : null;
+                        const hasMedical = !!(
+                          student?.has_epipen || student?.has_inhaler ||
+                          student?.allergies_list?.length || student?.medical_conditions_list?.length ||
+                          student?.medical_info
+                        );
+                        const hasUrgent = student?.has_epipen || student?.has_inhaler;
+                        const fmt = (d: string) => new Date(d).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+                        const status = statusInfo(att);
+
+                        return (
+                          <TableRow
+                            key={b.id}
+                            className={`cursor-pointer ${status.row}`}
+                            onClick={() => setProfileBooking({ booking: b, sessionId: s.id, classId: s.class_id })}
+                          >
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                {student?.profile_photo ? (
+                                  <img src={student.profile_photo} alt="" className="w-9 h-9 rounded-full object-cover" />
+                                ) : (
+                                  <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                    {student?.first_name?.[0] ?? "?"}
+                                  </div>
+                                )}
+                                <div className="min-w-0">
+                                  <p className="font-medium text-sm">{student?.first_name} {student?.last_name}</p>
+                                  {student?.has_send && <Badge className="text-[10px] bg-amber-500 hover:bg-amber-600 mt-0.5">SEND</Badge>}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm">{age != null ? `${age}y` : "—"}</TableCell>
+                            <TableCell className="text-center">
+                              {hasMedical ? (
+                                hasUrgent ? (
+                                  <span title="Urgent: EpiPen / Inhaler" className="inline-flex items-center gap-1 text-destructive">
+                                    <AlertTriangle className="w-4 h-4" />
+                                  </span>
+                                ) : (
+                                  <Check className="w-4 h-4 inline text-success" />
+                                )
+                              ) : (
+                                <span className="text-muted-foreground/50">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-xs tabular-nums">
+                              {att?.checked_in_at || att?.checked_out_at ? (
+                                <div className="flex flex-col gap-0.5">
+                                  {att?.checked_in_at && <span className="text-foreground">In {fmt(att.checked_in_at)}</span>}
+                                  {att?.checked_out_at && <span className="text-foreground">Out {fmt(att.checked_out_at)}</span>}
+                                  {att?.collector_name && <span className="text-[11px] text-muted-foreground">{att.collector_name}</span>}
+                                </div>
+                              ) : (
+                                <span className="opacity-50">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Badge className={status.badge}>{status.label}</Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <StudentProfileDrawer
+        open={!!profileBooking}
+        onOpenChange={(o) => !o && setProfileBooking(null)}
+        studentId={profileBooking?.booking?.student_id ?? null}
+        booking={profileBooking?.booking ?? null}
+        sessionId={profileBooking?.sessionId ?? null}
+        classId={profileBooking?.classId ?? null}
+        onCheckIn={() => {
+          if (!profileBooking) return;
+          beginManualCheckIn(profileBooking.sessionId, profileBooking.classId, profileBooking.booking);
+          setProfileBooking(null);
+        }}
+        onCheckOut={() => {
+          if (!profileBooking) return;
+          beginManualCheckOut(profileBooking.booking);
+          setProfileBooking(null);
+        }}
+        onMarkAbsent={() => {
+          if (!profileBooking) return;
+          markAbsent(profileBooking.sessionId, profileBooking.classId, profileBooking.booking);
+          setProfileBooking(null);
+        }}
+        onClearAttendance={() => {
+          if (!profileBooking) return;
+          clearAttendance(profileBooking.booking);
+          setProfileBooking(null);
+        }}
+      />
+
+      <QrScannerDialog
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        onScanned={handleScannedToken}
+      />
+
+      <Dialog open={!!collectorPrompt} onOpenChange={(o) => !o && setCollectorPrompt(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {collectorPrompt?.booking?.attendance?.checked_in_at && !collectorPrompt?.booking?.attendance?.checked_out_at
+                ? "Who's collecting?"
+                : "Who dropped off?"}
+            </DialogTitle>
+            <DialogDescription>
+              Recording the collector's name keeps a safeguarding audit trail. Leave blank if a parent on file is doing it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="collector">Collector name (optional)</Label>
+            <Input
+              id="collector"
+              value={collectorName}
+              onChange={(e) => setCollectorName(e.target.value)}
+              placeholder="e.g. Sarah Smith (Aunt)"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCollectorPrompt(null)}>Cancel</Button>
+            <Button onClick={submitCollectorPrompt}>Confirm</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default StaffRegisters;

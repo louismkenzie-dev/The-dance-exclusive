@@ -1,0 +1,1 @@
+ALTER TABLE public.class_sessions ADD COLUMN price_override numeric DEFAULT NULL;

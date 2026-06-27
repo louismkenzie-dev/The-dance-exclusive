@@ -1,0 +1,12 @@
+# The Dance Exclusive
+
+> Award-winning commercial and street dance classes for children and adults across Essex, UK.
+
+The Dance Exclusive is an Essex-based dance school offering high-energy classes, holiday camps, workshops, and birthday parties. Parents and adult dancers can browse classes, check venues, and book online.
+
+## Pages
+
+- [Home](/): Overview of The Dance Exclusive and quick links to children's and adult classes.
+- [Children's Classes](/classes/children): Browse and book dance classes for children across Essex venues.
+- [Adult Classes](/classes/adult): Browse and book adult dance classes across Essex venues.
+- [Sign in / Create account](/auth): Sign in or create an account to book classes.

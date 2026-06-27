@@ -1,0 +1,1 @@
+ALTER TABLE public.venues ADD COLUMN hire_cost_per_day numeric DEFAULT NULL;

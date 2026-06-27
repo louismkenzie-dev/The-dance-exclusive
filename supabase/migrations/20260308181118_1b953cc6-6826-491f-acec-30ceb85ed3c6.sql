@@ -1,0 +1,1 @@
+ALTER TABLE public.venues ADD COLUMN county text DEFAULT 'Essex';

@@ -1,0 +1,248 @@
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* The Dance Exclusive — Dark Urban Branding */
+    --background: 220 20% 4%;
+    --foreground: 0 0% 98%;
+
+    --card: 220 18% 8%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 220 18% 10%;
+    --popover-foreground: 0 0% 98%;
+
+    /* Logo-matched blue brand accent */
+    --primary: 201 70% 65%;
+    --primary-foreground: 220 20% 4%;
+
+    --secondary: 220 15% 14%;
+    --secondary-foreground: 0 0% 90%;
+
+    --muted: 220 15% 12%;
+    --muted-foreground: 220 10% 55%;
+
+    /* Hot pink/magenta for adult classes accent */
+    --accent: 330 90% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 15% 16%;
+    --input: 220 15% 16%;
+    --ring: 201 70% 65%;
+
+    --radius: 0.5rem;
+
+    --success: 152 69% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 220 20% 4%;
+
+    /* Sidebar — admin panel */
+    --sidebar-background: 220 22% 6%;
+    --sidebar-foreground: 220 10% 75%;
+    --sidebar-primary: 201 70% 65%;
+    --sidebar-primary-foreground: 220 20% 4%;
+    --sidebar-accent: 220 18% 12%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 220 15% 14%;
+    --sidebar-ring: 201 70% 65%;
+
+    --font-display: 'Oswald', sans-serif;
+    --font-body: 'Inter', sans-serif;
+  }
+
+  /* Children's portal — lighter variant with same brand identity */
+  .theme-children {
+    --background: 200 20% 97%;
+    --foreground: 220 20% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 10%;
+
+    --primary: 201 70% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 200 20% 93%;
+    --secondary-foreground: 220 20% 10%;
+
+    --muted: 200 15% 94%;
+    --muted-foreground: 220 10% 45%;
+
+    --accent: 201 70% 65%;
+    --accent-foreground: 0 0% 100%;
+
+    --border: 200 15% 88%;
+    --input: 200 15% 88%;
+    --ring: 201 70% 55%;
+  }
+
+  /* Adult portal — full dark */
+  .theme-adult {
+    --background: 220 20% 4%;
+    --foreground: 0 0% 98%;
+
+    --card: 220 18% 8%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 220 18% 10%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 330 90% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 15% 14%;
+    --secondary-foreground: 0 0% 90%;
+
+    --muted: 220 15% 12%;
+    --muted-foreground: 220 10% 55%;
+
+    --accent: 201 70% 65%;
+    --accent-foreground: 220 20% 4%;
+
+    --border: 220 15% 16%;
+    --input: 220 15% 16%;
+    --ring: 330 90% 55%;
+  }
+
+  .dark {
+    --background: 220 20% 4%;
+    --foreground: 0 0% 98%;
+    --card: 220 18% 8%;
+    --card-foreground: 0 0% 98%;
+    --popover: 220 18% 10%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 201 70% 65%;
+    --primary-foreground: 220 20% 4%;
+    --secondary: 220 15% 14%;
+    --secondary-foreground: 0 0% 90%;
+    --muted: 220 15% 12%;
+    --muted-foreground: 220 10% 55%;
+    --accent: 330 90% 55%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 15% 16%;
+    --input: 220 15% 16%;
+    --ring: 201 70% 65%;
+    --sidebar-background: 220 22% 6%;
+    --sidebar-foreground: 220 10% 75%;
+    --sidebar-primary: 201 70% 65%;
+    --sidebar-primary-foreground: 220 20% 4%;
+    --sidebar-accent: 220 18% 12%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 220 15% 14%;
+    --sidebar-ring: 201 70% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+}
+
+/* Keep Leaflet map below dialogs/sheets/popovers */
+.leaflet-container {
+  z-index: 0 !important;
+}
+
+/* ───────────────────────────────────────────────
+   Immersive "AFTER DARK" motion + texture kit
+   ─────────────────────────────────────────────── */
+@layer utilities {
+  .text-stroke {
+    -webkit-text-stroke: 1.5px hsl(var(--primary) / 0.55);
+    color: transparent;
+  }
+  .text-stroke-faint {
+    -webkit-text-stroke: 1px hsl(0 0% 100% / 0.12);
+    color: transparent;
+  }
+  .mask-fade-x {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+  }
+  /* Stage-light gradient meshes — blue/magenta wash on near-black */
+  .stage-light-blue {
+    background:
+      radial-gradient(55% 50% at 18% 0%, hsl(201 70% 65% / 0.20), transparent 70%),
+      radial-gradient(45% 45% at 88% 12%, hsl(201 80% 55% / 0.12), transparent 70%),
+      radial-gradient(42% 45% at 50% 108%, hsl(201 70% 60% / 0.10), transparent 70%);
+  }
+  .stage-light-mag {
+    background:
+      radial-gradient(55% 50% at 82% 0%, hsl(330 90% 55% / 0.20), transparent 70%),
+      radial-gradient(45% 45% at 12% 18%, hsl(280 80% 55% / 0.12), transparent 70%),
+      radial-gradient(42% 45% at 50% 108%, hsl(330 90% 55% / 0.12), transparent 70%);
+  }
+  .stage-light-duo {
+    background:
+      radial-gradient(50% 55% at 10% 0%, hsl(201 70% 65% / 0.18), transparent 70%),
+      radial-gradient(50% 55% at 90% 100%, hsl(330 90% 55% / 0.18), transparent 70%);
+  }
+}
+
+@layer base {
+  .reveal {
+    opacity: 0;
+    transform: translateY(26px);
+    transition: opacity 0.75s cubic-bezier(0.2, 0.7, 0.2, 1),
+      transform 0.75s cubic-bezier(0.2, 0.7, 0.2, 1);
+    will-change: opacity, transform;
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+  .marquee__track {
+    animation: tde-marquee linear infinite;
+  }
+  .marquee:hover .marquee__track {
+    animation-play-state: paused;
+  }
+}
+
+@keyframes tde-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes tde-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes tde-scroll-cue {
+  0% { transform: translateY(-2px); opacity: 0; }
+  40% { opacity: 1; }
+  80% { transform: translateY(10px); opacity: 0; }
+  100% { opacity: 0; }
+}
+
+.animate-float { animation: tde-float 6s ease-in-out infinite; }
+.animate-scroll-cue { animation: tde-scroll-cue 1.8s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+  .marquee__track { animation: none !important; }
+  .animate-float, .animate-scroll-cue { animation: none !important; }
+}

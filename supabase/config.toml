@@ -1,0 +1,25 @@
+project_id = "bfrgdzgfnvikujzglgro"
+
+[functions.create-checkout]
+verify_jwt = false
+
+[functions.create-payment-intent]
+verify_jwt = false
+
+[functions.get-session-status]
+verify_jwt = false
+
+[functions.get-payment-intent-status]
+verify_jwt = false
+
+[functions.payments-webhook]
+verify_jwt = false
+
+[functions.send-email]
+verify_jwt = false
+
+[functions.send-password-reset]
+verify_jwt = false
+
+[functions.create-merch-checkout]
+verify_jwt = false

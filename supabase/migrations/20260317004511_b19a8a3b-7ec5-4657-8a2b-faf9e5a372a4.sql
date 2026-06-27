@@ -1,0 +1,1 @@
+ALTER TABLE public.classes ADD COLUMN allow_trial boolean NOT NULL DEFAULT false;

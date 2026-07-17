@@ -28,6 +28,7 @@ import {
   ChevronDown, ChevronUp, Search, X, Info, ShoppingCart, Tag, Ticket, Star, Music
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { audienceText, isClassBookable } from "@/lib/classAudience";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { QuickBookDialog } from "@/components/portal/QuickBookDialog";
 
@@ -80,6 +81,14 @@ interface ClassItem {
   term_end: string | null;
   allow_trial: boolean;
   school_term_id: string | null;
+  is_active: boolean;
+  school_year_min: number | null;
+  school_year_max: number | null;
+  audience_label: string | null;
+  invite_only: boolean;
+  booking_enabled: boolean;
+  status: string;
+  publicly_visible: boolean;
   venues: VenueData | null;
   staff: StaffData | null;
   workshops: { cover_image: string | null; name: string; description: string | null } | null;
@@ -201,7 +210,10 @@ const ClassBrowser = () => {
           staff(full_name, profile_photo, description, dance_skills), 
           workshops(cover_image, name, description)`)
         .eq("is_active", true)
+        .eq("publicly_visible", true)
+        .eq("status", "confirmed")
         .eq("class_type", classType as any)
+        .order("sort_order")
         .order("day_of_week")
         .order("start_time");
       if (data) {
@@ -689,9 +701,14 @@ const ClassBrowser = () => {
                             </Badge>
                           );
                         })()}
+                        {c.invite_only && (
+                          <Badge className="text-[10px] uppercase tracking-wider border bg-amber-500/15 text-amber-500 border-amber-500/30">
+                            Invite Only
+                          </Badge>
+                        )}
                       </div>
-                      {c.age_min != null && c.age_max != null && (
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">Ages {c.age_min}–{c.age_max}</span>
+                      {audienceText(c) && (
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">{audienceText(c)}</span>
                       )}
                     </div>
                     <CardTitle className="text-xl group-hover:text-primary transition-colors">{c.name}</CardTitle>
@@ -721,25 +738,44 @@ const ClassBrowser = () => {
                       )}
                     </div>
 
+                    {/* Invite-only sessions are visible but never open-enrolment bookable */}
+                    {c.invite_only && (
+                      <div className="flex items-start gap-2 mb-3 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/25 text-xs text-amber-600" style={{ textTransform: 'none', letterSpacing: 'normal', fontFamily: 'var(--font-body)' }}>
+                        <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                        <span>This is an invite-only session. Places are offered directly by The Dance Exclusive team — please contact us if you think this crew is for you.</span>
+                      </div>
+                    )}
+
                     {/* Action buttons: Book Now (primary) + More Info (secondary) */}
                     <div className="flex items-stretch gap-2 mb-4">
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          if (!user) { navigate("/auth"); return; }
-                          setQuickBookClassId(c.id);
-                        }}
-                        className="flex-1 uppercase tracking-wider text-xs font-bold gap-1.5 text-white hover:text-white hover:opacity-90"
-                        style={{
-                          background: isAdult ? "hsl(330, 90%, 55%)" : "hsl(201, 70%, 65%)",
-                          boxShadow: isAdult
-                            ? "0 4px 14px hsl(330, 90%, 55%, 0.25)"
-                            : "0 4px 14px hsl(201, 70%, 65%, 0.25)",
-                        }}
-                      >
-                        <ShoppingCart className="w-3.5 h-3.5" />
-                        Book Now
-                      </Button>
+                      {isClassBookable(c) ? (
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            if (!user) { navigate("/auth"); return; }
+                            setQuickBookClassId(c.id);
+                          }}
+                          className="flex-1 uppercase tracking-wider text-xs font-bold gap-1.5 text-white hover:text-white hover:opacity-90"
+                          style={{
+                            background: isAdult ? "hsl(330, 90%, 55%)" : "hsl(201, 70%, 65%)",
+                            boxShadow: isAdult
+                              ? "0 4px 14px hsl(330, 90%, 55%, 0.25)"
+                              : "0 4px 14px hsl(201, 70%, 65%, 0.25)",
+                          }}
+                        >
+                          <ShoppingCart className="w-3.5 h-3.5" />
+                          Book Now
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          disabled
+                          className="flex-1 uppercase tracking-wider text-xs font-bold gap-1.5"
+                          variant="secondary"
+                        >
+                          {c.invite_only ? "Invite Only" : "Booking Opening Soon"}
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"
@@ -1103,6 +1139,7 @@ const ClassBrowser = () => {
                                 });
 
                                 const handleAddToCart = () => {
+                                  if (!isClassBookable(c)) return;
                                   if (!user) { navigate("/auth"); return; }
                                   if (noKidsSelected) return;
                                   if (noSessionsSelected) return;
@@ -1160,7 +1197,7 @@ const ClassBrowser = () => {
                                     </div>
                                     <Button
                                       size="sm"
-                                      disabled={allSelectedInCart || noKidsSelected || noSessionsSelected}
+                                      disabled={!isClassBookable(c) || allSelectedInCart || noKidsSelected || noSessionsSelected}
                                       onClick={handleAddToCart}
                                       className="uppercase tracking-wider text-xs font-semibold gap-1.5"
                                       style={{

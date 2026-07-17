@@ -714,6 +714,14 @@ export type Database = {
           age_max: number | null
           age_min: number | null
           allow_trial: boolean
+          audience_label: string | null
+          booking_enabled: boolean
+          invite_only: boolean
+          publicly_visible: boolean
+          school_year_max: number | null
+          school_year_min: number | null
+          sort_order: number
+          status: string
           capacity: number
           class_type: Database["public"]["Enums"]["class_type"]
           created_at: string
@@ -749,6 +757,14 @@ export type Database = {
           age_max?: number | null
           age_min?: number | null
           allow_trial?: boolean
+          audience_label?: string | null
+          booking_enabled?: boolean
+          invite_only?: boolean
+          publicly_visible?: boolean
+          school_year_max?: number | null
+          school_year_min?: number | null
+          sort_order?: number
+          status?: string
           capacity?: number
           class_type?: Database["public"]["Enums"]["class_type"]
           created_at?: string
@@ -784,6 +800,14 @@ export type Database = {
           age_max?: number | null
           age_min?: number | null
           allow_trial?: boolean
+          audience_label?: string | null
+          booking_enabled?: boolean
+          invite_only?: boolean
+          publicly_visible?: boolean
+          school_year_max?: number | null
+          school_year_min?: number | null
+          sort_order?: number
+          status?: string
           capacity?: number
           class_type?: Database["public"]["Enums"]["class_type"]
           created_at?: string
@@ -2109,8 +2133,15 @@ export type Database = {
         Row: {
           access_code: string | null
           accessibility_info: string | null
-          address_line1: string
+          address_line1: string | null
           address_line2: string | null
+          featured_order: number | null
+          hero_image: string | null
+          is_featured: boolean
+          publicly_visible: boolean
+          short_description: string | null
+          slug: string | null
+          status: string
           capacity: number | null
           city: string
           contact_email: string | null
@@ -2145,7 +2176,7 @@ export type Database = {
           photo_indoor: string | null
           photo_outside: string | null
           photo_parking: string | null
-          postcode: string
+          postcode: string | null
           updated_at: string
           website_url: string | null
           what3words: string | null
@@ -2155,8 +2186,15 @@ export type Database = {
         Insert: {
           access_code?: string | null
           accessibility_info?: string | null
-          address_line1: string
+          address_line1?: string | null
           address_line2?: string | null
+          featured_order?: number | null
+          hero_image?: string | null
+          is_featured?: boolean
+          publicly_visible?: boolean
+          short_description?: string | null
+          slug?: string | null
+          status?: string
           capacity?: number | null
           city?: string
           contact_email?: string | null
@@ -2191,7 +2229,7 @@ export type Database = {
           photo_indoor?: string | null
           photo_outside?: string | null
           photo_parking?: string | null
-          postcode: string
+          postcode?: string | null
           updated_at?: string
           website_url?: string | null
           what3words?: string | null
@@ -2201,8 +2239,15 @@ export type Database = {
         Update: {
           access_code?: string | null
           accessibility_info?: string | null
-          address_line1?: string
+          address_line1?: string | null
           address_line2?: string | null
+          featured_order?: number | null
+          hero_image?: string | null
+          is_featured?: boolean
+          publicly_visible?: boolean
+          short_description?: string | null
+          slug?: string | null
+          status?: string
           capacity?: number | null
           city?: string
           contact_email?: string | null
@@ -2237,7 +2282,7 @@ export type Database = {
           photo_indoor?: string | null
           photo_outside?: string | null
           photo_parking?: string | null
-          postcode?: string
+          postcode?: string | null
           updated_at?: string
           website_url?: string | null
           what3words?: string | null

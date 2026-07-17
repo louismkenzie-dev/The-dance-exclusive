@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit, Trash2, CalendarDays, ChevronRight, ChevronLeft, ListChecks, ChevronDown, ChevronUp, Clock, User, Archive, X, Copy, Flag, AlertTriangle } from "lucide-react";
 import SessionManager from "@/components/admin/SessionManager";
@@ -175,6 +176,13 @@ const AdminClasses = () => {
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [sessionStaffing, setSessionStaffing] = useState<Record<number, string[]>>({});
   const [allowTrial, setAllowTrial] = useState(false);
+  const [audienceLabel, setAudienceLabel] = useState("");
+  const [schoolYearMin, setSchoolYearMin] = useState("");
+  const [schoolYearMax, setSchoolYearMax] = useState("");
+  const [inviteOnly, setInviteOnly] = useState(false);
+  const [classStatus, setClassStatus] = useState("confirmed");
+  const [publiclyVisible, setPubliclyVisible] = useState(true);
+  const [bookingEnabled, setBookingEnabled] = useState(true);
 
   const filteredWorkshops = useMemo(() => 
     workshops.filter(w => w.class_type === classType).sort((a, b) => a.name.localeCompare(b.name)),
@@ -275,6 +283,13 @@ const AdminClasses = () => {
     setSessions([]);
     setSessionStaffing({});
     setAllowTrial(false);
+    setAudienceLabel("");
+    setSchoolYearMin("");
+    setSchoolYearMax("");
+    setInviteOnly(false);
+    setClassStatus("confirmed");
+    setPubliclyVisible(true);
+    setBookingEnabled(true);
     setEditing(null);
     setStep(1);
   };
@@ -458,6 +473,13 @@ const AdminClasses = () => {
     setTermDiscountAmount((c as any).term_discount_amount?.toString() || "");
     setYearDiscountAmount((c as any).year_discount_amount?.toString() || "");
     setAllowTrial((c as any).allow_trial ?? false);
+    setAudienceLabel((c as any).audience_label || "");
+    setSchoolYearMin((c as any).school_year_min?.toString() || "");
+    setSchoolYearMax((c as any).school_year_max?.toString() || "");
+    setInviteOnly((c as any).invite_only ?? false);
+    setClassStatus((c as any).status || "confirmed");
+    setPubliclyVisible((c as any).publicly_visible ?? true);
+    setBookingEnabled((c as any).booking_enabled ?? true);
     setStep(1);
     setOpen(true);
   };
@@ -497,7 +519,21 @@ const AdminClasses = () => {
       term_discount_amount: termDiscountAmount ? parseFloat(termDiscountAmount) : null,
       year_discount_amount: yearDiscountAmount ? parseFloat(yearDiscountAmount) : null,
       allow_trial: allowTrial,
+      audience_label: audienceLabel || null,
+      school_year_min: schoolYearMin ? parseInt(schoolYearMin) : null,
+      school_year_max: schoolYearMax ? parseInt(schoolYearMax) : null,
+      invite_only: inviteOnly,
+      status: classStatus,
+      publicly_visible: publiclyVisible,
+      // Invite-only sessions must never behave like open-enrolment classes.
+      booking_enabled: inviteOnly ? false : bookingEnabled,
     };
+
+    if (payload.school_year_min != null && payload.school_year_max != null && payload.school_year_min > payload.school_year_max) {
+      toast({ title: "Invalid school years", description: "Minimum school year cannot be above the maximum.", variant: "destructive" });
+      setSaving(false);
+      return;
+    }
 
     let classId: string;
 
@@ -788,6 +824,62 @@ const AdminClasses = () => {
                       </p>
                     </div>
                   </label>
+                </div>
+
+                <div className="space-y-3 border-t border-border pt-4">
+                  <Label className="text-sm font-semibold">Audience & Access</Label>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs">Audience Label</Label>
+                      <Input value={audienceLabel} onChange={e => setAudienceLabel(e.target.value)} placeholder='e.g. "Ages 8–16", "O17", "Adults"' />
+                      <p className="text-[11px] text-muted-foreground">Shown to parents. Overrides age/school-year display.</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">School Year (min)</Label>
+                      <Input type="number" min="0" max="13" value={schoolYearMin} onChange={e => setSchoolYearMin(e.target.value)} placeholder="e.g. 2" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">School Year (max)</Label>
+                      <Input type="number" min="0" max="13" value={schoolYearMax} onChange={e => setSchoolYearMax(e.target.value)} placeholder="e.g. 6" />
+                    </div>
+                  </div>
+                  {schoolYearMin !== "" && schoolYearMax !== "" && parseInt(schoolYearMin) > parseInt(schoolYearMax) && (
+                    <div className="flex items-center gap-2 text-xs text-destructive">
+                      <AlertTriangle className="w-3.5 h-3.5" /> Minimum school year cannot be above the maximum.
+                    </div>
+                  )}
+                  <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors">
+                    <Checkbox checked={inviteOnly} onCheckedChange={(v) => setInviteOnly(!!v)} className="mt-0.5" />
+                    <div className="space-y-1">
+                      <span className="text-sm font-medium text-foreground">Invite only</span>
+                      <p className="text-xs text-muted-foreground">
+                        Shown on the public site with an invite-only message. Parents cannot book it themselves — booking is always disabled for invite-only sessions.
+                      </p>
+                    </div>
+                  </label>
+                  <div className="grid grid-cols-3 gap-4 items-end">
+                    <div className="space-y-2">
+                      <Label className="text-xs">Status</Label>
+                      <Select value={classStatus} onValueChange={setClassStatus}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="confirmed">Confirmed</SelectItem>
+                          <SelectItem value="provisional">Provisional</SelectItem>
+                          <SelectItem value="draft">Draft</SelectItem>
+                          <SelectItem value="inactive">Inactive</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[11px] text-muted-foreground">Only confirmed classes appear on the public site.</p>
+                    </div>
+                    <div className="flex items-center gap-3 pb-1">
+                      <Switch checked={publiclyVisible} onCheckedChange={setPubliclyVisible} />
+                      <Label className="text-xs">Publicly visible</Label>
+                    </div>
+                    <div className="flex items-center gap-3 pb-1">
+                      <Switch checked={inviteOnly ? false : bookingEnabled} disabled={inviteOnly} onCheckedChange={setBookingEnabled} />
+                      <Label className="text-xs">Booking enabled</Label>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex justify-end">
@@ -1329,6 +1421,18 @@ const AdminClasses = () => {
                             {c.class_type === "children" ? "Children" : "Adult"}
                           </Badge>
                           {c.dance_style && <Badge variant="outline">{c.dance_style}</Badge>}
+                          {(c as any).invite_only && (
+                            <Badge variant="outline" className="border-amber-500/40 text-amber-500">Invite Only</Badge>
+                          )}
+                          {(c as any).status && (c as any).status !== "confirmed" && (
+                            <Badge variant="outline" className="border-amber-500/40 text-amber-500 capitalize">{(c as any).status}</Badge>
+                          )}
+                          {(c as any).publicly_visible === false && (
+                            <Badge variant="outline" className="text-muted-foreground">Hidden</Badge>
+                          )}
+                          {(c as any).booking_enabled === false && !(c as any).invite_only && (
+                            <Badge variant="outline" className="text-muted-foreground">Booking Off</Badge>
+                          )}
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
                           {(c.days_of_week?.length ? c.days_of_week : [c.day_of_week]).map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(", ")}

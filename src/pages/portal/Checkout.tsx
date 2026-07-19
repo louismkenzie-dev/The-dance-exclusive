@@ -314,8 +314,21 @@ const CheckoutPage = () => {
         if (cancelled) return;
 
         if (error || !data?.clientSecret) {
-          const message =
-            error?.message || data?.error || "Failed to initialise payment";
+          // supabase-js hides the function's JSON body behind error.context —
+          // surface the server's friendly message (e.g. the duplicate-booking
+          // explanation from the 409 guard) instead of the generic
+          // "Edge Function returned a non-2xx status code".
+          let message =
+            data?.error || error?.message || "Failed to initialise payment";
+          const ctx = (error as { context?: Response } | null)?.context;
+          if (ctx && typeof ctx.json === "function") {
+            try {
+              const body = await ctx.json();
+              if (body?.error) message = body.error;
+            } catch {
+              // keep the generic message
+            }
+          }
           setInitError(message);
         } else {
           setClientSecret(data.clientSecret);

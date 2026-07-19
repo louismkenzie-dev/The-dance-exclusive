@@ -217,23 +217,39 @@ const ClassBrowser = () => {
         .order("day_of_week")
         .order("start_time");
       if (data) {
-        // Fetch session counts and session details for each class
+        // Fetch all scheduled sessions for the listed classes in one query,
+        // splitting upcoming from past client-side.
         const counts: Record<string, number> = {};
+        const totalCounts: Record<string, number> = {};
         const sessions: Record<string, { id: string; session_date: string; start_time: string; end_time: string }[]> = {};
         const today = new Date().toISOString().split("T")[0];
-        for (const cls of data) {
+        const ids = data.map((cls: any) => cls.id);
+        if (ids.length > 0) {
           const { data: sessionData } = await supabase
             .from("class_sessions")
-            .select("id, session_date, start_time, end_time")
-            .eq("class_id", cls.id)
+            .select("id, class_id, session_date, start_time, end_time")
+            .in("class_id", ids)
             .eq("status", "scheduled")
-            .gte("session_date", today)
             .order("session_date");
-          sessions[cls.id] = sessionData || [];
-          counts[cls.id] = sessionData?.length || 0;
+          for (const s of sessionData || []) {
+            totalCounts[s.class_id] = (totalCounts[s.class_id] || 0) + 1;
+            if (s.session_date >= today) {
+              if (!sessions[s.class_id]) sessions[s.class_id] = [];
+              sessions[s.class_id].push(s);
+              counts[s.class_id] = (counts[s.class_id] || 0) + 1;
+            }
+          }
         }
-        // Only show classes that have upcoming sessions
-        const activeClasses = data.filter((cls: any) => (counts[cls.id] || 0) > 0);
+        // Show classes with upcoming sessions, plus new classes whose session
+        // dates haven't been generated yet (no sessions at all and no term end
+        // in the past). Hide only genuinely finished classes — ones whose
+        // sessions have all elapsed or whose term has ended.
+        const activeClasses = data.filter((cls: any) => {
+          if ((counts[cls.id] || 0) > 0) return true;
+          const hasAnySessions = (totalCounts[cls.id] || 0) > 0;
+          const termEnded = cls.term_end && cls.term_end < today;
+          return !hasAnySessions && !termEnded;
+        });
         setClasses(activeClasses as any);
         setClassSessions(sessions);
         setSessionCounts(counts);

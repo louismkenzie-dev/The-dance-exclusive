@@ -9,10 +9,9 @@ The Dance Exclusive's connected Stripe account.**
 
 All charges are **direct charges on The Dance Exclusive's connected account**,
 created with the **Nullshift platform API key** plus the `Stripe-Account`
-header. Class-booking charges carry `application_fee_amount = 1%` of the
-charged total (after coupons), rounded to the nearest penny, minimum 1p.
-Merch charges route to the connected account **without** an application fee —
-the agreement covers booking revenue only.
+header. Every charge — class bookings and merch — carries
+`application_fee_amount = 1%` of the charged total (after coupons), rounded
+to the nearest penny, minimum 1p.
 
 With direct charges, Stripe's own processing fees are billed to the connected
 account (The Dance Exclusive), matching the agreed order: gross − Stripe fees

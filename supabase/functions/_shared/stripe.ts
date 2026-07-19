@@ -56,8 +56,9 @@ export function getPlatformFeePercent(): number {
 }
 
 /**
- * Application fee for a class-booking charge, or null when Connect is not
- * configured for this environment (fallback mode — no fee possible).
+ * Application fee for a charge (applies to ALL payments — bookings and merch),
+ * or null when Connect is not configured for this environment (fallback mode —
+ * no fee possible).
  */
 export function bookingApplicationFee(env: StripeEnv, amountInPence: number): number | null {
   if (!getConnectedAccountId(env)) return null;

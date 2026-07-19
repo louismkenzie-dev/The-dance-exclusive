@@ -19,6 +19,52 @@ export function createStripeClient(env: StripeEnv): Stripe {
   });
 }
 
+import { DEFAULT_PLATFORM_FEE_PERCENT, platformFeePence } from "./platformFee.ts";
+export { platformFeePence };
+
+/**
+ * Stripe Connect (agreed commercial model): the API keys belong to the
+ * Nullshift PLATFORM account, and every charge is created as a DIRECT charge
+ * on The Dance Exclusive's CONNECTED account via the Stripe-Account header.
+ * Stripe deducts its processing fees on the connected account, the platform
+ * collects a 1% application fee, and the remainder settles with
+ * The Dance Exclusive.
+ *
+ * When no connected-account id is configured for the environment, everything
+ * falls back to the pre-Connect behaviour (charges directly on the account
+ * that owns the API key, no application fee) so sandbox keeps working until
+ * Connect is fully configured.
+ */
+export function getConnectedAccountId(env: StripeEnv): string | null {
+  const id = env === "sandbox"
+    ? Deno.env.get("STRIPE_SANDBOX_CONNECTED_ACCOUNT_ID")
+    : Deno.env.get("STRIPE_LIVE_CONNECTED_ACCOUNT_ID");
+  return id && id.startsWith("acct_") ? id : null;
+}
+
+/** Per-request options routing an API call to the connected account. */
+export function connectRequestOptions(env: StripeEnv): { stripeAccount: string } | Record<string, never> {
+  const acct = getConnectedAccountId(env);
+  return acct ? { stripeAccount: acct } : {};
+}
+
+/** Platform fee percent (default 1%), overridable via PLATFORM_FEE_PERCENT. */
+export function getPlatformFeePercent(): number {
+  const raw = Deno.env.get("PLATFORM_FEE_PERCENT");
+  const parsed = raw != null ? Number(raw) : NaN;
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : DEFAULT_PLATFORM_FEE_PERCENT;
+}
+
+/**
+ * Application fee for a class-booking charge, or null when Connect is not
+ * configured for this environment (fallback mode — no fee possible).
+ */
+export function bookingApplicationFee(env: StripeEnv, amountInPence: number): number | null {
+  if (!getConnectedAccountId(env)) return null;
+  const fee = platformFeePence(amountInPence, getPlatformFeePercent());
+  return fee > 0 ? fee : null;
+}
+
 export async function verifyWebhook(req: Request, env: StripeEnv): Promise<{ type: string; data: { object: any } }> {
   const signature = req.headers.get("stripe-signature");
   const body = await req.text();

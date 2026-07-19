@@ -1,6 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { type StripeEnv, createStripeClient } from "../_shared/stripe.ts";
+import {
+  type StripeEnv,
+  bookingApplicationFee,
+  connectRequestOptions,
+  createStripeClient,
+} from "../_shared/stripe.ts";
 import { validateAndCompute } from "../_shared/coupon.ts";
 
 const corsHeaders = {
@@ -26,13 +31,15 @@ serve(async (req) => {
 
     const env = (environment || "sandbox") as StripeEnv;
     const stripe = createStripeClient(env);
+    // Direct charges on The Dance Exclusive's connected account (when configured).
+    const connectOpts = connectRequestOptions(env);
 
     // Cancel any previous PaymentIntent the client is replacing — prevents
     // an abandoned PI from being confirmed later and creating a duplicate
     // charge for the same cart.
     if (previousPaymentIntentId && typeof previousPaymentIntentId === "string") {
       try {
-        await stripe.paymentIntents.cancel(previousPaymentIntentId);
+        await stripe.paymentIntents.cancel(previousPaymentIntentId, {}, connectOpts);
         console.log("Cancelled previous PaymentIntent:", previousPaymentIntentId);
       } catch (e: any) {
         // Ignore — PI may already be confirmed, cancelled, or expired.
@@ -133,24 +140,32 @@ serve(async (req) => {
       ? `${items[0].className}${items[0].studentName ? ` — ${items[0].studentName}` : ""}`
       : `${items.length} class bookings`;
 
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: totalAmountInPence,
-      currency: "gbp",
-      automatic_payment_methods: { enabled: true },
-      description,
-      ...(customerEmail && { receipt_email: customerEmail }),
-      metadata: {
-        userId: userId || "",
-        itemCount: String(items.length),
-        checkoutType: "class_booking",
-        ...(couponId && {
-          couponId,
-          couponCode: couponCodeApplied || "",
-          discountAmount: String(discountInPence / 100),
-        }),
-        ...bookingMetadata,
+    // Nullshift platform fee (1% of booking revenue) — only when Connect is
+    // configured; charged on top of Stripe's own processing fees.
+    const applicationFee = bookingApplicationFee(env, totalAmountInPence);
+
+    const paymentIntent = await stripe.paymentIntents.create(
+      {
+        amount: totalAmountInPence,
+        currency: "gbp",
+        automatic_payment_methods: { enabled: true },
+        description,
+        ...(applicationFee != null && { application_fee_amount: applicationFee }),
+        ...(customerEmail && { receipt_email: customerEmail }),
+        metadata: {
+          userId: userId || "",
+          itemCount: String(items.length),
+          checkoutType: "class_booking",
+          ...(couponId && {
+            couponId,
+            couponCode: couponCodeApplied || "",
+            discountAmount: String(discountInPence / 100),
+          }),
+          ...bookingMetadata,
+        },
       },
-    });
+      connectOpts,
+    );
 
     return new Response(
       JSON.stringify({

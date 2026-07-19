@@ -1,6 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { type StripeEnv, createStripeClient } from "../_shared/stripe.ts";
+import {
+  type StripeEnv,
+  bookingApplicationFee,
+  connectRequestOptions,
+  createStripeClient,
+} from "../_shared/stripe.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -99,19 +104,33 @@ serve(async (req) => {
       ])
     );
 
-    const session = await stripe.checkout.sessions.create({
-      line_items: lineItems,
-      mode: "payment",
-      ui_mode: "embedded",
-      return_url: finalReturnUrl,
-      ...(customerEmail && { customer_email: customerEmail }),
-      metadata: {
-        userId: userId || "",
-        itemCount: String(items.length),
-        checkoutType: "class_booking",
-        ...bookingMetadata,
+    // Nullshift platform fee (1% of booking revenue) on the direct charge —
+    // only when Connect is configured for this environment.
+    const totalInPence = lineItems.reduce(
+      (sum: number, li: any) => sum + li.price_data.unit_amount * li.quantity,
+      0,
+    );
+    const applicationFee = bookingApplicationFee(env, totalInPence);
+
+    const session = await stripe.checkout.sessions.create(
+      {
+        line_items: lineItems,
+        mode: "payment",
+        ui_mode: "embedded",
+        return_url: finalReturnUrl,
+        ...(applicationFee != null && {
+          payment_intent_data: { application_fee_amount: applicationFee },
+        }),
+        ...(customerEmail && { customer_email: customerEmail }),
+        metadata: {
+          userId: userId || "",
+          itemCount: String(items.length),
+          checkoutType: "class_booking",
+          ...bookingMetadata,
+        },
       },
-    });
+      connectRequestOptions(env),
+    );
 
     return new Response(JSON.stringify({ clientSecret: session.client_secret }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

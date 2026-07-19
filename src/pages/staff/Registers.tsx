@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, LogIn, LogOut, ScanLine, AlertTriangle, Heart, Check } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { differenceInYears } from "date-fns";
+import { addDays, differenceInYears, format, parseISO } from "date-fns";
 import StudentProfileDrawer from "@/components/staff/StudentProfileDrawer";
 import QrScannerDialog from "@/components/staff/QrScannerDialog";
 import {
@@ -24,7 +24,8 @@ import { Label } from "@/components/ui/label";
 const StaffRegisters = () => {
   const { staff } = useStaffMember();
   const { toast } = useToast();
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  // Local date, not UTC — toISOString() opens yesterday's register after 11pm BST.
+  const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [sessions, setSessions] = useState<any[]>([]);
   const [attendance, setAttendance] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
@@ -81,7 +82,7 @@ const StaffRegisters = () => {
     for (const s of all) {
       const { data: bookings } = await supabase
         .from("bookings")
-        .select(`id, student_id, students:student_id ( first_name, last_name, profile_photo, date_of_birth, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info )`)
+        .select(`id, student_id, students:student_id ( first_name, last_name, preferred_name, profile_photo, date_of_birth, is_self, expected_arrival_time, expected_departure_time, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info )`)
         .eq("class_id", s.class_id)
         .eq("status", "confirmed");
       const { data: att } = await supabase
@@ -96,55 +97,62 @@ const StaffRegisters = () => {
     setLoading(false);
   };
 
+  const writeFailed = (error: { message: string } | null) => {
+    if (!error) return false;
+    toast({ title: "Couldn't update register", description: error.message, variant: "destructive" });
+    return true;
+  };
+
+  // Attendance rows apply to adult self-bookings too — student_id may be null
+  // on legacy adult bookings, which is valid (the column is nullable).
   const markAbsent = async (sessionId: string, classId: string, booking: any) => {
-    if (!booking.student_id) return;
-    if (booking.attendance) {
-      await supabase.from("attendance").update({ status: "absent", checked_in_at: null, checked_out_at: null }).eq("id", booking.attendance.id);
-    } else {
-      await supabase.from("attendance").insert({
-        booking_id: booking.id,
-        class_id: classId,
-        class_session_id: sessionId,
-        student_id: booking.student_id,
-        session_date: date,
-        status: "absent",
-      });
-    }
+    const { error } = await supabase.from("attendance").upsert({
+      booking_id: booking.id,
+      class_id: classId,
+      class_session_id: sessionId,
+      student_id: booking.student_id ?? null,
+      session_date: date,
+      status: "absent",
+      checked_in_at: null,
+      checked_out_at: null,
+    }, { onConflict: "booking_id,class_session_id" });
+    if (writeFailed(error)) return;
     toast({ title: "Marked absent" });
     void load();
   };
 
   const clearAttendance = async (booking: any) => {
     if (!booking.attendance) return;
-    await supabase.from("attendance").delete().eq("id", booking.attendance.id);
+    // UPDATE, not DELETE — staff RLS has no delete policy, so a delete
+    // silently matches nothing. Resetting to 'expected' renders as Unaccounted.
+    const { error } = await supabase.from("attendance").update({
+      status: "expected",
+      checked_in_at: null,
+      checked_out_at: null,
+      check_in_method: null,
+      check_out_method: null,
+      collector_name: null,
+    }).eq("id", booking.attendance.id);
+    if (writeFailed(error)) return;
     toast({ title: "Status cleared" });
     void load();
   };
 
   const performCheckIn = async (booking: any, sessionId: string, classId: string, method: "qr" | "manual", collector: string | null) => {
-    if (!booking.student_id) return;
     const now = new Date().toISOString();
-    if (booking.attendance) {
-      await supabase.from("attendance").update({
-        status: "present",
-        checked_in_at: now,
-        checked_out_at: null,
-        check_in_method: method,
-        collector_name: collector,
-      }).eq("id", booking.attendance.id);
-    } else {
-      await supabase.from("attendance").insert({
-        booking_id: booking.id,
-        class_id: classId,
-        class_session_id: sessionId,
-        student_id: booking.student_id,
-        session_date: date,
-        status: "present",
-        checked_in_at: now,
-        check_in_method: method,
-        collector_name: collector,
-      });
-    }
+    const { error } = await supabase.from("attendance").upsert({
+      booking_id: booking.id,
+      class_id: classId,
+      class_session_id: sessionId,
+      student_id: booking.student_id ?? null,
+      session_date: date,
+      status: "present",
+      checked_in_at: now,
+      checked_out_at: null,
+      check_in_method: method,
+      collector_name: collector,
+    }, { onConflict: "booking_id,class_session_id" });
+    if (writeFailed(error)) return;
     toast({ title: "Checked in", description: collector ? `Dropped off by ${collector}` : undefined });
     void load();
   };
@@ -152,11 +160,12 @@ const StaffRegisters = () => {
   const performCheckOut = async (booking: any, method: "qr" | "manual", collector: string | null) => {
     if (!booking.attendance) return;
     const now = new Date().toISOString();
-    await supabase.from("attendance").update({
+    const { error } = await supabase.from("attendance").update({
       checked_out_at: now,
       check_out_method: method,
       collector_name: collector ?? booking.attendance.collector_name,
     }).eq("id", booking.attendance.id);
+    if (writeFailed(error)) return;
     toast({ title: "Checked out", description: collector ? `Collected by ${collector}` : undefined });
     void load();
   };
@@ -223,9 +232,7 @@ const StaffRegisters = () => {
   };
 
   const shiftDate = (days: number) => {
-    const d = new Date(date);
-    d.setDate(d.getDate() + days);
-    setDate(d.toISOString().split("T")[0]);
+    setDate(format(addDays(parseISO(date), days), "yyyy-MM-dd"));
   };
 
   const statusInfo = (att: any) => {
@@ -320,8 +327,14 @@ const StaffRegisters = () => {
                                   </div>
                                 )}
                                 <div className="min-w-0">
-                                  <p className="font-medium text-sm">{student?.first_name} {student?.last_name}</p>
-                                  {student?.has_send && <Badge className="text-[10px] bg-amber-500 hover:bg-amber-600 mt-0.5">SEND</Badge>}
+                                  <p className="font-medium text-sm">
+                                    {student ? `${student.first_name} ${student.last_name}` : "Adult attendee"}
+                                  </p>
+                                  <div className="flex gap-1 mt-0.5">
+                                    {student?.is_self && <Badge variant="outline" className="text-[10px]">Adult</Badge>}
+                                    {student?.has_send && <Badge className="text-[10px] bg-amber-500 hover:bg-amber-600">SEND</Badge>}
+                                    {!student && <Badge variant="outline" className="text-[10px] text-muted-foreground">No profile</Badge>}
+                                  </div>
                                 </div>
                               </div>
                             </TableCell>
@@ -346,6 +359,10 @@ const StaffRegisters = () => {
                                   {att?.checked_out_at && <span className="text-foreground">Out {fmt(att.checked_out_at)}</span>}
                                   {att?.collector_name && <span className="text-[11px] text-muted-foreground">{att.collector_name}</span>}
                                 </div>
+                              ) : student?.expected_arrival_time || student?.expected_departure_time ? (
+                                <span className="text-muted-foreground">
+                                  Expected {student.expected_arrival_time?.slice(0, 5) ?? "—"} → {student.expected_departure_time?.slice(0, 5) ?? "—"}
+                                </span>
                               ) : (
                                 <span className="opacity-50">—</span>
                               )}

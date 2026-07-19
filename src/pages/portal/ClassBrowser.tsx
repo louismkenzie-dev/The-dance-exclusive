@@ -31,6 +31,8 @@ import { format, parseISO } from "date-fns";
 import { audienceText, isClassBookable } from "@/lib/classAudience";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { QuickBookDialog } from "@/components/portal/QuickBookDialog";
+import { ChildFormDialog } from "@/components/portal/ChildFormDialog";
+import { isAttendeeProfileComplete } from "@/lib/attendeeProfile";
 
 interface VenueData {
   name: string;
@@ -147,7 +149,10 @@ const ClassBrowser = () => {
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedPlans, setSelectedPlans] = useState<Record<string, PricingPlan>>({});
-  const [children, setChildren] = useState<{ id: string; first_name: string; last_name: string; preferred_name: string | null; date_of_birth: string }[]>([]);
+  const [children, setChildren] = useState<{ id: string; first_name: string; last_name: string; preferred_name: string | null; date_of_birth: string; expected_arrival_time: string | null; expected_departure_time: string | null }[]>([]);
+  const [selfStudent, setSelfStudent] = useState<any>(null);
+  const [selfDialogOpen, setSelfDialogOpen] = useState(false);
+  const [profileNudge, setProfileNudge] = useState<any>(null);
   const [selectedChildren, setSelectedChildren] = useState<Record<string, string[]>>({});
   const [sessionCounts, setSessionCounts] = useState<Record<string, number>>({});
   const [classSessions, setClassSessions] = useState<Record<string, { id: string; session_date: string; start_time: string; end_time: string }[]>>({});
@@ -167,13 +172,20 @@ const ClassBrowser = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState("");
 
-  // Fetch children for logged-in users
-  useEffect(() => {
-    if (user && classType === "children") {
-      supabase.from("students").select("id, first_name, last_name, preferred_name, date_of_birth").eq("parent_id", user.id)
-        .then(({ data }) => { if (data) setChildren(data); });
-    }
-  }, [user, classType]);
+  // Fetch attendee profiles for logged-in users: children for children's
+  // classes, plus the adult's own self profile (required to book adult classes).
+  const fetchAttendees = () => {
+    if (!user) return;
+    supabase.from("students")
+      .select("id, first_name, last_name, preferred_name, date_of_birth, is_self, expected_arrival_time, expected_departure_time")
+      .eq("parent_id", user.id)
+      .then(({ data }) => {
+        if (!data) return;
+        setChildren(data.filter((s: any) => !s.is_self));
+        setSelfStudent(data.find((s: any) => s.is_self) ?? null);
+      });
+  };
+  useEffect(fetchAttendees, [user]);
 
   // Auto-geocode parent's home postcode for proximity sorting
   useEffect(() => {
@@ -1160,6 +1172,23 @@ const ClassBrowser = () => {
                                   if (noKidsSelected) return;
                                   if (noSessionsSelected) return;
 
+                                  // Adults booking for themselves need a complete attendee
+                                  // profile (age, medical, arrival/departure) for the register.
+                                  if (c.class_type === "adult") {
+                                    if (!isAttendeeProfileComplete(selfStudent)) {
+                                      setSelfDialogOpen(true);
+                                      return;
+                                    }
+                                  } else {
+                                    const incomplete = selectedKids
+                                      .map(kid => children.find(ch => ch.id === kid))
+                                      .find(ch => ch && !isAttendeeProfileComplete(ch as any));
+                                    if (incomplete) {
+                                      setProfileNudge(incomplete);
+                                      return;
+                                    }
+                                  }
+
                                   const buildItem = (childId: string | null, childName: string | null) => ({
                                     id: `${c.id}-${childId || 'self'}-${Date.now()}-${Math.random()}`,
                                     classId: c.id,
@@ -1190,7 +1219,8 @@ const ClassBrowser = () => {
                                     }
                                     setSelectedChildren(p => ({ ...p, [c.id]: [] }));
                                   } else {
-                                    addItem(buildItem(null, null));
+                                    // Adult self-booking always carries the self attendee profile.
+                                    addItem(buildItem(selfStudent.id, `${selfStudent.first_name} ${selfStudent.last_name}`));
                                   }
                                 };
 
@@ -1434,6 +1464,28 @@ const ClassBrowser = () => {
         children={children}
         hasExistingBookings={hasExistingBookings}
         isAdult={isAdult}
+        selfStudent={selfStudent}
+        onRequireProfile={(student) => {
+          if (student) setProfileNudge(student);
+          else setSelfDialogOpen(true);
+        }}
+      />
+
+      {/* Adult self attendee profile — required before booking for yourself */}
+      <ChildFormDialog
+        open={selfDialogOpen}
+        onOpenChange={setSelfDialogOpen}
+        onSaved={fetchAttendees}
+        editing={selfStudent}
+        selfMode
+      />
+
+      {/* Complete a child's profile (arrival/departure times) mid-booking */}
+      <ChildFormDialog
+        open={!!profileNudge}
+        onOpenChange={(o) => { if (!o) setProfileNudge(null); }}
+        onSaved={fetchAttendees}
+        editing={profileNudge}
       />
     </div>
   );

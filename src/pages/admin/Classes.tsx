@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit, Trash2, CalendarDays, ChevronRight, ChevronLeft, ListChecks, ChevronDown, ChevronUp, Clock, User, Archive, X, Copy, Flag, AlertTriangle } from "lucide-react";
 import SessionManager from "@/components/admin/SessionManager";
+import { AssignStaffDialog } from "@/components/admin/AssignStaffDialog";
 import { format, addDays, parseISO, eachDayOfInterval, getDay, isBefore, isWithinInterval } from "date-fns";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
@@ -129,6 +130,7 @@ const AdminClasses = () => {
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState(1);
   const [sessionsClassId, setSessionsClassId] = useState<string | null>(null);
+  const [staffDialogClass, setStaffDialogClass] = useState<{ id: string; name: string } | null>(null);
   const [sessionsClassName, setSessionsClassName] = useState("");
   const [sessionsInstructorIds, setSessionsInstructorIds] = useState<string[]>([]);
   const [expandedClassId, setExpandedClassId] = useState<string | null>(null);
@@ -713,6 +715,11 @@ const AdminClasses = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {filteredWorkshops.length === 0 && (
+                    <p className="text-xs text-amber-500">
+                      No {classType} class types exist yet — create one under Admin → Type of Class first, then come back here.
+                    </p>
+                  )}
                 </div>
 
                 {selectedWorkshop && (
@@ -1484,6 +1491,10 @@ const AdminClasses = () => {
                         <ListChecks className="w-4 h-4" />
                         <span className="text-[9px] text-muted-foreground">Sessions</span>
                       </Button>
+                      <Button variant="ghost" size="sm" className="flex flex-col items-center gap-0 h-auto py-1 px-2" onClick={() => setStaffDialogClass({ id: c.id, name: c.name })}>
+                        <User className="w-4 h-4" />
+                        <span className="text-[9px] text-muted-foreground">Staff</span>
+                      </Button>
                       <Button variant="ghost" size="sm" className="flex flex-col items-center gap-0 h-auto py-1 px-2" onClick={() => openClone(c)}>
                         <Copy className="w-4 h-4" />
                         <span className="text-[9px] text-muted-foreground">Clone</span>
@@ -1547,6 +1558,16 @@ const AdminClasses = () => {
           })}
         </div>
       )}
+
+      {/* Quick staff assignment — works for any class without re-running the wizard */}
+      <AssignStaffDialog
+        open={!!staffDialogClass}
+        onOpenChange={(v) => { if (!v) setStaffDialogClass(null); }}
+        classId={staffDialogClass?.id ?? null}
+        className={staffDialogClass?.name ?? ""}
+        staffList={staffList}
+        onSaved={fetchData}
+      />
 
       {/* Session Manager Dialog */}
       <SessionManager

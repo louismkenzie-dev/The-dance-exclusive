@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, LogIn, LogOut, AlertTriangle, Check, MapPin, Users, History, CalendarDays } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { differenceInYears, format } from "date-fns";
+import { addDays, differenceInYears, format, parseISO } from "date-fns";
 import StudentProfileDrawer from "@/components/staff/StudentProfileDrawer";
 
 const formatDay = (d: string) => d.charAt(0).toUpperCase() + d.slice(1);
@@ -81,7 +81,7 @@ const AdminRegisters = () => {
     const [{ data: bks }, { data: att }] = await Promise.all([
       supabase
         .from("bookings")
-        .select(`id, student_id, students:student_id ( id, first_name, last_name, profile_photo, date_of_birth, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info )`)
+        .select(`id, student_id, students:student_id ( id, first_name, last_name, preferred_name, profile_photo, date_of_birth, is_self, expected_arrival_time, expected_departure_time, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info )`)
         .eq("class_id", session.class_id)
         .eq("status", "confirmed"),
       supabase
@@ -94,60 +94,60 @@ const AdminRegisters = () => {
     setBookings((bks ?? []).map((b: any) => ({ ...b, attendance: attMap[b.id] || null })));
   };
 
+  const writeFailed = (error: { message: string } | null) => {
+    if (!error) return false;
+    toast({ title: "Couldn't update register", description: error.message, variant: "destructive" });
+    return true;
+  };
+
+  // student_id may be null on legacy adult self-bookings — still markable.
   const checkIn = async (booking: any) => {
     const session = sessions.find((s) => s.id === selectedSessionId);
-    if (!session || !booking.student_id) return;
+    if (!session) return;
     const now = new Date().toISOString();
-    if (booking.attendance) {
-      await supabase.from("attendance").update({
-        status: "present", checked_in_at: now, checked_out_at: null, check_in_method: "manual",
-      }).eq("id", booking.attendance.id);
-    } else {
-      await supabase.from("attendance").insert({
-        booking_id: booking.id, class_id: session.class_id, class_session_id: session.id,
-        student_id: booking.student_id, session_date: session.session_date,
-        status: "present", checked_in_at: now, check_in_method: "manual",
-      });
-    }
+    const { error } = await supabase.from("attendance").upsert({
+      booking_id: booking.id, class_id: session.class_id, class_session_id: session.id,
+      student_id: booking.student_id ?? null, session_date: session.session_date,
+      status: "present", checked_in_at: now, checked_out_at: null, check_in_method: "manual",
+    }, { onConflict: "booking_id,class_session_id" });
+    if (writeFailed(error)) return;
     toast({ title: "Checked in" });
     void loadRegister();
   };
 
   const checkOut = async (booking: any) => {
     if (!booking.attendance) return;
-    await supabase.from("attendance").update({
+    const { error } = await supabase.from("attendance").update({
       checked_out_at: new Date().toISOString(), check_out_method: "manual",
     }).eq("id", booking.attendance.id);
+    if (writeFailed(error)) return;
     toast({ title: "Checked out" });
     void loadRegister();
   };
 
   const markAbsent = async (booking: any) => {
     const session = sessions.find((s) => s.id === selectedSessionId);
-    if (!session || !booking.student_id) return;
-    if (booking.attendance) {
-      await supabase.from("attendance").update({ status: "absent", checked_in_at: null, checked_out_at: null }).eq("id", booking.attendance.id);
-    } else {
-      await supabase.from("attendance").insert({
-        booking_id: booking.id, class_id: session.class_id, class_session_id: session.id,
-        student_id: booking.student_id, session_date: session.session_date, status: "absent",
-      });
-    }
+    if (!session) return;
+    const { error } = await supabase.from("attendance").upsert({
+      booking_id: booking.id, class_id: session.class_id, class_session_id: session.id,
+      student_id: booking.student_id ?? null, session_date: session.session_date, status: "absent",
+      checked_in_at: null, checked_out_at: null,
+    }, { onConflict: "booking_id,class_session_id" });
+    if (writeFailed(error)) return;
     toast({ title: "Marked absent" });
     void loadRegister();
   };
 
   const clearAttendance = async (booking: any) => {
     if (!booking.attendance) return;
-    await supabase.from("attendance").delete().eq("id", booking.attendance.id);
+    const { error } = await supabase.from("attendance").delete().eq("id", booking.attendance.id);
+    if (writeFailed(error)) return;
     toast({ title: "Status cleared" });
     void loadRegister();
   };
 
   const shiftDate = (days: number) => {
-    const d = new Date(date);
-    d.setDate(d.getDate() + days);
-    setDate(d.toISOString().split("T")[0]);
+    setDate(format(addDays(parseISO(date), days), "yyyy-MM-dd"));
   };
 
   const presentCount = useMemo(() => bookings.filter((b) => b.attendance?.checked_in_at).length, [bookings]);
@@ -320,8 +320,14 @@ const AdminRegisters = () => {
                                   </div>
                                 )}
                                 <div className="min-w-0">
-                                  <p className="font-medium text-sm hover:underline">{student?.first_name} {student?.last_name}</p>
-                                  {student?.has_send && <Badge className="text-[10px] bg-amber-500 hover:bg-amber-600 mt-0.5">SEND</Badge>}
+                                  <p className="font-medium text-sm hover:underline">
+                                    {student ? `${student.first_name} ${student.last_name}` : "Adult attendee"}
+                                  </p>
+                                  <div className="flex gap-1 mt-0.5">
+                                    {student?.is_self && <Badge variant="outline" className="text-[10px]">Adult</Badge>}
+                                    {student?.has_send && <Badge className="text-[10px] bg-amber-500 hover:bg-amber-600">SEND</Badge>}
+                                    {!student && <Badge variant="outline" className="text-[10px] text-muted-foreground">No profile</Badge>}
+                                  </div>
                                 </div>
                               </div>
                             </TableCell>
@@ -345,6 +351,10 @@ const AdminRegisters = () => {
                                   {att?.checked_in_at && <span className="text-foreground">In {fmt(att.checked_in_at)}</span>}
                                   {att?.checked_out_at && <span className="text-foreground">Out {fmt(att.checked_out_at)}</span>}
                                 </div>
+                              ) : student?.expected_arrival_time || student?.expected_departure_time ? (
+                                <span className="text-muted-foreground">
+                                  Expected {student.expected_arrival_time?.slice(0, 5) ?? "—"} → {student.expected_departure_time?.slice(0, 5) ?? "—"}
+                                </span>
                               ) : (
                                 <span className="opacity-50">—</span>
                               )}

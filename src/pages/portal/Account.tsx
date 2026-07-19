@@ -124,6 +124,8 @@ const Account = () => {
   const { toast } = useToast();
 
   const [editingChild, setEditingChild] = useState<any>(null);
+  const [selfProfile, setSelfProfile] = useState<any>(null);
+  const [selfDialogOpen, setSelfDialogOpen] = useState(false);
   const [editingCollector, setEditingCollector] = useState<Collector | null>(null);
   const [childBookingCounts, setChildBookingCounts] = useState<Record<string, number>>({});
 
@@ -167,7 +169,12 @@ const Account = () => {
   const fetchChildren = async () => {
     if (!user) return;
     const { data } = await supabase.from("students").select("*").eq("parent_id", user.id).order("first_name");
-    if (data) setChildren(data);
+    if (data) {
+      // The adult's own attendee profile (is_self) lives in the same table
+      // but is managed separately — keep it out of the Children list.
+      setChildren(data.filter((s: any) => !s.is_self));
+      setSelfProfile(data.find((s: any) => s.is_self) ?? null);
+    }
   };
 
   const fetchCollectors = async () => {
@@ -725,6 +732,54 @@ const Account = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Adult attendee profile — required before booking classes for yourself */}
+      {showAdultDance && (
+        <Card className="mb-8">
+          <CardContent className="py-5">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-lg font-display font-semibold flex items-center gap-2 mb-1">
+                  <Users className="w-5 h-5" /> My Attendee Profile
+                </h2>
+                {selfProfile ? (
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    <p>
+                      <span className="text-foreground font-medium">{selfProfile.first_name} {selfProfile.last_name}</span>
+                      {" · "}Age {getAge(selfProfile.date_of_birth)}
+                      {selfProfile.expected_arrival_time && selfProfile.expected_departure_time && (
+                        <> · Expected {selfProfile.expected_arrival_time.slice(0, 5)} → {selfProfile.expected_departure_time.slice(0, 5)}</>
+                      )}
+                    </p>
+                    {(!selfProfile.expected_arrival_time || !selfProfile.expected_departure_time) && (
+                      <p className="text-amber-500 text-xs">
+                        Arrival/departure times missing — required before booking. Tap Edit to add them.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Booking classes for yourself? Create your attendee profile (age, medical info,
+                    expected arrival &amp; departure) — it's required before you can book, and it's
+                    what our instructors see on the class register.
+                  </p>
+                )}
+              </div>
+              <Button size="sm" variant={selfProfile ? "outline" : "default"} onClick={() => setSelfDialogOpen(true)}>
+                {selfProfile ? "Edit Profile" : "Create Profile"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <ChildFormDialog
+        open={selfDialogOpen}
+        onOpenChange={setSelfDialogOpen}
+        onSaved={fetchChildren}
+        editing={selfProfile}
+        selfMode
+      />
 
       {/* Children Section — only if parent_only or both */}
       {showChildren && (

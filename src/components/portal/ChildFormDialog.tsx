@@ -53,9 +53,16 @@ interface ChildFormDialogProps {
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
   editing?: any;
+  /**
+   * Adult attendee profile mode: the account holder fills this in about
+   * THEMSELVES so registers and QR check-in have their age, medical info and
+   * expected arrival/departure. Hides the child-specific sections and saves
+   * with is_self = true.
+   */
+  selfMode?: boolean;
 }
 
-export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildFormDialogProps) => {
+export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode = false }: ChildFormDialogProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
@@ -81,6 +88,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
     dance_style_preference: "", ability_level: "", has_stage_experience: false,
     child_hook: "", photo_consent: true, social_media_consent: false,
     has_medical_conditions: false, has_allergies: false,
+    expected_arrival_time: "", expected_departure_time: "",
   });
 
   useEffect(() => {
@@ -117,6 +125,8 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
         social_media_consent: editing.social_media_consent || false,
         has_medical_conditions: (editing.medical_conditions_list?.length > 0 || editing.has_inhaler || editing.has_epipen || editing.medical_info),
         has_allergies: (editing.allergies_list?.length > 0 || editing.allergies),
+        expected_arrival_time: editing.expected_arrival_time?.slice(0, 5) || "",
+        expected_departure_time: editing.expected_departure_time?.slice(0, 5) || "",
       });
       setUploadedPhotoUrl(editing.profile_photo || null);
     } else {
@@ -130,6 +140,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
         dance_style_preference: "", ability_level: "", has_stage_experience: false,
         child_hook: "", photo_consent: true, social_media_consent: false,
         has_medical_conditions: false, has_allergies: false,
+        expected_arrival_time: "", expected_departure_time: "",
       });
       setUploadedPhotoUrl(null);
       setPhotoSrc(null);
@@ -237,6 +248,9 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
       child_hook: form.child_hook || null,
       photo_consent: form.photo_consent,
       social_media_consent: form.social_media_consent,
+      expected_arrival_time: form.expected_arrival_time || null,
+      expected_departure_time: form.expected_departure_time || null,
+      is_self: selfMode,
     };
 
     let error;
@@ -267,7 +281,15 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-2">
-          <DialogTitle>{editing ? "Edit" : "Add"} Child</DialogTitle>
+          <DialogTitle>
+            {selfMode ? (editing ? "Edit Your Attendee Profile" : "Create Your Attendee Profile") : `${editing ? "Edit" : "Add"} Child`}
+          </DialogTitle>
+          {selfMode && (
+            <p className="text-sm text-muted-foreground" style={{ fontFamily: 'var(--font-body)', textTransform: 'none', letterSpacing: 'normal' }}>
+              Booking a class for yourself? We need your details for the class register —
+              age, medical information and when you expect to arrive and leave.
+            </p>
+          )}
         </DialogHeader>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-6">
@@ -352,6 +374,19 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
                     <div className="space-y-2"><Label>Emergency Contact Name</Label><Input value={form.emergency_contact_name} onChange={(e) => update("emergency_contact_name", e.target.value)} /></div>
                     <div className="space-y-2"><Label>Emergency Contact Phone</Label><Input value={form.emergency_contact_phone} onChange={(e) => update("emergency_contact_phone", e.target.value)} /></div>
                   </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Expected Arrival Time *</Label>
+                      <Input type="time" value={form.expected_arrival_time} onChange={(e) => update("expected_arrival_time", e.target.value)} required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Expected Departure Time *</Label>
+                      <Input type="time" value={form.expected_departure_time} onChange={(e) => update("expected_departure_time", e.target.value)} required />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground -mt-2">
+                    Shown on the class register so our team knows when {selfMode ? "you" : "your child"} will arrive and be collected. Required before booking.
+                  </p>
                 </AccordionContent>
               </AccordionItem>
 
@@ -360,7 +395,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
                 <AccordionTrigger className="text-sm font-semibold">Medical Information</AccordionTrigger>
                 <AccordionContent className="space-y-4 pt-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm">Does your child have any medical conditions?</Label>
+                    <Label className="text-sm">{selfMode ? "Do you have any medical conditions?" : "Does your child have any medical conditions?"}</Label>
                     <Switch checked={form.has_medical_conditions} onCheckedChange={(c) => update("has_medical_conditions", c)} />
                   </div>
 
@@ -391,11 +426,11 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
                           <Checkbox id="has-inhaler" checked={form.has_inhaler} onCheckedChange={(c) => update("has_inhaler", !!c)} />
-                          <Label htmlFor="has-inhaler" className="text-sm cursor-pointer font-normal">Child carries an inhaler</Label>
+                          <Label htmlFor="has-inhaler" className="text-sm cursor-pointer font-normal">{selfMode ? "I carry an inhaler" : "Child carries an inhaler"}</Label>
                         </div>
                         <div className="flex items-center gap-2">
                           <Checkbox id="has-epipen" checked={form.has_epipen} onCheckedChange={(c) => update("has_epipen", !!c)} />
-                          <Label htmlFor="has-epipen" className="text-sm cursor-pointer font-normal">Child carries an EpiPen</Label>
+                          <Label htmlFor="has-epipen" className="text-sm cursor-pointer font-normal">{selfMode ? "I carry an EpiPen" : "Child carries an EpiPen"}</Label>
                         </div>
                         {form.has_epipen && (
                           <Alert className="border-red-500/30 bg-red-500/10">
@@ -421,7 +456,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
                 <AccordionTrigger className="text-sm font-semibold">Allergies</AccordionTrigger>
                 <AccordionContent className="space-y-4 pt-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm">Does your child have any allergies?</Label>
+                    <Label className="text-sm">{selfMode ? "Do you have any allergies?" : "Does your child have any allergies?"}</Label>
                     <Switch checked={form.has_allergies} onCheckedChange={(c) => update("has_allergies", c)} />
                   </div>
 
@@ -450,7 +485,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
                 <AccordionTrigger className="text-sm font-semibold">SEND (Special Educational Needs)</AccordionTrigger>
                 <AccordionContent className="space-y-4 pt-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm">Does your child have any special educational needs?</Label>
+                    <Label className="text-sm">{selfMode ? "Do you have any additional needs we should know about?" : "Does your child have any special educational needs?"}</Label>
                     <Switch checked={form.has_send} onCheckedChange={(c) => update("has_send", c)} />
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -517,7 +552,8 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
                 </AccordionContent>
               </AccordionItem>
 
-              {/* ═══ TOILETING ═══ */}
+              {/* ═══ TOILETING (children only) ═══ */}
+              {!selfMode && (
               <AccordionItem value="toileting" className="border rounded-lg px-4">
                 <AccordionTrigger className="text-sm font-semibold">Toileting</AccordionTrigger>
                 <AccordionContent className="space-y-4 pt-2">
@@ -543,8 +579,10 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
                   )}
                 </AccordionContent>
               </AccordionItem>
+              )}
 
-              {/* ═══ DANCE & ABOUT ═══ */}
+              {/* ═══ DANCE & ABOUT (children only) ═══ */}
+              {!selfMode && (
               <AccordionItem value="dance" className="border rounded-lg px-4">
                 <AccordionTrigger className="text-sm font-semibold">
                   <span className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> Dance & About Your Child</span>
@@ -604,6 +642,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
                   </div>
                 </AccordionContent>
               </AccordionItem>
+              )}
 
               {/* ═══ CONSENT ═══ */}
               <AccordionItem value="consent" className="border rounded-lg px-4">
@@ -611,7 +650,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
                 <AccordionContent className="space-y-4 pt-2">
                   <div className="flex items-center gap-2">
                     <Checkbox id="photo-consent" checked={form.photo_consent} onCheckedChange={(c) => update("photo_consent", !!c)} />
-                    <Label htmlFor="photo-consent" className="text-sm cursor-pointer">I consent to photos being taken of my child during classes</Label>
+                    <Label htmlFor="photo-consent" className="text-sm cursor-pointer">I consent to photos being taken {selfMode ? "of me" : "of my child"} during classes</Label>
                   </div>
                   <div className="flex items-center gap-2">
                     <Checkbox id="social-consent" checked={form.social_media_consent} onCheckedChange={(c) => update("social_media_consent", !!c)} />
@@ -625,10 +664,13 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
 
         <DialogFooter className="px-6 py-4 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving || !form.first_name || !form.last_name || !form.date_of_birth}>
+          <Button
+            onClick={handleSave}
+            disabled={saving || !form.first_name || !form.last_name || !form.date_of_birth || !form.expected_arrival_time || !form.expected_departure_time}
+          >
             {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             <Save className="h-4 w-4 mr-2" />
-            {editing ? "Update" : "Add"} Child
+            {selfMode ? (editing ? "Update Profile" : "Save Profile") : `${editing ? "Update" : "Add"} Child`}
           </Button>
         </DialogFooter>
       </DialogContent>

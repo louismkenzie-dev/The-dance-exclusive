@@ -48,7 +48,16 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
   const [qrLoading, setQrLoading] = useState(false);
 
   useEffect(() => {
-    if (!open || !studentId) return;
+    if (!open) return;
+    if (!studentId) {
+      // Legacy adult self-booking with no attendee profile: nothing to load,
+      // but the marking actions must still be available.
+      setLoading(false);
+      setStudent(null);
+      setParent(null);
+      setCollectors([]);
+      return;
+    }
     void load();
   }, [open, studentId]);
 
@@ -104,10 +113,52 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-        {loading || !student ? (
+        {loading ? (
           <div className="py-20 flex justify-center">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
+        ) : !student ? (
+          // Legacy adult self-booking without an attendee profile — still allow marking.
+          <>
+            <SheetHeader className="text-left">
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center text-lg font-bold">A</div>
+                <div>
+                  <SheetTitle>Adult attendee</SheetTitle>
+                  <SheetDescription>
+                    Booked before attendee profiles were required — no age or medical details on file.
+                  </SheetDescription>
+                </div>
+              </div>
+            </SheetHeader>
+            {booking && (onCheckIn || onCheckOut || onMarkAbsent || onClearAttendance) && (
+              <div className="space-y-2 pt-6 mt-6 border-t border-border">
+                <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Mark as</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {onCheckIn && (
+                    <Button onClick={onCheckIn} disabled={isIn} className="gap-1.5 bg-success text-success-foreground hover:bg-success/90 disabled:opacity-60">
+                      <LogIn className="w-4 h-4" /> Arrived
+                    </Button>
+                  )}
+                  {onCheckOut && (
+                    <Button onClick={onCheckOut} disabled={!isIn} className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-60">
+                      <LogOut className="w-4 h-4" /> Departed
+                    </Button>
+                  )}
+                  {onClearAttendance && (
+                    <Button onClick={onClearAttendance} disabled={isUnaccounted} className="gap-1.5 bg-muted text-foreground hover:bg-muted/80 disabled:opacity-60">
+                      <HelpCircle className="w-4 h-4" /> Unaccounted
+                    </Button>
+                  )}
+                  {onMarkAbsent && (
+                    <Button onClick={onMarkAbsent} disabled={isAbsent} className="gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-60">
+                      <XCircle className="w-4 h-4" /> Absent
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         ) : (
           <>
             <SheetHeader className="text-left">
@@ -162,6 +213,12 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
               <div className="bg-muted/40 rounded p-2">
                 <div className="text-muted-foreground">Ability</div>
                 <div className="font-medium">{student.ability_level || "—"}</div>
+              </div>
+              <div className="bg-muted/40 rounded p-2 col-span-2">
+                <div className="text-muted-foreground">Expected arrival / departure</div>
+                <div className="font-medium">
+                  {student.expected_arrival_time?.slice(0, 5) ?? "—"} → {student.expected_departure_time?.slice(0, 5) ?? "—"}
+                </div>
               </div>
             </div>
 

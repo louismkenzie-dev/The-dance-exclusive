@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { type StripeEnv, createStripeClient } from "../_shared/stripe.ts";
+import { type StripeEnv, connectRequestOptions, createStripeClient } from "../_shared/stripe.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -68,14 +68,20 @@ serve(async (req) => {
     const stripe = createStripeClient(env);
     const baseUrl = typeof origin === "string" && origin.startsWith("http") ? origin : "";
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      line_items: lineItems,
-      success_url: `${baseUrl}/shop?order=success`,
-      cancel_url: `${baseUrl}/shop?order=cancelled`,
-      ...(customerEmail && { customer_email: customerEmail }),
-      metadata: { checkoutType: "merch", userId: userId || "" },
-    });
+    // Direct charge on the connected account so merch revenue also settles
+    // with The Dance Exclusive. No application fee: the agreed 1% platform
+    // fee applies to booking revenue only.
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: "payment",
+        line_items: lineItems,
+        success_url: `${baseUrl}/shop?order=success`,
+        cancel_url: `${baseUrl}/shop?order=cancelled`,
+        ...(customerEmail && { customer_email: customerEmail }),
+        metadata: { checkoutType: "merch", userId: userId || "" },
+      },
+      connectRequestOptions(env),
+    );
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

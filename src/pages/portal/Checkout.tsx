@@ -152,6 +152,7 @@ const PaymentForm = ({
 }) => {
   const stripe = useStripe();
   const elements = useElements();
+  const { clearCart } = useCart();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState<string>(customerEmail || "");
@@ -185,7 +186,13 @@ const PaymentForm = ({
     }
 
     if (paymentIntent) {
-      // Inline success (card / wallet) — Stripe didn't redirect, so we do.
+      // Inline success (card / wallet) — clear the basket at the moment of
+      // known success (the return page also clears, but must not be the only
+      // place: if it fails to load, the paid items would linger and trigger
+      // the duplicate-booking guard on the next checkout).
+      if (paymentIntent.status === "succeeded") {
+        clearCart();
+      }
       window.location.assign(
         `${returnUrl}?payment_intent=${paymentIntent.id}` +
           `&payment_intent_client_secret=${paymentIntent.client_secret}` +

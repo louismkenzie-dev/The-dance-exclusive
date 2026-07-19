@@ -297,7 +297,13 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const clearCart = useCallback(() => {
     setItems([]);
-    if (!user?.id) clearLocalCart();
+    clearLocalCart();
+    // Delete the remote cart immediately rather than relying on the sync
+    // effect — after payment the return page may clear before hydration
+    // finishes, and a stale remote cart would resurrect paid-for items.
+    if (user?.id) {
+      void (supabase.from("cart_items") as any).delete().eq("user_id", user.id);
+    }
   }, [user?.id]);
 
   const totalAmount = items.reduce((sum, item) => sum + item.totalPrice, 0);

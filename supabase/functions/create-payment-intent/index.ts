@@ -52,6 +52,44 @@ serve(async (req) => {
       }
     }
 
+    // Every booking must reference a complete attendee profile (children AND
+    // adults booking themselves): age, plus expected arrival/departure times
+    // for the class register. Enforced server-side so a tampered client can
+    // never create attendee-less bookings.
+    {
+      const supabaseAdmin = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      const attendeeError = (message: string) =>
+        new Response(JSON.stringify({ error: message, code: "attendee_profile_required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+
+      const studentIds = [...new Set(items.map((i: any) => i?.studentId).filter(Boolean))];
+      if (items.some((i: any) => i?.classId && !i?.studentId)) {
+        return attendeeError(
+          "Every booking needs an attendee profile. Please set up the attendee's profile (including expected arrival and departure times) before paying.",
+        );
+      }
+      const { data: students } = await supabaseAdmin
+        .from("students")
+        .select("id, first_name, last_name, date_of_birth, expected_arrival_time, expected_departure_time, parent_id")
+        .in("id", studentIds);
+      for (const item of items) {
+        const s = (students ?? []).find((st: any) => st.id === item.studentId);
+        if (!s || (userId && s.parent_id !== userId)) {
+          return attendeeError("Attendee profile not found for one of your bookings. Please re-add it to your basket.");
+        }
+        if (!s.date_of_birth || !s.expected_arrival_time || !s.expected_departure_time) {
+          return attendeeError(
+            `${s.first_name} ${s.last_name}'s profile is missing expected arrival/departure times. Please complete it in your account before booking.`,
+          );
+        }
+      }
+    }
+
     // Pre-check: refuse to create a PaymentIntent for cart items that the
     // parent already has an active booking for. Stops the second checkout
     // attempt before money moves, instead of catching it post-charge.

@@ -1908,6 +1908,9 @@ export type Database = {
           has_send: boolean
           has_stage_experience: boolean
           id: string
+          is_self: boolean
+          expected_arrival_time: string | null
+          expected_departure_time: string | null
           is_toilet_trained: boolean
           last_name: string
           medical_conditions_list: string[]
@@ -1945,6 +1948,9 @@ export type Database = {
           has_send?: boolean
           has_stage_experience?: boolean
           id?: string
+          is_self?: boolean
+          expected_arrival_time?: string | null
+          expected_departure_time?: string | null
           is_toilet_trained?: boolean
           last_name: string
           medical_conditions_list?: string[]
@@ -1982,6 +1988,9 @@ export type Database = {
           has_send?: boolean
           has_stage_experience?: boolean
           id?: string
+          is_self?: boolean
+          expected_arrival_time?: string | null
+          expected_departure_time?: string | null
           is_toilet_trained?: boolean
           last_name?: string
           medical_conditions_list?: string[]

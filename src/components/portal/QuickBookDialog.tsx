@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart, type PricingPlan } from "@/contexts/CartContext";
 import { supabase } from "@/integrations/supabase/client";
+import { isAttendeeProfileComplete } from "@/lib/attendeeProfile";
 
 interface SessionRow {
   id: string;
@@ -23,6 +24,8 @@ interface ChildRow {
   last_name: string;
   preferred_name: string | null;
   date_of_birth: string;
+  expected_arrival_time?: string | null;
+  expected_departure_time?: string | null;
 }
 
 export interface QuickBookClass {
@@ -54,6 +57,10 @@ interface QuickBookDialogProps {
   children: ChildRow[];
   hasExistingBookings: boolean | null;
   isAdult: boolean;
+  /** The account holder's own attendee profile (students.is_self) — required to book adult classes. */
+  selfStudent?: ChildRow | null;
+  /** Called when a booking needs an attendee profile completed first (no arg = the self profile). */
+  onRequireProfile?: (student?: ChildRow) => void;
 }
 
 const getWorkshopImageUrl = (path: string | null | undefined) => {
@@ -80,6 +87,8 @@ export function QuickBookDialog({
   children,
   hasExistingBookings,
   isAdult,
+  selfStudent = null,
+  onRequireProfile,
 }: QuickBookDialogProps) {
   const { user } = useAuth();
   const { addItem, items: cartItems } = useCart();
@@ -149,10 +158,11 @@ export function QuickBookDialog({
     return new Set(ids);
   };
 
-  // Adult class: sessions already in basket on items with no studentId
+  // Adult class: sessions already in basket for the account holder (self
+  // profile, or legacy items with no studentId).
   const adultSessionsInBasket = (): Set<string> => {
     const ids = cartItems
-      .filter(ci => ci.classId === c.id && !ci.studentId && (ci.pricingPlan === "session" || ci.pricingPlan === "trial"))
+      .filter(ci => ci.classId === c.id && (!ci.studentId || ci.studentId === selfStudent?.id) && (ci.pricingPlan === "session" || ci.pricingPlan === "trial"))
       .flatMap(ci => ci.selectedSessionIds ?? []);
     return new Set(ids);
   };
@@ -182,9 +192,29 @@ export function QuickBookDialog({
   const kidCount = selKids.length || 1;
   const displayPrice = plan === "session" ? (totalForDropIn || 0) * kidCount : (price || 0) * kidCount;
 
+  const selfProfileReady = isAttendeeProfileComplete(selfStudent as any);
+
   const handleAddToCart = () => {
     if (!user) { navigate("/auth"); return; }
     if (noKidsSelected || noSessionsSelected) return;
+
+    // Every booking needs a complete attendee profile for the register.
+    if (c.class_type === "adult") {
+      if (!selfProfileReady) {
+        onOpenChange(false);
+        onRequireProfile?.();
+        return;
+      }
+    } else {
+      const incomplete = selKids
+        .map(kid => children.find(ch => ch.id === kid))
+        .find(ch => ch && !isAttendeeProfileComplete(ch as any));
+      if (incomplete) {
+        onOpenChange(false);
+        onRequireProfile?.(incomplete);
+        return;
+      }
+    }
 
     const formatDate = (sid: string) => {
       const s = sessions.find(ss => ss.id === sid);
@@ -256,14 +286,16 @@ export function QuickBookDialog({
         }
       }
     } else {
-      // Adult class
+      // Adult class — booked against the account holder's self attendee profile
+      const selfId = selfStudent!.id;
+      const selfName = `${selfStudent!.first_name} ${selfStudent!.last_name}`;
       if (isPickPlan) {
         const alreadyHas = adultSessionsInBasket();
         const newSessions = selSessions.filter(sid => !alreadyHas.has(sid));
         const skipped = selSessions.filter(sid => alreadyHas.has(sid));
 
         if (newSessions.length > 0) {
-          addItem(buildItem(null, null, newSessions));
+          addItem(buildItem(selfId, selfName, newSessions));
           addedSummary.push({ name: "you", count: newSessions.length });
           didAddAnything = true;
         }
@@ -272,12 +304,12 @@ export function QuickBookDialog({
         }
       } else {
         const hasFull = cartItems.some(ci =>
-          ci.classId === c.id && !ci.studentId && (ci.pricingPlan === "term" || ci.pricingPlan === "monthly")
+          ci.classId === c.id && (!ci.studentId || ci.studentId === selfId) && (ci.pricingPlan === "term" || ci.pricingPlan === "monthly")
         );
         if (hasFull) {
           skippedSummary.push({ name: "you", dates: [] });
         } else {
-          addItem(buildItem(null, null, selSessions));
+          addItem(buildItem(selfId, selfName, selSessions));
           didAddAnything = true;
         }
       }
@@ -605,6 +637,7 @@ export function QuickBookDialog({
           >
             <ShoppingCart className="w-3.5 h-3.5" />
             {!user ? "Sign In to Book"
+              : c.class_type === "adult" && !selfProfileReady ? "Set Up Your Profile"
               : noSessionsSelected ? "Select sessions"
               : noKidsSelected ? "Select child"
               : plan === "trial" ? "Book Free Trial"

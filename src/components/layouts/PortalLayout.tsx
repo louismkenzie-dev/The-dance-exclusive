@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { User, LogOut, CalendarDays, Sparkles, Heart, Menu, Instagram, Facebook, Mail } from "lucide-react";
 import CartButton from "@/components/portal/CartButton";
 import CartDrawer from "@/components/portal/CartDrawer";
+import AttendeeOnboarding from "@/components/portal/AttendeeOnboarding";
 import logo from "@/assets/logo.png";
 import logoDark from "@/assets/logo-dark.png";
 import {
@@ -244,6 +245,7 @@ const PortalLayout = () => {
         <Outlet />
       </main>
       <CartDrawer />
+      <AttendeeOnboarding />
 
       <footer className="relative border-t border-border mt-20 overflow-hidden transition-colors duration-500">
         <div className="absolute inset-0 stage-light-duo opacity-25 pointer-events-none" />

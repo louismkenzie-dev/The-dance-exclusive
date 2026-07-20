@@ -25,7 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   CalendarDays, Clock, MapPin, Users, Sparkles, Heart, Camera, Car, Navigation,
-  ChevronDown, ChevronUp, Search, X, Info, ShoppingCart, Tag, Ticket, Star, Music
+  ChevronDown, ChevronUp, Search, X, Info, ShoppingCart, Tag, Ticket, Star, Music, UserPlus
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { audienceText, isClassBookable } from "@/lib/classAudience";
@@ -153,8 +153,7 @@ const ClassBrowser = () => {
   const [selfStudent, setSelfStudent] = useState<any>(null);
   const [selfDialogOpen, setSelfDialogOpen] = useState(false);
   const [profileNudge, setProfileNudge] = useState<any>(null);
-  // Class times used to pre-fill an attendee's expected arrival/departure.
-  const [bookingTimes, setBookingTimes] = useState<{ start?: string; end?: string }>({});
+  const [addChildOpen, setAddChildOpen] = useState(false);
   const [selectedChildren, setSelectedChildren] = useState<Record<string, string[]>>({});
   const [sessionCounts, setSessionCounts] = useState<Record<string, number>>({});
   const [classSessions, setClassSessions] = useState<Record<string, { id: string; session_date: string; start_time: string; end_time: string }[]>>({});
@@ -1148,6 +1147,20 @@ const ClassBrowser = () => {
                                 );
                               })()}
 
+                              {/* No children yet — prompt to add one */}
+                              {c.class_type === "children" && user && children.length === 0 && (
+                                <div className="pt-2 border-t border-border/30">
+                                  <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/5 text-sm space-y-2">
+                                    <p style={{ textTransform: 'none', letterSpacing: 'normal', fontFamily: 'var(--font-body)' }}>
+                                      Add your child's details to book them into this class.
+                                    </p>
+                                    <Button size="sm" onClick={() => setAddChildOpen(true)} className="gap-1.5">
+                                      <UserPlus className="w-3.5 h-3.5" /> Add a Child
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+
                               {/* Add to basket inside the plan area */}
                               {(() => {
                                 const sessionsSelected = selSessions.length;
@@ -1157,7 +1170,8 @@ const ClassBrowser = () => {
                                 const selectedKids = selectedChildren[c.id] || [];
                                 const allSelectedInCart = c.class_type === "children" && selectedKids.length > 0
                                   && selectedKids.every(sid => cartItems.some(ci => ci.classId === c.id && ci.studentId === sid));
-                                const noKidsSelected = c.class_type === "children" && children.length > 0 && selectedKids.length === 0;
+                                // Must pick at least one attendee for a children's class.
+                                const noKidsSelected = c.class_type === "children" && selectedKids.length === 0;
                                 const noSessionsSelected = plan === "session" && sessionsSelected === 0;
 
                                 const totalForDropIn = plan === "session" && c.price_per_session ? c.price_per_session * sessionsSelected : price;
@@ -1175,9 +1189,7 @@ const ClassBrowser = () => {
                                   if (noKidsSelected) return;
                                   if (noSessionsSelected) return;
 
-                                  // Adults booking for themselves need a complete attendee
-                                  // profile (age, medical, arrival/departure) for the register.
-                                  setBookingTimes({ start: c.start_time?.slice(0, 5), end: c.end_time?.slice(0, 5) });
+                                  // Every booking needs a complete attendee profile for the register.
                                   if (c.class_type === "adult") {
                                     if (!isAttendeeProfileComplete(selfStudent)) {
                                       setSelfDialogOpen(true);
@@ -1479,18 +1491,22 @@ const ClassBrowser = () => {
         onSaved={fetchAttendees}
         editing={selfStudent}
         selfMode
-        defaultArrivalTime={bookingTimes.start}
-        defaultDepartureTime={bookingTimes.end}
       />
 
-      {/* Complete a child's profile (arrival/departure times) mid-booking */}
+      {/* Complete a child's profile mid-booking */}
       <ChildFormDialog
         open={!!profileNudge}
         onOpenChange={(o) => { if (!o) setProfileNudge(null); }}
         onSaved={fetchAttendees}
         editing={profileNudge}
-        defaultArrivalTime={bookingTimes.start}
-        defaultDepartureTime={bookingTimes.end}
+      />
+
+      {/* Add a new child mid-booking */}
+      <ChildFormDialog
+        open={addChildOpen}
+        onOpenChange={setAddChildOpen}
+        onSaved={fetchAttendees}
+        editing={null}
       />
     </div>
   );

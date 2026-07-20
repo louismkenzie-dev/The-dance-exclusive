@@ -55,21 +55,13 @@ interface ChildFormDialogProps {
   editing?: any;
   /**
    * Adult attendee profile mode: the account holder fills this in about
-   * THEMSELVES so registers and QR check-in have their age, medical info and
-   * expected arrival/departure. Hides the child-specific sections and saves
-   * with is_self = true.
+   * THEMSELVES so registers and QR check-in have their age and medical info.
+   * Hides the child-specific sections and saves with is_self = true.
    */
   selfMode?: boolean;
-  /**
-   * When opened during booking, pre-fill the expected arrival/departure with
-   * the class times ("HH:MM"). The parent can still override (late arrival /
-   * early pickup). Only fills when the profile has no time set yet.
-   */
-  defaultArrivalTime?: string;
-  defaultDepartureTime?: string;
 }
 
-export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode = false, defaultArrivalTime, defaultDepartureTime }: ChildFormDialogProps) => {
+export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode = false }: ChildFormDialogProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
@@ -95,7 +87,6 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
     dance_style_preference: "", ability_level: "", has_stage_experience: false,
     child_hook: "", photo_consent: true, social_media_consent: false,
     has_medical_conditions: false, has_allergies: false,
-    expected_arrival_time: "", expected_departure_time: "",
   });
 
   useEffect(() => {
@@ -132,9 +123,6 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
         social_media_consent: editing.social_media_consent || false,
         has_medical_conditions: (editing.medical_conditions_list?.length > 0 || editing.has_inhaler || editing.has_epipen || editing.medical_info),
         has_allergies: (editing.allergies_list?.length > 0 || editing.allergies),
-        // Keep the profile's own times; fall back to the class times when none set.
-        expected_arrival_time: editing.expected_arrival_time?.slice(0, 5) || defaultArrivalTime || "",
-        expected_departure_time: editing.expected_departure_time?.slice(0, 5) || defaultDepartureTime || "",
       });
       setUploadedPhotoUrl(editing.profile_photo || null);
     } else {
@@ -148,13 +136,12 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
         dance_style_preference: "", ability_level: "", has_stage_experience: false,
         child_hook: "", photo_consent: true, social_media_consent: false,
         has_medical_conditions: false, has_allergies: false,
-        expected_arrival_time: defaultArrivalTime || "", expected_departure_time: defaultDepartureTime || "",
       });
       setUploadedPhotoUrl(null);
       setPhotoSrc(null);
       setShowCropper(false);
     }
-  }, [editing, open, defaultArrivalTime, defaultDepartureTime]);
+  }, [editing, open]);
 
   const update = (key: string, value: any) => setForm((prev: any) => ({ ...prev, [key]: value }));
 
@@ -256,8 +243,6 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
       child_hook: form.child_hook || null,
       photo_consent: form.photo_consent,
       social_media_consent: form.social_media_consent,
-      expected_arrival_time: form.expected_arrival_time || null,
-      expected_departure_time: form.expected_departure_time || null,
       is_self: selfMode,
     };
 
@@ -382,19 +367,6 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                     <div className="space-y-2"><Label>Emergency Contact Name</Label><Input value={form.emergency_contact_name} onChange={(e) => update("emergency_contact_name", e.target.value)} /></div>
                     <div className="space-y-2"><Label>Emergency Contact Phone</Label><Input value={form.emergency_contact_phone} onChange={(e) => update("emergency_contact_phone", e.target.value)} /></div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Expected Arrival Time *</Label>
-                      <Input type="time" value={form.expected_arrival_time} onChange={(e) => update("expected_arrival_time", e.target.value)} required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Expected Departure Time *</Label>
-                      <Input type="time" value={form.expected_departure_time} onChange={(e) => update("expected_departure_time", e.target.value)} required />
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground -mt-2">
-                    Shown on the class register so our team knows when {selfMode ? "you" : "your child"} will arrive and be collected. Required before booking.
-                  </p>
                 </AccordionContent>
               </AccordionItem>
 
@@ -674,7 +646,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button
             onClick={handleSave}
-            disabled={saving || !form.first_name || !form.last_name || !form.date_of_birth || !form.expected_arrival_time || !form.expected_departure_time}
+            disabled={saving || !form.first_name || !form.last_name || !form.date_of_birth}
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             <Save className="h-4 w-4 mr-2" />

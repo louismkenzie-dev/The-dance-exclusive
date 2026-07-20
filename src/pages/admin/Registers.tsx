@@ -81,7 +81,7 @@ const AdminRegisters = () => {
     const [{ data: bks }, { data: att }] = await Promise.all([
       supabase
         .from("bookings")
-        .select(`id, student_id, students:student_id ( id, first_name, last_name, preferred_name, profile_photo, date_of_birth, is_self, expected_arrival_time, expected_departure_time, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info )`)
+        .select(`id, student_id, students:student_id ( id, first_name, last_name, preferred_name, profile_photo, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info )`)
         .eq("class_id", session.class_id)
         .eq("status", "confirmed"),
       supabase
@@ -351,10 +351,6 @@ const AdminRegisters = () => {
                                   {att?.checked_in_at && <span className="text-foreground">In {fmt(att.checked_in_at)}</span>}
                                   {att?.checked_out_at && <span className="text-foreground">Out {fmt(att.checked_out_at)}</span>}
                                 </div>
-                              ) : student?.expected_arrival_time || student?.expected_departure_time ? (
-                                <span className="text-muted-foreground">
-                                  Expected {student.expected_arrival_time?.slice(0, 5) ?? "—"} → {student.expected_departure_time?.slice(0, 5) ?? "—"}
-                                </span>
                               ) : (
                                 <span className="opacity-50">—</span>
                               )}

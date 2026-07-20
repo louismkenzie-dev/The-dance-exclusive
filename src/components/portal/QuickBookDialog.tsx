@@ -193,8 +193,6 @@ export function QuickBookDialog({
   // Booking is blocked until the attendee exists: a child on the account, or the adult self profile.
   const needsChild = c.class_type === "children" && children.length === 0;
   const needsSelfProfile = c.class_type === "adult" && !isAttendeeProfileComplete(selfStudent as any);
-  const classArrival = c.start_time?.slice(0, 5);
-  const classDeparture = c.end_time?.slice(0, 5);
 
   const totalForDropIn = plan === "session" && c.price_per_session ? c.price_per_session * sessionsSelected : price;
   const kidCount = selKids.length || 1;
@@ -669,14 +667,12 @@ export function QuickBookDialog({
       </DialogContent>
     </Dialog>
 
-    {/* Add / complete an attendee profile in place — prefilled with class times */}
+    {/* Add / complete an attendee profile in place */}
     <ChildFormDialog
       open={!!childDialog}
       onOpenChange={(o) => { if (!o) setChildDialog(null); }}
       editing={childDialog?.editing ?? null}
       selfMode={childDialog?.selfMode ?? false}
-      defaultArrivalTime={classArrival}
-      defaultDepartureTime={classDeparture}
       onSaved={() => { onChildrenChanged?.(); setChildDialog(null); }}
     />
     </>

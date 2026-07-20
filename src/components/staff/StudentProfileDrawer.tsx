@@ -197,8 +197,8 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
                 ) : (
                   <>
                     <QRCodeSVG value={buildQrPayload(qrToken.token)} size={180} level="M" includeMargin />
-                    <p className="text-[11px] text-muted-foreground">Valid until {format(new Date(qrToken.validUntil), "d MMM HH:mm")}</p>
-                    <p className="text-[11px] text-muted-foreground text-center">Show to parent — they can photograph it for pickup.</p>
+                    <p className="text-[11px] text-gray-600">Valid until {format(new Date(qrToken.validUntil), "d MMM HH:mm")}</p>
+                    <p className="text-[11px] text-gray-600 text-center">Show to parent — they can photograph it for pickup.</p>
                   </>
                 )}
               </Card>
@@ -213,12 +213,6 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
               <div className="bg-muted/40 rounded p-2">
                 <div className="text-muted-foreground">Ability</div>
                 <div className="font-medium">{student.ability_level || "—"}</div>
-              </div>
-              <div className="bg-muted/40 rounded p-2 col-span-2">
-                <div className="text-muted-foreground">Expected arrival / departure</div>
-                <div className="font-medium">
-                  {student.expected_arrival_time?.slice(0, 5) ?? "—"} → {student.expected_departure_time?.slice(0, 5) ?? "—"}
-                </div>
               </div>
             </div>
 

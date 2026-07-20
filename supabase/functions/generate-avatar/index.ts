@@ -45,6 +45,50 @@ const AVATAR_PROMPT =
   "Family-friendly. Correct anatomy, five fingers per hand, no duplicate limbs, no watermarks, no captions " +
   "and no text anywhere in the image other than the t-shirt logo.";
 
+// Adults (self profiles) don't get the cartoon: they get a hyperrealistic
+// professional dance-studio portrait — dark backdrop with the brand's
+// pink/magenta gradient lighting.
+const ADULT_PROMPT =
+  "You are given two input images. IMAGE 1 is a real photograph of a person. IMAGE 2 is the OFFICIAL logo of " +
+  "The Dance Exclusive, a UK street-dance school: a bright cyan-blue paint-splat with bold white capital " +
+  "letters reading 'THE DANCE EXCLUSIVE' and a small white crown above the lettering.\n\n" +
+  "PORTRAIT — Recreate the person from IMAGE 1 as a HYPERREALISTIC professional dance-studio portrait " +
+  "photograph — this is a real photo look, NOT a cartoon or illustration. Preserve their identity exactly: " +
+  "same face shape, same hairstyle, hairline and hair texture, same skin tone, eye colour, eyebrows and " +
+  "natural smile, plus distinctive features such as glasses, freckles or dimples if present. Photorealistic " +
+  "skin with natural texture and pores, realistic individual hair detail, true-to-life body proportions, " +
+  "apparent age, gender presentation and ethnicity unchanged. Expression: warm, confident, ready to dance. " +
+  "Framing: polished head-and-shoulders to mid-torso editorial portrait, shot on an 85mm portrait lens at a " +
+  "wide aperture — tack-sharp focus on the eyes, gentle falloff, shallow depth of field.\n\n" +
+  "WARDROBE — A plain black crew-neck cotton t-shirt. Printed centred on the chest is the logo from IMAGE 2 " +
+  "as a crisp professional screen print: identical splat silhouette, identical letterforms and spelling " +
+  "('THE DANCE EXCLUSIVE'), identical crown, identical cyan-blue and white colours, sharp edges, fully " +
+  "legible, with only the natural curve of fabric drape. Do not redesign, recolour, re-letter, warp or crop " +
+  "the logo, and add no other text or graphics to the shirt.\n\n" +
+  "LIGHTING AND BACKGROUND — The Dance Exclusive signature look: a dark, moody studio backdrop (near-black " +
+  "charcoal) with a soft on-brand PINK-TO-MAGENTA gradient glow sweeping across it — brighter hot-pink haze " +
+  "to one side fading into deep darkness on the other. A pink-magenta rim light traces the hair and " +
+  "shoulders; a subtle cool cyan kicker on the opposite side adds contrast; gentle atmospheric haze catches " +
+  "the light. Cinematic editorial dance-photography feel.\n\n" +
+  "QUALITY — Hyperrealistic photographic detail throughout, professional colour grade flattering the " +
+  "pink/magenta palette, clean composition, family-friendly. No text or graphics anywhere in the image other " +
+  "than the t-shirt logo, no watermarks, no artifacts, correct anatomy.";
+
+const ADULT_PROMPT_NO_LOGO =
+  "Recreate the person in this real photograph as a HYPERREALISTIC professional dance-studio portrait " +
+  "photograph — a real photo look, NOT a cartoon. Preserve their identity exactly: same face shape, " +
+  "hairstyle, hairline and hair texture, skin tone, eye colour, eyebrows and natural smile, plus distinctive " +
+  "features such as glasses or freckles. Photorealistic skin texture, realistic hair detail, unchanged age, " +
+  "gender presentation, ethnicity and proportions. Warm, confident expression; polished head-and-shoulders " +
+  "to mid-torso editorial framing, 85mm portrait-lens look with tack-sharp eyes and shallow depth of field. " +
+  "They wear a plain black crew-neck t-shirt printed centred on the chest with the official school logo as a " +
+  "crisp screen print: a bright cyan-blue paint splat behind bold white capital letters reading 'THE DANCE " +
+  "EXCLUSIVE' with a small white crown above — sharp, legible, unaltered, no other text or graphics on the " +
+  "shirt. Setting: dark near-black studio backdrop with a soft on-brand pink-to-magenta gradient glow " +
+  "sweeping across it, pink-magenta rim light on hair and shoulders, a subtle cool cyan kicker opposite, " +
+  "gentle haze. Hyperrealistic detail, professional colour grade, family-friendly, no watermarks and no " +
+  "text anywhere except the t-shirt logo.";
+
 // Fallback when the app couldn't attach the logo image: same brief, with the
 // logo described as precisely as words allow.
 const AVATAR_PROMPT_NO_LOGO =
@@ -110,18 +154,22 @@ serve(async (req) => {
       }
     }
 
-    // Resolve the source photo (and where to save the avatar).
+    // Resolve the source photo (and where to save the avatar). Adults — the
+    // account holder's own profile, or a student row marked is_self — get the
+    // hyperreal studio-portrait style; children get the cartoon.
     let sourceUrl: string | null = null;
+    let isAdult = false;
     if (studentId) {
       const { data: student } = await admin
         .from("students")
-        .select("id, parent_id, profile_photo")
+        .select("id, parent_id, profile_photo, is_self")
         .eq("id", studentId)
         .maybeSingle();
       if (!student || student.parent_id !== userId) {
         return json({ error: "Attendee profile not found on your account." }, 404);
       }
       sourceUrl = student.profile_photo;
+      isAdult = !!student.is_self;
     } else {
       const { data: profile } = await admin
         .from("profiles")
@@ -129,6 +177,7 @@ serve(async (req) => {
         .eq("user_id", userId)
         .maybeSingle();
       sourceUrl = profile?.profile_photo ?? null;
+      isAdult = true;
     }
     if (!sourceUrl) {
       return json({ error: "Upload a photo first, then create the avatar from it." }, 400);
@@ -147,7 +196,10 @@ serve(async (req) => {
     if (logoBlob) {
       form.append("image[]", new File([logoBlob], "logo.png", { type: "image/png" }));
     }
-    form.append("prompt", logoBlob ? AVATAR_PROMPT : AVATAR_PROMPT_NO_LOGO);
+    const prompt = isAdult
+      ? (logoBlob ? ADULT_PROMPT : ADULT_PROMPT_NO_LOGO)
+      : (logoBlob ? AVATAR_PROMPT : AVATAR_PROMPT_NO_LOGO);
+    form.append("prompt", prompt);
     form.append("size", "1024x1024");
     // One-shot generation (no regenerate in the UI), so spend on quality:
     // input_fidelity high preserves the face and the logo artwork faithfully.

@@ -744,25 +744,23 @@ const Account = () => {
                   <Users className="w-5 h-5" /> My Attendee Profile
                 </h2>
                 {selfProfile ? (
-                  <div className="text-sm text-muted-foreground space-y-1">
+                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <PhotoAvatarDuo
+                      photoUrl={selfProfile.profile_photo}
+                      avatarUrl={selfProfile.avatar_url}
+                      initials={`${selfProfile.first_name?.[0] ?? ""}${selfProfile.last_name?.[0] ?? ""}`}
+                      size="sm"
+                    />
                     <p>
                       <span className="text-foreground font-medium">{selfProfile.first_name} {selfProfile.last_name}</span>
                       {" · "}Age {getAge(selfProfile.date_of_birth)}
-                      {selfProfile.expected_arrival_time && selfProfile.expected_departure_time && (
-                        <> · Expected {selfProfile.expected_arrival_time.slice(0, 5)} → {selfProfile.expected_departure_time.slice(0, 5)}</>
-                      )}
                     </p>
-                    {(!selfProfile.expected_arrival_time || !selfProfile.expected_departure_time) && (
-                      <p className="text-amber-500 text-xs">
-                        Arrival/departure times missing — required before booking. Tap Edit to add them.
-                      </p>
-                    )}
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    Booking classes for yourself? Create your attendee profile (age, medical info,
-                    expected arrival &amp; departure) — it's required before you can book, and it's
-                    what our instructors see on the class register.
+                    Booking classes for yourself? Create your attendee profile (age and medical
+                    info) — it's required before you can book, and it's what our instructors see
+                    on the class register.
                   </p>
                 )}
               </div>

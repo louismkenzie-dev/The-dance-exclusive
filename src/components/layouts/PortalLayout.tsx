@@ -46,7 +46,7 @@ const PortalLayout = () => {
     <div className={`min-h-screen bg-background ${themeClass}`}>
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-md transition-colors duration-500">
-        <div className="container flex h-24 md:h-28 items-center justify-between">
+        <div className="container flex h-16 md:h-28 items-center justify-between">
           <div className="flex items-center gap-1">
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
@@ -103,7 +103,7 @@ const PortalLayout = () => {
               </SheetContent>
             </Sheet>
             <Link to="/" className="flex items-center gap-2.5">
-              <img src={isChildrenSection ? logo : logoDark} alt="The Dance Exclusive" className="w-20 h-20 md:w-36 md:h-36 object-contain rounded" />
+              <img src={isChildrenSection ? logo : logoDark} alt="The Dance Exclusive" className="w-14 h-14 md:w-36 md:h-36 object-contain rounded" />
             </Link>
           </div>
 

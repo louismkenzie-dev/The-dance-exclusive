@@ -99,7 +99,7 @@ const CustomerEditDialog = ({ open, onOpenChange, profile, onSaved }: Props) => 
             <Label>Address line 2</Label>
             <Input value={form.address_line2} onChange={(e) => update("address_line2", e.target.value)} />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-2">
               <Label>City</Label>
               <Input value={form.city} onChange={(e) => update("city", e.target.value)} />

@@ -360,7 +360,7 @@ const AdminVenues = () => {
 
           <form onSubmit={handleSubmit}>
             <Tabs defaultValue="details" className="mt-2">
-              <TabsList className="grid w-full grid-cols-6 h-auto">
+              <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 h-auto">
                 <TabsTrigger value="details" className="text-xs gap-1"><Building2 className="w-3 h-3" /> Details</TabsTrigger>
                 <TabsTrigger value="contact" className="text-xs gap-1"><Phone className="w-3 h-3" /> Contact</TabsTrigger>
                 <TabsTrigger value="features" className="text-xs gap-1"><Music className="w-3 h-3" /> Features</TabsTrigger>
@@ -393,7 +393,7 @@ const AdminVenues = () => {
                   <Label>Address Line 2</Label>
                   <Input value={form.address_line2} onChange={(e) => setForm({ ...form, address_line2: e.target.value })} />
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>City *</Label>
                     <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} required />

@@ -683,7 +683,7 @@ const Account = () => {
                 <div className="space-y-3">
                   <div className="space-y-2"><Label>Address Line 1</Label><Input value={profileForm.address_line1 || ""} onChange={(e) => setProfileForm({ ...profileForm, address_line1: e.target.value })} /></div>
                   <div className="space-y-2"><Label>Address Line 2</Label><Input value={profileForm.address_line2 || ""} onChange={(e) => setProfileForm({ ...profileForm, address_line2: e.target.value })} /></div>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="space-y-2"><Label>City / Town</Label><Input value={profileForm.city || ""} onChange={(e) => setProfileForm({ ...profileForm, city: e.target.value })} /></div>
                     <div className="space-y-2"><Label>County</Label><Input value={profileForm.county || ""} onChange={(e) => setProfileForm({ ...profileForm, county: e.target.value })} /></div>
                     <div className="space-y-2"><Label>Postcode</Label><Input value={profileForm.postcode || ""} onChange={(e) => setProfileForm({ ...profileForm, postcode: e.target.value })} /></div>

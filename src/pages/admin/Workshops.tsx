@@ -414,7 +414,7 @@ const AdminWorkshops = () => {
                         {media.length === 0 ? (
                           <p className="text-xs text-muted-foreground py-4 text-center border border-dashed border-border rounded-lg">No media uploaded yet. Save this type of class first, then add gallery items.</p>
                         ) : (
-                          <div className="grid grid-cols-3 gap-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                             {media.map((m) => (
                               <div key={m.id} className="relative group rounded-lg overflow-hidden border border-border aspect-square">
                                 {m.media_type === "video" ? (

@@ -14,7 +14,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertTriangle, Camera, Heart, Info, Loader2, Save, Sparkles } from "lucide-react";
+import { AlertTriangle, Camera, Heart, Info, Loader2, Save, Sparkles, Wand2 } from "lucide-react";
 import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 import getCroppedImg from "@/lib/cropImage";
@@ -74,6 +74,43 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
   const [showCropper, setShowCropper] = useState(false);
   const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState<string | null>(null);
 
+  // Dance Exclusive Avatar Studio
+  const [avatarLoading, setAvatarLoading] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  const handleGenerateAvatar = async () => {
+    if (!editing?.id) return;
+    setAvatarLoading(true);
+    try {
+      // The avatar is generated from the SAVED profile photo — persist the
+      // currently selected photo first so the studio uses what's on screen.
+      if (uploadedPhotoUrl && uploadedPhotoUrl !== editing.profile_photo) {
+        await supabase.from("students").update({ profile_photo: uploadedPhotoUrl }).eq("id", editing.id);
+      }
+      const { data, error } = await supabase.functions.invoke("generate-avatar", {
+        body: { studentId: editing.id },
+      });
+      let message = data?.error || error?.message;
+      const ctx = (error as { context?: Response } | null)?.context;
+      if (ctx && typeof ctx.json === "function") {
+        try {
+          const body = await ctx.json();
+          if (body?.error) message = body.error;
+        } catch { /* keep original */ }
+      }
+      if (error || !data?.avatarUrl) {
+        toast({ title: "Avatar Studio", description: message || "Couldn't create the avatar — please try again.", variant: "destructive" });
+      } else {
+        setAvatarUrl(data.avatarUrl);
+        toast({ title: "✨ Avatar created!", description: "Looking good! Use it as the profile picture if you love it." });
+      }
+    } catch (e: any) {
+      toast({ title: "Avatar Studio", description: e?.message || "Something went wrong.", variant: "destructive" });
+    } finally {
+      setAvatarLoading(false);
+    }
+  };
+
   const [form, setForm] = useState<any>({
     first_name: "", last_name: "", preferred_name: "", date_of_birth: "", gender: "",
     medical_info: "", allergies: "", emergency_contact_name: "", emergency_contact_phone: "",
@@ -125,6 +162,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
         has_allergies: (editing.allergies_list?.length > 0 || editing.allergies),
       });
       setUploadedPhotoUrl(editing.profile_photo || null);
+      setAvatarUrl(editing.avatar_url || null);
     } else {
       setForm({
         first_name: "", last_name: "", preferred_name: "", date_of_birth: "", gender: "",
@@ -138,6 +176,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
         has_medical_conditions: false, has_allergies: false,
       });
       setUploadedPhotoUrl(null);
+      setAvatarUrl(null);
       setPhotoSrc(null);
       setShowCropper(false);
     }
@@ -328,6 +367,52 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                   </div>
                   <input id="photo-input" type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
                   <p className="text-xs text-muted-foreground">Click to upload a photo</p>
+
+                  {/* ═══ DANCE EXCLUSIVE AVATAR STUDIO ═══ */}
+                  {uploadedPhotoUrl && editing && (
+                    <div className="w-full max-w-sm space-y-3">
+                      <Button
+                        type="button"
+                        onClick={handleGenerateAvatar}
+                        disabled={avatarLoading}
+                        className="w-full gap-2 bg-gradient-to-r from-primary via-purple-500 to-accent text-white font-semibold uppercase tracking-wider hover:opacity-90 shadow-lg"
+                      >
+                        {avatarLoading ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" /> Creating your avatar… (~30s)
+                          </>
+                        ) : (
+                          <>
+                            <Wand2 className="w-4 h-4" /> Create Dance Exclusive Avatar
+                          </>
+                        )}
+                      </Button>
+                      {!avatarUrl && !avatarLoading && (
+                        <p className="text-[11px] text-muted-foreground text-center" style={{ textTransform: "none", letterSpacing: "normal" }}>
+                          Turn this photo into an on-brand cartoon — {selfMode ? "you" : "your child"} in Dance
+                          Exclusive merch, dancing on stage under the lights. ✨
+                        </p>
+                      )}
+                      {avatarUrl && (
+                        <div className="flex flex-col items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                          <img src={avatarUrl} alt="Dance Exclusive avatar" className="w-32 h-32 rounded-full object-cover border-2 border-primary/40" />
+                          <div className="flex gap-2">
+                            <Button type="button" size="sm" variant="outline" onClick={() => { setUploadedPhotoUrl(avatarUrl); toast({ title: "Avatar set as profile picture!" }); }}>
+                              Use as profile picture
+                            </Button>
+                            <Button type="button" size="sm" variant="ghost" onClick={handleGenerateAvatar} disabled={avatarLoading}>
+                              Regenerate
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {uploadedPhotoUrl && !editing && (
+                    <p className="text-[11px] text-muted-foreground text-center" style={{ textTransform: "none", letterSpacing: "normal" }}>
+                      ✨ Save the profile first to unlock the Dance Exclusive Avatar Studio.
+                    </p>
+                  )}
                 </>
               )}
             </div>

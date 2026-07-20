@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { addDays, differenceInYears, format, parseISO } from "date-fns";
 import StudentProfileDrawer from "@/components/staff/StudentProfileDrawer";
 import QrScannerDialog from "@/components/staff/QrScannerDialog";
+import FamilyCheckInSheet from "@/components/staff/FamilyCheckInSheet";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +39,14 @@ const StaffRegisters = () => {
     method: "qr" | "manual";
   } | null>(null);
   const [collectorName, setCollectorName] = useState("");
+  // A scanned family QR opens this sheet — one scan covers every attendee the
+  // parent booked on the class; nothing is marked until staff tap the buttons.
+  const [familySheet, setFamilySheet] = useState<{
+    sessionId: string;
+    classId: string;
+    parentId: string;
+    parentName: string | null;
+  } | null>(null);
 
   useEffect(() => {
     if (!staff?.id) return;
@@ -82,7 +91,7 @@ const StaffRegisters = () => {
     for (const s of all) {
       const { data: bookings } = await supabase
         .from("bookings")
-        .select(`id, student_id, students:student_id ( first_name, last_name, preferred_name, profile_photo, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info )`)
+        .select(`id, student_id, parent_id, students:student_id ( first_name, last_name, preferred_name, profile_photo, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info )`)
         .eq("class_id", s.class_id)
         .eq("status", "confirmed");
       const { data: att } = await supabase
@@ -226,9 +235,25 @@ const StaffRegisters = () => {
       return;
     }
     const session = sessions.find((s) => s.id === matchSessionId);
-    const isCheckOut = !!matchBooking.attendance?.checked_in_at && !matchBooking.attendance?.checked_out_at;
-    if (isCheckOut) await performCheckOut(matchBooking, "qr", null);
-    else await performCheckIn(matchBooking, matchSessionId, session?.class_id ?? matchBooking.attendance?.class_id, "qr", null);
+    const classId = session?.class_id ?? matchBooking.attendance?.class_id;
+
+    // One family QR covers every attendee this parent booked on the class.
+    // Never auto-mark — open the check-in sheet so staff choose per person.
+    let parentName: string | null = null;
+    if (matchBooking.parent_id) {
+      const { data: parent } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("user_id", matchBooking.parent_id)
+        .maybeSingle();
+      parentName = parent?.full_name ?? null;
+    }
+    setFamilySheet({
+      sessionId: matchSessionId,
+      classId,
+      parentId: matchBooking.parent_id,
+      parentName,
+    });
   };
 
   const shiftDate = (days: number) => {
@@ -412,6 +437,27 @@ const StaffRegisters = () => {
         onOpenChange={setScannerOpen}
         onScanned={handleScannedToken}
       />
+
+      {(() => {
+        if (!familySheet) return null;
+        const session = sessions.find((s) => s.id === familySheet.sessionId);
+        // Live rows from register state — statuses refresh as staff mark people.
+        const rows = (attendance[familySheet.sessionId] || []).filter(
+          (b: any) => b.parent_id === familySheet.parentId,
+        );
+        return (
+          <FamilyCheckInSheet
+            open={!!familySheet}
+            onOpenChange={(o) => !o && setFamilySheet(null)}
+            className={session?.classes?.name ?? "Class"}
+            sessionTime={session ? `${session.start_time?.slice(0, 5)} – ${session.end_time?.slice(0, 5)}` : ""}
+            parentName={familySheet.parentName}
+            rows={rows}
+            onMarkArrived={(b) => void performCheckIn(b, familySheet.sessionId, familySheet.classId, "qr", null)}
+            onMarkDeparted={(b) => void performCheckOut(b, "qr", null)}
+          />
+        );
+      })()}
 
       <Dialog open={!!collectorPrompt} onOpenChange={(o) => !o && setCollectorPrompt(null)}>
         <DialogContent className="max-w-sm">

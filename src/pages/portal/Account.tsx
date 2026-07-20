@@ -15,6 +15,7 @@ import { Plus, User, Users, MapPin, ShieldCheck, Pencil, Trash2, Camera, Sparkle
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { ChildFormDialog } from "@/components/portal/ChildFormDialog";
+import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
 import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 import getCroppedImg from "@/lib/cropImage";
@@ -809,13 +810,12 @@ const Account = () => {
                   <CardContent className="py-4">
                     <div className="flex items-start gap-4">
                       <div className="cursor-pointer flex-1 flex items-start gap-4" onClick={() => { setEditingChild(c); setChildDialogOpen(true); }}>
-                        {c.profile_photo ? (
-                          <img src={c.profile_photo} alt={c.first_name} className="w-14 h-14 rounded-full object-cover border-2 border-border" />
-                        ) : (
-                          <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center text-lg font-bold text-muted-foreground">
-                            {c.first_name?.[0]}{c.last_name?.[0]}
-                          </div>
-                        )}
+                        <PhotoAvatarDuo
+                          photoUrl={c.profile_photo}
+                          avatarUrl={c.avatar_url}
+                          initials={`${c.first_name?.[0] ?? ""}${c.last_name?.[0] ?? ""}`}
+                          size="md"
+                        />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <h3 className="font-semibold">{c.first_name} {c.last_name}</h3>

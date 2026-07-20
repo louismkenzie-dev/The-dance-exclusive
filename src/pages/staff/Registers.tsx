@@ -11,6 +11,7 @@ import { addDays, differenceInYears, format, parseISO } from "date-fns";
 import StudentProfileDrawer from "@/components/staff/StudentProfileDrawer";
 import QrScannerDialog from "@/components/staff/QrScannerDialog";
 import FamilyCheckInSheet from "@/components/staff/FamilyCheckInSheet";
+import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
 import {
   Dialog,
   DialogContent,
@@ -91,7 +92,7 @@ const StaffRegisters = () => {
     for (const s of all) {
       const { data: bookings } = await supabase
         .from("bookings")
-        .select(`id, student_id, parent_id, students:student_id ( first_name, last_name, preferred_name, profile_photo, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info )`)
+        .select(`id, student_id, parent_id, students:student_id ( first_name, last_name, preferred_name, profile_photo, avatar_url, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info )`)
         .eq("class_id", s.class_id)
         .eq("status", "confirmed");
       const { data: att } = await supabase
@@ -344,13 +345,12 @@ const StaffRegisters = () => {
                           >
                             <TableCell>
                               <div className="flex items-center gap-3">
-                                {student?.profile_photo ? (
-                                  <img src={student.profile_photo} alt="" className="w-9 h-9 rounded-full object-cover" />
-                                ) : (
-                                  <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold flex-shrink-0">
-                                    {student?.first_name?.[0] ?? "?"}
-                                  </div>
-                                )}
+                                <PhotoAvatarDuo
+                                  photoUrl={student?.profile_photo}
+                                  avatarUrl={student?.avatar_url}
+                                  initials={student?.first_name?.[0] ?? "?"}
+                                  size="sm"
+                                />
                                 <div className="min-w-0">
                                   <p className="font-medium text-sm">
                                     {student ? `${student.first_name} ${student.last_name}` : "Adult attendee"}

@@ -14,9 +14,20 @@ const corsHeaders = {
 };
 
 const AVATAR_PROMPT =
+  "The first image is a real photo of a person. The second image is the OFFICIAL logo of The Dance Exclusive, " +
+  "a UK street-dance school: a blue paint-splat with white 'THE DANCE EXCLUSIVE' lettering and a small crown. " +
+  "Transform the person into a vibrant 3D cartoon avatar. Keep their recognisable features — hairstyle, skin " +
+  "tone, face shape and smile. They are wearing a black t-shirt printed on the chest with the official logo " +
+  "from the second image, reproduced EXACTLY as provided — do not redesign, recolour, reword or reinterpret " +
+  "the logo in any way. Show them mid dance move, full of confident joyful energy, on a performance stage lit " +
+  "by dramatic blue and magenta stage lights with a subtle crowd glow. Family-friendly, polished " +
+  "animated-movie style, high quality.";
+
+const AVATAR_PROMPT_NO_LOGO =
   "Transform the person in this photo into a vibrant 3D cartoon avatar for The Dance Exclusive, " +
   "a UK street-dance school. Keep their recognisable features — hairstyle, skin tone, face shape and smile. " +
-  "They are wearing official Dance Exclusive merchandise: a black t-shirt with a colourful paint-splat logo. " +
+  "They are wearing official Dance Exclusive merchandise: a black t-shirt with a blue paint-splat logo with " +
+  "white 'THE DANCE EXCLUSIVE' lettering and a small crown. " +
   "Show them mid dance move, full of confident joyful energy, on a performance stage lit by dramatic blue and " +
   "magenta stage lights with a subtle crowd glow. Family-friendly, polished animated-movie style, high quality.";
 
@@ -50,8 +61,23 @@ serve(async (req) => {
     if (userErr || !userData.user) return json({ error: "Please sign in first." }, 401);
     const userId = userData.user.id;
 
-    const { studentId } = await req.json().catch(() => ({}));
+    const { studentId, logoDataUrl } = await req.json().catch(() => ({}));
     const admin = createClient(supabaseUrl, serviceKey);
+
+    // The app sends the official TDE logo as a data URL so the generated
+    // t-shirt carries the real brand mark, not an invented one.
+    let logoBlob: Blob | null = null;
+    if (typeof logoDataUrl === "string" && logoDataUrl.startsWith("data:image/")) {
+      try {
+        const b64 = logoDataUrl.split(",")[1] ?? "";
+        const logoBytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+        if (logoBytes.length > 0 && logoBytes.length < 2_000_000) {
+          logoBlob = new Blob([logoBytes], { type: "image/png" });
+        }
+      } catch {
+        logoBlob = null; // fall back to the descriptive prompt
+      }
+    }
 
     // Resolve the source photo (and where to save the avatar).
     let sourceUrl: string | null = null;
@@ -82,11 +108,15 @@ serve(async (req) => {
     if (!photoRes.ok) return json({ error: "Couldn't read the uploaded photo." }, 400);
     const photoBlob = await photoRes.blob();
 
-    // Generate via OpenAI image edit (keeps likeness from the input photo).
+    // Generate via OpenAI image edit (keeps likeness from the input photo;
+    // second reference image is the official logo when provided).
     const form = new FormData();
     form.append("model", "gpt-image-1");
-    form.append("image", new File([photoBlob], "photo.png", { type: photoBlob.type || "image/png" }));
-    form.append("prompt", AVATAR_PROMPT);
+    form.append("image[]", new File([photoBlob], "photo.png", { type: photoBlob.type || "image/png" }));
+    if (logoBlob) {
+      form.append("image[]", new File([logoBlob], "logo.png", { type: "image/png" }));
+    }
+    form.append("prompt", logoBlob ? AVATAR_PROMPT : AVATAR_PROMPT_NO_LOGO);
     form.append("size", "1024x1024");
     form.append("quality", "medium");
 

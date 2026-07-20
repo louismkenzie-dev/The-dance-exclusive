@@ -8,6 +8,7 @@ import { Loader2, Phone, AlertTriangle, Heart, Shield, User, Camera, Sparkles, U
 import { format, differenceInYears } from "date-fns";
 import { QRCodeSVG } from "qrcode.react";
 import { getOrCreateBookingQrToken, buildQrPayload } from "@/lib/qrTokens";
+import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
 
 interface Props {
   open: boolean;
@@ -163,13 +164,12 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
           <>
             <SheetHeader className="text-left">
               <div className="flex items-center gap-3">
-                {student.profile_photo ? (
-                  <img src={student.profile_photo} alt="" className="w-14 h-14 rounded-full object-cover border border-border" />
-                ) : (
-                  <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center text-lg font-bold">
-                    {student.first_name?.[0]}
-                  </div>
-                )}
+                <PhotoAvatarDuo
+                  photoUrl={student.profile_photo}
+                  avatarUrl={student.avatar_url}
+                  initials={student.first_name?.[0]}
+                  size="md"
+                />
                 <div>
                   <SheetTitle>{student.first_name} {student.last_name}</SheetTitle>
                   <SheetDescription>

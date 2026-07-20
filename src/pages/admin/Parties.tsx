@@ -734,7 +734,7 @@ const AdminParties = () => {
                   <Label className="text-sm font-semibold">Gallery Images</Label>
                   <p className="text-xs text-muted-foreground mb-2">Additional photos for this package</p>
                   {images.length > 0 && (
-                    <div className="grid grid-cols-3 gap-2 mb-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
                       {images.map(img => (
                         <div key={img.id} className="relative group">
                           <img src={getPublicUrl(img.file_path)} alt="" className="h-24 w-full rounded-md object-cover" />

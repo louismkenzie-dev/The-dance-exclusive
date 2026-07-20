@@ -150,15 +150,47 @@
     @apply border-border;
   }
 
+  /* ─── Mobile foundation (iOS-grade feel) ───
+     overflow-x clip on both html and body kills the sideways slide that
+     any single too-wide element would otherwise cause app-wide. */
+  html {
+    overflow-x: clip;
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-body);
+    overflow-x: clip;
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-x: none;
+    /* Respect iPhone notch / home-indicator areas (viewport-fit=cover) */
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Instant, deliberate taps — no 300ms delay or double-tap zoom on controls */
+  button, a, [role="button"], input, select, textarea, label {
+    touch-action: manipulation;
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
     text-transform: uppercase;
     letter-spacing: 0.02em;
+    overflow-wrap: break-word;
+  }
+
+  @media (max-width: 640px) {
+    /* iOS Safari auto-zooms any focused field under 16px — never let it */
+    input, select, textarea {
+      font-size: 16px !important;
+    }
+    /* Slightly calmer display type on small screens */
+    h1 { letter-spacing: 0.01em; }
   }
 }
 

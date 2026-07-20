@@ -554,7 +554,7 @@ const Merchandise = () => {
           <DialogHeader><DialogTitle>Sizes & Stock — {selectedItemForVariants?.name}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             {/* Add variant form */}
-            <div className="grid grid-cols-5 gap-2 items-end">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end">
               <div>
                 <Label className="text-xs">Size</Label>
                 <Select value={variantForm.size} onValueChange={v => setVariantForm(f => ({ ...f, size: v }))}>
@@ -608,7 +608,7 @@ const Merchandise = () => {
             {media.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">No images yet</p>
             ) : (
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {media.map(m => (
                   <div key={m.id} className="relative group rounded-md overflow-hidden border">
                     {m.media_type === "video" ? (

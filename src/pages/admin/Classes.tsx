@@ -808,7 +808,7 @@ const AdminClasses = () => {
 
                 <div className="space-y-3">
                   <Label className="text-sm font-semibold">Capacity</Label>
-                  <div className="grid grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">Max Students</Label>
                       <Input type="number" value={capacity} onChange={e => setCapacity(e.target.value)} />
@@ -835,7 +835,7 @@ const AdminClasses = () => {
 
                 <div className="space-y-3 border-t border-border pt-4">
                   <Label className="text-sm font-semibold">Audience & Access</Label>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label className="text-xs">Audience Label</Label>
                       <Input value={audienceLabel} onChange={e => setAudienceLabel(e.target.value)} placeholder='e.g. "Ages 8–16", "O17", "Adults"' />
@@ -864,7 +864,7 @@ const AdminClasses = () => {
                       </p>
                     </div>
                   </label>
-                  <div className="grid grid-cols-3 gap-4 items-end">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
                     <div className="space-y-2">
                       <Label className="text-xs">Status</Label>
                       <Select value={classStatus} onValueChange={setClassStatus}>
@@ -1160,7 +1160,7 @@ const AdminClasses = () => {
                       <Input type="number" step="0.01" value={pricePerYear} onChange={e => setPricePerYear(e.target.value)} placeholder="e.g. 150" />
                     </div>
                   </div>
-                  <div className="grid grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">Term Discount %</Label>
                       <Input type="number" step="1" value={termDiscountPercent} onChange={e => setTermDiscountPercent(e.target.value)} placeholder="e.g. 10" />

@@ -683,7 +683,7 @@ const Account = () => {
                 <div className="space-y-3">
                   <div className="space-y-2"><Label>Address Line 1</Label><Input value={profileForm.address_line1 || ""} onChange={(e) => setProfileForm({ ...profileForm, address_line1: e.target.value })} /></div>
                   <div className="space-y-2"><Label>Address Line 2</Label><Input value={profileForm.address_line2 || ""} onChange={(e) => setProfileForm({ ...profileForm, address_line2: e.target.value })} /></div>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="space-y-2"><Label>City / Town</Label><Input value={profileForm.city || ""} onChange={(e) => setProfileForm({ ...profileForm, city: e.target.value })} /></div>
                     <div className="space-y-2"><Label>County</Label><Input value={profileForm.county || ""} onChange={(e) => setProfileForm({ ...profileForm, county: e.target.value })} /></div>
                     <div className="space-y-2"><Label>Postcode</Label><Input value={profileForm.postcode || ""} onChange={(e) => setProfileForm({ ...profileForm, postcode: e.target.value })} /></div>
@@ -744,25 +744,23 @@ const Account = () => {
                   <Users className="w-5 h-5" /> My Attendee Profile
                 </h2>
                 {selfProfile ? (
-                  <div className="text-sm text-muted-foreground space-y-1">
+                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <PhotoAvatarDuo
+                      photoUrl={selfProfile.profile_photo}
+                      avatarUrl={selfProfile.avatar_url}
+                      initials={`${selfProfile.first_name?.[0] ?? ""}${selfProfile.last_name?.[0] ?? ""}`}
+                      size="sm"
+                    />
                     <p>
                       <span className="text-foreground font-medium">{selfProfile.first_name} {selfProfile.last_name}</span>
                       {" · "}Age {getAge(selfProfile.date_of_birth)}
-                      {selfProfile.expected_arrival_time && selfProfile.expected_departure_time && (
-                        <> · Expected {selfProfile.expected_arrival_time.slice(0, 5)} → {selfProfile.expected_departure_time.slice(0, 5)}</>
-                      )}
                     </p>
-                    {(!selfProfile.expected_arrival_time || !selfProfile.expected_departure_time) && (
-                      <p className="text-amber-500 text-xs">
-                        Arrival/departure times missing — required before booking. Tap Edit to add them.
-                      </p>
-                    )}
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    Booking classes for yourself? Create your attendee profile (age, medical info,
-                    expected arrival &amp; departure) — it's required before you can book, and it's
-                    what our instructors see on the class register.
+                    Booking classes for yourself? Create your attendee profile (age and medical
+                    info) — it's required before you can book, and it's what our instructors see
+                    on the class register.
                   </p>
                 )}
               </div>

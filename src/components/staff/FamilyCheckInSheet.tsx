@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { AlertTriangle, LogIn, LogOut, ShieldCheck, Users } from "lucide-react";
+import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
 
 interface FamilyRow {
   id: string; // booking id
@@ -12,6 +13,7 @@ interface FamilyRow {
     last_name: string;
     preferred_name?: string | null;
     profile_photo?: string | null;
+    avatar_url?: string | null;
     is_self?: boolean;
     has_epipen?: boolean;
     has_inhaler?: boolean;
@@ -122,13 +124,12 @@ const FamilyCheckInSheet = ({
             return (
               <Card key={r.id} className="p-3">
                 <div className="flex items-center gap-3">
-                  {s?.profile_photo ? (
-                    <img src={s.profile_photo} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-bold shrink-0">
-                      {s?.first_name?.[0] ?? "A"}
-                    </div>
-                  )}
+                  <PhotoAvatarDuo
+                    photoUrl={s?.profile_photo}
+                    avatarUrl={s?.avatar_url}
+                    initials={s?.first_name?.[0] ?? "A"}
+                    size="sm"
+                  />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate flex items-center gap-1.5">
                       {displayName(r)}

@@ -18,6 +18,8 @@ import { AlertTriangle, Camera, Heart, Info, Loader2, Save, Sparkles, Wand2 } fr
 import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 import getCroppedImg from "@/lib/cropImage";
+import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
+import tdeLogo from "@/assets/logo-avatar-512.png";
 
 const GENDER_OPTIONS = ["Female", "Male", "Non-Binary", "Prefer Not to Say"];
 
@@ -87,8 +89,22 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
       if (uploadedPhotoUrl && uploadedPhotoUrl !== editing.profile_photo) {
         await supabase.from("students").update({ profile_photo: uploadedPhotoUrl }).eq("id", editing.id);
       }
+      // Ship the official TDE logo along so the generated t-shirt carries the
+      // real brand mark rather than an invented one.
+      const logoDataUrl = await fetch(tdeLogo)
+        .then((r) => r.blob())
+        .then(
+          (blob) =>
+            new Promise<string>((resolve, reject) => {
+              const fr = new FileReader();
+              fr.onload = () => resolve(fr.result as string);
+              fr.onerror = reject;
+              fr.readAsDataURL(blob);
+            }),
+        )
+        .catch(() => null);
       const { data, error } = await supabase.functions.invoke("generate-avatar", {
-        body: { studentId: editing.id },
+        body: { studentId: editing.id, logoDataUrl },
       });
       let message = data?.error || error?.message;
       const ctx = (error as { context?: Response } | null)?.context;
@@ -102,7 +118,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
         toast({ title: "Avatar Studio", description: message || "Couldn't create the avatar — please try again.", variant: "destructive" });
       } else {
         setAvatarUrl(data.avatarUrl);
-        toast({ title: "✨ Avatar created!", description: "Looking good! Use it as the profile picture if you love it." });
+        toast({ title: "✨ Avatar created!", description: "Saved! It now appears right next to the real photo." });
       }
     } catch (e: any) {
       toast({ title: "Avatar Studio", description: e?.message || "Something went wrong.", variant: "destructive" });
@@ -394,16 +410,14 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                         </p>
                       )}
                       {avatarUrl && (
-                        <div className="flex flex-col items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 p-3">
-                          <img src={avatarUrl} alt="Dance Exclusive avatar" className="w-32 h-32 rounded-full object-cover border-2 border-primary/40" />
-                          <div className="flex gap-2">
-                            <Button type="button" size="sm" variant="outline" onClick={() => { setUploadedPhotoUrl(avatarUrl); toast({ title: "Avatar set as profile picture!" }); }}>
-                              Use as profile picture
-                            </Button>
-                            <Button type="button" size="sm" variant="ghost" onClick={handleGenerateAvatar} disabled={avatarLoading}>
-                              Regenerate
-                            </Button>
-                          </div>
+                        <div className="flex flex-col items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+                          <PhotoAvatarDuo photoUrl={uploadedPhotoUrl} avatarUrl={avatarUrl} size="lg" showLabels />
+                          <p className="text-[11px] text-muted-foreground text-center" style={{ textTransform: "none", letterSpacing: "normal" }}>
+                            Both are saved — parents and staff always see the real photo and the avatar together.
+                          </p>
+                          <Button type="button" size="sm" variant="ghost" onClick={handleGenerateAvatar} disabled={avatarLoading}>
+                            Regenerate avatar
+                          </Button>
                         </div>
                       )}
                     </div>

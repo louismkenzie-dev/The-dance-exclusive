@@ -60,9 +60,16 @@ interface ChildFormDialogProps {
    * with is_self = true.
    */
   selfMode?: boolean;
+  /**
+   * When opened during booking, pre-fill the expected arrival/departure with
+   * the class times ("HH:MM"). The parent can still override (late arrival /
+   * early pickup). Only fills when the profile has no time set yet.
+   */
+  defaultArrivalTime?: string;
+  defaultDepartureTime?: string;
 }
 
-export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode = false }: ChildFormDialogProps) => {
+export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode = false, defaultArrivalTime, defaultDepartureTime }: ChildFormDialogProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
@@ -125,8 +132,9 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
         social_media_consent: editing.social_media_consent || false,
         has_medical_conditions: (editing.medical_conditions_list?.length > 0 || editing.has_inhaler || editing.has_epipen || editing.medical_info),
         has_allergies: (editing.allergies_list?.length > 0 || editing.allergies),
-        expected_arrival_time: editing.expected_arrival_time?.slice(0, 5) || "",
-        expected_departure_time: editing.expected_departure_time?.slice(0, 5) || "",
+        // Keep the profile's own times; fall back to the class times when none set.
+        expected_arrival_time: editing.expected_arrival_time?.slice(0, 5) || defaultArrivalTime || "",
+        expected_departure_time: editing.expected_departure_time?.slice(0, 5) || defaultDepartureTime || "",
       });
       setUploadedPhotoUrl(editing.profile_photo || null);
     } else {
@@ -140,13 +148,13 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
         dance_style_preference: "", ability_level: "", has_stage_experience: false,
         child_hook: "", photo_consent: true, social_media_consent: false,
         has_medical_conditions: false, has_allergies: false,
-        expected_arrival_time: "", expected_departure_time: "",
+        expected_arrival_time: defaultArrivalTime || "", expected_departure_time: defaultDepartureTime || "",
       });
       setUploadedPhotoUrl(null);
       setPhotoSrc(null);
       setShowCropper(false);
     }
-  }, [editing, open]);
+  }, [editing, open, defaultArrivalTime, defaultDepartureTime]);
 
   const update = (key: string, value: any) => setForm((prev: any) => ({ ...prev, [key]: value }));
 

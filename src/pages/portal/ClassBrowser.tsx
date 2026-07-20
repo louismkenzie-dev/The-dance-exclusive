@@ -153,6 +153,8 @@ const ClassBrowser = () => {
   const [selfStudent, setSelfStudent] = useState<any>(null);
   const [selfDialogOpen, setSelfDialogOpen] = useState(false);
   const [profileNudge, setProfileNudge] = useState<any>(null);
+  // Class times used to pre-fill an attendee's expected arrival/departure.
+  const [bookingTimes, setBookingTimes] = useState<{ start?: string; end?: string }>({});
   const [selectedChildren, setSelectedChildren] = useState<Record<string, string[]>>({});
   const [sessionCounts, setSessionCounts] = useState<Record<string, number>>({});
   const [classSessions, setClassSessions] = useState<Record<string, { id: string; session_date: string; start_time: string; end_time: string }[]>>({});
@@ -176,8 +178,9 @@ const ClassBrowser = () => {
   // classes, plus the adult's own self profile (required to book adult classes).
   const fetchAttendees = () => {
     if (!user) return;
+    // Full records so editing a profile mid-booking never blanks medical fields.
     supabase.from("students")
-      .select("id, first_name, last_name, preferred_name, date_of_birth, is_self, expected_arrival_time, expected_departure_time")
+      .select("*")
       .eq("parent_id", user.id)
       .then(({ data }) => {
         if (!data) return;
@@ -1174,6 +1177,7 @@ const ClassBrowser = () => {
 
                                   // Adults booking for themselves need a complete attendee
                                   // profile (age, medical, arrival/departure) for the register.
+                                  setBookingTimes({ start: c.start_time?.slice(0, 5), end: c.end_time?.slice(0, 5) });
                                   if (c.class_type === "adult") {
                                     if (!isAttendeeProfileComplete(selfStudent)) {
                                       setSelfDialogOpen(true);
@@ -1465,10 +1469,7 @@ const ClassBrowser = () => {
         hasExistingBookings={hasExistingBookings}
         isAdult={isAdult}
         selfStudent={selfStudent}
-        onRequireProfile={(student) => {
-          if (student) setProfileNudge(student);
-          else setSelfDialogOpen(true);
-        }}
+        onChildrenChanged={fetchAttendees}
       />
 
       {/* Adult self attendee profile — required before booking for yourself */}
@@ -1478,6 +1479,8 @@ const ClassBrowser = () => {
         onSaved={fetchAttendees}
         editing={selfStudent}
         selfMode
+        defaultArrivalTime={bookingTimes.start}
+        defaultDepartureTime={bookingTimes.end}
       />
 
       {/* Complete a child's profile (arrival/departure times) mid-booking */}
@@ -1486,6 +1489,8 @@ const ClassBrowser = () => {
         onOpenChange={(o) => { if (!o) setProfileNudge(null); }}
         onSaved={fetchAttendees}
         editing={profileNudge}
+        defaultArrivalTime={bookingTimes.start}
+        defaultDepartureTime={bookingTimes.end}
       />
     </div>
   );

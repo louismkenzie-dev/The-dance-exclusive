@@ -13,23 +13,54 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Structured, high-detail prompt tuned for a great result on the FIRST pass
+// (there is no regenerate in the UI). The character is stylised; the logo is
+// explicitly excluded from stylisation and must stay a hyperreal, faithful
+// screen print of the official mark.
 const AVATAR_PROMPT =
-  "The first image is a real photo of a person. The second image is the OFFICIAL logo of The Dance Exclusive, " +
-  "a UK street-dance school: a blue paint-splat with white 'THE DANCE EXCLUSIVE' lettering and a small crown. " +
-  "Transform the person into a vibrant 3D cartoon avatar. Keep their recognisable features — hairstyle, skin " +
-  "tone, face shape and smile. They are wearing a black t-shirt printed on the chest with the official logo " +
-  "from the second image, reproduced EXACTLY as provided — do not redesign, recolour, reword or reinterpret " +
-  "the logo in any way. Show them mid dance move, full of confident joyful energy, on a performance stage lit " +
-  "by dramatic blue and magenta stage lights with a subtle crowd glow. Family-friendly, polished " +
-  "animated-movie style, high quality.";
+  "You are given two input images. IMAGE 1 is a real photograph of a person. IMAGE 2 is the OFFICIAL logo of " +
+  "The Dance Exclusive, a UK street-dance school: a bright cyan-blue paint-splat with bold white capital " +
+  "letters reading 'THE DANCE EXCLUSIVE' and a small white crown above the lettering.\n\n" +
+  "CHARACTER — Transform the person from IMAGE 1 into a premium 3D animated-movie character (modern " +
+  "Pixar/DreamWorks feature-film quality). Preserve their real identity so they are instantly recognisable: " +
+  "exact face shape, exact hairstyle, hairline and hair texture, exact skin tone, eye colour, eyebrows and " +
+  "natural smile, plus distinctive features such as glasses, freckles or dimples if present. Keep their " +
+  "apparent age, gender presentation, ethnicity and body proportions — apply only gentle, tasteful cartoon " +
+  "stylisation (slightly larger expressive eyes, soft rounded forms). Warm, joyful, confident expression.\n\n" +
+  "T-SHIRT AND LOGO — The character wears a plain black crew-neck cotton t-shirt. Printed large and centred " +
+  "on the chest is the logo from IMAGE 2, reproduced with HYPERREALISTIC fidelity as a crisp professional " +
+  "screen print: identical splat silhouette, identical letterforms and spelling ('THE DANCE EXCLUSIVE'), " +
+  "identical crown, identical cyan-blue and white colours, correct aspect ratio, razor-sharp edges, fully " +
+  "legible, facing the viewer with only the minimal natural curve of fabric drape. The logo is the ONE " +
+  "element that must NOT be cartoonised: do not redesign, redraw, recolour, re-letter, warp, tilt, crop, " +
+  "blur, simplify or stylise it, and do not add any other text or graphics to the shirt. Keep both arms and " +
+  "hands completely clear of the chest so the entire logo is visible.\n\n" +
+  "POSE AND SCENE — Dynamic mid-move street-dance freeze full of energy (for example one arm pointing " +
+  "skyward, body angled, knees bent), torso squarely towards camera so the chest print reads clearly. " +
+  "Setting: a live performance stage — dramatic deep-blue and magenta stage lighting with a coloured rim " +
+  "light on the character, gentle atmospheric haze, soft out-of-focus crowd glow in the darkness behind, " +
+  "subtle glossy reflection on the stage floor.\n\n" +
+  "RENDER QUALITY — Cinematic studio render: high detail, soft subsurface skin shading, clean silhouette, " +
+  "sharp focus on the character, vibrant but balanced colour grade that flatters the blue/magenta palette. " +
+  "Family-friendly. Correct anatomy, five fingers per hand, no duplicate limbs, no watermarks, no captions " +
+  "and no text anywhere in the image other than the t-shirt logo.";
 
+// Fallback when the app couldn't attach the logo image: same brief, with the
+// logo described as precisely as words allow.
 const AVATAR_PROMPT_NO_LOGO =
-  "Transform the person in this photo into a vibrant 3D cartoon avatar for The Dance Exclusive, " +
-  "a UK street-dance school. Keep their recognisable features — hairstyle, skin tone, face shape and smile. " +
-  "They are wearing official Dance Exclusive merchandise: a black t-shirt with a blue paint-splat logo with " +
-  "white 'THE DANCE EXCLUSIVE' lettering and a small crown. " +
-  "Show them mid dance move, full of confident joyful energy, on a performance stage lit by dramatic blue and " +
-  "magenta stage lights with a subtle crowd glow. Family-friendly, polished animated-movie style, high quality.";
+  "Transform the person in this real photograph into a premium 3D animated-movie character (modern " +
+  "Pixar/DreamWorks feature-film quality) for The Dance Exclusive, a UK street-dance school. Preserve their " +
+  "real identity so they are instantly recognisable: exact face shape, hairstyle, hairline and hair texture, " +
+  "skin tone, eye colour, eyebrows and natural smile, plus distinctive features such as glasses or freckles. " +
+  "Keep their apparent age, gender presentation, ethnicity and body proportions — only gentle, tasteful " +
+  "cartoon stylisation. They wear a plain black crew-neck t-shirt printed large and centred on the chest " +
+  "with the official school logo rendered as a hyperrealistic crisp screen print: a bright cyan-blue paint " +
+  "splat behind bold white capital letters reading 'THE DANCE EXCLUSIVE' with a small white crown above — " +
+  "sharp-edged, fully legible, not stylised, with no other text or graphics on the shirt and both arms kept " +
+  "clear of the chest. Pose: dynamic mid-move street-dance freeze, torso towards camera. Scene: live " +
+  "performance stage with deep-blue and magenta lighting, rim light, gentle haze, soft crowd glow behind and " +
+  "a subtle glossy floor reflection. Cinematic studio render, high detail, family-friendly, correct anatomy, " +
+  "no watermarks and no text anywhere except the t-shirt logo.";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -118,7 +149,10 @@ serve(async (req) => {
     }
     form.append("prompt", logoBlob ? AVATAR_PROMPT : AVATAR_PROMPT_NO_LOGO);
     form.append("size", "1024x1024");
-    form.append("quality", "medium");
+    // One-shot generation (no regenerate in the UI), so spend on quality:
+    // input_fidelity high preserves the face and the logo artwork faithfully.
+    form.append("quality", "high");
+    form.append("input_fidelity", "high");
 
     const aiRes = await fetch("https://api.openai.com/v1/images/edits", {
       method: "POST",

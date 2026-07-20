@@ -111,10 +111,11 @@ const BookingQrDialog = ({ open, onOpenChange, booking }: Props) => {
                 />
               </div>
               <div className="text-center space-y-1">
-                <p className="font-semibold text-foreground">{studentName}</p>
-                {className && <p className="text-xs text-muted-foreground">{className}</p>}
+                {/* Card is always white — force dark text so it's readable in dark mode too. */}
+                <p className="font-semibold text-black">{studentName}</p>
+                {className && <p className="text-xs text-gray-600">{className}</p>}
                 {nextSession && (
-                  <p className="text-xs text-muted-foreground flex items-center justify-center gap-1 pt-1">
+                  <p className="text-xs text-gray-600 flex items-center justify-center gap-1 pt-1">
                     <CalendarIcon className="w-3 h-3" />
                     Next: {format(new Date(nextSession.session_date), "EEE d MMM")} · {nextSession.start_time?.slice(0, 5)}
                   </p>

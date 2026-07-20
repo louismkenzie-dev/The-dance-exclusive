@@ -82,7 +82,7 @@ const StaffRegisters = () => {
     for (const s of all) {
       const { data: bookings } = await supabase
         .from("bookings")
-        .select(`id, student_id, students:student_id ( first_name, last_name, preferred_name, profile_photo, date_of_birth, is_self, expected_arrival_time, expected_departure_time, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info )`)
+        .select(`id, student_id, students:student_id ( first_name, last_name, preferred_name, profile_photo, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info )`)
         .eq("class_id", s.class_id)
         .eq("status", "confirmed");
       const { data: att } = await supabase
@@ -359,10 +359,6 @@ const StaffRegisters = () => {
                                   {att?.checked_out_at && <span className="text-foreground">Out {fmt(att.checked_out_at)}</span>}
                                   {att?.collector_name && <span className="text-[11px] text-muted-foreground">{att.collector_name}</span>}
                                 </div>
-                              ) : student?.expected_arrival_time || student?.expected_departure_time ? (
-                                <span className="text-muted-foreground">
-                                  Expected {student.expected_arrival_time?.slice(0, 5) ?? "—"} → {student.expected_departure_time?.slice(0, 5) ?? "—"}
-                                </span>
                               ) : (
                                 <span className="opacity-50">—</span>
                               )}

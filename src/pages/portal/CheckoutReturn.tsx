@@ -15,6 +15,7 @@ import {
   Mail,
   Receipt,
   Sparkles,
+  QrCode,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -395,6 +396,21 @@ const CheckoutReturn = () => {
             in your account.
           </Card>
         )}
+
+        {/* QR check-in reminder */}
+        <Card className="p-5 border-primary/30 bg-primary/5">
+          <div className="flex items-start gap-3">
+            <QrCode className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-semibold text-foreground">Before your first class — grab your QR code</p>
+              <p className="text-muted-foreground mt-1">
+                Each booking has a QR code in <Link to="/account/bookings" className="text-primary underline font-medium">My Bookings</Link>.
+                Show it to a member of staff when you arrive (and when you leave) so they can scan you in and mark attendance.
+                Save it to your phone or screenshot it for quick access.
+              </p>
+            </div>
+          </div>
+        </Card>
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">

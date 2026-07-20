@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, ShieldCheck, Lock, Loader2, ChevronDown, Tag, X } from "lucide-react";
+import { ArrowLeft, ShieldCheck, Lock, Loader2, ChevronDown, Tag, X, UserPlus } from "lucide-react";
 import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 import {
   Collapsible,
@@ -273,6 +273,8 @@ const CheckoutPage = () => {
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(true);
+  // Attendee-profile errors get an actionable "Add attendee details" button.
+  const needsProfile = !!initError && /attendee profile|arrival\/departure|profile is missing|attendee's profile/i.test(initError);
 
   // Coupon state
   const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
@@ -454,11 +456,16 @@ const CheckoutPage = () => {
               )}
 
               {initError && !initializing && (
-                <div className="p-6">
+                <div className="p-6 space-y-4">
                   <Alert variant="destructive">
-                    <AlertTitle>Checkout unavailable</AlertTitle>
+                    <AlertTitle>{needsProfile ? "Attendee details needed" : "Checkout unavailable"}</AlertTitle>
                     <AlertDescription>{initError}</AlertDescription>
                   </Alert>
+                  {needsProfile && (
+                    <Button onClick={() => navigate("/account")} className="w-full gap-1.5">
+                      <UserPlus className="w-4 h-4" /> Add attendee details
+                    </Button>
+                  )}
                 </div>
               )}
 

@@ -1418,6 +1418,8 @@ export type Database = {
           postcode: string | null
           preferred_name: string | null
           profile_photo: string | null
+          pickup_pin: string | null
+          avatar_url: string | null
           secondary_phone: string | null
           updated_at: string
           user_id: string
@@ -1446,6 +1448,8 @@ export type Database = {
           postcode?: string | null
           preferred_name?: string | null
           profile_photo?: string | null
+          pickup_pin?: string | null
+          avatar_url?: string | null
           secondary_phone?: string | null
           updated_at?: string
           user_id: string
@@ -1474,6 +1478,8 @@ export type Database = {
           postcode?: string | null
           preferred_name?: string | null
           profile_photo?: string | null
+          pickup_pin?: string | null
+          avatar_url?: string | null
           secondary_phone?: string | null
           updated_at?: string
           user_id?: string
@@ -1921,6 +1927,7 @@ export type Database = {
           photo_consent: boolean
           preferred_name: string | null
           profile_photo: string | null
+          avatar_url: string | null
           prone_to_accidents: boolean
           send_conditions_list: string[]
           send_details: string | null
@@ -1961,6 +1968,7 @@ export type Database = {
           photo_consent?: boolean
           preferred_name?: string | null
           profile_photo?: string | null
+          avatar_url?: string | null
           prone_to_accidents?: boolean
           send_conditions_list?: string[]
           send_details?: string | null
@@ -2001,6 +2009,7 @@ export type Database = {
           photo_consent?: boolean
           preferred_name?: string | null
           profile_photo?: string | null
+          avatar_url?: string | null
           prone_to_accidents?: boolean
           send_conditions_list?: string[]
           send_details?: string | null

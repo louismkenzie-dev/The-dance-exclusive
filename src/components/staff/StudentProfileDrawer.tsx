@@ -76,7 +76,7 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
       const [{ data: p }, { data: c }] = await Promise.all([
         supabase
           .from("profiles")
-          .select("full_name, email, phone, secondary_phone, address_line1, city, postcode")
+          .select("full_name, email, phone, secondary_phone, address_line1, city, postcode, pickup_pin")
           .eq("user_id", s.parent_id)
           .maybeSingle(),
         supabase
@@ -281,6 +281,18 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
                   <Row label="Email" value={parent.email} />
                   {parent.address_line1 && (
                     <Row label="Address" value={`${parent.address_line1}, ${parent.city ?? ""} ${parent.postcode ?? ""}`} />
+                  )}
+                  {parent.pickup_pin && (
+                    <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-amber-600">No QR? Family PIN</span>
+                        <span className="font-mono font-bold text-lg tracking-[0.3em]">{parent.pickup_pin}</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        If the collector has no QR code, ask them for this 4-digit Family PIN before
+                        signing in/out, and record their name when prompted.
+                      </p>
+                    </div>
                   )}
                 </Section>
               )}

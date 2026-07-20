@@ -387,27 +387,31 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                   {/* ═══ DANCE EXCLUSIVE AVATAR STUDIO ═══ */}
                   {uploadedPhotoUrl && editing && (
                     <div className="w-full max-w-sm space-y-3">
-                      <Button
-                        type="button"
-                        onClick={handleGenerateAvatar}
-                        disabled={avatarLoading}
-                        className="w-full gap-2 bg-gradient-to-r from-primary via-purple-500 to-accent text-white font-semibold uppercase tracking-wider hover:opacity-90 shadow-lg"
-                      >
-                        {avatarLoading ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" /> Creating your avatar… (~30s)
-                          </>
-                        ) : (
-                          <>
-                            <Wand2 className="w-4 h-4" /> Create Dance Exclusive Avatar
-                          </>
-                        )}
-                      </Button>
-                      {!avatarUrl && !avatarLoading && (
-                        <p className="text-[11px] text-muted-foreground text-center" style={{ textTransform: "none", letterSpacing: "normal" }}>
-                          Turn this photo into an on-brand cartoon — {selfMode ? "you" : "your child"} in Dance
-                          Exclusive merch, dancing on stage under the lights. ✨
-                        </p>
+                      {!avatarUrl && (
+                        <>
+                          <Button
+                            type="button"
+                            onClick={handleGenerateAvatar}
+                            disabled={avatarLoading}
+                            className="w-full gap-2 bg-gradient-to-r from-primary via-purple-500 to-accent text-white font-semibold uppercase tracking-wider hover:opacity-90 shadow-lg"
+                          >
+                            {avatarLoading ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" /> Creating your avatar… (~1 min)
+                              </>
+                            ) : (
+                              <>
+                                <Wand2 className="w-4 h-4" /> Create Dance Exclusive Avatar
+                              </>
+                            )}
+                          </Button>
+                          {!avatarLoading && (
+                            <p className="text-[11px] text-muted-foreground text-center" style={{ textTransform: "none", letterSpacing: "normal" }}>
+                              Turn this photo into an on-brand cartoon — {selfMode ? "you" : "your child"} in Dance
+                              Exclusive merch, dancing on stage under the lights. ✨
+                            </p>
+                          )}
+                        </>
                       )}
                       {avatarUrl && (
                         <div className="flex flex-col items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
@@ -415,9 +419,6 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                           <p className="text-[11px] text-muted-foreground text-center" style={{ textTransform: "none", letterSpacing: "normal" }}>
                             Both are saved — parents and staff always see the real photo and the avatar together.
                           </p>
-                          <Button type="button" size="sm" variant="ghost" onClick={handleGenerateAvatar} disabled={avatarLoading}>
-                            Regenerate avatar
-                          </Button>
                         </div>
                       )}
                     </div>

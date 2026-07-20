@@ -407,8 +407,9 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                           </Button>
                           {!avatarLoading && (
                             <p className="text-[11px] text-muted-foreground text-center" style={{ textTransform: "none", letterSpacing: "normal" }}>
-                              Turn this photo into an on-brand cartoon — {selfMode ? "you" : "your child"} in Dance
-                              Exclusive merch, dancing on stage under the lights. ✨
+                              {selfMode
+                                ? "Turn this photo into an on-brand studio portrait — you in Dance Exclusive merch under the signature pink lights. ✨"
+                                : "Turn this photo into an on-brand cartoon — your child in Dance Exclusive merch, dancing on stage under the lights. ✨"}
                             </p>
                           )}
                         </>

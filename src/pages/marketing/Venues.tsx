@@ -1,13 +1,15 @@
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   MapPin,
   ArrowRight,
   Car,
   Wind,
   Eye,
-  Coffee,
   Sparkles,
   Volume2,
   Music2,
@@ -17,95 +19,58 @@ import {
   HeartHandshake,
   Compass,
   Star,
+  Navigation,
 } from "lucide-react";
 import { FadeRise, Stagger, AnimatedNumber, AmbientGlow } from "@/components/motion";
+import VenueMap from "@/components/VenueMap";
 
-type VenueTone = "primary" | "accent";
-
-type Venue = {
+interface PublicVenue {
+  id: string;
   name: string;
-  town: string;
-  blurb: string;
-  facilities: string[];
-  tone: VenueTone;
-  established: string;
+  address_line1: string;
+  city: string;
+  county: string | null;
+  postcode: string;
+  short_description: string | null;
+  description: string | null;
+  hero_image: string | null;
+  photo_outside: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  is_active: boolean;
+  is_featured: boolean;
+  slug: string | null;
+  floor_type: string | null;
+  has_mirrors: boolean | null;
+  has_sound_system: boolean | null;
+  has_changing_rooms: boolean | null;
+  has_parking: boolean | null;
+  has_waiting_area: boolean | null;
+  accessibility_info: string | null;
+}
+
+/** Real facility chips — rendered only when the venue record actually has them. */
+const facilityChips = (v: PublicVenue): { label: string; icon: typeof MapPin }[] => {
+  const chips: { label: string; icon: typeof MapPin }[] = [];
+  if (v.floor_type) chips.push({ label: `${v.floor_type} floor`, icon: Wind });
+  if (v.has_mirrors) chips.push({ label: "Mirrored studio", icon: Eye });
+  if (v.has_sound_system) chips.push({ label: "Pro sound", icon: Volume2 });
+  if (v.has_changing_rooms) chips.push({ label: "Changing rooms", icon: ShieldCheck });
+  if (v.has_parking) chips.push({ label: "Parking", icon: Car });
+  if (v.has_waiting_area) chips.push({ label: "Waiting area", icon: Clock });
+  if (v.accessibility_info) chips.push({ label: "Accessible", icon: Accessibility });
+  return chips;
 };
 
-const TONE_STYLES: Record<VenueTone, { tile: string; wash: string }> = {
-  primary: {
-    tile: "bg-primary/10 text-primary",
-    wash: "from-primary/15 via-primary/5 to-transparent",
-  },
-  accent: {
-    tile: "bg-accent/10 text-accent",
-    wash: "from-accent/15 via-accent/5 to-transparent",
-  },
-};
+const outcode = (postcode: string) => postcode.split(" ")[0] ?? postcode;
 
-const VENUES: Venue[] = [
-  {
-    name: "Kelvedon Studios",
-    town: "Kelvedon, CO5",
-    blurb: "Our flagship space — purpose-built for commercial and street, wall-to-wall mirrors and a soundsystem that hits.",
-    facilities: ["Sprung floor", "Free parking", "Viewing area", "Café"],
-    tone: "primary",
-    established: "Est. 2014",
-  },
-  {
-    name: "Braintree Hall",
-    town: "Braintree, CM7",
-    blurb: "A high-ceilinged studio with serious headroom for tricks, lifts and big crew formations.",
-    facilities: ["Sprung floor", "Free parking", "Changing rooms", "Step-free access"],
-    tone: "accent",
-    established: "Est. 2016",
-  },
-  {
-    name: "White Notley Studio",
-    town: "White Notley, CM8",
-    blurb: "Our intimate village studio — small classes, big attention, the warmest welcome for first-timers.",
-    facilities: ["Sprung floor", "Free parking", "Viewing window", "On-site toilets"],
-    tone: "primary",
-    established: "Est. 2018",
-  },
-  {
-    name: "Chelmsford City Studio",
-    town: "Chelmsford, CM1",
-    blurb: "City-centre energy with full mirror walls and a pro PA — where competition crews sharpen their edge.",
-    facilities: ["Sprung floor", "Pay & display nearby", "Spectator seating", "Air-conditioned"],
-    tone: "accent",
-    established: "Est. 2019",
-  },
-  {
-    name: "Clacton-on-Sea Studio",
-    town: "Clacton-on-Sea, CO15",
-    blurb: "Our seaside home on the coast — bright, breezy and buzzing with after-school energy all week.",
-    facilities: ["Sprung floor", "Free parking", "Viewing area", "Refreshments"],
-    tone: "primary",
-    established: "Est. 2021",
-  },
-];
+const anchorFor = (v: PublicVenue) =>
+  v.slug || v.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
-const FACILITY_ICONS: Record<string, typeof MapPin> = {
-  "Sprung floor": Wind,
-  "Free parking": Car,
-  "Pay & display nearby": Car,
-  "Viewing area": Eye,
-  "Viewing window": Eye,
-  "Spectator seating": Eye,
-  "Café": Coffee,
-  Refreshments: Coffee,
-  "Changing rooms": ShieldCheck,
-  "Step-free access": Accessibility,
-  "On-site toilets": ShieldCheck,
-  "Air-conditioned": Wind,
-};
-
-const STATS = [
-  { value: 5, suffix: "", label: "Essex venues" },
-  { value: 30, suffix: "+", label: "Minutes apart, max" },
-  { value: 12, suffix: "", label: "Classes every week" },
-  { value: 100, suffix: "%", label: "Sprung floors" },
-];
+const directionsUrl = (v: PublicVenue) =>
+  `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    `${v.name}, ${v.postcode}`,
+  )}`;
 
 const EXPECT = [
   {
@@ -128,9 +93,46 @@ const EXPECT = [
   },
 ];
 
-const anchorFor = (v: Venue) => v.town.split(",")[0].trim().toLowerCase().replace(/\s+/g, "-");
-
 const Venues = () => {
+  const [venues, setVenues] = useState<PublicVenue[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("venues")
+        .select(
+          "id, name, address_line1, city, county, postcode, short_description, description, hero_image, photo_outside, latitude, longitude, is_active, is_featured, slug, floor_type, has_mirrors, has_sound_system, has_changing_rooms, has_parking, has_waiting_area, accessibility_info",
+        )
+        .eq("publicly_visible", true)
+        .order("is_featured", { ascending: false })
+        .order("name");
+      if (!cancelled) {
+        if (!error && data) setVenues(data as PublicVenue[]);
+        setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const towns = useMemo(
+    () => [...new Set(venues.map((v) => v.city).filter(Boolean))],
+    [venues],
+  );
+  const counties = useMemo(
+    () => [...new Set(venues.map((v) => v.county).filter(Boolean))] as string[],
+    [venues],
+  );
+  const regionLine =
+    counties.length > 1
+      ? `${counties.slice(0, -1).join(", ")} and ${counties[counties.length - 1]}`
+      : counties[0] || "Essex";
+
+  const hasMap = Boolean(import.meta.env.VITE_MAPBOX_TOKEN) && venues.some((v) => v.latitude && v.longitude);
+
   return (
     <div className="overflow-x-clip bg-background text-foreground">
       {/* ───────────────── Hero ───────────────── */}
@@ -138,25 +140,27 @@ const Venues = () => {
         <AmbientGlow variant="light" />
         <div className="container relative max-w-7xl">
           <FadeRise className="mx-auto max-w-3xl text-center">
-            <p className="eyebrow mb-5">Five studios · one family</p>
+            <p className="eyebrow mb-5">
+              {venues.length > 0 ? `${venues.length} venues · one family` : "Our venues"}
+            </p>
             <h1 className="font-display text-5xl font-extrabold tracking-tight md:text-7xl">
               Find your{" "}
               <em className="font-serif italic font-normal text-primary">studio</em>
             </h1>
             <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-muted-foreground md:text-xl">
-              Five award-winning venues across Essex, each with sprung floors, big sound and
-              the same electric energy. Wherever you are, your spotlight is closer than you think.
+              Award-winning classes across {regionLine}, each venue with the same electric
+              energy. Wherever you are, your spotlight is closer than you think.
             </p>
 
             <div className="mt-9 flex flex-wrap justify-center gap-3">
-              {VENUES.map((v) => (
+              {venues.map((v) => (
                 <a
-                  key={v.name}
+                  key={v.id}
                   href={`#${anchorFor(v)}`}
                   className="inline-flex items-center gap-1.5 rounded-full bg-card px-4 py-2 text-sm font-medium text-muted-foreground shadow-soft transition-all duration-300 ease-out hover:-translate-y-0.5 hover:text-foreground hover:shadow-soft-md"
                 >
                   <MapPin className="h-3.5 w-3.5 text-primary" />
-                  {v.town.split(",")[0].trim()}
+                  {v.city}
                 </a>
               ))}
             </div>
@@ -165,18 +169,24 @@ const Venues = () => {
       </section>
 
       {/* ───────────────── Stat band ───────────────── */}
-      <section className="px-4 pb-16 md:pb-20">
-        <Stagger className="container grid max-w-7xl grid-cols-2 gap-8 text-center md:grid-cols-4">
-          {STATS.map((s) => (
-            <div key={s.label}>
-              <div className="font-display text-4xl font-bold tabular-nums text-primary md:text-5xl">
-                <AnimatedNumber value={s.value} suffix={s.suffix} />
+      {venues.length > 0 && (
+        <section className="px-4 pb-16 md:pb-20">
+          <Stagger className="container grid max-w-7xl grid-cols-3 gap-8 text-center">
+            {[
+              { value: venues.length, label: "Venues" },
+              { value: towns.length, label: "Towns & villages" },
+              { value: counties.length || 1, label: "Counties" },
+            ].map((s) => (
+              <div key={s.label}>
+                <div className="font-display text-4xl font-bold tabular-nums text-primary md:text-5xl">
+                  <AnimatedNumber value={s.value} />
+                </div>
+                <div className="eyebrow mt-2">{s.label}</div>
               </div>
-              <div className="eyebrow mt-2">{s.label}</div>
-            </div>
-          ))}
-        </Stagger>
-      </section>
+            ))}
+          </Stagger>
+        </section>
+      )}
 
       {/* ───────────────── Venue grid ───────────────── */}
       <section className="bg-secondary/40 px-4 py-16 md:py-24">
@@ -184,103 +194,171 @@ const Venues = () => {
           <FadeRise className="mx-auto mb-14 max-w-2xl text-center">
             <p className="eyebrow mb-3">The venues</p>
             <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
-              Pick the studio nearest you
+              Pick the venue nearest you
             </h2>
             <p className="mt-4 text-muted-foreground">
-              Same coaching, same family, same standards — five postcodes to choose from.
-              Every room is kitted for serious training and built to make you feel at home.
+              Same coaching, same family, same standards — {venues.length || "plenty of"}{" "}
+              postcodes to choose from. Every room is chosen for serious training and built
+              to make you feel at home.
             </p>
           </FadeRise>
 
-          <Stagger className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3" childClassName="h-full">
-            {VENUES.map((v) => {
-              const tone = TONE_STYLES[v.tone];
-              return (
-                <Card
-                  key={v.name}
-                  id={anchorFor(v)}
-                  className="flex h-full scroll-mt-28 flex-col overflow-hidden transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg"
-                >
-                  {/* placeholder photo tile — drop real photography in here later */}
-                  <div className={`relative aspect-[4/3] overflow-hidden bg-gradient-to-br ${tone.wash}`}>
-                    <div className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-card/80 px-2.5 py-1 text-[11px] font-medium text-foreground shadow-soft backdrop-blur-sm">
-                      <Star className="h-3 w-3 text-warning" fill="currentColor" />
-                      Award-winning
-                    </div>
-                    <div className="flex h-full flex-col items-center justify-center gap-2.5">
-                      <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${tone.tile}`}>
-                        <MapPin className="h-6 w-6" />
-                      </div>
-                      <span className="eyebrow">{v.established}</span>
-                    </div>
-                  </div>
-
-                  {/* body */}
-                  <div className="flex flex-1 flex-col p-6">
-                    <div className="flex items-start gap-3">
-                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${tone.tile}`}>
-                        <MapPin className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <h3 className="font-display text-xl font-bold leading-tight tracking-tight">
-                          {v.name}
-                        </h3>
-                        <p className="mt-0.5 text-sm text-muted-foreground">{v.town}</p>
-                      </div>
-                    </div>
-
-                    <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{v.blurb}</p>
-
-                    {/* facilities */}
-                    <ul className="mb-6 mt-5 flex flex-wrap gap-2">
-                      {v.facilities.map((f) => {
-                        const Icon = FACILITY_ICONS[f] ?? Sparkles;
-                        return (
-                          <li
-                            key={f}
-                            className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-medium text-secondary-foreground"
-                          >
-                            <Icon className="h-3 w-3 text-muted-foreground" />
-                            {f}
-                          </li>
-                        );
-                      })}
-                    </ul>
-
-                    <div className="mt-auto flex items-center justify-between gap-3 border-t border-border/50 pt-5">
-                      <Button asChild size="sm">
-                        <Link to="/classes/children">
-                          View classes <ArrowRight className="h-4 w-4" />
-                        </Link>
-                      </Button>
-                      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Volume2 className="h-3.5 w-3.5" /> Pro PA
-                      </span>
-                    </div>
+          {loading ? (
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Card key={i} className="overflow-hidden">
+                  <Skeleton className="aspect-[4/3] w-full rounded-none" />
+                  <div className="space-y-3 p-6">
+                    <Skeleton className="h-5 w-2/3" />
+                    <Skeleton className="h-4 w-1/3" />
+                    <Skeleton className="h-4 w-full" />
                   </div>
                 </Card>
-              );
-            })}
-
-            {/* "can't choose?" helper card to balance the 5-card grid */}
-            <div className="flex h-full flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-card/60 p-8 text-center transition-all duration-300 ease-out hover:-translate-y-0.5">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                <Compass className="h-6 w-6" />
-              </div>
-              <h3 className="mt-4 font-display text-xl font-bold tracking-tight">Not sure which?</h3>
-              <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted-foreground">
-                Tell us your postcode and what you're after — we'll point you to the perfect
-                studio and the right class to start with.
-              </p>
-              <Button asChild variant="outline" className="mt-5">
-                <Link to="/classes/children">
-                  Browse every class <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
+              ))}
             </div>
-          </Stagger>
+          ) : venues.length === 0 ? (
+            <FadeRise className="mx-auto max-w-md text-center">
+              <Card className="p-10">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <MapPin className="h-6 w-6" />
+                </div>
+                <h3 className="mt-4 font-display text-xl font-bold tracking-tight">
+                  New venues announcing soon
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  We're finalising our venue list for the new term — check back shortly or
+                  browse classes to register your interest.
+                </p>
+              </Card>
+            </FadeRise>
+          ) : (
+            <Stagger className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3" childClassName="h-full">
+              {venues.map((v) => {
+                const img = v.hero_image || v.photo_outside;
+                const chips = facilityChips(v);
+                const blurb = v.short_description || v.description;
+                return (
+                  <Card
+                    key={v.id}
+                    id={anchorFor(v)}
+                    className="flex h-full scroll-mt-28 flex-col overflow-hidden transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg"
+                  >
+                    <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-primary/15 via-primary/5 to-transparent">
+                      {img ? (
+                        <img
+                          src={img}
+                          alt={`${v.name}, ${v.city}`}
+                          loading="lazy"
+                          className="h-full w-full object-cover transition-transform duration-500 ease-out hover:scale-[1.03]"
+                        />
+                      ) : (
+                        <div className="flex h-full flex-col items-center justify-center gap-2.5">
+                          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                            <MapPin className="h-6 w-6" />
+                          </div>
+                          <span className="eyebrow">{v.city}</span>
+                        </div>
+                      )}
+                      {v.is_featured && (
+                        <div className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-card/80 px-2.5 py-1 text-[11px] font-medium text-foreground shadow-soft backdrop-blur-sm">
+                          <Star className="h-3 w-3 text-warning" fill="currentColor" />
+                          New for September
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-1 flex-col p-6">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                          <MapPin className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <h3 className="font-display text-xl font-bold leading-tight tracking-tight">
+                            {v.name}
+                          </h3>
+                          <p className="mt-0.5 text-sm text-muted-foreground">
+                            {v.city}, {outcode(v.postcode)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {blurb && (
+                        <p className="mb-6 mt-3 text-sm leading-relaxed text-muted-foreground">{blurb}</p>
+                      )}
+
+                      {chips.length > 0 && (
+                        <ul className="mb-6 mt-5 flex flex-wrap gap-2">
+                          {chips.map((c) => (
+                            <li
+                              key={c.label}
+                              className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-medium text-secondary-foreground"
+                            >
+                              <c.icon className="h-3 w-3 text-muted-foreground" />
+                              {c.label}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      <div className="mt-auto flex items-center justify-between gap-3 border-t border-border/50 pt-5">
+                        <Button asChild size="sm">
+                          <Link to="/classes/children">
+                            View classes <ArrowRight className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                        <a
+                          href={directionsUrl(v)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-primary"
+                        >
+                          <Navigation className="h-3.5 w-3.5" /> Directions
+                        </a>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+
+              {/* "can't choose?" helper card */}
+              <div className="flex h-full flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-card/60 p-8 text-center transition-all duration-300 ease-out hover:-translate-y-0.5">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <Compass className="h-6 w-6" />
+                </div>
+                <h3 className="mt-4 font-display text-xl font-bold tracking-tight">Not sure which?</h3>
+                <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted-foreground">
+                  Pop your postcode into the class browser and we'll sort every class by
+                  distance from your front door.
+                </p>
+                <Button asChild variant="outline" className="mt-5">
+                  <Link to="/classes/children">
+                    Browse every class <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            </Stagger>
+          )}
         </div>
       </section>
+
+      {/* ───────────────── Map ───────────────── */}
+      {hasMap && (
+        <section className="px-4 py-16 md:py-24">
+          <div className="container max-w-7xl">
+            <FadeRise className="mx-auto mb-10 max-w-2xl text-center">
+              <p className="eyebrow mb-3">On the map</p>
+              <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
+                All of our venues, one map
+              </h2>
+            </FadeRise>
+            <FadeRise>
+              <div className="overflow-hidden rounded-3xl shadow-soft-lg">
+                <VenueMap venues={venues} />
+              </div>
+            </FadeRise>
+          </div>
+        </section>
+      )}
 
       {/* ───────────────── What to expect ───────────────── */}
       <section className="relative overflow-hidden px-4 py-16 md:py-24">
@@ -348,7 +426,8 @@ const Venues = () => {
                   <span className="text-accent">near you</span>
                 </h2>
                 <p className="mt-5 text-lg text-muted-foreground">
-                  Five Essex venues. One unforgettable first class. Find your nearest studio and book today.
+                  Venues across {regionLine}. One unforgettable first class. Find your nearest
+                  and book today.
                 </p>
                 <div className="mt-9 flex flex-col justify-center gap-4 sm:flex-row">
                   <Button asChild size="lg">

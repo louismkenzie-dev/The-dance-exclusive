@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { FadeRise, Stagger } from "@/components/motion";
 import { format } from "date-fns";
 
 type Status = "loading" | "success" | "processing" | "error";
@@ -42,11 +43,11 @@ interface BookingDetail {
 }
 
 const planLabel: Record<string, string> = {
-  trial: "Free Trial",
-  session: "Per Session",
+  trial: "Free trial",
+  session: "Per session",
   monthly: "Monthly",
-  term: "Full Term",
-  year: "Full Year",
+  term: "Full term",
+  year: "Full year",
 };
 
 const CheckoutReturn = () => {
@@ -191,8 +192,8 @@ const CheckoutReturn = () => {
     return (
       <div className="min-h-[60vh] flex items-center justify-center px-4">
         <div className="text-center space-y-4">
-          <Loader2 className="w-12 h-12 text-primary mx-auto animate-spin" />
-          <h1 className="text-xl font-bold text-foreground">
+          <Loader2 className="w-10 h-10 text-primary mx-auto animate-spin" />
+          <h1 className="text-xl font-display font-bold text-foreground">
             Confirming your payment…
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -207,8 +208,8 @@ const CheckoutReturn = () => {
     return (
       <div className="min-h-[60vh] flex items-center justify-center px-4">
         <div className="text-center max-w-md space-y-4">
-          <Loader2 className="w-12 h-12 text-primary mx-auto animate-spin" />
-          <h1 className="text-xl font-bold text-foreground">
+          <Loader2 className="w-10 h-10 text-primary mx-auto animate-spin" />
+          <h1 className="text-xl font-display font-bold text-foreground">
             Payment processing
           </h1>
           <p className="text-muted-foreground">
@@ -216,7 +217,7 @@ const CheckoutReturn = () => {
             confirmed.
           </p>
           <Button asChild>
-            <Link to="/account/bookings">View My Bookings</Link>
+            <Link to="/account/bookings">View my bookings</Link>
           </Button>
         </div>
       </div>
@@ -227,8 +228,10 @@ const CheckoutReturn = () => {
     return (
       <div className="min-h-[60vh] flex items-center justify-center px-4">
         <div className="text-center max-w-md space-y-4">
-          <XCircle className="w-16 h-16 text-destructive mx-auto" />
-          <h1 className="text-2xl font-bold text-foreground">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+            <XCircle className="w-8 h-8" strokeWidth={1.75} />
+          </div>
+          <h1 className="text-2xl font-display font-bold tracking-tight text-foreground">
             Something went wrong
           </h1>
           <p className="text-muted-foreground">
@@ -237,10 +240,10 @@ const CheckoutReturn = () => {
           </p>
           <div className="flex gap-3 justify-center pt-4">
             <Button asChild>
-              <Link to="/account/bookings">Check My Bookings</Link>
+              <Link to="/account/bookings">Check my bookings</Link>
             </Button>
             <Button variant="outline" asChild>
-              <Link to="/">Go Home</Link>
+              <Link to="/">Go home</Link>
             </Button>
           </div>
         </div>
@@ -253,19 +256,15 @@ const CheckoutReturn = () => {
     <div className="min-h-screen bg-background">
       <div className="container max-w-3xl mx-auto px-4 py-12 space-y-8">
         {/* Hero */}
-        <div className="text-center space-y-4">
-          <div className="relative inline-flex">
-            <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" />
-            <CheckCircle2
-              className="relative w-24 h-24 text-primary mx-auto"
-              strokeWidth={1.5}
-            />
+        <FadeRise className="text-center space-y-4">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-success/10 text-success">
+            <CheckCircle2 className="w-10 h-10" strokeWidth={1.5} />
           </div>
           <div className="space-y-2">
-            <Badge className="uppercase tracking-wider text-xs">
-              <Sparkles className="w-3 h-3 mr-1" /> Booking Confirmed
+            <Badge variant="success">
+              <Sparkles className="w-3 h-3 mr-1" /> Booking confirmed
             </Badge>
-            <h1 className="text-4xl md:text-5xl font-black text-foreground tracking-tight">
+            <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight text-foreground">
               You're all booked in!
             </h1>
             <p className="text-muted-foreground text-lg max-w-xl mx-auto">
@@ -279,153 +278,181 @@ const CheckoutReturn = () => {
               )}
             </p>
           </div>
-        </div>
+        </FadeRise>
 
         {/* Payment summary */}
         {(amount !== null || paymentIntentId) && (
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <Receipt className="w-5 h-5 text-primary" />
-              <h2 className="font-bold uppercase tracking-wider text-sm">
-                Payment Summary
-              </h2>
-            </div>
-            <dl className="space-y-2 text-sm">
-              {amount !== null && (
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Total paid</dt>
-                  <dd className="font-bold text-lg">£{amount.toFixed(2)}</dd>
+          <FadeRise delay={80}>
+            <Card className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <Receipt className="w-5 h-5" />
                 </div>
-              )}
-              {email && (
-                <div className="flex justify-between items-center">
-                  <dt className="text-muted-foreground flex items-center gap-1.5">
-                    <Mail className="w-3.5 h-3.5" /> Receipt sent to
-                  </dt>
-                  <dd className="font-medium">{email}</dd>
-                </div>
-              )}
-              {(paymentIntentId || sessionId) && (
-                <div className="flex justify-between items-center">
-                  <dt className="text-muted-foreground">Reference</dt>
-                  <dd className="font-mono text-xs">
-                    {(paymentIntentId || sessionId)!.slice(-12).toUpperCase()}
-                  </dd>
-                </div>
-              )}
-            </dl>
-          </Card>
+                <h2 className="text-sm font-semibold text-foreground">
+                  Payment summary
+                </h2>
+              </div>
+              <dl className="space-y-2 text-sm">
+                {amount !== null && (
+                  <div className="flex justify-between items-center">
+                    <dt className="text-muted-foreground">Total paid</dt>
+                    <dd className="font-display font-bold text-lg tabular-nums">
+                      £{amount.toFixed(2)}
+                    </dd>
+                  </div>
+                )}
+                {email && (
+                  <div className="flex justify-between items-center">
+                    <dt className="text-muted-foreground flex items-center gap-1.5">
+                      <Mail className="w-3.5 h-3.5" /> Receipt sent to
+                    </dt>
+                    <dd className="font-medium">{email}</dd>
+                  </div>
+                )}
+                {(paymentIntentId || sessionId) && (
+                  <div className="flex justify-between items-center">
+                    <dt className="text-muted-foreground">Reference</dt>
+                    <dd className="font-mono text-xs">
+                      {(paymentIntentId || sessionId)!.slice(-12).toUpperCase()}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </Card>
+          </FadeRise>
         )}
 
         {/* Booking details */}
         {bookings.length > 0 && (
           <div className="space-y-3">
-            <h2 className="font-bold uppercase tracking-wider text-sm text-muted-foreground">
-              Your Bookings ({bookings.length})
-            </h2>
-            {bookings.map((b) => (
-              <Card key={b.id} className="p-5 space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-lg text-foreground">
-                      {b.classes?.name || "Class"}
-                    </h3>
-                    {b.students && (
-                      <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                        <User className="w-3.5 h-3.5" />
-                        {b.students.first_name} {b.students.last_name}
-                      </p>
+            <FadeRise>
+              <p className="eyebrow">Your bookings ({bookings.length})</p>
+            </FadeRise>
+            <Stagger className="space-y-3">
+              {bookings.map((b) => (
+                <Card key={b.id} className="p-5 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <Calendar className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-display font-bold text-lg text-foreground">
+                          {b.classes?.name || "Class"}
+                        </h3>
+                        {b.students && (
+                          <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                            <User className="w-3.5 h-3.5" />
+                            {b.students.first_name} {b.students.last_name}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <Badge variant="secondary">
+                      {planLabel[b.booking_type] || b.booking_type}
+                    </Badge>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-2 text-sm pt-2 border-t border-border/50">
+                    {b.classes?.day_of_week && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Calendar className="w-4 h-4 text-primary" />
+                        <span className="capitalize">
+                          {b.classes.day_of_week}s
+                        </span>
+                      </div>
+                    )}
+                    {b.classes?.start_time && b.classes?.end_time && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Clock className="w-4 h-4 text-primary" />
+                        <span>
+                          {b.classes.start_time.slice(0, 5)} –{" "}
+                          {b.classes.end_time.slice(0, 5)}
+                        </span>
+                      </div>
+                    )}
+                    {b.classes?.venues?.name && (
+                      <div className="flex items-center gap-2 text-muted-foreground sm:col-span-2">
+                        <MapPin className="w-4 h-4 text-primary" />
+                        <span>
+                          {b.classes.venues.name}
+                          {b.classes.venues.city &&
+                            `, ${b.classes.venues.city}`}
+                        </span>
+                      </div>
                     )}
                   </div>
-                  <Badge variant="secondary" className="capitalize">
-                    {planLabel[b.booking_type] || b.booking_type}
-                  </Badge>
-                </div>
 
-                <div className="grid sm:grid-cols-2 gap-2 text-sm pt-2 border-t border-border">
-                  {b.classes?.day_of_week && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Calendar className="w-4 h-4 text-primary" />
-                      <span className="capitalize">
-                        {b.classes.day_of_week}s
+                  {b.amount !== null && (
+                    <div className="flex justify-between items-center pt-2 border-t border-border/50">
+                      <span className="text-xs text-muted-foreground">
+                        Amount
+                      </span>
+                      <span className="font-semibold tabular-nums">
+                        £{Number(b.amount).toFixed(2)}
                       </span>
                     </div>
                   )}
-                  {b.classes?.start_time && b.classes?.end_time && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Clock className="w-4 h-4 text-primary" />
-                      <span>
-                        {b.classes.start_time.slice(0, 5)} –{" "}
-                        {b.classes.end_time.slice(0, 5)}
-                      </span>
-                    </div>
-                  )}
-                  {b.classes?.venues?.name && (
-                    <div className="flex items-center gap-2 text-muted-foreground sm:col-span-2">
-                      <MapPin className="w-4 h-4 text-primary" />
-                      <span>
-                        {b.classes.venues.name}
-                        {b.classes.venues.city &&
-                          `, ${b.classes.venues.city}`}
-                      </span>
-                    </div>
-                  )}
-                </div>
 
-                {b.amount !== null && (
-                  <div className="flex justify-between items-center pt-2 border-t border-border">
-                    <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                      Amount
-                    </span>
-                    <span className="font-bold">£{Number(b.amount).toFixed(2)}</span>
+                  <div className="text-xs text-muted-foreground">
+                    Booked on{" "}
+                    {format(new Date(b.created_at), "do MMM yyyy 'at' HH:mm")}
                   </div>
-                )}
-
-                <div className="text-xs text-muted-foreground">
-                  Booked on{" "}
-                  {format(new Date(b.created_at), "do MMM yyyy 'at' HH:mm")}
-                </div>
-              </Card>
-            ))}
+                </Card>
+              ))}
+            </Stagger>
           </div>
         )}
 
         {bookings.length === 0 && (
-          <Card className="p-6 text-center text-sm text-muted-foreground">
-            Your booking is being created — it may take a few moments to appear
-            in your account.
-          </Card>
+          <FadeRise>
+            <Card className="p-6 text-center text-sm text-muted-foreground">
+              Your booking is being created — it may take a few moments to
+              appear in your account.
+            </Card>
+          </FadeRise>
         )}
 
         {/* QR check-in reminder */}
-        <Card className="p-5 border-primary/30 bg-primary/5">
-          <div className="flex items-start gap-3">
-            <QrCode className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-            <div className="text-sm">
-              <p className="font-semibold text-foreground">Before your first class — grab your QR code</p>
-              <p className="text-muted-foreground mt-1">
-                Each booking has a QR code in <Link to="/account/bookings" className="text-primary underline font-medium">My Bookings</Link>.
-                Show it to a member of staff when you arrive (and when you leave) so they can scan you in and mark attendance.
-                Save it to your phone or screenshot it for quick access.
-              </p>
+        <FadeRise delay={120}>
+          <Card className="p-5 bg-primary/5 shadow-none">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <QrCode className="w-5 h-5" />
+              </div>
+              <div className="text-sm">
+                <p className="font-semibold text-foreground">
+                  Before your first class — grab your QR code
+                </p>
+                <p className="text-muted-foreground mt-1">
+                  Each booking has a QR code in{" "}
+                  <Link
+                    to="/account/bookings"
+                    className="text-primary underline font-medium"
+                  >
+                    My bookings
+                  </Link>
+                  . Show it to a member of staff when you arrive (and when you
+                  leave) so they can scan you in and mark attendance. Save it to
+                  your phone or screenshot it for quick access.
+                </p>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </FadeRise>
 
         {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
-          <Button asChild size="lg" className="font-bold uppercase tracking-wider">
-            <Link to="/account/bookings">View My Bookings</Link>
+        <FadeRise
+          delay={160}
+          className="flex flex-col sm:flex-row gap-3 justify-center pt-4"
+        >
+          <Button asChild size="lg">
+            <Link to="/account/bookings">View my bookings</Link>
           </Button>
-          <Button
-            asChild
-            size="lg"
-            variant="outline"
-            className="font-bold uppercase tracking-wider"
-          >
-            <Link to="/classes/children">Browse More Classes</Link>
+          <Button asChild size="lg" variant="outline">
+            <Link to="/classes/children">Browse more classes</Link>
           </Button>
-        </div>
+        </FadeRise>
       </div>
     </div>
   );

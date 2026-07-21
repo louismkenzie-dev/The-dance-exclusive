@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Phone, AlertTriangle, Heart, Shield, User, Camera, Sparkles, Users, LogIn, LogOut, XCircle, QrCode, Cake, HelpCircle } from "lucide-react";
+import { Loader2, Phone, AlertTriangle, Heart, Shield, User, Camera, Sparkles, Users, LogIn, LogOut, XCircle, QrCode, Cake, HelpCircle, Check } from "lucide-react";
 import { format, differenceInYears } from "date-fns";
 import { QRCodeSVG } from "qrcode.react";
 import { getOrCreateBookingQrToken, buildQrPayload } from "@/lib/qrTokens";
+import { FadeRise } from "@/components/motion";
 import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
 
 interface Props {
@@ -25,7 +26,7 @@ interface Props {
 
 const Section = ({ title, icon: Icon, children }: any) => (
   <div className="space-y-2">
-    <h4 className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 font-semibold">
+    <h4 className="eyebrow flex items-center gap-1.5">
       <Icon className="w-3 h-3" /> {title}
     </h4>
     <div className="text-sm">{children}</div>
@@ -38,6 +39,34 @@ const Row = ({ label, value }: { label: string; value: any }) => (
     <span className="font-medium text-right">{value || "—"}</span>
   </div>
 );
+
+/** Current register status as a satisfying moment — tinted circle with a spring pop. */
+const StatusMoment = ({ att }: { att: any }) => {
+  const fmt = (d: string) => new Date(d).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  const info = (() => {
+    if (att?.status === "absent")
+      return { key: "absent", tint: "bg-destructive/10 text-destructive", Icon: XCircle, label: "Absent", detail: "Marked absent for this session" };
+    if (att?.checked_out_at)
+      return { key: "out", tint: "bg-primary/10 text-primary", Icon: LogOut, label: "Departed", detail: `In ${fmt(att.checked_in_at)} · Out ${fmt(att.checked_out_at)}` };
+    if (att?.checked_in_at)
+      return { key: "in", tint: "bg-success/10 text-success", Icon: Check, label: "Arrived", detail: `Checked in ${fmt(att.checked_in_at)}` };
+    return { key: "none", tint: "bg-secondary text-muted-foreground", Icon: HelpCircle, label: "Unaccounted", detail: "Not marked yet" };
+  })();
+  return (
+    <FadeRise key={info.key} className="flex items-center gap-3 rounded-2xl bg-secondary/50 p-3">
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${info.tint}`}>
+        <info.Icon className="w-4 h-4" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-sm font-semibold">{info.label}</p>
+        <p className="text-xs text-muted-foreground truncate">
+          {info.detail}
+          {att?.collector_name && <> · {att.collector_name}</>}
+        </p>
+      </div>
+    </FadeRise>
+  );
+};
 
 const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionId, onCheckIn, onCheckOut, onMarkAbsent, onClearAttendance }: Props) => {
   const [loading, setLoading] = useState(false);
@@ -111,6 +140,31 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
     setQrLoading(false);
   };
 
+  const markButtons = (
+    <div className="grid grid-cols-2 gap-2">
+      {onCheckIn && (
+        <Button onClick={onCheckIn} disabled={!!isIn} className="gap-1.5 bg-success text-success-foreground hover:bg-success/90 disabled:opacity-60">
+          <LogIn className="w-4 h-4" /> Arrived
+        </Button>
+      )}
+      {onCheckOut && (
+        <Button onClick={onCheckOut} disabled={!isIn} className="gap-1.5 disabled:opacity-60">
+          <LogOut className="w-4 h-4" /> Departed
+        </Button>
+      )}
+      {onClearAttendance && (
+        <Button variant="secondary" onClick={onClearAttendance} disabled={isUnaccounted} className="gap-1.5 disabled:opacity-60">
+          <HelpCircle className="w-4 h-4" /> Unaccounted
+        </Button>
+      )}
+      {onMarkAbsent && (
+        <Button variant="destructive" onClick={onMarkAbsent} disabled={isAbsent} className="gap-1.5 disabled:opacity-60">
+          <XCircle className="w-4 h-4" /> Absent
+        </Button>
+      )}
+    </div>
+  );
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
@@ -123,7 +177,7 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
           <>
             <SheetHeader className="text-left">
               <div className="flex items-center gap-3">
-                <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center text-lg font-bold">A</div>
+                <div className="w-14 h-14 shrink-0 rounded-full bg-secondary flex items-center justify-center text-lg font-display font-bold text-muted-foreground">A</div>
                 <div>
                   <SheetTitle>Adult attendee</SheetTitle>
                   <SheetDescription>
@@ -133,30 +187,10 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
               </div>
             </SheetHeader>
             {booking && (onCheckIn || onCheckOut || onMarkAbsent || onClearAttendance) && (
-              <div className="space-y-2 pt-6 mt-6 border-t border-border">
-                <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Mark as</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  {onCheckIn && (
-                    <Button onClick={onCheckIn} disabled={isIn} className="gap-1.5 bg-success text-success-foreground hover:bg-success/90 disabled:opacity-60">
-                      <LogIn className="w-4 h-4" /> Arrived
-                    </Button>
-                  )}
-                  {onCheckOut && (
-                    <Button onClick={onCheckOut} disabled={!isIn} className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-60">
-                      <LogOut className="w-4 h-4" /> Departed
-                    </Button>
-                  )}
-                  {onClearAttendance && (
-                    <Button onClick={onClearAttendance} disabled={isUnaccounted} className="gap-1.5 bg-muted text-foreground hover:bg-muted/80 disabled:opacity-60">
-                      <HelpCircle className="w-4 h-4" /> Unaccounted
-                    </Button>
-                  )}
-                  {onMarkAbsent && (
-                    <Button onClick={onMarkAbsent} disabled={isAbsent} className="gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-60">
-                      <XCircle className="w-4 h-4" /> Absent
-                    </Button>
-                  )}
-                </div>
+              <div className="space-y-3 pt-6 mt-6 border-t border-border/50">
+                <h4 className="eyebrow">Mark as</h4>
+                <StatusMoment att={att} />
+                {markButtons}
               </div>
             )}
           </>
@@ -184,13 +218,14 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
             {/* QR */}
             {booking && sessionId && (
               <div className="mt-4">
-                <Button onClick={openQr} variant="outline" className="gap-1.5 w-full">
-                    <QrCode className="w-4 h-4" /> View booking QR code
-                  </Button>
+                <Button onClick={openQr} variant="secondary" className="gap-1.5 w-full">
+                  <QrCode className="w-4 h-4" /> View booking QR code
+                </Button>
               </div>
             )}
 
             {showQr && (
+              /* Scannability surface — stays forced white in every theme. */
               <Card className="mt-4 p-4 bg-white flex flex-col items-center gap-2">
                 {qrLoading || !qrToken ? (
                   <div className="py-8"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
@@ -205,14 +240,14 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
             )}
 
             {/* DOB / quick facts */}
-            <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-              <div className="bg-muted/40 rounded p-2">
-                <div className="text-muted-foreground flex items-center gap-1"><Cake className="w-3 h-3" /> Date of birth</div>
-                <div className="font-medium">{student.date_of_birth ? format(new Date(student.date_of_birth), "d MMM yyyy") : "—"}</div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <div className="rounded-2xl bg-secondary/60 p-3">
+                <div className="text-[11px] text-muted-foreground flex items-center gap-1"><Cake className="w-3 h-3" /> Date of birth</div>
+                <div className="font-medium text-sm mt-0.5">{student.date_of_birth ? format(new Date(student.date_of_birth), "d MMM yyyy") : "—"}</div>
               </div>
-              <div className="bg-muted/40 rounded p-2">
-                <div className="text-muted-foreground">Ability</div>
-                <div className="font-medium">{student.ability_level || "—"}</div>
+              <div className="rounded-2xl bg-secondary/60 p-3">
+                <div className="text-[11px] text-muted-foreground">Ability</div>
+                <div className="font-medium text-sm mt-0.5">{student.ability_level || "—"}</div>
               </div>
             </div>
 
@@ -220,9 +255,9 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
             <div className="flex flex-wrap gap-1.5 mt-4">
               {student.has_epipen && <Badge variant="destructive">EpiPen</Badge>}
               {student.has_inhaler && <Badge variant="destructive">Inhaler</Badge>}
-              {student.has_send && <Badge className="bg-amber-500 hover:bg-amber-600">SEND</Badge>}
-              {student.ehcp_in_place && <Badge className="bg-amber-500 hover:bg-amber-600">EHCP</Badge>}
-              {student.one_to_one_required && <Badge className="bg-amber-500 hover:bg-amber-600">1:1 Required</Badge>}
+              {student.has_send && <Badge variant="warning">SEND</Badge>}
+              {student.ehcp_in_place && <Badge variant="warning">EHCP</Badge>}
+              {student.one_to_one_required && <Badge variant="warning">1:1 required</Badge>}
               {!student.is_toilet_trained && <Badge variant="outline">Not toilet trained</Badge>}
               {student.wears_nappies && <Badge variant="outline">Wears nappies</Badge>}
               {student.prone_to_accidents && <Badge variant="outline">Prone to accidents</Badge>}
@@ -249,7 +284,7 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
                       </div>
                     </div>
                   )}
-                  {student.medical_info && <p className="text-sm bg-muted/50 p-2 rounded">{student.medical_info}</p>}
+                  {student.medical_info && <p className="text-sm rounded-2xl bg-secondary/60 p-3">{student.medical_info}</p>}
                 </Section>
               )}
 
@@ -261,14 +296,14 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
                       {student.send_conditions_list.map((a: string) => <Badge key={a} variant="secondary" className="text-[10px]">{a}</Badge>)}
                     </div>
                   )}
-                  {student.send_details && <p className="text-sm bg-muted/50 p-2 rounded whitespace-pre-wrap">{student.send_details}</p>}
+                  {student.send_details && <p className="text-sm rounded-2xl bg-secondary/60 p-3 whitespace-pre-wrap">{student.send_details}</p>}
                 </Section>
               )}
 
               {/* Toileting */}
               {(student.toileting_notes || student.wears_nappies || !student.is_toilet_trained) && (
                 <Section title="Toileting" icon={AlertTriangle}>
-                  {student.toileting_notes && <p className="text-sm bg-muted/50 p-2 rounded">{student.toileting_notes}</p>}
+                  {student.toileting_notes && <p className="text-sm rounded-2xl bg-secondary/60 p-3">{student.toileting_notes}</p>}
                 </Section>
               )}
 
@@ -283,9 +318,9 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
                     <Row label="Address" value={`${parent.address_line1}, ${parent.city ?? ""} ${parent.postcode ?? ""}`} />
                   )}
                   {parent.pickup_pin && (
-                    <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-amber-600">No QR? Family PIN</span>
+                    <div className="mt-2 rounded-2xl bg-warning/10 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-semibold text-warning">No QR? Family PIN</span>
                         <span className="font-mono font-bold text-lg tracking-[0.3em]">{parent.pickup_pin}</span>
                       </div>
                       <p className="text-[11px] text-muted-foreground mt-1">
@@ -310,10 +345,10 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
                 <Section title="Authorized collectors" icon={Users}>
                   <div className="space-y-2">
                     {collectors.map((c, i) => (
-                      <Card key={i} className="p-2.5 text-sm">
+                      <div key={i} className="rounded-2xl bg-secondary/50 p-3 text-sm">
                         <div className="font-medium">{c.name}</div>
                         <div className="text-xs text-muted-foreground">{c.relationship} · {c.phone || c.email || ""}</div>
-                      </Card>
+                      </div>
                     ))}
                   </div>
                 </Section>
@@ -328,52 +363,16 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
               {/* Notes */}
               {student.notes && (
                 <Section title="Notes" icon={Shield}>
-                  <p className="text-sm bg-muted/50 p-2 rounded whitespace-pre-wrap">{student.notes}</p>
+                  <p className="text-sm rounded-2xl bg-secondary/60 p-3 whitespace-pre-wrap">{student.notes}</p>
                 </Section>
               )}
 
               {/* Mark as — register status */}
               {booking && (onCheckIn || onCheckOut || onMarkAbsent || onClearAttendance) && (
-                <div className="space-y-2 pt-2 border-t border-border">
-                  <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Mark as</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    {onCheckIn && (
-                      <Button
-                        onClick={onCheckIn}
-                        disabled={isIn}
-                        className="gap-1.5 bg-success text-success-foreground hover:bg-success/90 disabled:opacity-60"
-                      >
-                        <LogIn className="w-4 h-4" /> Arrived
-                      </Button>
-                    )}
-                    {onCheckOut && (
-                      <Button
-                        onClick={onCheckOut}
-                        disabled={!isIn}
-                        className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-60"
-                      >
-                        <LogOut className="w-4 h-4" /> Departed
-                      </Button>
-                    )}
-                    {onClearAttendance && (
-                      <Button
-                        onClick={onClearAttendance}
-                        disabled={isUnaccounted}
-                        className="gap-1.5 bg-muted text-foreground hover:bg-muted/80 disabled:opacity-60"
-                      >
-                        <HelpCircle className="w-4 h-4" /> Unaccounted
-                      </Button>
-                    )}
-                    {onMarkAbsent && (
-                      <Button
-                        onClick={onMarkAbsent}
-                        disabled={isAbsent}
-                        className="gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-60"
-                      >
-                        <XCircle className="w-4 h-4" /> Absent
-                      </Button>
-                    )}
-                  </div>
+                <div className="space-y-3 pt-4 border-t border-border/50">
+                  <h4 className="eyebrow">Mark as</h4>
+                  <StatusMoment att={att} />
+                  {markButtons}
                 </div>
               )}
             </div>

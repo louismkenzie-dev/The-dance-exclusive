@@ -5,14 +5,13 @@ import { useStaffMember, getStaffPhotoUrl } from "@/hooks/useStaffMember";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { FadeRise, Stagger, AnimatedNumber, AmbientGlow } from "@/components/motion";
 import {
   Calendar,
   Clock,
-  Users,
   AlertCircle,
   CheckCircle2,
   Sparkles,
-  CalendarCheck,
   ClipboardList,
   FileText,
   TrendingUp,
@@ -152,7 +151,7 @@ const StaffDashboard = () => {
 
   if (loading) {
     return (
-      <div className="p-4 md:p-8">
+      <div className="p-6 md:p-8">
         <p className="text-muted-foreground">Loading...</p>
       </div>
     );
@@ -160,11 +159,13 @@ const StaffDashboard = () => {
 
   if (!staff) {
     return (
-      <div className="p-4 md:p-8">
+      <div className="p-6 md:p-8">
         <Card>
           <CardContent className="py-12 text-center space-y-3">
-            <AlertCircle className="w-12 h-12 text-destructive mx-auto" />
-            <h2 className="text-xl font-semibold">Staff record not linked</h2>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-destructive/8 text-destructive">
+              <AlertCircle className="h-6 w-6" />
+            </div>
+            <h2 className="text-xl font-display font-bold">Staff record not linked</h2>
             <p className="text-muted-foreground text-sm max-w-md mx-auto">
               Your account isn't linked to a staff record yet. Please contact an admin.
             </p>
@@ -189,9 +190,7 @@ const StaffDashboard = () => {
   const completed = checks.filter((c) => c.ok).length;
   const completionPct = Math.round((completed / checks.length) * 100);
   const compliantColor =
-    completionPct >= 80 ? "text-emerald-500" : completionPct >= 50 ? "text-amber-500" : "text-destructive";
-  const compliantStroke =
-    completionPct >= 80 ? "hsl(160, 84%, 45%)" : completionPct >= 50 ? "hsl(38, 92%, 55%)" : "hsl(0, 84%, 60%)";
+    completionPct >= 80 ? "text-success" : completionPct >= 50 ? "text-warning" : "text-destructive";
 
   const earningsEstimate = staff.pay_per_hour ? hoursThisMonth * Number(staff.pay_per_hour) : null;
 
@@ -206,213 +205,239 @@ const StaffDashboard = () => {
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
       {/* Hero */}
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/10 via-background to-background p-6 md:p-8">
-        <div className="absolute -top-20 -right-20 w-64 h-64 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative flex flex-col md:flex-row items-start md:items-center gap-5">
-          <div className="w-20 h-20 rounded-full bg-primary/20 border-2 border-primary/40 flex items-center justify-center text-2xl font-bold text-primary overflow-hidden shrink-0">
-            {photo ? (
-              <img src={photo} alt="Profile" className="w-full h-full object-cover" />
-            ) : (
-              staff.first_name?.[0]?.toUpperCase() || "S"
-            )}
-          </div>
-          <div className="flex-1">
-            <p className="text-sm text-muted-foreground uppercase tracking-widest mb-1">
-              {greeting}
-            </p>
-            <h1 className="text-3xl md:text-4xl font-display font-bold">
-              {staff.first_name || staff.full_name?.split(" ")[0]}
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              {today.length > 0
-                ? `You have ${today.length} class${today.length > 1 ? "es" : ""} today.`
-                : upcoming.length > 0
-                  ? `Next class: ${new Date(upcoming[0].session_date).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}.`
-                  : "No upcoming classes scheduled."}
-            </p>
-          </div>
-        </div>
-      </div>
+      <FadeRise>
+        <Card className="relative overflow-hidden">
+          <AmbientGlow variant="light" />
+          <CardContent className="relative p-6 md:p-8">
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-5">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/8 text-2xl font-display font-bold text-primary">
+                {photo ? (
+                  <img src={photo} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  staff.first_name?.[0]?.toUpperCase() || "S"
+                )}
+              </div>
+              <div className="flex-1">
+                <p className="eyebrow mb-1">{greeting}</p>
+                <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">
+                  {staff.first_name || staff.full_name?.split(" ")[0]}
+                </h1>
+                <p className="text-muted-foreground mt-1">
+                  {today.length > 0
+                    ? `You have ${today.length} class${today.length > 1 ? "es" : ""} today.`
+                    : upcoming.length > 0
+                      ? `Next class: ${new Date(upcoming[0].session_date).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short" })}.`
+                      : "No upcoming classes scheduled."}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </FadeRise>
 
       {/* Stat row */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+      <Stagger className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4" childClassName="h-full">
+        <Card className="h-full transition-all duration-300 hover:-translate-y-0.5 hover:shadow-soft-lg">
           <CardContent className="p-5">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-primary" />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+                <Calendar className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{today.length}</p>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Today</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-accent/15 flex items-center justify-center">
-                <ClipboardList className="w-5 h-5 text-accent" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{sessionsThisMonth}</p>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Sessions / mo</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-sky-500/15 flex items-center justify-center">
-                <Clock className="w-5 h-5 text-sky-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{hoursThisMonth}h</p>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Hours / mo</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-emerald-500/15 flex items-center justify-center">
-                <PoundSterling className="w-5 h-5 text-emerald-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">
-                  {earningsEstimate !== null ? `£${earningsEstimate.toFixed(0)}` : "—"}
+                <p className="eyebrow">Today</p>
+                <p className="text-2xl font-display font-bold tabular-nums">
+                  <AnimatedNumber value={today.length} />
                 </p>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Est. earnings</p>
               </div>
             </div>
           </CardContent>
         </Card>
-      </div>
+        <Card className="h-full transition-all duration-300 hover:-translate-y-0.5 hover:shadow-soft-lg">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent/8 text-accent">
+                <ClipboardList className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="eyebrow">Sessions this month</p>
+                <p className="text-2xl font-display font-bold tabular-nums">
+                  <AnimatedNumber value={sessionsThisMonth} />
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="h-full transition-all duration-300 hover:-translate-y-0.5 hover:shadow-soft-lg">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-warning/10 text-warning">
+                <Clock className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="eyebrow">Hours this month</p>
+                <p className="text-2xl font-display font-bold tabular-nums">{hoursThisMonth}h</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="h-full transition-all duration-300 hover:-translate-y-0.5 hover:shadow-soft-lg">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-success/10 text-success">
+                <PoundSterling className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="eyebrow">Est. earnings</p>
+                <p className="text-2xl font-display font-bold tabular-nums">
+                  {earningsEstimate !== null ? (
+                    <AnimatedNumber value={Math.round(earningsEstimate)} prefix="£" />
+                  ) : (
+                    "—"
+                  )}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </Stagger>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Today + Upcoming */}
         <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-lg font-semibold">Today's classes</h2>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
-                  </p>
+          <FadeRise>
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-lg font-display font-bold">Today's classes</h2>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
+                    </p>
+                  </div>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to="/staff/classes">All classes</Link>
+                  </Button>
                 </div>
-                <Button variant="outline" size="sm" asChild>
-                  <Link to="/staff/classes">All classes</Link>
-                </Button>
-              </div>
-              {today.length === 0 ? (
-                <div className="py-8 text-center text-muted-foreground text-sm">
-                  Enjoy your day off — nothing scheduled.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {today.map((s) => (
-                    <SessionRow key={s.id} session={s} />
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                {today.length === 0 ? (
+                  <div className="py-8 text-center text-muted-foreground text-sm">
+                    Enjoy your day off — nothing scheduled.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {today.map((s) => (
+                      <SessionRow key={s.id} session={s} />
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </FadeRise>
 
-          <Card>
-            <CardContent className="p-6">
-              <h2 className="text-lg font-semibold mb-4">Coming up</h2>
-              {upcoming.length === 0 ? (
-                <div className="py-8 text-center text-muted-foreground text-sm">
-                  No upcoming sessions assigned.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {upcoming.map((s) => (
-                    <SessionRow key={s.id} session={s} showDate />
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <FadeRise delay={80}>
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="text-lg font-display font-bold mb-4">Coming up</h2>
+                {upcoming.length === 0 ? (
+                  <div className="py-8 text-center text-muted-foreground text-sm">
+                    No upcoming sessions assigned.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {upcoming.map((s) => (
+                      <SessionRow key={s.id} session={s} showDate />
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </FadeRise>
         </div>
 
         {/* Compliance + Quick actions */}
         <div className="space-y-6">
-          <Card>
-            <CardContent className="p-6">
-              <h2 className="text-lg font-semibold mb-4">Profile completeness</h2>
-              <div className="flex items-center gap-5 mb-4">
-                <div className="relative w-20 h-20 shrink-0">
-                  <svg className="w-full h-full -rotate-90" viewBox="0 0 80 80">
-                    <circle cx="40" cy="40" r="34" fill="none" stroke="hsl(var(--muted))" strokeWidth="6" />
-                    <circle
-                      cx="40"
-                      cy="40"
-                      r="34"
-                      fill="none"
-                      stroke={compliantStroke}
-                      strokeWidth="6"
-                      strokeLinecap="round"
-                      strokeDasharray={`${(completionPct / 100) * 213.6} 213.6`}
-                      className="transition-all duration-500"
-                    />
-                  </svg>
-                  <div
-                    className={`absolute inset-0 flex items-center justify-center text-lg font-bold ${compliantColor}`}
-                  >
-                    {completionPct}%
+          <FadeRise delay={120}>
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="text-lg font-display font-bold mb-4">Profile completeness</h2>
+                <div className="flex items-center gap-5 mb-4">
+                  <div className="relative w-20 h-20 shrink-0">
+                    <svg className="w-full h-full -rotate-90" viewBox="0 0 80 80">
+                      <circle
+                        cx="40"
+                        cy="40"
+                        r="34"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="6"
+                        className="text-muted"
+                      />
+                      <circle
+                        cx="40"
+                        cy="40"
+                        r="34"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="6"
+                        strokeLinecap="round"
+                        strokeDasharray={`${(completionPct / 100) * 213.6} 213.6`}
+                        className={`transition-all duration-500 ${compliantColor}`}
+                      />
+                    </svg>
+                    <div
+                      className={`absolute inset-0 flex items-center justify-center text-lg font-display font-bold tabular-nums ${compliantColor}`}
+                    >
+                      {completionPct}%
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{completed} of {checks.length} done</p>
+                    <p className="text-xs text-muted-foreground">
+                      {completionPct === 100
+                        ? "All set — great work!"
+                        : "Finish your profile to unlock everything."}
+                    </p>
                   </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium">{completed} of {checks.length} done</p>
-                  <p className="text-xs text-muted-foreground">
-                    {completionPct === 100
-                      ? "All set — great work!"
-                      : "Finish your profile to unlock everything."}
-                  </p>
+                <div className="space-y-1.5">
+                  {checks.map((c) => (
+                    <div
+                      key={c.key}
+                      className="flex items-center gap-2 text-xs"
+                    >
+                      {c.ok ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      )}
+                      <span className={c.ok ? "text-muted-foreground line-through" : "text-foreground"}>
+                        {c.key}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              </div>
-              <div className="space-y-1.5">
-                {checks.map((c) => (
-                  <div
-                    key={c.key}
-                    className="flex items-center gap-2 text-xs"
-                  >
-                    {c.ok ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    ) : (
-                      <AlertCircle className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                    )}
-                    <span className={c.ok ? "text-muted-foreground line-through" : "text-foreground"}>
-                      {c.key}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              {completionPct < 100 && (
-                <Button asChild size="sm" className="w-full mt-4">
-                  <Link to="/staff/profile">
-                    <Sparkles className="w-3.5 h-3.5 mr-2" /> Complete profile
-                  </Link>
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+                {completionPct < 100 && (
+                  <Button asChild size="sm" className="w-full mt-4">
+                    <Link to="/staff/profile">
+                      <Sparkles className="w-3.5 h-3.5 mr-2" /> Complete profile
+                    </Link>
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          </FadeRise>
 
-          <Card>
-            <CardContent className="p-6">
-              <h2 className="text-lg font-semibold mb-4">Quick actions</h2>
-              <div className="space-y-2">
-                <QuickAction icon={ClipboardList} label="View registers" to="/staff/registers" />
-                <QuickAction icon={FileText} label="Upload documents" to="/staff/documents" />
-                <QuickAction icon={TrendingUp} label="My classes" to="/staff/classes" />
-              </div>
-            </CardContent>
-          </Card>
+          <FadeRise delay={200}>
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="text-lg font-display font-bold mb-4">Quick actions</h2>
+                <div className="space-y-2">
+                  <QuickAction icon={ClipboardList} label="View registers" to="/staff/registers" />
+                  <QuickAction icon={FileText} label="Upload documents" to="/staff/documents" />
+                  <QuickAction icon={TrendingUp} label="My classes" to="/staff/classes" />
+                </div>
+              </CardContent>
+            </Card>
+          </FadeRise>
         </div>
       </div>
     </div>
@@ -421,23 +446,21 @@ const StaffDashboard = () => {
 
 const SessionRow = ({ session, showDate }: { session: SessionLite; showDate?: boolean }) => {
   const isAdult = session.class?.class_type === "adult";
-  const accent = isAdult ? "border-l-[hsl(330,90%,55%)]" : "border-l-primary";
-  const badge = isAdult ? "bg-[hsl(330,90%,55%)]/15 text-[hsl(330,90%,55%)]" : "bg-primary/15 text-primary";
   return (
     <Link
       to="/staff/registers"
-      className={`flex items-center gap-3 p-3 rounded-md border border-border ${accent} border-l-4 hover:bg-accent/30 transition-colors`}
+      className="group flex items-center gap-3 rounded-2xl bg-secondary/50 p-3 transition-all duration-300 hover:bg-secondary"
     >
-      <div className="text-center px-2 shrink-0 w-16">
-        <p className="text-base font-bold tabular-nums">{session.start_time.slice(0, 5)}</p>
-        <p className="text-[10px] text-muted-foreground uppercase">
+      <div className="w-16 shrink-0 text-center">
+        <p className="text-base font-display font-bold tabular-nums">{session.start_time.slice(0, 5)}</p>
+        <p className="text-[11px] text-muted-foreground tabular-nums">
           {session.end_time.slice(0, 5)}
         </p>
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <p className="font-semibold truncate">{session.class?.name || "Class"}</p>
-          <Badge variant="outline" className={`text-[10px] ${badge} border-transparent`}>
+          <Badge variant={isAdult ? "accent" : "default"} className="text-[10px]">
             {isAdult ? "Adult" : "Children"}
           </Badge>
         </div>
@@ -447,7 +470,7 @@ const SessionRow = ({ session, showDate }: { session: SessionLite; showDate?: bo
           {session.class?.venue?.name || "Venue TBC"}
         </p>
       </div>
-      <Users className="w-4 h-4 text-muted-foreground shrink-0" />
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground" />
     </Link>
   );
 };
@@ -463,13 +486,13 @@ const QuickAction = ({
 }) => (
   <Link
     to={to}
-    className="flex items-center gap-3 p-3 rounded-md border border-border hover:bg-accent/30 transition-colors group"
+    className="group flex items-center gap-3 rounded-2xl bg-secondary/50 p-3 transition-all duration-300 hover:bg-secondary"
   >
-    <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-      <Icon className="w-4 h-4 text-primary" />
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+      <Icon className="h-4 w-4" />
     </div>
-    <span className="text-sm flex-1">{label}</span>
-    <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground" />
+    <span className="flex-1 text-sm font-medium">{label}</span>
+    <ChevronRight className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
   </Link>
 );
 

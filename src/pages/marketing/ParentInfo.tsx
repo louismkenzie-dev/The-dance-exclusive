@@ -1,16 +1,14 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import GrainOverlay from "@/components/immersive/GrainOverlay";
-import { Reveal } from "@/components/immersive/Reveal";
-import { Marquee } from "@/components/immersive/Marquee";
-import { StatCounter } from "@/components/immersive/StatCounter";
-import { useMagnetic } from "@/hooks/useMagnetic";
+import { FadeRise, Stagger, AnimatedNumber, AmbientGlow } from "@/components/motion";
 import {
   ArrowRight,
   Shirt,
@@ -36,22 +34,24 @@ import {
   Users,
 } from "lucide-react";
 
-/* ── sentence-case body copy helper (Inter, no uppercase) ── */
-const body = {
-  textTransform: "none",
-  letterSpacing: "normal",
-  fontFamily: "var(--font-body)",
-} as const;
-
 /* ───────────────────────── DATA ───────────────────────── */
 
 const QUICK_LINKS = [
   { id: "faq", label: "FAQs", Icon: HelpCircle },
-  { id: "uniform", label: "What to Wear", Icon: Shirt },
-  { id: "terms", label: "Term Dates", Icon: CalendarDays },
+  { id: "uniform", label: "What to wear", Icon: Shirt },
+  { id: "terms", label: "Term dates", Icon: CalendarDays },
   { id: "safeguarding", label: "Safeguarding", Icon: ShieldCheck },
-  { id: "contact", label: "Ask Us", Icon: MessageCircleQuestion },
+  { id: "contact", label: "Ask us", Icon: MessageCircleQuestion },
 ] as const;
+
+const REASSURANCE = [
+  "Free first trial",
+  "DBS-checked coaches",
+  "Fully insured",
+  "First-aid trained",
+  "All levels welcome",
+  "Family-run energy",
+];
 
 const FAQS: { q: string; a: string }[] = [
   {
@@ -129,22 +129,25 @@ const UNIFORM = [
 
 const TERMS = [
   {
-    term: "Autumn Term",
+    term: "Autumn term",
     dates: "Mon 1 Sep – Fri 19 Dec 2025",
     half: "Half-term break: 27–31 Oct",
-    tint: "201 70% 65%",
+    tone: "text-primary",
+    tile: "bg-primary/10 text-primary",
   },
   {
-    term: "Spring Term",
+    term: "Spring term",
     dates: "Mon 5 Jan – Fri 27 Mar 2026",
     half: "Half-term break: 16–20 Feb",
-    tint: "260 75% 62%",
+    tone: "text-success",
+    tile: "bg-success/10 text-success",
   },
   {
-    term: "Summer Term",
+    term: "Summer term",
     dates: "Mon 13 Apr – Fri 17 Jul 2026",
     half: "Half-term break: 25–29 May",
-    tint: "330 90% 55%",
+    tone: "text-accent",
+    tile: "bg-accent/10 text-accent",
   },
 ];
 
@@ -182,169 +185,164 @@ const SAFEGUARDING = [
 ];
 
 const STATS = [
-  { value: 100, suffix: "%", label: "DBS-Checked Staff" },
-  { value: 5, suffix: "", label: "Essex Venues" },
-  { value: 3, suffix: "", label: "Terms a Year" },
-  { value: 24, suffix: "h", label: "We Aim to Reply In" },
+  { value: 100, suffix: "%", label: "DBS-checked staff" },
+  { value: 5, suffix: "", label: "Essex venues" },
+  { value: 3, suffix: "", label: "Terms a year" },
+  { value: 24, suffix: "h", label: "We aim to reply in" },
+];
+
+const STEPS = [
+  {
+    Icon: Compass,
+    step: "Step 01",
+    title: "Find your fit",
+    copy: "Browse the timetable by venue and age band, or just tell us your child's age and we'll point you to the right room.",
+  },
+  {
+    Icon: Sparkles,
+    step: "Step 02",
+    title: "Book a free trial",
+    copy: "Reserve a no-commitment trial in a few taps. Instant confirmation by email — nothing to pay until you're sure.",
+  },
+  {
+    Icon: Users,
+    step: "Step 03",
+    title: "Come and dance",
+    copy: "Turn up in comfy kit, feel the energy, and decide from there. Love it? Enrol for the term and join the crew.",
+  },
+];
+
+const PRACTICAL = [
+  {
+    Icon: Car,
+    title: "Parking",
+    copy: "Every venue has parking close by, with directions sent in your booking confirmation. Arrive a few minutes early on week one.",
+  },
+  {
+    Icon: Eye,
+    title: "Viewing & watch-weeks",
+    copy: "Most classes run focused and parent-free, but regular watch-weeks and a full end-of-term showcase let you see the progress for yourself.",
+  },
 ];
 
 /* ───────────────────────── PAGE ───────────────────────── */
 
 const ParentInfo = () => {
-  const magCta = useMagnetic<HTMLDivElement>(0.22);
-
   return (
-    <div className="bg-background text-foreground overflow-x-clip">
+    <div className="overflow-x-clip bg-background text-foreground">
       {/* ───────────── HERO ───────────── */}
-      <section className="relative min-h-[64vh] flex flex-col items-center justify-center text-center px-4 overflow-hidden">
-        <div className="absolute inset-0 stage-light-blue" />
-        <div className="absolute inset-0 bg-[radial-gradient(120%_90%_at_50%_-10%,transparent,hsl(220_20%_4%)_78%)]" />
-        <GrainOverlay />
+      <section className="relative overflow-hidden px-4 py-20 text-center md:py-28">
+        <AmbientGlow variant="light" />
 
-        <span
-          aria-hidden
-          className="pointer-events-none select-none absolute inset-x-0 top-[18%] text-center font-display font-bold text-[22vw] leading-none text-stroke-faint tracking-tighter"
-        >
-          INFO
-        </span>
-
-        <Reveal className="relative z-10 max-w-3xl">
-          <p className="text-primary uppercase tracking-[0.3em] text-xs font-semibold mb-5">
-            Everything You Need · One Place
-          </p>
-          <h1 className="font-display font-bold leading-[0.95] text-foreground text-[15vw] sm:text-7xl md:text-8xl">
-            Parent Info
+        <FadeRise className="relative mx-auto max-w-3xl">
+          <p className="eyebrow mb-5">Everything you need · one place</p>
+          <h1 className="font-display text-5xl font-extrabold tracking-tight md:text-7xl">
+            Parent{" "}
+            <em className="font-serif font-normal italic text-primary">info</em>
           </h1>
-          <p
-            className="mt-6 text-base md:text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed"
-            style={body}
-          >
+          <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
             The calm, clear answers to every question a new dance parent has —
             trials, kit, term dates, safeguarding and how booking works. Take a
             breath; we've got you.
           </p>
-        </Reveal>
+
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+            {REASSURANCE.map((item) => (
+              <Badge key={item}>{item}</Badge>
+            ))}
+          </div>
+        </FadeRise>
       </section>
 
       {/* ───────────── QUICK-LINK ANCHOR ROW ───────────── */}
-      <div className="sticky top-0 z-20 border-y border-border bg-background/80 backdrop-blur-md">
-        <div className="container flex flex-wrap items-center justify-center gap-2 sm:gap-3 py-3">
+      <div className="sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur-xl">
+        <div className="container flex flex-wrap items-center justify-center gap-2 py-3 sm:gap-3">
           {QUICK_LINKS.map(({ id, label, Icon }) => (
             <a
               key={id}
               href={`#${id}`}
-              className="group inline-flex items-center gap-2 rounded-full border border-border bg-card/50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+              className="group inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground transition-colors hover:bg-primary/10 hover:text-primary"
             >
-              <Icon className="w-3.5 h-3.5 text-primary/70 transition-colors group-hover:text-primary" />
+              <Icon className="h-4 w-4 text-primary/70 transition-colors group-hover:text-primary" />
               {label}
             </a>
           ))}
         </div>
       </div>
 
-      {/* ───────────── REASSURANCE MARQUEE ───────────── */}
-      <div className="border-b border-border bg-card/40 py-4 text-foreground/90">
-        <Marquee
-          items={[
-            "Free First Trial",
-            "DBS-Checked Coaches",
-            "Fully Insured",
-            "First-Aid Trained",
-            "All Levels Welcome",
-            "Family-Run Energy",
-          ]}
-          speed={40}
-        />
-      </div>
-
       {/* ───────────── TRUST STAT BAND ───────────── */}
-      <section className="relative py-16 px-4 overflow-hidden">
-        <div className="absolute inset-0 stage-light-duo opacity-50" />
-        <div className="relative container grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-          {STATS.map((s, i) => (
-            <Reveal key={s.label} delay={i * 90}>
-              <div className="font-display font-bold text-4xl md:text-6xl text-primary">
-                <StatCounter value={s.value} suffix={s.suffix} />
+      <section className="px-4 py-16">
+        <Stagger
+          className="container grid max-w-6xl grid-cols-2 gap-8 text-center md:grid-cols-4"
+          childClassName="h-full"
+        >
+          {STATS.map((s) => (
+            <div key={s.label}>
+              <div className="font-display text-4xl font-bold tabular-nums text-primary md:text-5xl">
+                <AnimatedNumber value={s.value} suffix={s.suffix} />
               </div>
-              <div className="mt-2 text-xs md:text-sm uppercase tracking-[0.18em] text-muted-foreground">
-                {s.label}
-              </div>
-            </Reveal>
+              <div className="eyebrow mt-2">{s.label}</div>
+            </div>
           ))}
-        </div>
+        </Stagger>
       </section>
 
       {/* ───────────── FAQ ───────────── */}
-      <section id="faq" className="relative scroll-mt-24 py-24 px-4 overflow-hidden">
-        <div className="absolute inset-0 stage-light-blue opacity-50" />
-        <GrainOverlay />
-        <div className="relative container max-w-3xl">
-          <Reveal className="text-center mb-14">
-            <p className="text-accent uppercase tracking-[0.3em] text-xs font-semibold mb-3">
-              The Questions Every Parent Asks
-            </p>
-            <h2 className="font-display font-bold text-4xl md:text-6xl">
-              Frequently Asked
+      <section
+        id="faq"
+        className="scroll-mt-24 bg-secondary/40 px-4 py-16 md:py-24"
+      >
+        <div className="container max-w-3xl">
+          <FadeRise className="mb-12 text-center">
+            <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <HelpCircle className="h-6 w-6" />
+            </div>
+            <p className="eyebrow mb-3">The questions every parent asks</p>
+            <h2 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
+              Frequently asked
             </h2>
-            <p className="mt-4 text-muted-foreground" style={body}>
+            <p className="mt-3 text-muted-foreground">
               Real answers to the things you actually want to know before your
               child's first class. Can't find yours? We're one message away.
             </p>
-          </Reveal>
+          </FadeRise>
 
-          <Reveal delay={120}>
-            <Accordion
-              type="single"
-              collapsible
-              className="rounded-2xl border border-border bg-card/50 backdrop-blur-sm px-5 sm:px-7"
-            >
+          <FadeRise delay={120}>
+            <Accordion type="single" collapsible className="space-y-3 md:space-y-4">
               {FAQS.map((f, i) => (
                 <AccordionItem
                   key={f.q}
                   value={`faq-${i}`}
-                  className="border-border/70 last:border-b-0"
+                  className="rounded-3xl border-b-0 bg-card px-6 shadow-soft transition-shadow hover:shadow-soft-md"
                 >
-                  <AccordionTrigger className="text-left font-display uppercase tracking-wide text-base sm:text-lg hover:no-underline hover:text-primary py-5">
+                  <AccordionTrigger className="py-5 text-left font-display text-base font-semibold tracking-tight hover:no-underline hover:text-primary sm:text-lg">
                     {f.q}
                   </AccordionTrigger>
                   <AccordionContent>
-                    <p
-                      className="text-muted-foreground leading-relaxed pb-2"
-                      style={body}
-                    >
+                    <p className="pb-2 leading-relaxed text-muted-foreground">
                       {f.a}
                     </p>
                   </AccordionContent>
                 </AccordionItem>
               ))}
             </Accordion>
-          </Reveal>
+          </FadeRise>
         </div>
       </section>
 
       {/* ───────────── UNIFORM & WHAT TO WEAR ───────────── */}
-      <section
-        id="uniform"
-        className="relative scroll-mt-24 py-24 px-4 overflow-hidden border-t border-border"
-      >
-        <div
-          className="absolute inset-0 opacity-90"
-          style={{
-            background:
-              "linear-gradient(180deg, hsl(220 20% 4%), hsl(220 22% 6%)), radial-gradient(80% 60% at 100% 0%, hsl(330 90% 55% / 0.12), transparent 60%)",
-          }}
-        />
-        <GrainOverlay />
-        <div className="relative container">
-          <div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-12 items-center">
-            <Reveal>
-              <p className="text-primary uppercase tracking-[0.3em] text-xs font-semibold mb-3">
-                Look Sharp · Move Free
-              </p>
-              <h2 className="font-display font-bold text-4xl md:text-5xl leading-[1]">
-                Uniform &amp; What to Wear
+      <section id="uniform" className="scroll-mt-24 px-4 py-16 md:py-24">
+        <div className="container max-w-6xl">
+          <div className="grid items-center gap-12 lg:grid-cols-[0.9fr_1.1fr]">
+            <FadeRise>
+              <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <Shirt className="h-6 w-6" />
+              </div>
+              <p className="eyebrow mb-3">Look sharp · move free</p>
+              <h2 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
+                Uniform &amp; what to wear
               </h2>
-              <p className="mt-5 text-muted-foreground" style={body}>
+              <p className="mt-4 text-muted-foreground">
                 No shopping list before you start — just comfy clothes they can
                 move and sweat in. Once your dancer's settled, our branded TDE
                 kit pulls the whole crew together for class, showcases and
@@ -352,281 +350,214 @@ const ParentInfo = () => {
               </p>
 
               {/* placeholder kit visual */}
-              <div className="mt-8 relative aspect-[4/3] rounded-2xl border border-primary/25 overflow-hidden">
-                <div className="absolute inset-0 stage-light-mag opacity-70" />
-                <GrainOverlay />
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center px-6">
-                  <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary">
-                    <Shirt className="w-7 h-7" />
+              <Card className="relative mt-8 aspect-[4/3] overflow-hidden">
+                <AmbientGlow variant="light" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <Shirt className="h-7 w-7" />
                   </div>
-                  <span className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                    Branded TDE Kit · Coming Soon
-                  </span>
+                  <span className="eyebrow">Branded TDE kit · coming soon</span>
                 </div>
-              </div>
-            </Reveal>
+              </Card>
+            </FadeRise>
 
-            <div className="grid sm:grid-cols-2 gap-5">
-              {UNIFORM.map(({ Icon, title, copy }, i) => (
-                <Reveal key={title} delay={i * 90}>
-                  <div className="h-full rounded-2xl border border-border bg-card/60 p-6 transition-colors hover:border-primary/40">
-                    <div className="w-11 h-11 rounded-xl bg-primary/10 border border-primary/25 flex items-center justify-center text-primary mb-4">
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <h3 className="font-display text-xl mb-2">{title}</h3>
-                    <p className="text-sm text-muted-foreground" style={body}>
-                      {copy}
-                    </p>
+            <Stagger className="grid gap-4 sm:grid-cols-2" childClassName="h-full">
+              {UNIFORM.map(({ Icon, title, copy }) => (
+                <Card
+                  key={title}
+                  className="h-full p-6 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg"
+                >
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <Icon className="h-5 w-5" />
                   </div>
-                </Reveal>
+                  <h3 className="mb-2 font-display text-lg font-bold tracking-tight">
+                    {title}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">{copy}</p>
+                </Card>
               ))}
-            </div>
+            </Stagger>
           </div>
         </div>
       </section>
 
       {/* ───────────── TERM DATES ───────────── */}
-      <section id="terms" className="scroll-mt-24 py-24 px-4">
-        <div className="container">
-          <Reveal className="text-center max-w-2xl mx-auto mb-14">
-            <p className="text-accent uppercase tracking-[0.3em] text-xs font-semibold mb-3">
-              Plan the Year Ahead
-            </p>
-            <h2 className="font-display font-bold text-4xl md:text-6xl">
-              Term Dates 2025/26
+      <section
+        id="terms"
+        className="scroll-mt-24 bg-secondary/40 px-4 py-16 md:py-24"
+      >
+        <div className="container max-w-6xl">
+          <FadeRise className="mx-auto mb-12 max-w-2xl text-center">
+            <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent">
+              <CalendarDays className="h-6 w-6" />
+            </div>
+            <p className="eyebrow mb-3">Plan the year ahead</p>
+            <h2 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
+              Term dates 2025/26
             </h2>
-            <p className="mt-4 text-muted-foreground" style={body}>
+            <p className="mt-3 text-muted-foreground">
               We follow the standard Essex school-term pattern, with breaks for
               every half-term and holiday. Camps and workshops fill the gaps for
               dancers who just can't sit still.
             </p>
-          </Reveal>
+          </FadeRise>
 
-          <div className="grid md:grid-cols-3 gap-5">
+          <Stagger className="grid gap-4 md:grid-cols-3" childClassName="h-full">
             {TERMS.map((t, i) => (
-              <Reveal key={t.term} delay={i * 100}>
+              <Card
+                key={t.term}
+                className="h-full p-7 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg"
+              >
                 <div
-                  className="group relative h-full rounded-2xl border p-7 bg-card/60 backdrop-blur-sm transition-all duration-500 hover:-translate-y-1.5 overflow-hidden"
-                  style={{ borderColor: `hsl(${t.tint} / 0.35)` }}
+                  className={`mb-4 flex h-10 w-10 items-center justify-center rounded-2xl ${t.tile}`}
                 >
-                  <div
-                    className="absolute -top-16 -right-16 w-40 h-40 rounded-full blur-2xl opacity-40 transition-opacity duration-500 group-hover:opacity-70"
-                    style={{ background: `hsl(${t.tint} / 0.5)` }}
-                  />
-                  <div className="relative">
-                    <div
-                      className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] font-semibold"
-                      style={{ color: `hsl(${t.tint})` }}
-                    >
-                      <Clock className="w-4 h-4" />
-                      Term 0{i + 1}
-                    </div>
-                    <h3 className="mt-3 font-display text-2xl">{t.term}</h3>
-                    <p className="mt-3 text-lg text-foreground/90" style={body}>
-                      {t.dates}
-                    </p>
-                    <p
-                      className="mt-2 text-sm text-muted-foreground"
-                      style={body}
-                    >
-                      {t.half}
-                    </p>
-                  </div>
+                  <Clock className="h-5 w-5" />
                 </div>
-              </Reveal>
+                <p className={`eyebrow ${t.tone}`}>Term 0{i + 1}</p>
+                <h3 className="mt-2 font-display text-xl font-bold tracking-tight">
+                  {t.term}
+                </h3>
+                <p className="mt-3 font-display font-semibold tabular-nums">
+                  {t.dates}
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">{t.half}</p>
+              </Card>
             ))}
-          </div>
+          </Stagger>
 
-          <Reveal delay={120}>
-            <p
-              className="mt-10 text-center text-xs text-muted-foreground/80 max-w-2xl mx-auto"
-              style={body}
-            >
+          <FadeRise delay={120}>
+            <p className="mx-auto mt-10 max-w-2xl text-center text-xs text-muted-foreground">
               Dates align with the Essex local-authority calendar and may flex
               slightly by venue. Show weeks, closures and any snow-day changes
               are always confirmed in advance through your parent account.
             </p>
-          </Reveal>
+          </FadeRise>
         </div>
       </section>
 
       {/* ───────────── SAFEGUARDING & WELLBEING ───────────── */}
-      <section
-        id="safeguarding"
-        className="relative scroll-mt-24 py-24 px-4 overflow-hidden border-y border-border"
-      >
-        <div className="absolute inset-0 stage-light-blue opacity-60" />
-        <GrainOverlay />
-        <div className="relative container">
-          <Reveal className="text-center max-w-2xl mx-auto mb-14">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 border border-primary/30 text-primary mb-5">
-              <ShieldCheck className="w-7 h-7" />
+      <section id="safeguarding" className="scroll-mt-24 px-4 py-16 md:py-24">
+        <div className="container max-w-6xl">
+          <FadeRise className="mx-auto mb-12 max-w-2xl text-center">
+            <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <ShieldCheck className="h-6 w-6" />
             </div>
-            <p className="text-primary uppercase tracking-[0.3em] text-xs font-semibold mb-3">
-              Safe Hands · Every Class
-            </p>
-            <h2 className="font-display font-bold text-4xl md:text-6xl">
-              Safeguarding &amp; Wellbeing
+            <p className="eyebrow mb-3">Safe hands · every class</p>
+            <h2 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
+              Safeguarding &amp; wellbeing
             </h2>
-            <p className="mt-4 text-muted-foreground" style={body}>
+            <p className="mt-3 text-muted-foreground">
               Before the choreography, the costumes or the trophies, this is the
               promise we make to every family who trusts us with their dancer.
             </p>
-          </Reveal>
+          </FadeRise>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {SAFEGUARDING.map(({ Icon, title, copy }, i) => (
-              <Reveal key={title} delay={i * 90}>
-                <div className="h-full rounded-2xl border border-border bg-card/70 backdrop-blur-sm p-7 transition-colors hover:border-primary/40">
-                  <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/25 flex items-center justify-center text-primary mb-5">
-                    <Icon className="w-6 h-6" />
-                  </div>
-                  <h3 className="font-display text-xl mb-2">{title}</h3>
-                  <p className="text-sm text-muted-foreground" style={body}>
-                    {copy}
-                  </p>
+          <Stagger
+            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+            childClassName="h-full"
+          >
+            {SAFEGUARDING.map(({ Icon, title, copy }) => (
+              <Card
+                key={title}
+                className="h-full p-7 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg"
+              >
+                <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <Icon className="h-5 w-5" />
                 </div>
-              </Reveal>
+                <h3 className="mb-2 font-display text-lg font-bold tracking-tight">
+                  {title}
+                </h3>
+                <p className="text-sm text-muted-foreground">{copy}</p>
+              </Card>
             ))}
-          </div>
+          </Stagger>
 
           {/* parking & viewing inline strip */}
-          <div className="mt-8 grid sm:grid-cols-2 gap-6">
-            {[
-              {
-                Icon: Car,
-                title: "Parking",
-                copy: "Every venue has parking close by, with directions sent in your booking confirmation. Arrive a few minutes early on week one.",
-              },
-              {
-                Icon: Eye,
-                title: "Viewing & watch-weeks",
-                copy: "Most classes run focused and parent-free, but regular watch-weeks and a full end-of-term showcase let you see the progress for yourself.",
-              },
-            ].map(({ Icon, title, copy }, i) => (
-              <Reveal key={title} delay={i * 90}>
-                <div className="flex gap-4 rounded-2xl border border-border bg-card/50 p-6">
-                  <div className="shrink-0 w-11 h-11 rounded-xl bg-accent/10 border border-accent/30 flex items-center justify-center text-accent">
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-display text-lg mb-1">{title}</h3>
-                    <p className="text-sm text-muted-foreground" style={body}>
-                      {copy}
-                    </p>
-                  </div>
+          <Stagger className="mt-6 grid gap-4 sm:grid-cols-2" childClassName="h-full">
+            {PRACTICAL.map(({ Icon, title, copy }) => (
+              <Card key={title} className="flex h-full gap-4 p-6">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent/10 text-accent">
+                  <Icon className="h-5 w-5" />
                 </div>
-              </Reveal>
+                <div>
+                  <h3 className="mb-1 font-display text-lg font-bold tracking-tight">
+                    {title}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">{copy}</p>
+                </div>
+              </Card>
             ))}
-          </div>
+          </Stagger>
         </div>
       </section>
 
       {/* ───────────── WHERE TO START STRIP ───────────── */}
-      <section className="py-20 px-4">
-        <div className="container">
-          <Reveal className="text-center max-w-2xl mx-auto mb-12">
-            <p className="text-accent uppercase tracking-[0.3em] text-xs font-semibold mb-3">
-              Brand New Here?
-            </p>
-            <h2 className="font-display font-bold text-3xl md:text-5xl">
-              Three Steps to Your First Class
+      <section className="bg-secondary/40 px-4 py-16 md:py-24">
+        <div className="container max-w-6xl">
+          <FadeRise className="mx-auto mb-12 max-w-2xl text-center">
+            <p className="eyebrow mb-3">Brand new here?</p>
+            <h2 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
+              Three steps to your first class
             </h2>
-          </Reveal>
-          <div className="grid sm:grid-cols-3 gap-6">
-            {[
-              {
-                Icon: Compass,
-                step: "01",
-                title: "Find your fit",
-                copy: "Browse the timetable by venue and age band, or just tell us your child's age and we'll point you to the right room.",
-              },
-              {
-                Icon: Sparkles,
-                step: "02",
-                title: "Book a free trial",
-                copy: "Reserve a no-commitment trial in a few taps. Instant confirmation by email — nothing to pay until you're sure.",
-              },
-              {
-                Icon: Users,
-                step: "03",
-                title: "Come and dance",
-                copy: "Turn up in comfy kit, feel the energy, and decide from there. Love it? Enrol for the term and join the crew.",
-              },
-            ].map(({ Icon, step, title, copy }, i) => (
-              <Reveal key={title} delay={i * 100}>
-                <div className="relative h-full rounded-2xl border border-border bg-card/60 p-7 overflow-hidden">
-                  <span
-                    aria-hidden
-                    className="absolute -top-3 right-3 font-display font-bold text-7xl text-stroke-faint pointer-events-none select-none"
-                  >
-                    {step}
-                  </span>
-                  <div className="relative">
-                    <div className="w-11 h-11 rounded-xl bg-primary/10 border border-primary/25 flex items-center justify-center text-primary mb-4">
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <h3 className="font-display text-xl mb-2">{title}</h3>
-                    <p className="text-sm text-muted-foreground" style={body}>
-                      {copy}
-                    </p>
-                  </div>
+          </FadeRise>
+
+          <Stagger className="grid gap-4 sm:grid-cols-3" childClassName="h-full">
+            {STEPS.map(({ Icon, step, title, copy }) => (
+              <Card
+                key={title}
+                className="h-full p-7 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg"
+              >
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <Icon className="h-5 w-5" />
                 </div>
-              </Reveal>
+                <p className="eyebrow mb-2">{step}</p>
+                <h3 className="mb-2 font-display text-lg font-bold tracking-tight">
+                  {title}
+                </h3>
+                <p className="text-sm text-muted-foreground">{copy}</p>
+              </Card>
             ))}
-          </div>
+          </Stagger>
         </div>
       </section>
 
       {/* ───────────── CONTACT CTA ───────────── */}
       <section
         id="contact"
-        className="relative scroll-mt-24 py-28 px-4 text-center overflow-hidden border-t border-border"
+        className="relative scroll-mt-24 overflow-hidden px-4 py-20 text-center md:py-28"
       >
-        <div className="absolute inset-0 stage-light-duo" />
-        <GrainOverlay />
-        <Reveal className="relative max-w-3xl mx-auto">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-accent/10 border border-accent/30 text-accent mb-6">
-            <MessageCircleQuestion className="w-7 h-7" />
+        <AmbientGlow variant="duo" />
+        <FadeRise className="relative mx-auto max-w-3xl">
+          <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/10 text-accent">
+            <MessageCircleQuestion className="h-7 w-7" />
           </div>
-          <h2 className="font-display font-bold text-4xl md:text-7xl leading-[0.95]">
-            Still Have <span className="text-primary">Questions?</span>
+          <h2 className="font-display text-4xl font-extrabold tracking-tight md:text-6xl">
+            Still have{" "}
+            <em className="font-serif font-normal italic text-primary">
+              questions?
+            </em>
           </h2>
-          <p className="mt-5 text-muted-foreground text-lg" style={body}>
+          <p className="mt-5 text-lg text-muted-foreground">
             If there's anything we haven't covered, ask us — a real person from
             the team will get back to you, usually within a day.
           </p>
-          <div className="mt-9 flex flex-col sm:flex-row gap-4 justify-center">
-            <div ref={magCta} className="inline-block will-change-transform">
-              <Button
-                asChild
-                size="lg"
-                className="px-9 py-6 text-base font-semibold uppercase tracking-wider animate-glow-pulse"
-              >
-                <Link to="/contact">
-                  <Phone className="w-4 h-4 mr-2" /> Contact Us
-                </Link>
-              </Button>
-            </div>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="px-9 py-6 text-base font-semibold uppercase tracking-wider border-accent/40 text-foreground hover:bg-accent/10"
-            >
+          <div className="mt-9 flex flex-col justify-center gap-4 sm:flex-row">
+            <Button asChild size="lg">
+              <Link to="/contact">
+                <Phone className="mr-2 h-4 w-4" /> Contact us
+              </Link>
+            </Button>
+            <Button asChild size="lg" variant="outline">
               <Link to="/classes/children">
-                Browse Classes <ArrowRight className="w-4 h-4 ml-2" />
+                Browse classes <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
           </div>
-          <p
-            className="mt-8 inline-flex items-center gap-2 text-xs text-muted-foreground/80"
-            style={body}
-          >
-            <PoundSterling className="w-3.5 h-3.5 text-primary/70" />
+          <p className="mt-8 inline-flex items-center gap-2 text-xs text-muted-foreground">
+            <PoundSterling className="h-3.5 w-3.5 text-primary" />
             No pressure, no surprise costs — just a friendly answer.
           </p>
-        </Reveal>
+        </FadeRise>
       </section>
     </div>
   );

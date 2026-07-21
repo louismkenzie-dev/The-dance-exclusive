@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -68,11 +68,12 @@ const CustomerEditDialog = ({ open, onOpenChange, profile, onSaved }: Props) => 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0">
-        <DialogHeader className="px-6 pt-6 pb-2">
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-3">
           <DialogTitle>Edit customer</DialogTitle>
+          <DialogDescription>Contact and address details</DialogDescription>
         </DialogHeader>
-        <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-4 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
           <div className="space-y-2">
             <Label>Full name</Label>
             <Input value={form.full_name} onChange={(e) => update("full_name", e.target.value)} />
@@ -114,7 +115,7 @@ const CustomerEditDialog = ({ open, onOpenChange, profile, onSaved }: Props) => 
             </div>
           </div>
         </div>
-        <DialogFooter className="px-6 py-4 border-t border-border">
+        <DialogFooter className="gap-2 px-6 py-4 border-t border-border/50 bg-card/95 backdrop-blur">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
           <Button onClick={handleSave} disabled={saving} className="gap-1.5">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}

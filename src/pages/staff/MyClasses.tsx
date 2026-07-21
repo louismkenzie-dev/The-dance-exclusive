@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useStaffMember } from "@/hooks/useStaffMember";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, Clock } from "lucide-react";
+import { FadeRise, Stagger } from "@/components/motion";
+import { MapPin, Clock } from "lucide-react";
 
 const MyClasses = () => {
   const { staff } = useStaffMember();
@@ -71,32 +72,43 @@ const MyClasses = () => {
 
   return (
     <div className="p-6 md:p-8 max-w-5xl mx-auto">
-      <h1 className="text-3xl font-display font-bold mb-1">My Classes</h1>
-      <p className="text-muted-foreground mb-6">All upcoming sessions you're teaching</p>
+      <FadeRise className="mb-8">
+        <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">My classes</h1>
+        <p className="text-muted-foreground mt-1">All upcoming sessions you're teaching</p>
+      </FadeRise>
 
       {loading ? (
         <p className="text-muted-foreground text-sm">Loading...</p>
       ) : sessions.length === 0 ? (
-        <Card><CardContent className="py-12 text-center text-muted-foreground">No upcoming classes assigned.</CardContent></Card>
+        <FadeRise>
+          <Card><CardContent className="py-12 text-center text-muted-foreground">No upcoming classes assigned.</CardContent></Card>
+        </FadeRise>
       ) : (
-        <div className="space-y-3">
+        <Stagger className="space-y-4">
           {sessions.map((s) => {
             const isAdult = s.classes?.class_type === "adult";
             return (
-              <Card key={s.id} className={`border-l-4 ${isAdult ? "border-l-[hsl(330,90%,55%)]" : "border-l-primary"}`}>
+              <Card key={s.id} className="transition-all duration-300 hover:-translate-y-0.5 hover:shadow-soft-lg">
                 <CardContent className="p-5 flex flex-col md:flex-row md:items-center gap-4">
-                  <div className="text-center md:w-24 shrink-0">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                  <div
+                    className={`flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-2xl ${
+                      isAdult ? "bg-accent/8 text-accent" : "bg-primary/8 text-primary"
+                    }`}
+                  >
+                    <span className="text-[11px] font-semibold">
                       {new Date(s.session_date).toLocaleDateString("en-GB", { weekday: "short" })}
-                    </p>
-                    <p className="text-2xl font-bold">
-                      {new Date(s.session_date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                    </p>
+                    </span>
+                    <span className="text-2xl font-display font-bold tabular-nums leading-tight">
+                      {new Date(s.session_date).toLocaleDateString("en-GB", { day: "numeric" })}
+                    </span>
+                    <span className="text-[11px] font-medium">
+                      {new Date(s.session_date).toLocaleDateString("en-GB", { month: "short" })}
+                    </span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold text-lg">{s.classes?.name}</h3>
-                      <Badge variant="outline" className={isAdult ? "bg-[hsl(330,90%,55%)]/15 text-[hsl(330,90%,55%)] border-transparent" : "bg-primary/15 text-primary border-transparent"}>
+                      <h3 className="text-lg font-display font-bold">{s.classes?.name}</h3>
+                      <Badge variant={isAdult ? "accent" : "default"}>
                         {isAdult ? "Adult" : "Children"}
                       </Badge>
                       {s.classes?.dance_style && <Badge variant="secondary">{s.classes.dance_style}</Badge>}
@@ -110,7 +122,7 @@ const MyClasses = () => {
               </Card>
             );
           })}
-        </div>
+        </Stagger>
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import {
   Play,
   Camera,
@@ -16,25 +17,21 @@ import {
   Calendar,
   Clapperboard,
 } from "lucide-react";
-import GrainOverlay from "@/components/immersive/GrainOverlay";
-import { Reveal } from "@/components/immersive/Reveal";
-import { Marquee } from "@/components/immersive/Marquee";
-import { StatCounter } from "@/components/immersive/StatCounter";
-import { useMagnetic } from "@/hooks/useMagnetic";
+import { FadeRise, Stagger, AnimatedNumber, AmbientGlow } from "@/components/motion";
 
 /* ─────────────────────────────────────────────────────────────
-   Gallery / Showreel — "In Motion"
-   The immersive media wall. No real photography yet, so every
-   tile is an intentional stage-lit placeholder ready to receive
-   real footage later.
+   Gallery / Showreel — "In motion"
+   The media wall. No real photography yet, so every tile is an
+   art-directed gradient placeholder ready to receive real
+   footage later.
    ──────────────────────────────────────────────────────────── */
 
 type Tone = "blue" | "mag" | "violet";
 
-const TONE: Record<Tone, { hsl: string; light: string; chip: string }> = {
-  blue: { hsl: "201 70% 65%", light: "stage-light-blue", chip: "text-primary" },
-  mag: { hsl: "330 90% 55%", light: "stage-light-mag", chip: "text-accent" },
-  violet: { hsl: "270 75% 62%", light: "stage-light-duo", chip: "text-primary" },
+const TONE: Record<Tone, { grad: string; text: string }> = {
+  blue: { grad: "from-primary/15 via-secondary/60 to-primary/5", text: "text-primary" },
+  mag: { grad: "from-accent/15 via-secondary/60 to-accent/5", text: "text-accent" },
+  violet: { grad: "from-primary/12 via-secondary/50 to-accent/12", text: "text-primary" },
 };
 
 type Filter = "all" | "showcase" | "competition" | "studio" | "behind";
@@ -43,8 +40,8 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "showcase", label: "Showcases" },
   { id: "competition", label: "Competition" },
-  { id: "studio", label: "Studio Sessions" },
-  { id: "behind", label: "Behind The Scenes" },
+  { id: "studio", label: "Studio sessions" },
+  { id: "behind", label: "Behind the scenes" },
 ];
 
 type Tile = {
@@ -61,33 +58,49 @@ type Tile = {
 
 const TILES: Tile[] = [
   { caption: "Showcase 2025", meta: "The After Dark Show", tone: "mag", kind: "video", cat: "showcase", aspect: "aspect-[4/5]", wide: true },
-  { caption: "Competition Day", meta: "UDO · Blackpool", tone: "blue", kind: "photo", cat: "competition", aspect: "aspect-[3/4]" },
-  { caption: "Studio Sessions", meta: "Commercial · Seniors", tone: "violet", kind: "photo", cat: "studio", aspect: "aspect-square" },
-  { caption: "Heels Class", meta: "Adults · After Dark", tone: "mag", kind: "video", cat: "studio", aspect: "aspect-[3/4]" },
-  { caption: "Crew Callout", meta: "Street · Juniors", tone: "blue", kind: "photo", cat: "competition", aspect: "aspect-square" },
-  { caption: "Showcase 2025", meta: "Finale · Full Cast", tone: "violet", kind: "photo", cat: "showcase", aspect: "aspect-[4/3]", wide: true },
-  { caption: "Behind The Scenes", meta: "Dress Run", tone: "mag", kind: "photo", cat: "behind", aspect: "aspect-[3/4]" },
-  { caption: "Studio Sessions", meta: "Tots · First Steps", tone: "blue", kind: "photo", cat: "studio", aspect: "aspect-square" },
-  { caption: "Competition Day", meta: "Nation's Best Crew", tone: "mag", kind: "video", cat: "competition", aspect: "aspect-[4/5]" },
-  { caption: "Behind The Scenes", meta: "Glam · Backstage", tone: "violet", kind: "photo", cat: "behind", aspect: "aspect-square" },
-  { caption: "Showcase 2025", meta: "Solo Spotlight", tone: "blue", kind: "video", cat: "showcase", aspect: "aspect-[3/4]" },
-  { caption: "Studio Sessions", meta: "Choreo Lab", tone: "mag", kind: "photo", cat: "studio", aspect: "aspect-[4/3]", wide: true },
+  { caption: "Competition day", meta: "UDO · Blackpool", tone: "blue", kind: "photo", cat: "competition", aspect: "aspect-[3/4]" },
+  { caption: "Studio sessions", meta: "Commercial · Seniors", tone: "violet", kind: "photo", cat: "studio", aspect: "aspect-square" },
+  { caption: "Heels class", meta: "Adults · After Dark", tone: "mag", kind: "video", cat: "studio", aspect: "aspect-[3/4]" },
+  { caption: "Crew callout", meta: "Street · Juniors", tone: "blue", kind: "photo", cat: "competition", aspect: "aspect-square" },
+  { caption: "Showcase 2025", meta: "Finale · Full cast", tone: "violet", kind: "photo", cat: "showcase", aspect: "aspect-[4/3]", wide: true },
+  { caption: "Behind the scenes", meta: "Dress run", tone: "mag", kind: "photo", cat: "behind", aspect: "aspect-[3/4]" },
+  { caption: "Studio sessions", meta: "Tots · First steps", tone: "blue", kind: "photo", cat: "studio", aspect: "aspect-square" },
+  { caption: "Competition day", meta: "Nation's Best Crew", tone: "mag", kind: "video", cat: "competition", aspect: "aspect-[4/5]" },
+  { caption: "Behind the scenes", meta: "Glam · Backstage", tone: "violet", kind: "photo", cat: "behind", aspect: "aspect-square" },
+  { caption: "Showcase 2025", meta: "Solo spotlight", tone: "blue", kind: "video", cat: "showcase", aspect: "aspect-[3/4]" },
+  { caption: "Studio sessions", meta: "Choreo lab", tone: "mag", kind: "photo", cat: "studio", aspect: "aspect-[4/3]", wide: true },
+];
+
+const CATEGORIES = [
+  "Showcases",
+  "Competition",
+  "Studio sessions",
+  "Backstage",
+  "Heels",
+  "Crews",
+  "Solos",
+  "Camps",
+  "After Dark",
 ];
 
 const STATS = [
-  { value: 1200, suffix: "+", label: "Moments Captured" },
-  { value: 48, suffix: "", label: "Routines Filmed" },
-  { value: 14, suffix: "", label: "Trophy Days" },
-  { value: 25, suffix: "k", label: "Views & Counting" },
+  { value: 1200, suffix: "+", label: "Moments captured" },
+  { value: 48, suffix: "", label: "Routines filmed" },
+  { value: 14, suffix: "", label: "Trophy days" },
+  { value: 25, suffix: "k", label: "Views & counting" },
+];
+
+const SUB_REELS = [
+  { t: "Showcase highlights", m: "The After Dark Show", Icon: Sparkles, tone: "mag" as Tone },
+  { t: "Competition reel", m: "Trophy season", Icon: Trophy, tone: "blue" as Tone },
+  { t: "Studio energy", m: "Behind the choreo", Icon: Music2, tone: "violet" as Tone },
 ];
 
 const KindIcon = ({ kind }: { kind: Tile["kind"] }) =>
-  kind === "video" ? <Play className="w-5 h-5" /> : <Camera className="w-5 h-5" />;
+  kind === "video" ? <Play className="h-5 w-5" /> : <Camera className="h-5 w-5" />;
 
 const Gallery = () => {
   const [active, setActive] = useState<Filter>("all");
-  const magReel = useMagnetic<HTMLDivElement>(0.2);
-  const magCta = useMagnetic<HTMLDivElement>(0.22);
 
   const shown = TILES.map((t) => ({
     ...t,
@@ -96,117 +109,85 @@ const Gallery = () => {
 
   return (
     <div className="bg-background text-foreground overflow-x-clip">
-      {/* ───────────────── HERO ───────────────── */}
-      <section className="relative min-h-[70vh] flex flex-col items-center justify-center text-center px-4 overflow-hidden">
-        <div className="absolute inset-0 stage-light-duo" />
-        <div className="absolute inset-0 bg-[radial-gradient(120%_90%_at_50%_-10%,transparent,hsl(220_20%_4%)_78%)]" />
-        <GrainOverlay />
+      {/* ───────────────── Hero ───────────────── */}
+      <section className="relative overflow-hidden px-4 pt-24 pb-16 md:pt-32 md:pb-24">
+        <AmbientGlow variant="duo" />
+        <div className="relative container max-w-7xl text-center">
+          <FadeRise>
+            <p className="eyebrow mb-5 inline-flex items-center gap-2">
+              <Clapperboard className="h-4 w-4" /> The gallery
+            </p>
+            <h1 className="font-display text-5xl font-extrabold tracking-tight md:text-7xl">
+              In <em className="font-serif italic font-normal text-accent">motion</em>
+            </h1>
+            <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-muted-foreground md:text-xl">
+              Every showcase, every trophy day, every late-night studio session — caught on camera.
+              This is The Dance Exclusive after dark, frame by frame.
+            </p>
 
-        <span
-          aria-hidden
-          className="pointer-events-none select-none absolute inset-x-0 top-[18%] text-center font-display font-bold text-[24vw] leading-none text-stroke-faint tracking-tighter"
-        >
-          REEL
-        </span>
-
-        <div className="relative z-10 max-w-3xl animate-fade-in">
-          <p className="text-primary uppercase tracking-[0.3em] text-xs font-semibold mb-5 inline-flex items-center gap-2">
-            <Clapperboard className="w-4 h-4" /> The Gallery
-          </p>
-          <h1 className="font-display font-bold leading-[0.9] tracking-tight text-[18vw] sm:text-8xl md:text-[9rem]">
-            <span className="block">In</span>
-            <span className="block text-accent drop-shadow-[0_0_40px_hsl(330_90%_55%/0.4)]">Motion</span>
-          </h1>
-          <p
-            className="mt-7 text-base md:text-xl text-muted-foreground max-w-xl mx-auto leading-relaxed"
-            style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
-          >
-            Every showcase, every trophy day, every late-night studio session — caught on camera.
-            This is The Dance Exclusive after dark, frame by frame.
-          </p>
-
-          <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <div ref={magReel} className="inline-block will-change-transform">
-              <Button asChild size="lg" className="text-base px-8 py-6 font-semibold uppercase tracking-wider animate-glow-pulse">
+            <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+              <Button asChild size="lg">
                 <a href="#showreel">
-                  <Play className="w-4 h-4 mr-2" /> Watch The Showreel
+                  <Play className="mr-2 h-4 w-4" /> Watch the showreel
+                </a>
+              </Button>
+              <Button asChild size="lg" variant="secondary">
+                <a href="#wall">
+                  Browse the wall <ArrowRight className="ml-2 h-4 w-4" />
                 </a>
               </Button>
             </div>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="text-base px-8 py-6 font-semibold uppercase tracking-wider border-accent/40 text-foreground hover:bg-accent/10"
-            >
-              <a href="#wall">
-                Browse The Wall <ArrowRight className="w-4 h-4 ml-2" />
-              </a>
-            </Button>
-          </div>
-        </div>
+          </FadeRise>
 
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-10">
-          <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground/60">Scroll</span>
-          <div className="w-5 h-8 rounded-full border border-muted-foreground/30 flex justify-center pt-1.5">
-            <span className="w-1 h-1.5 rounded-full bg-accent animate-scroll-cue" />
-          </div>
+          {/* Category strip */}
+          <FadeRise delay={140}>
+            <div className="mt-12 flex flex-wrap items-center justify-center gap-2">
+              {CATEGORIES.map((label) => (
+                <span
+                  key={label}
+                  className="rounded-full bg-secondary px-4 py-1.5 text-sm font-medium text-secondary-foreground"
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+          </FadeRise>
         </div>
       </section>
 
-      {/* ───────────────── MARQUEE STRIP ───────────────── */}
-      <div className="border-y border-border bg-card/40 py-4 text-foreground/90">
-        <Marquee
-          items={["Showcases", "Competition", "Studio Sessions", "Backstage", "Heels", "Crews", "Solos", "Camps", "After Dark"]}
-          speed={38}
-          accent="text-accent"
-        />
-      </div>
-
-      {/* ───────────────── STAT BAND ───────────────── */}
-      <section className="relative py-16 px-4 overflow-hidden">
-        <div className="absolute inset-0 stage-light-blue opacity-50" />
-        <div className="relative container grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-          {STATS.map((s, i) => (
-            <Reveal key={s.label} delay={i * 90}>
-              <div className="font-display font-bold text-5xl md:text-6xl text-primary">
-                <StatCounter value={s.value} suffix={s.suffix} />
-              </div>
-              <div className="mt-2 text-xs md:text-sm uppercase tracking-[0.18em] text-muted-foreground">
-                {s.label}
-              </div>
-            </Reveal>
-          ))}
+      {/* ───────────────── Stat band ───────────────── */}
+      <section className="bg-secondary/40 px-4 py-16 md:py-20">
+        <div className="container max-w-6xl">
+          <Stagger className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6" childClassName="h-full">
+            {STATS.map((s) => (
+              <Card key={s.label} className="h-full p-6 text-center md:p-8">
+                <div className="font-display text-4xl font-bold tabular-nums tracking-tight text-primary md:text-5xl">
+                  <AnimatedNumber value={s.value} suffix={s.suffix} />
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">{s.label}</p>
+              </Card>
+            ))}
+          </Stagger>
         </div>
       </section>
 
-      {/* ───────────────── THE WALL (masonry) ───────────────── */}
-      <section id="wall" className="relative py-24 px-4 overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-90"
-          style={{
-            background:
-              "linear-gradient(180deg, hsl(220 20% 4%), hsl(220 22% 6%)), radial-gradient(80% 60% at 0% 0%, hsl(201 70% 55% / 0.10), transparent 60%), radial-gradient(80% 60% at 100% 100%, hsl(330 90% 55% / 0.12), transparent 60%)",
-          }}
-        />
-        <GrainOverlay />
-
-        <div className="relative container">
-          <Reveal className="text-center max-w-2xl mx-auto mb-10">
-            <p className="text-accent uppercase tracking-[0.3em] text-xs font-semibold mb-3">The Gallery Wall</p>
-            <h2 className="font-display font-bold text-4xl md:text-6xl">Caught In The Spotlight</h2>
-            <p
-              className="mt-4 text-muted-foreground"
-              style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
-            >
-              A living wall of our best moments. Filter by the energy you're after — then watch real footage drop
-              into every frame.
+      {/* ───────────────── The wall (masonry) ───────────────── */}
+      <section id="wall" className="px-4 py-16 md:py-24">
+        <div className="container max-w-7xl">
+          <FadeRise className="mx-auto mb-10 max-w-2xl text-center">
+            <p className="eyebrow mb-3">The gallery wall</p>
+            <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
+              Caught in the spotlight
+            </h2>
+            <p className="mt-4 text-muted-foreground">
+              A living wall of our best moments. Filter by the energy you're after — then watch real
+              footage drop into every frame.
             </p>
-          </Reveal>
+          </FadeRise>
 
-          {/* filter pills */}
-          <Reveal delay={80}>
-            <div className="flex flex-wrap justify-center gap-2.5 mb-12">
+          {/* Filter pills */}
+          <FadeRise delay={80}>
+            <div className="mb-12 flex flex-wrap justify-center gap-2">
               {FILTERS.map((f) => {
                 const on = active === f.id;
                 return (
@@ -214,10 +195,10 @@ const Gallery = () => {
                     key={f.id}
                     type="button"
                     onClick={() => setActive(f.id)}
-                    className={`px-5 py-2 rounded-full text-xs font-semibold uppercase tracking-[0.18em] border transition-all duration-300 ${
+                    className={`rounded-full px-5 py-2 text-sm font-medium transition-all duration-300 ease-out ${
                       on
-                        ? "bg-accent/15 border-accent/50 text-accent shadow-[0_0_24px_hsl(330_90%_55%/0.25)]"
-                        : "bg-card/50 border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                        ? "bg-primary text-primary-foreground shadow-soft"
+                        : "bg-secondary text-muted-foreground hover:bg-secondary/70 hover:text-foreground"
                     }`}
                   >
                     {f.label}
@@ -225,315 +206,246 @@ const Gallery = () => {
                 );
               })}
             </div>
-          </Reveal>
+          </FadeRise>
 
-          {/* masonry via CSS columns — varied aspect ratios keep the rhythm */}
-          <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 [column-fill:_balance]">
+          {/* Masonry via CSS columns — varied aspect ratios keep the rhythm */}
+          <div className="columns-1 gap-4 sm:columns-2 lg:columns-3 [column-fill:_balance]">
             {shown.map((t, i) => {
               const tone = TONE[t.tone];
               return (
-                <Reveal key={`${t.caption}-${i}`} delay={(i % 3) * 90} className="mb-4 inline-block w-full align-top">
+                <FadeRise key={`${t.caption}-${i}`} delay={(i % 3) * 90} className="mb-4 inline-block w-full align-top">
                   <article
-                    className={`group relative w-full ${t.aspect} rounded-2xl overflow-hidden border cursor-pointer transition-all duration-500 hover:-translate-y-1.5 ${
+                    className={`group relative w-full ${t.aspect} cursor-pointer overflow-hidden rounded-3xl bg-gradient-to-br ${tone.grad} shadow-soft transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-soft-lg ${
                       t.dim ? "opacity-30 saturate-50" : "opacity-100"
                     }`}
-                    style={{ borderColor: `hsl(${tone.hsl} / 0.3)` }}
                   >
-                    {/* stage-lit fill — stands in for real media */}
-                    <div className={`absolute inset-0 ${tone.light} opacity-80`} />
-                    <div
-                      className="absolute inset-0 transition-transform duration-700 group-hover:scale-105"
-                      style={{
-                        background: `radial-gradient(120% 90% at 50% 20%, hsl(${tone.hsl} / 0.35), transparent 60%)`,
-                      }}
-                    />
-                    <GrainOverlay />
-                    <div className="absolute inset-0 bg-gradient-to-t from-background/85 via-background/20 to-transparent" />
+                    {/* Art-directed gradient fill — stands in for real media */}
+                    <div className="absolute inset-0 transition-transform duration-500 ease-out group-hover:scale-[1.03]">
+                      <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/20 to-transparent" />
+                    </div>
 
-                    {/* faint giant index for depth */}
+                    {/* Tile index */}
                     <span
                       aria-hidden
-                      className="pointer-events-none absolute -top-3 right-3 font-display font-bold text-7xl leading-none text-stroke-faint opacity-50"
+                      className="pointer-events-none absolute top-4 right-4 font-display text-xs font-semibold tabular-nums text-foreground/30"
                     >
                       {String(i + 1).padStart(2, "0")}
                     </span>
 
-                    {/* centred play / camera glyph */}
+                    {/* Centred play / camera glyph */}
                     <div className="absolute inset-0 flex items-center justify-center">
                       <span
-                        className="flex items-center justify-center w-16 h-16 rounded-full border backdrop-blur-sm transition-all duration-500 group-hover:scale-110"
-                        style={{
-                          background: `hsl(${tone.hsl} / 0.14)`,
-                          borderColor: `hsl(${tone.hsl} / 0.5)`,
-                          color: `hsl(${tone.hsl})`,
-                        }}
+                        className={`flex h-14 w-14 items-center justify-center rounded-full bg-card/80 shadow-soft backdrop-blur-sm transition-transform duration-300 ease-out group-hover:scale-105 ${tone.text}`}
                       >
                         <KindIcon kind={t.kind} />
                       </span>
                     </div>
 
-                    {/* hover expand hint */}
+                    {/* Hover expand hint */}
                     <span
-                      className="absolute top-3 left-3 flex items-center justify-center w-9 h-9 rounded-full bg-background/50 border border-white/10 text-foreground/80 opacity-0 -translate-y-1 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0"
+                      className="absolute top-3 left-3 flex h-9 w-9 -translate-y-1 items-center justify-center rounded-full bg-card/80 text-muted-foreground opacity-0 shadow-soft backdrop-blur-sm transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100"
                       aria-hidden
                     >
-                      <Maximize2 className="w-4 h-4" />
+                      <Maximize2 className="h-4 w-4" />
                     </span>
 
-                    {/* caption */}
+                    {/* Caption */}
                     <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5">
-                      <span className={`text-[10px] font-semibold uppercase tracking-[0.22em] ${tone.chip}`}>
+                      <span className={`text-[11px] font-semibold ${tone.text}`}>
                         {t.kind === "video" ? "Showreel" : "Photo"}
                       </span>
-                      <h3 className="font-display text-xl sm:text-2xl mt-1 leading-tight">{t.caption}</h3>
-                      <p
-                        className="text-xs text-muted-foreground mt-0.5"
-                        style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
-                      >
-                        {t.meta}
-                      </p>
+                      <h3 className="mt-1 font-display text-xl font-bold leading-tight tracking-tight">
+                        {t.caption}
+                      </h3>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{t.meta}</p>
                     </div>
                   </article>
-                </Reveal>
+                </FadeRise>
               );
             })}
           </div>
 
-          <Reveal delay={120} className="text-center mt-12">
-            <p
-              className="text-sm text-muted-foreground"
-              style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
-            >
-              Real photography and video drops in here as we shoot — bookmark the wall and watch it come alive.
+          <FadeRise delay={120} className="mt-12 text-center">
+            <p className="text-sm text-muted-foreground">
+              Real photography and video drops in here as we shoot — bookmark the wall and watch it
+              come alive.
             </p>
-          </Reveal>
+          </FadeRise>
         </div>
       </section>
 
-      {/* ───────────────── FEATURED SHOWREEL ───────────────── */}
-      <section id="showreel" className="relative py-24 px-4 overflow-hidden border-y border-border">
-        <div className="absolute inset-0 stage-light-mag opacity-45" />
-        <GrainOverlay />
+      {/* ───────────────── Featured showreel (night band) ───────────────── */}
+      <section id="showreel" className="px-4 py-8 md:py-12">
+        <FadeRise className="container max-w-7xl">
+          <div className="dark relative overflow-hidden rounded-3xl bg-background p-6 text-foreground shadow-soft-xl md:p-12">
+            <AmbientGlow variant="night" />
+            <div className="relative">
+              <div className="mx-auto mb-10 max-w-2xl text-center md:mb-12">
+                <p className="eyebrow mb-3 inline-flex items-center gap-2">
+                  <Film className="h-4 w-4" /> Featured showreel
+                </p>
+                <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
+                  The After Dark Reel
+                </h2>
+                <p className="mt-4 text-muted-foreground">
+                  Ninety seconds of pure energy — the routines, the crowds, the lights. The fastest
+                  way to feel what a class here is really like.
+                </p>
+              </div>
 
-        <div className="relative container">
-          <Reveal className="text-center max-w-2xl mx-auto mb-12">
-            <p className="text-primary uppercase tracking-[0.3em] text-xs font-semibold mb-3 inline-flex items-center gap-2">
-              <Film className="w-4 h-4" /> Featured Showreel
-            </p>
-            <h2 className="font-display font-bold text-4xl md:text-6xl">The After Dark Reel</h2>
-            <p
-              className="mt-4 text-muted-foreground"
-              style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
-            >
-              Ninety seconds of pure energy — the routines, the crowds, the lights. The fastest way to feel what a
-              class here is really like.
-            </p>
-          </Reveal>
+              <div className="group relative aspect-video w-full cursor-pointer overflow-hidden rounded-3xl bg-gradient-to-br from-accent/20 via-card to-primary/15 shadow-soft-lg">
+                <div className="absolute inset-0 transition-transform duration-500 ease-out group-hover:scale-[1.02]">
+                  <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
+                </div>
 
-          <Reveal delay={100}>
-            <div ref={magReel} className="inline-block w-full will-change-transform">
-              <div
-                className="group relative w-full aspect-video rounded-3xl overflow-hidden border cursor-pointer"
-                style={{ borderColor: "hsl(330 90% 55% / 0.35)" }}
-              >
-                <div className="absolute inset-0 stage-light-duo" />
-                <div
-                  className="absolute inset-0 transition-transform duration-700 group-hover:scale-[1.03]"
-                  style={{
-                    background:
-                      "radial-gradient(80% 70% at 50% 25%, hsl(330 90% 55% / 0.3), transparent 60%), radial-gradient(70% 60% at 20% 90%, hsl(201 70% 65% / 0.25), transparent 60%)",
-                  }}
-                />
-                <GrainOverlay />
-                <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-background/30" />
-
-                <span
-                  aria-hidden
-                  className="pointer-events-none select-none absolute inset-x-0 top-[8%] text-center font-display font-bold text-[16vw] md:text-[10rem] leading-none text-stroke-faint tracking-tighter"
-                >
-                  TDE
-                </span>
-
-                {/* big play button */}
+                {/* Big play button */}
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="relative flex items-center justify-center">
-                    <span className="absolute w-28 h-28 md:w-36 md:h-36 rounded-full bg-accent/20 animate-glow-pulse" />
-                    <span className="relative flex items-center justify-center w-20 h-20 md:w-24 md:h-24 rounded-full bg-[hsl(330,90%,55%)] text-white shadow-2xl shadow-[hsl(330,90%,55%)]/40 transition-transform duration-500 group-hover:scale-110">
-                      <Play className="w-9 h-9 md:w-11 md:h-11 ml-1 fill-current" />
-                    </span>
+                  <span className="flex h-20 w-20 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-soft-xl transition-transform duration-300 ease-out group-hover:scale-105 md:h-24 md:w-24">
+                    <Play className="ml-1 h-9 w-9 fill-current md:h-11 md:w-11" />
                   </span>
                 </div>
 
-                {/* lower bar */}
-                <div className="absolute inset-x-0 bottom-0 p-6 md:p-9 flex flex-wrap items-end justify-between gap-4">
+                {/* Lower bar */}
+                <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-4 p-6 md:p-9">
                   <div>
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-accent">
-                      Official Showreel · 2025
-                    </span>
-                    <h3 className="font-display text-2xl md:text-4xl mt-1">Move Different — The Film</h3>
+                    <span className="text-xs font-semibold text-accent">Official showreel · 2025</span>
+                    <h3 className="mt-1 font-display text-2xl font-bold tracking-tight md:text-4xl">
+                      Move different — the film
+                    </h3>
                   </div>
-                  <span className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                    <Clapperboard className="w-4 h-4" /> 01:32
+                  <span className="inline-flex items-center gap-2 text-xs font-medium tabular-nums text-muted-foreground">
+                    <Clapperboard className="h-4 w-4" /> 01:32
                   </span>
                 </div>
               </div>
-            </div>
-          </Reveal>
 
-          {/* three sub-reel chips */}
-          <div className="grid sm:grid-cols-3 gap-4 mt-5">
-            {[
-              { t: "Showcase Highlights", m: "The After Dark Show", Icon: Sparkles, tone: "mag" as Tone },
-              { t: "Competition Reel", m: "Trophy Season", Icon: Trophy, tone: "blue" as Tone },
-              { t: "Studio Energy", m: "Behind The Choreo", Icon: Music2, tone: "violet" as Tone },
-            ].map(({ t, m, Icon, tone }, i) => {
-              const c = TONE[tone];
-              return (
-                <Reveal key={t} delay={i * 90}>
-                  <div
-                    className="group relative aspect-[16/9] rounded-2xl overflow-hidden border cursor-pointer transition-transform duration-500 hover:-translate-y-1"
-                    style={{ borderColor: `hsl(${c.hsl} / 0.3)` }}
-                  >
-                    <div className={`absolute inset-0 ${c.light} opacity-75`} />
-                    <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
-                    <div
-                      className="absolute top-3 right-3 flex items-center justify-center w-10 h-10 rounded-full border backdrop-blur-sm transition-transform duration-500 group-hover:scale-110"
-                      style={{ background: `hsl(${c.hsl} / 0.14)`, borderColor: `hsl(${c.hsl} / 0.5)`, color: `hsl(${c.hsl})` }}
-                    >
-                      <Play className="w-4 h-4 ml-0.5 fill-current" />
-                    </div>
-                    <div className="absolute inset-x-0 bottom-0 p-4">
-                      <Icon className="w-5 h-5 mb-2" style={{ color: `hsl(${c.hsl})` }} />
-                      <h4 className="font-display text-lg leading-tight">{t}</h4>
-                      <p
-                        className="text-xs text-muted-foreground"
-                        style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
-                      >
-                        {m}
-                      </p>
-                    </div>
-                  </div>
-                </Reveal>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ───────────────── SOCIAL FOLLOW STRIP ───────────────── */}
-      <section className="relative py-24 px-4 overflow-hidden">
-        <div className="absolute inset-0 stage-light-blue opacity-55" />
-        <GrainOverlay />
-
-        <div className="relative container">
-          <div className="rounded-3xl border border-border bg-card/60 backdrop-blur-sm overflow-hidden">
-            <div className="grid lg:grid-cols-[1.1fr_1fr]">
-              {/* copy side */}
-              <div className="p-9 md:p-12 flex flex-col justify-center">
-                <Reveal>
-                  <p className="text-accent uppercase tracking-[0.3em] text-xs font-semibold mb-3 inline-flex items-center gap-2">
-                    <Instagram className="w-4 h-4" /> @thedanceexclusive
-                  </p>
-                  <h2 className="font-display font-bold text-4xl md:text-5xl leading-[0.95]">
-                    Follow The <span className="text-accent">Movement</span>
-                  </h2>
-                  <p
-                    className="mt-4 text-muted-foreground max-w-md"
-                    style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
-                  >
-                    New reels every week — class clips, trophy moments and behind-the-scenes chaos. Tag us in your
-                    videos and you might just land on the wall.
-                  </p>
-
-                  <div className="flex items-center gap-8 mt-7">
-                    <div>
-                      <div className="font-display font-bold text-3xl text-primary">
-                        <StatCounter value={8} suffix="k+" />
-                      </div>
-                      <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mt-1">Followers</div>
-                    </div>
-                    <div className="h-10 w-px bg-border" />
-                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                      <Users className="w-4 h-4 text-accent" /> A proper Essex dance fam
-                    </div>
-                  </div>
-
-                  <div ref={magCta} className="inline-block mt-8 will-change-transform">
-                    <Button
-                      asChild
-                      size="lg"
-                      className="px-8 py-6 text-base font-semibold uppercase tracking-wider bg-[hsl(330,90%,55%)] text-white hover:bg-[hsl(330,90%,60%)] shadow-lg shadow-[hsl(330,90%,55%)]/30"
-                    >
-                      <a href="https://instagram.com/thedanceexclusive" target="_blank" rel="noreferrer">
-                        <Instagram className="w-4 h-4 mr-2" /> Follow Us
-                      </a>
-                    </Button>
-                  </div>
-                </Reveal>
-              </div>
-
-              {/* mini insta grid */}
-              <div className="relative grid grid-cols-3 gap-1.5 p-1.5 bg-background/30 border-t lg:border-t-0 lg:border-l border-border">
-                {(["mag", "blue", "violet", "blue", "violet", "mag", "violet", "mag", "blue"] as Tone[]).map((tn, i) => {
-                  const c = TONE[tn];
+              {/* Three sub-reel chips */}
+              <Stagger className="mt-5 grid gap-4 sm:grid-cols-3" childClassName="h-full">
+                {SUB_REELS.map(({ t, m, Icon, tone }) => {
+                  const c = TONE[tone];
                   return (
                     <div
-                      key={i}
-                      className="group relative aspect-square rounded-md overflow-hidden cursor-pointer"
+                      key={t}
+                      className={`group relative aspect-[16/9] cursor-pointer overflow-hidden rounded-2xl bg-gradient-to-br ${c.grad} shadow-soft transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-soft-lg`}
                     >
-                      <div className={`absolute inset-0 ${c.light} opacity-80 transition-transform duration-500 group-hover:scale-110`} />
-                      <div className="absolute inset-0 bg-background/20 transition-colors duration-300 group-hover:bg-background/0" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
                       <span
-                        className="absolute inset-0 flex items-center justify-center text-foreground/0 transition-colors duration-300 group-hover:text-foreground"
-                        aria-hidden
+                        className={`absolute top-3 right-3 flex h-10 w-10 items-center justify-center rounded-full bg-card/70 shadow-soft backdrop-blur-sm transition-transform duration-300 ease-out group-hover:scale-105 ${c.text}`}
                       >
-                        <Instagram className="w-5 h-5" />
+                        <Play className="ml-0.5 h-4 w-4 fill-current" />
                       </span>
-                      <ArrowUpRight className="absolute top-1.5 right-1.5 w-3.5 h-3.5 text-foreground/30 opacity-0 transition-opacity group-hover:opacity-100" />
+                      <div className="absolute inset-x-0 bottom-0 p-4">
+                        <Icon className={`mb-2 h-5 w-5 ${c.text}`} />
+                        <h4 className="font-display text-lg font-bold leading-tight tracking-tight">{t}</h4>
+                        <p className="text-xs text-muted-foreground">{m}</p>
+                      </div>
                     </div>
                   );
                 })}
+              </Stagger>
+            </div>
+          </div>
+        </FadeRise>
+      </section>
+
+      {/* ───────────────── Social follow strip ───────────────── */}
+      <section className="px-4 py-16 md:py-24">
+        <FadeRise className="container max-w-6xl">
+          <Card className="overflow-hidden">
+            <div className="grid lg:grid-cols-[1.1fr_1fr]">
+              {/* Copy side */}
+              <div className="flex flex-col justify-center p-8 md:p-12">
+                <p className="mb-3 inline-flex items-center gap-2 text-xs font-semibold text-accent">
+                  <Instagram className="h-4 w-4" /> @thedanceexclusive
+                </p>
+                <h2 className="font-display text-3xl font-bold leading-tight tracking-tight md:text-5xl">
+                  Follow the <span className="text-accent">movement</span>
+                </h2>
+                <p className="mt-4 max-w-md text-muted-foreground">
+                  New reels every week — class clips, trophy moments and behind-the-scenes chaos.
+                  Tag us in your videos and you might just land on the wall.
+                </p>
+
+                <div className="mt-7 flex items-center gap-8">
+                  <div>
+                    <div className="font-display text-3xl font-bold tabular-nums tracking-tight text-primary">
+                      <AnimatedNumber value={8} suffix="k+" />
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">Followers</div>
+                  </div>
+                  <div className="h-10 w-px bg-border/60" />
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Users className="h-4 w-4 text-accent" /> A proper Essex dance fam
+                  </div>
+                </div>
+
+                <div className="mt-8">
+                  <Button asChild size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
+                    <a href="https://instagram.com/thedanceexclusive" target="_blank" rel="noreferrer">
+                      <Instagram className="mr-2 h-4 w-4" /> Follow us
+                    </a>
+                  </Button>
+                </div>
+              </div>
+
+              {/* Mini insta grid */}
+              <div className="grid grid-cols-3 gap-2 bg-secondary/40 p-2">
+                {(["mag", "blue", "violet", "blue", "violet", "mag", "violet", "mag", "blue"] as Tone[]).map(
+                  (tn, i) => {
+                    const c = TONE[tn];
+                    return (
+                      <div key={i} className="group relative aspect-square cursor-pointer overflow-hidden rounded-xl">
+                        <div
+                          className={`absolute inset-0 bg-gradient-to-br ${c.grad} transition-transform duration-500 ease-out group-hover:scale-105`}
+                        />
+                        <span
+                          className="absolute inset-0 flex items-center justify-center text-foreground/0 transition-colors duration-300 group-hover:text-foreground"
+                          aria-hidden
+                        >
+                          <Instagram className="h-5 w-5" />
+                        </span>
+                        <ArrowUpRight className="absolute top-1.5 right-1.5 h-3.5 w-3.5 text-foreground/30 opacity-0 transition-opacity group-hover:opacity-100" />
+                      </div>
+                    );
+                  },
+                )}
+              </div>
+            </div>
+          </Card>
+        </FadeRise>
+      </section>
+
+      {/* ───────────────── Final CTA (night band) ───────────────── */}
+      <section className="px-4 pb-16 md:pb-24">
+        <FadeRise className="container max-w-6xl">
+          <div className="dark relative overflow-hidden rounded-3xl bg-background px-6 py-16 text-center text-foreground shadow-soft-xl md:px-12 md:py-24">
+            <AmbientGlow variant="duo" />
+            <div className="relative mx-auto max-w-3xl">
+              <p className="eyebrow mb-4 inline-flex items-center gap-2">
+                <Calendar className="h-4 w-4" /> Your turn
+              </p>
+              <h2 className="font-display text-4xl font-bold leading-tight tracking-tight md:text-6xl">
+                Get in <span className="text-accent">frame</span>
+              </h2>
+              <p className="mx-auto mt-5 max-w-xl text-lg text-muted-foreground">
+                The next showreel needs you in it. Book a class, hit the studio and step into the
+                spotlight.
+              </p>
+              <div className="mt-9 flex flex-col justify-center gap-4 sm:flex-row">
+                <Button asChild size="lg">
+                  <Link to="/classes/children">
+                    <Sparkles className="mr-2 h-4 w-4" /> Children's classes
+                  </Link>
+                </Button>
+                <Button asChild size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90">
+                  <Link to="/classes/adult">
+                    Adult classes <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* ───────────────── FINAL CTA ───────────────── */}
-      <section className="relative py-28 px-4 text-center overflow-hidden border-t border-border">
-        <div className="absolute inset-0 stage-light-duo" />
-        <GrainOverlay />
-        <Reveal className="relative max-w-3xl mx-auto">
-          <p className="text-primary uppercase tracking-[0.3em] text-xs font-semibold mb-4 inline-flex items-center gap-2">
-            <Calendar className="w-4 h-4" /> Your Turn
-          </p>
-          <h2 className="font-display font-bold text-5xl md:text-8xl leading-[0.95]">
-            Get In <span className="text-accent">Frame</span>
-          </h2>
-          <p
-            className="mt-5 text-muted-foreground text-lg"
-            style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
-          >
-            The next showreel needs you in it. Book a class, hit the studio and step into the spotlight.
-          </p>
-          <div className="mt-9 flex flex-col sm:flex-row gap-4 justify-center">
-            <Button asChild size="lg" className="px-9 py-6 text-base font-semibold uppercase tracking-wider">
-              <Link to="/classes/children">
-                <Sparkles className="w-4 h-4 mr-2" /> Children's Classes
-              </Link>
-            </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="px-9 py-6 text-base font-semibold uppercase tracking-wider border-accent/40 text-foreground hover:bg-accent/10"
-            >
-              <Link to="/classes/adult">
-                Adult Classes <ArrowRight className="w-4 h-4 ml-2" />
-              </Link>
-            </Button>
-          </div>
-        </Reveal>
+        </FadeRise>
       </section>
     </div>
   );

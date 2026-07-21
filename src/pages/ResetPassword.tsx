@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react";
+import { AmbientGlow, FadeRise } from "@/components/motion";
 import logo from "@/assets/logo-dark.png";
 
 type Status = "verifying" | "ready" | "invalid" | "success";
@@ -131,18 +132,16 @@ const ResetPassword = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 relative">
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-primary/5 rounded-full blur-3xl" />
-      </div>
+    <div className="relative min-h-screen flex items-center justify-center bg-background px-4 py-12 overflow-hidden">
+      <AmbientGlow variant="light" />
 
-      <div className="w-full max-w-md animate-fade-in relative z-10">
+      <FadeRise className="relative z-10 w-full max-w-md">
         <div className="text-center mb-8">
-          <img src={logo} alt="The Dance Exclusive" className="w-24 h-24 object-contain mx-auto mb-4" />
+          <img src={logo} alt="The Dance Exclusive" className="w-16 h-16 object-contain mx-auto rounded-2xl" />
         </div>
 
         {status === "verifying" && (
-          <Card className="border-border/50 bg-card/80 backdrop-blur">
+          <Card>
             <CardContent className="pt-6 pb-6 text-center">
               <div className="w-10 h-10 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
               <p className="text-muted-foreground text-sm">Verifying your reset link...</p>
@@ -153,18 +152,20 @@ const ResetPassword = () => {
         {status === "invalid" && (
           <>
             <div className="text-center mb-6">
-              <h1 className="text-3xl font-display font-bold text-foreground tracking-wide">Link expired</h1>
+              <h1 className="text-3xl font-display font-bold tracking-tight text-foreground">Link expired</h1>
               <p className="text-muted-foreground mt-2 text-sm">This reset link is no longer valid</p>
             </div>
-            <Card className="border-destructive/30 bg-card/80 backdrop-blur">
+            <Card>
               <CardContent className="pt-6 pb-6">
                 <div className="flex items-start gap-3 mb-5">
-                  <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                  <p className="text-sm text-muted-foreground leading-relaxed">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-destructive/10 text-destructive">
+                    <AlertCircle className="h-5 w-5" />
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed pt-2">
                     {errorMsg || "This password reset link is invalid or has expired. Please request a new one."}
                   </p>
                 </div>
-                <Button onClick={() => navigate("/auth")} className="w-full font-semibold">
+                <Button onClick={() => navigate("/auth")} className="w-full">
                   Request a new link
                 </Button>
               </CardContent>
@@ -175,11 +176,13 @@ const ResetPassword = () => {
         {status === "success" && (
           <>
             <div className="text-center mb-6">
-              <h1 className="text-3xl font-display font-bold text-foreground tracking-wide">Password updated</h1>
+              <h1 className="text-3xl font-display font-bold tracking-tight text-foreground">Password updated</h1>
             </div>
-            <Card className="border-border/50 bg-card/80 backdrop-blur">
+            <Card>
               <CardContent className="pt-6 pb-6 text-center">
-                <CheckCircle2 className="h-12 w-12 text-primary mx-auto mb-3" />
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-success/10 text-success">
+                  <CheckCircle2 className="h-6 w-6" />
+                </div>
                 <p className="text-sm text-muted-foreground">Redirecting you to sign in...</p>
               </CardContent>
             </Card>
@@ -189,10 +192,10 @@ const ResetPassword = () => {
         {status === "ready" && (
           <>
             <div className="text-center mb-6">
-              <h1 className="text-3xl font-display font-bold text-foreground tracking-wide">Set new password</h1>
+              <h1 className="text-3xl font-display font-bold tracking-tight text-foreground">Set new password</h1>
               <p className="text-muted-foreground mt-2 text-sm">Choose a new password for your account</p>
             </div>
-            <Card className="border-border/50 bg-card/80 backdrop-blur">
+            <Card>
               <CardContent className="pt-6">
                 <form onSubmit={handleReset} className="space-y-4">
                   <div className="space-y-2">
@@ -230,7 +233,7 @@ const ResetPassword = () => {
                       placeholder="Repeat password"
                     />
                   </div>
-                  <Button type="submit" className="w-full font-semibold" disabled={loading}>
+                  <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? "Updating..." : "Update password"}
                   </Button>
                 </form>
@@ -238,7 +241,7 @@ const ResetPassword = () => {
             </Card>
           </>
         )}
-      </div>
+      </FadeRise>
     </div>
   );
 };

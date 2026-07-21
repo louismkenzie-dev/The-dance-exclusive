@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Trophy,
   Medal,
@@ -7,86 +9,90 @@ import {
   Award,
   Crown,
   Flame,
-  Sparkles,
   ArrowRight,
   Quote,
   ChevronRight,
+  type LucideIcon,
 } from "lucide-react";
-import GrainOverlay from "@/components/immersive/GrainOverlay";
-import { Reveal } from "@/components/immersive/Reveal";
-import { Marquee } from "@/components/immersive/Marquee";
-import { StatCounter } from "@/components/immersive/StatCounter";
-import { useMagnetic } from "@/hooks/useMagnetic";
+import { FadeRise, Stagger, AnimatedNumber, AmbientGlow } from "@/components/motion";
 
-/* ──────────────────────────── DATA ──────────────────────────── */
+/* ──────────────────────────── Data ──────────────────────────── */
 
-type Award = {
+type Tone = "primary" | "accent" | "warning";
+
+const TONES: Record<Tone, { tile: string; text: string; badge: "default" | "accent" | "warning" }> = {
+  primary: { tile: "bg-primary/10 text-primary", text: "text-primary", badge: "default" },
+  accent: { tile: "bg-accent/10 text-accent", text: "text-accent", badge: "accent" },
+  warning: { tile: "bg-warning/10 text-warning", text: "text-warning", badge: "warning" },
+};
+
+type Honour = {
   title: string;
   body: string;
   badge: string;
   year: string;
-  tint: string;
-  icon: typeof Trophy;
+  tone: Tone;
+  icon: LucideIcon;
   highlight?: boolean;
 };
 
-const AWARDS: Award[] = [
+const AWARDS: Honour[] = [
   {
     title: "Performing Arts School of the Year",
     body: "Crowned Essex's top commercial & street dance academy at the regional industry awards — judged on results, teaching and reputation.",
-    badge: "School of the Year",
+    badge: "School of the year",
     year: "2025",
-    tint: "330 90% 55%",
+    tone: "accent",
     icon: Crown,
     highlight: true,
   },
   {
     title: "UDO European Street Dance Champions",
     body: "Our senior crew took gold in the Under-16 Team division at the United Dance Organisation Euro Championships.",
-    badge: "1st Place · Gold",
+    badge: "1st place · gold",
     year: "2024",
-    tint: "201 70% 65%",
+    tone: "primary",
     icon: Trophy,
   },
   {
     title: "UKSDC National Finalists",
     body: "Two crews reached the UK Street Dance Championship Grand Finals — top-five placements against the country's best academies.",
-    badge: "National Finalists",
+    badge: "National finalists",
     year: "2024",
-    tint: "260 75% 62%",
+    tone: "primary",
     icon: Medal,
   },
   {
     title: "Blackpool · BDO Winter Gardens",
     body: "Silver and bronze podium finishes on the legendary Blackpool floor — the most prestigious stage in UK competitive dance.",
-    badge: "Podium · Silver & Bronze",
+    badge: "Podium · silver & bronze",
     year: "2023",
-    tint: "300 80% 58%",
+    tone: "warning",
     icon: Award,
   },
   {
     title: "UDO British Solo Champion",
     body: "One of our seniors danced solo to the top of the UDO British rankings — Under-14 commercial category, first place.",
-    badge: "1st Place · Solo",
+    badge: "1st place · solo",
     year: "2025",
-    tint: "330 90% 55%",
+    tone: "accent",
     icon: Crown,
   },
   {
     title: "Regional Crew Champions ×6",
     body: "Six regional titles across junior, senior and adult divisions in a single competitive season — a school record.",
-    badge: "6× Regional Titles",
+    badge: "6× regional titles",
     year: "2024–25",
-    tint: "201 70% 65%",
+    tone: "primary",
     icon: Flame,
   },
 ];
 
-const STATS = [
-  { value: 38, suffix: "+", label: "Titles Won" },
-  { value: 60, suffix: "+", label: "Finals Reached" },
-  { value: 120, suffix: "+", label: "Trophies & Medals" },
-  { value: 100, suffix: "%", label: "Grade Exam Pass Rate" },
+const STATS: { value: number; suffix: string; label: string; icon: LucideIcon; tone: Tone }[] = [
+  { value: 38, suffix: "+", label: "Titles won", icon: Trophy, tone: "primary" },
+  { value: 60, suffix: "+", label: "Finals reached", icon: Medal, tone: "accent" },
+  { value: 120, suffix: "+", label: "Trophies & medals", icon: Award, tone: "warning" },
+  { value: 100, suffix: "%", label: "Grade exam pass rate", icon: Star, tone: "primary" },
 ];
 
 const BODIES = [
@@ -100,389 +106,292 @@ const BODIES = [
   "Winter Gardens",
 ];
 
-const PODIUM = [
-  { place: "1st", title: "UDO Euro Champions", div: "U16 Team", tint: "330 90% 55%" },
-  { place: "1st", title: "British Solo Champion", div: "U14 Commercial", tint: "201 70% 65%" },
-  { place: "2nd", title: "Blackpool Winter Gardens", div: "Senior Crew", tint: "300 80% 58%" },
+const PODIUM: { place: string; title: string; div: string; tone: Tone }[] = [
+  { place: "1st", title: "UDO Euro Champions", div: "U16 team", tone: "accent" },
+  { place: "1st", title: "British Solo Champion", div: "U14 commercial", tone: "primary" },
+  { place: "2nd", title: "Blackpool Winter Gardens", div: "Senior crew", tone: "warning" },
 ];
 
-/* ──────────────────────────── PAGE ──────────────────────────── */
+const ACHIEVEMENTS: { icon: LucideIcon; label: string; tone: Tone }[] = [
+  { icon: Trophy, label: "1st place · UDO British finals", tone: "warning" },
+  { icon: Medal, label: "Top-5 · UKSDC nationals", tone: "primary" },
+  { icon: Star, label: "Distinction · Grade 6 commercial", tone: "accent" },
+];
+
+/* ──────────────────────────── Page ──────────────────────────── */
 
 const Results = () => {
-  const magTrain = useMagnetic<HTMLDivElement>(0.22);
-  const magBook = useMagnetic<HTMLDivElement>(0.22);
-
   return (
     <div className="bg-background text-foreground overflow-x-clip">
-      {/* ───────────────── HERO ───────────────── */}
-      <section className="relative min-h-[80vh] flex flex-col items-center justify-center text-center px-4 overflow-hidden">
-        <div className="absolute inset-0 stage-light-duo" />
-        <div className="absolute inset-0 bg-[radial-gradient(120%_90%_at_50%_-10%,transparent,hsl(220_20%_4%)_78%)]" />
-        <GrainOverlay />
-
-        {/* ghost word for depth */}
-        <span
-          aria-hidden
-          className="pointer-events-none select-none absolute inset-x-0 top-[12%] text-center font-display font-bold text-[24vw] leading-none text-stroke-faint tracking-tighter"
-        >
-          WIN
-        </span>
-
-        <div className="relative z-10 max-w-4xl animate-fade-in">
-          <p className="text-accent uppercase tracking-[0.3em] text-xs font-semibold mb-6">
-            Results · Awards · Champions
-          </p>
-
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-accent/30 bg-accent/10 text-accent text-xs sm:text-sm font-semibold uppercase tracking-[0.2em] mb-8">
-            <Trophy className="w-4 h-4" />
-            Essex's Most-Decorated Dance School
-          </div>
-
-          <h1 className="font-display font-bold leading-[0.9] tracking-tight text-[18vw] sm:text-8xl md:text-[9rem]">
-            <span className="block">We Raise</span>
-            <span className="block text-accent drop-shadow-[0_0_48px_hsl(330_90%_55%/0.45)]">
-              Champions
-            </span>
-          </h1>
-
-          <p
-            className="mt-7 mx-auto max-w-2xl text-muted-foreground text-lg"
-            style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
-          >
-            Trophies on the shelf. Titles to our name. National finals reached year on year. When
-            families choose The Dance Exclusive, they choose a team that knows how to win — and how
-            to make every dancer believe they can.
-          </p>
-
-          <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-            <div ref={magBook} className="inline-block">
-              <Button
-                asChild
-                size="lg"
-                className="px-9 py-6 text-base font-semibold uppercase tracking-wider bg-accent text-white hover:bg-accent/90"
-              >
+      {/* ───────────────── Hero ───────────────── */}
+      <section className="relative overflow-hidden px-4 pt-24 pb-16 md:pt-32 md:pb-24">
+        <AmbientGlow variant="light" />
+        <div className="relative container max-w-7xl text-center">
+          <FadeRise>
+            <p className="eyebrow mb-5">Results · awards · champions</p>
+            <div className="mb-8 inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-1.5 text-sm font-medium text-secondary-foreground">
+              <Trophy className="h-4 w-4 text-warning" />
+              Essex's most-decorated dance school
+            </div>
+            <h1 className="font-display text-5xl font-extrabold tracking-tight md:text-7xl">
+              We raise <em className="font-serif italic font-normal text-primary">champions</em>
+            </h1>
+            <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-xl">
+              Trophies on the shelf. Titles to our name. National finals reached year on year. When
+              families choose The Dance Exclusive, they choose a team that knows how to win — and how
+              to make every dancer believe they can.
+            </p>
+          </FadeRise>
+          <FadeRise delay={140}>
+            <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+              <Button asChild size="lg">
                 <Link to="/classes/children">
-                  <Flame className="w-4 h-4 mr-2" /> Train With Champions
+                  <Flame className="mr-2 h-4 w-4" /> Train with champions
                 </Link>
               </Button>
+              <Button asChild size="lg" variant="outline">
+                <a href="#wall">
+                  See the honours <ArrowRight className="ml-2 h-4 w-4" />
+                </a>
+              </Button>
             </div>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="px-9 py-6 text-base font-semibold uppercase tracking-wider border-primary/40 text-foreground hover:bg-primary/10"
-            >
-              <a href="#wall">
-                See The Honours <ArrowRight className="w-4 h-4 ml-2" />
-              </a>
-            </Button>
-          </div>
-        </div>
-
-        {/* floating trophy glyphs */}
-        <Trophy className="hidden md:block absolute left-[8%] top-[28%] w-10 h-10 text-accent/30 animate-float" />
-        <Medal className="hidden md:block absolute right-[10%] top-[34%] w-9 h-9 text-primary/30 animate-float [animation-delay:1.2s]" />
-        <Star className="hidden md:block absolute right-[16%] bottom-[18%] w-7 h-7 text-accent/30 animate-float [animation-delay:2s]" />
-      </section>
-
-      {/* ───────────────── AWARDS WALL ───────────────── */}
-      <section id="wall" className="relative py-24 px-4 overflow-hidden border-t border-border">
-        <div className="absolute inset-0 stage-light-mag opacity-50" />
-        <GrainOverlay />
-        <div className="relative container">
-          <Reveal className="max-w-3xl mb-16">
-            <p className="text-primary uppercase tracking-[0.3em] text-xs font-semibold mb-4">
-              The Honours Wall
-            </p>
-            <h2 className="font-display font-bold text-4xl md:text-6xl leading-[0.95]">
-              Every Title Earned <span className="text-accent">On The Floor</span>
-            </h2>
-            <p
-              className="mt-5 text-muted-foreground text-lg"
-              style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
-            >
-              From UDO European stages to the boards at Blackpool's Winter Gardens — these are the
-              competitions our crews have conquered.
-            </p>
-          </Reveal>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {AWARDS.map((a, i) => {
-              const Icon = a.icon;
-              return (
-                <Reveal key={a.title} delay={i * 90}>
-                  <article
-                    className={`group relative h-full rounded-2xl border bg-card/70 backdrop-blur-sm p-7 flex flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1.5 ${
-                      a.highlight
-                        ? "border-accent/50 shadow-[0_0_50px_-12px_hsl(330_90%_55%/0.4)] lg:col-span-1"
-                        : "border-border hover:border-primary/40"
-                    }`}
-                  >
-                    {/* tint glow */}
-                    <div
-                      className="pointer-events-none absolute -top-16 -right-16 w-44 h-44 rounded-full blur-3xl opacity-25 transition-opacity duration-300 group-hover:opacity-45"
-                      style={{ background: `hsl(${a.tint})` }}
-                    />
-
-                    <div className="relative flex items-center justify-between mb-6">
-                      <span
-                        className="flex items-center justify-center w-14 h-14 rounded-xl border"
-                        style={{
-                          borderColor: `hsl(${a.tint} / 0.4)`,
-                          background: `hsl(${a.tint} / 0.12)`,
-                          color: `hsl(${a.tint})`,
-                        }}
-                      >
-                        <Icon className="w-7 h-7" />
-                      </span>
-                      <span className="font-display text-sm tracking-wider text-muted-foreground">
-                        {a.year}
-                      </span>
-                    </div>
-
-                    <span
-                      className="relative inline-flex self-start items-center gap-1.5 px-3 py-1 rounded-full text-[0.7rem] font-semibold uppercase tracking-[0.15em] mb-4"
-                      style={{
-                        color: `hsl(${a.tint})`,
-                        background: `hsl(${a.tint} / 0.12)`,
-                        border: `1px solid hsl(${a.tint} / 0.3)`,
-                      }}
-                    >
-                      <Sparkles className="w-3 h-3" /> {a.badge}
-                    </span>
-
-                    <h3 className="relative font-display font-bold text-xl leading-tight mb-3">
-                      {a.title}
-                    </h3>
-
-                    <p
-                      className="relative text-sm text-muted-foreground flex-1"
-                      style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
-                    >
-                      {a.body}
-                    </p>
-                  </article>
-                </Reveal>
-              );
-            })}
-          </div>
+          </FadeRise>
         </div>
       </section>
 
-      {/* ───────────────── RESULTS STAT BAND ───────────────── */}
-      <section className="relative py-24 px-4 overflow-hidden border-y border-border">
-        <div className="absolute inset-0 stage-light-duo opacity-70" />
-        <GrainOverlay />
-        <div className="relative container">
-          <Reveal className="text-center mb-16">
-            <div className="flex justify-center gap-1.5 mb-5 text-accent">
+      {/* ───────────────── The record — stat cards ───────────────── */}
+      <section className="bg-secondary/40 px-4 py-16 md:py-24">
+        <div className="container max-w-6xl">
+          <FadeRise className="mx-auto mb-12 max-w-2xl text-center md:mb-16">
+            <div className="mb-5 flex justify-center gap-1 text-warning">
               {Array.from({ length: 5 }).map((_, i) => (
-                <Star key={i} className="w-5 h-5 fill-current" />
+                <Star key={i} className="h-5 w-5 fill-current" />
               ))}
             </div>
-            <h2 className="font-display font-bold text-4xl md:text-6xl leading-[0.95]">
-              The Record <span className="text-primary">Speaks</span>
+            <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
+              The record speaks
             </h2>
-            <p
-              className="mt-4 mx-auto max-w-xl text-muted-foreground text-lg"
-              style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
-            >
+            <p className="mt-4 text-muted-foreground">
               A decade of competing — and winning — at the highest levels of UK street and commercial
               dance.
             </p>
-          </Reveal>
+          </FadeRise>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-            {STATS.map((s, i) => (
-              <Reveal key={s.label} delay={i * 110}>
-                <div className="group relative h-full rounded-2xl border border-border bg-card/60 backdrop-blur-sm p-8 text-center overflow-hidden transition-colors hover:border-accent/40">
-                  <div className="pointer-events-none absolute inset-0 stage-light-mag opacity-0 transition-opacity duration-300 group-hover:opacity-30" />
-                  <div className="relative font-display font-bold text-5xl md:text-6xl text-accent drop-shadow-[0_0_30px_hsl(330_90%_55%/0.35)]">
-                    <StatCounter value={s.value} suffix={s.suffix} />
-                  </div>
-                  <div className="relative mt-3 text-xs uppercase tracking-[0.18em] text-muted-foreground font-semibold">
-                    {s.label}
-                  </div>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ───────────────── AS SEEN AT MARQUEE ───────────────── */}
-      <section className="relative py-16 overflow-hidden">
-        <div className="absolute inset-0 stage-light-blue opacity-40" />
-        <GrainOverlay />
-        <div className="relative">
-          <Reveal className="text-center mb-9 px-4">
-            <p className="text-primary uppercase tracking-[0.3em] text-xs font-semibold">
-              As Seen At
-            </p>
-            <h2 className="mt-3 font-display font-bold text-2xl md:text-4xl text-foreground/90">
-              The Stages Where We Compete
-            </h2>
-          </Reveal>
-          <Marquee items={BODIES} speed={34} accent="text-accent" />
-          <Marquee items={BODIES} speed={40} reverse accent="text-primary" className="mt-5" />
-        </div>
-      </section>
-
-      {/* ───────────────── PODIUM / SPOTLIGHT ───────────────── */}
-      <section className="relative py-24 px-4 overflow-hidden border-t border-border">
-        <div className="absolute inset-0 stage-light-mag opacity-50" />
-        <GrainOverlay />
-        <div className="relative container">
-          <Reveal className="max-w-3xl mb-14">
-            <p className="text-accent uppercase tracking-[0.3em] text-xs font-semibold mb-4">
-              This Season's Podium
-            </p>
-            <h2 className="font-display font-bold text-4xl md:text-6xl leading-[0.95]">
-              Gold Doesn't <span className="text-primary">Happen By Accident</span>
-            </h2>
-          </Reveal>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {PODIUM.map((p, i) => (
-              <Reveal key={p.title} delay={i * 110}>
-                <div
-                  className="relative h-full rounded-2xl border border-border bg-card/70 backdrop-blur-sm p-8 overflow-hidden transition-transform duration-300 hover:-translate-y-1.5"
-                  style={{ borderColor: `hsl(${p.tint} / 0.35)` }}
-                >
-                  <div
-                    className="pointer-events-none absolute -bottom-16 -left-10 w-48 h-48 rounded-full blur-3xl opacity-25"
-                    style={{ background: `hsl(${p.tint})` }}
-                  />
-                  <div
-                    className="relative font-display font-bold text-7xl leading-none"
-                    style={{ color: `hsl(${p.tint})` }}
-                  >
-                    {p.place}
-                  </div>
-                  <h3 className="relative mt-5 font-display font-bold text-xl leading-tight">
-                    {p.title}
-                  </h3>
-                  <p
-                    className="relative mt-2 text-sm text-muted-foreground"
-                    style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
-                  >
-                    {p.div}
-                  </p>
-                  <Trophy
-                    className="absolute top-7 right-7 w-8 h-8 opacity-40"
-                    style={{ color: `hsl(${p.tint})` }}
-                  />
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ───────────────── CHAMPION TESTIMONIAL ───────────────── */}
-      <section className="relative py-28 px-4 overflow-hidden border-t border-border">
-        <div className="absolute inset-0 stage-light-blue opacity-50" />
-        <GrainOverlay />
-        <div className="relative container max-w-5xl">
-          <Reveal>
-            <figure className="relative rounded-3xl border border-accent/30 bg-card/70 backdrop-blur-sm p-10 md:p-16 overflow-hidden">
-              <div className="pointer-events-none absolute -top-20 -right-16 w-72 h-72 rounded-full blur-3xl opacity-20 bg-accent" />
-              <Quote className="relative w-12 h-12 text-accent/50 mb-6" />
-              <blockquote
-                className="relative text-2xl md:text-3xl leading-snug text-foreground/95"
-                style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
-              >
-                "I joined as a shy nine-year-old who'd never stepped on a stage. Six years later I'm a
-                UDO British Champion. The coaches here didn't just teach me to dance — they taught me
-                to <span className="text-accent font-semibold">win</span>, and to believe I belonged
-                at the top."
-              </blockquote>
-              <figcaption className="relative mt-9 flex items-center gap-4">
-                <span className="flex items-center justify-center w-14 h-14 rounded-full border border-accent/40 bg-accent/10 text-accent">
-                  <Crown className="w-7 h-7" />
-                </span>
-                <div>
-                  <span className="block font-display uppercase tracking-wider text-base">
-                    Maya T.
-                  </span>
-                  <span
-                    className="block text-sm text-muted-foreground"
-                    style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
-                  >
-                    UDO British Solo Champion · Senior Crew Captain
-                  </span>
-                </div>
-              </figcaption>
-            </figure>
-          </Reveal>
-
-          {/* mini achievement strip */}
-          <div className="mt-8 grid sm:grid-cols-3 gap-4">
-            {[
-              { icon: Trophy, label: "1st Place · UDO British Finals" },
-              { icon: Medal, label: "Top-5 · UKSDC Nationals" },
-              { icon: Star, label: "Distinction · Grade 6 Commercial" },
-            ].map((m, i) => {
-              const Icon = m.icon;
+          <Stagger className="grid grid-cols-2 gap-4 lg:grid-cols-4 md:gap-6" childClassName="h-full">
+            {STATS.map((s) => {
+              const tone = TONES[s.tone];
               return (
-                <Reveal key={m.label} delay={i * 90}>
-                  <div className="flex items-center gap-3 rounded-xl border border-border bg-card/50 px-4 py-3">
-                    <Icon className="w-5 h-5 text-accent shrink-0" />
-                    <span className="text-sm text-foreground/85" style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}>
-                      {m.label}
-                    </span>
+                <Card
+                  key={s.label}
+                  className="h-full p-6 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg md:p-8"
+                >
+                  <div className={`mb-5 flex h-10 w-10 items-center justify-center rounded-2xl ${tone.tile}`}>
+                    <s.icon className="h-5 w-5" />
                   </div>
-                </Reveal>
+                  <div className="font-display text-3xl font-bold tabular-nums tracking-tight md:text-4xl">
+                    <AnimatedNumber value={s.value} suffix={s.suffix} />
+                  </div>
+                  <p className="eyebrow mt-2">{s.label}</p>
+                </Card>
               );
             })}
-          </div>
+          </Stagger>
         </div>
       </section>
 
-      {/* ───────────────── FINAL CTA ───────────────── */}
-      <section className="relative py-28 px-4 text-center overflow-hidden">
-        <div className="absolute inset-0 stage-light-duo" />
-        <GrainOverlay />
-        <Reveal className="relative max-w-3xl mx-auto">
-          <div className="flex justify-center gap-1.5 mb-6 text-accent">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Star key={i} className="w-5 h-5 fill-current" />
-            ))}
-          </div>
-          <h2 className="font-display font-bold text-5xl md:text-8xl leading-[0.92]">
-            Your Name <span className="text-accent">On The Trophy</span>
-          </h2>
-          <p
-            className="mt-6 mx-auto max-w-xl text-muted-foreground text-lg"
-            style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
-          >
-            Every champion started with one class. Train alongside title-winning crews and coaches who
-            have done it on the biggest stages in the UK.
-          </p>
-          <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-            <div ref={magTrain} className="inline-block">
-              <Button
-                asChild
-                size="lg"
-                className="px-9 py-6 text-base font-semibold uppercase tracking-wider bg-accent text-white hover:bg-accent/90"
-              >
-                <Link to="/classes/children">
-                  <Flame className="w-4 h-4 mr-2" /> Train With Champions
-                </Link>
-              </Button>
+      {/* ───────────────── The honours wall — refined list ───────────────── */}
+      <section id="wall" className="px-4 py-16 md:py-24">
+        <div className="container max-w-5xl">
+          <FadeRise className="mb-12 max-w-3xl md:mb-16">
+            <p className="eyebrow mb-3">The honours wall</p>
+            <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
+              Every title earned <span className="text-accent">on the floor</span>
+            </h2>
+            <p className="mt-4 text-lg text-muted-foreground">
+              From UDO European stages to the boards at Blackpool's Winter Gardens — these are the
+              competitions our crews have conquered.
+            </p>
+          </FadeRise>
+
+          <Stagger className="space-y-4" step={70}>
+            {AWARDS.map((a) => {
+              const tone = TONES[a.tone];
+              return (
+                <Card
+                  key={a.title}
+                  className="flex items-start gap-4 p-5 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg md:p-6"
+                >
+                  <div
+                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${tone.tile}`}
+                  >
+                    <a.icon className="h-6 w-6" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                      <h3 className="font-display text-lg font-bold tracking-tight">{a.title}</h3>
+                      <Badge variant={a.highlight ? "accent" : tone.badge}>{a.badge}</Badge>
+                    </div>
+                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{a.body}</p>
+                  </div>
+                  <span className="shrink-0 font-display text-sm font-semibold tabular-nums text-muted-foreground">
+                    {a.year}
+                  </span>
+                </Card>
+              );
+            })}
+          </Stagger>
+        </div>
+      </section>
+
+      {/* ───────────────── This season's podium — title grid ───────────────── */}
+      <section className="bg-secondary/40 px-4 py-16 md:py-24">
+        <div className="container max-w-6xl">
+          <FadeRise className="mb-12 max-w-3xl md:mb-16">
+            <p className="eyebrow mb-3">This season's podium</p>
+            <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
+              Gold doesn't happen by accident
+            </h2>
+          </FadeRise>
+
+          <Stagger className="grid gap-4 md:grid-cols-3 md:gap-6" childClassName="h-full">
+            {PODIUM.map((p) => {
+              const tone = TONES[p.tone];
+              return (
+                <Card
+                  key={p.title}
+                  className="h-full p-8 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg"
+                >
+                  <div className="flex items-start justify-between">
+                    <span
+                      className={`font-display text-5xl font-extrabold tabular-nums tracking-tight md:text-6xl ${tone.text}`}
+                    >
+                      {p.place}
+                    </span>
+                    <div
+                      className={`flex h-12 w-12 items-center justify-center rounded-2xl ${tone.tile}`}
+                    >
+                      <Trophy className="h-6 w-6" />
+                    </div>
+                  </div>
+                  <h3 className="mt-6 font-display text-xl font-bold tracking-tight">{p.title}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{p.div}</p>
+                </Card>
+              );
+            })}
+          </Stagger>
+        </div>
+      </section>
+
+      {/* ───────────────── As seen at ───────────────── */}
+      <section className="px-4 py-16 md:py-24">
+        <div className="container max-w-4xl text-center">
+          <FadeRise className="mb-10">
+            <p className="eyebrow mb-3">As seen at</p>
+            <h2 className="font-display text-2xl font-bold tracking-tight md:text-4xl">
+              The stages where we compete
+            </h2>
+          </FadeRise>
+          <FadeRise delay={120}>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {BODIES.map((b) => (
+                <span
+                  key={b}
+                  className="rounded-full bg-secondary px-4 py-1.5 text-sm font-medium text-secondary-foreground"
+                >
+                  {b}
+                </span>
+              ))}
             </div>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="px-9 py-6 text-base font-semibold uppercase tracking-wider border-primary/40 text-foreground hover:bg-primary/10"
-            >
-              <Link to="/classes/adult">
-                Adult Classes <ChevronRight className="w-4 h-4 ml-2" />
-              </Link>
-            </Button>
+          </FadeRise>
+        </div>
+      </section>
+
+      {/* ───────────────── Champion testimonial ───────────────── */}
+      <section className="bg-secondary/40 px-4 py-16 md:py-24">
+        <div className="container max-w-4xl">
+          <FadeRise>
+            <Card className="p-8 md:p-14">
+              <figure>
+                <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent">
+                  <Quote className="h-6 w-6" />
+                </div>
+                <blockquote className="font-display text-2xl font-medium leading-[1.3] tracking-tight md:text-3xl">
+                  "I joined as a shy nine-year-old who'd never stepped on a stage. Six years later I'm
+                  a UDO British Champion. The coaches here didn't just teach me to dance — they taught
+                  me to <span className="font-semibold text-accent">win</span>, and to believe I
+                  belonged at the top."
+                </blockquote>
+                <figcaption className="mt-8 flex items-center gap-4">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
+                    <Crown className="h-6 w-6" />
+                  </span>
+                  <div>
+                    <span className="block font-display text-sm font-semibold">Maya T.</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      UDO British solo champion · senior crew captain
+                    </span>
+                  </div>
+                </figcaption>
+              </figure>
+            </Card>
+          </FadeRise>
+
+          {/* Mini achievement strip */}
+          <Stagger className="mt-6 grid gap-4 sm:grid-cols-3" childClassName="h-full">
+            {ACHIEVEMENTS.map((m) => {
+              const tone = TONES[m.tone];
+              return (
+                <Card key={m.label} className="flex h-full items-center gap-3 p-4">
+                  <div
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${tone.tile}`}
+                  >
+                    <m.icon className="h-5 w-5" />
+                  </div>
+                  <span className="text-sm font-medium">{m.label}</span>
+                </Card>
+              );
+            })}
+          </Stagger>
+        </div>
+      </section>
+
+      {/* ───────────────── Final CTA (night band) ───────────────── */}
+      <section className="px-4 py-16 md:py-24">
+        <FadeRise className="container max-w-6xl">
+          <div className="dark relative overflow-hidden rounded-3xl bg-background px-6 py-16 text-center text-foreground shadow-soft-xl md:px-12 md:py-24">
+            <AmbientGlow variant="night" />
+            <div className="relative mx-auto max-w-3xl">
+              <div className="mb-6 flex justify-center gap-1 text-warning">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star key={i} className="h-5 w-5 fill-current" />
+                ))}
+              </div>
+              <h2 className="font-display text-4xl font-bold leading-tight tracking-tight md:text-6xl">
+                Your name <span className="text-accent">on the trophy</span>
+              </h2>
+              <p className="mx-auto mt-5 max-w-xl text-lg text-muted-foreground">
+                Every champion started with one class. Train alongside title-winning crews and
+                coaches who have done it on the biggest stages in the UK.
+              </p>
+              <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+                <Button asChild size="lg">
+                  <Link to="/classes/children">
+                    <Flame className="mr-2 h-4 w-4" /> Train with champions
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  size="lg"
+                  className="bg-accent text-accent-foreground hover:bg-accent/90"
+                >
+                  <Link to="/classes/adult">
+                    Adult classes <ChevronRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            </div>
           </div>
-        </Reveal>
+        </FadeRise>
       </section>
     </div>
   );

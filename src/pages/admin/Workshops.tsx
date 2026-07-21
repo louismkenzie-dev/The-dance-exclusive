@@ -12,6 +12,7 @@ import { Plus, Edit, Trash2, Loader2, Image as ImageIcon, Video, Youtube, X, Ins
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { FadeRise, Stagger } from "@/components/motion";
 
 const DANCE_STYLES = ["Tap", "Modern", "Jazz", "Hip Hop", "Ballet", "Contemporary", "Lyrical", "Street", "Musical Theatre", "Acro", "Commercial", "Mixed"];
 
@@ -24,9 +25,9 @@ const detectPlatform = (url: string): PlatformInfo => {
   } catch {
     return { label: "Link", Icon: LinkIcon, className: "text-muted-foreground" };
   }
-  if (host.includes("instagram.com")) return { label: "Instagram", Icon: Instagram, className: "text-pink-500" };
-  if (host.includes("youtube.com") || host.includes("youtu.be")) return { label: "YouTube", Icon: Youtube, className: "text-red-500" };
-  if (host.includes("facebook.com") || host.includes("fb.com") || host.includes("fb.watch")) return { label: "Facebook", Icon: Facebook, className: "text-blue-600" };
+  if (host.includes("instagram.com")) return { label: "Instagram", Icon: Instagram, className: "text-accent" };
+  if (host.includes("youtube.com") || host.includes("youtu.be")) return { label: "YouTube", Icon: Youtube, className: "text-destructive" };
+  if (host.includes("facebook.com") || host.includes("fb.com") || host.includes("fb.watch")) return { label: "Facebook", Icon: Facebook, className: "text-primary" };
   if (host.includes("tiktok.com")) return { label: "TikTok", Icon: Music2, className: "text-foreground" };
   return { label: "Website", Icon: Globe, className: "text-muted-foreground" };
 };
@@ -240,16 +241,17 @@ const AdminWorkshops = () => {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6 md:mb-8">
+      <FadeRise>
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6 md:mb-8">
         <div>
-          <h1 className="text-2xl md:text-3xl font-display font-bold">Type of Class</h1>
-          <p className="text-muted-foreground mt-1 text-sm md:text-base">Manage your class types — the templates classes are built from</p>
+          <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">Type of class</h1>
+          <p className="text-muted-foreground mt-1">Manage your class types — the templates classes are built from</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
-            <DialogTrigger asChild><Button size="sm" className="md:h-10 md:px-4 md:text-sm"><Plus className="w-4 h-4 mr-2" /> Add Type of Class</Button></DialogTrigger>
+            <DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-2" /> Add type of class</Button></DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-            <DialogHeader><DialogTitle>{editing ? "Edit Type of Class" : "New Type of Class"}</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{editing ? "Edit type of class" : "New type of class"}</DialogTitle></DialogHeader>
             <div className="flex-1 min-h-0 overflow-y-auto pr-4">
               <form id="workshop-form" onSubmit={handleSubmit} className="space-y-6 pb-4">
                 <Tabs defaultValue="details" className="w-full">
@@ -262,7 +264,7 @@ const AdminWorkshops = () => {
                   {/* Details Tab */}
                   <TabsContent value="details" className="space-y-4 mt-4">
                     <div className="space-y-2">
-                      <Label>Type Name *</Label>
+                      <Label>Type name *</Label>
                       <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder="e.g. Street Dance KS1" />
                     </div>
                     <div className="space-y-2">
@@ -270,7 +272,7 @@ const AdminWorkshops = () => {
                       <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={4} placeholder="Describe this type of class, what children/adults will learn..." />
                     </div>
                     <div className="space-y-2">
-                      <Label>Dance Style</Label>
+                      <Label>Dance style</Label>
                       <Select value={form.dance_style} onValueChange={(v) => setForm({ ...form, dance_style: v })}>
                         <SelectTrigger><SelectValue placeholder="Select style" /></SelectTrigger>
                         <SelectContent>
@@ -294,11 +296,11 @@ const AdminWorkshops = () => {
                   <TabsContent value="settings" className="space-y-4 mt-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Min Age</Label>
+                        <Label>Min age</Label>
                         <Input type="number" min="0" value={form.age_min} onChange={(e) => setForm({ ...form, age_min: e.target.value })} placeholder="e.g. 4" />
                       </div>
                       <div className="space-y-2">
-                        <Label>Max Age</Label>
+                        <Label>Max age</Label>
                         <Input type="number" min="0" value={form.age_max} onChange={(e) => setForm({ ...form, age_max: e.target.value })} placeholder="e.g. 12" />
                       </div>
                     </div>
@@ -306,7 +308,7 @@ const AdminWorkshops = () => {
                       <Label>Duration (minutes)</Label>
                       <Input type="number" min="1" value={form.duration_minutes} onChange={(e) => setForm({ ...form, duration_minutes: e.target.value })} placeholder="e.g. 90" />
                     </div>
-                    <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                    <div className="flex items-center justify-between rounded-2xl bg-secondary/60 p-4">
                       <div>
                         <Label className="text-sm font-medium">Active</Label>
                         <p className="text-xs text-muted-foreground">Visible to parents on the website</p>
@@ -319,9 +321,9 @@ const AdminWorkshops = () => {
                   <TabsContent value="media" className="space-y-4 mt-4">
                     {/* Cover Image */}
                     <div className="space-y-2">
-                      <Label>Cover Image</Label>
+                      <Label>Cover image</Label>
                       <div
-                        className="relative group cursor-pointer border-2 border-dashed border-border rounded-lg aspect-square w-48 mx-auto flex items-center justify-center overflow-hidden hover:border-primary/50 transition-colors"
+                        className="relative group cursor-pointer border-2 border-dashed border-border rounded-2xl aspect-square w-48 mx-auto flex items-center justify-center overflow-hidden hover:border-primary/50 transition-colors"
                         onClick={() => coverInputRef.current?.click()}
                       >
                         {coverPreview ? (
@@ -341,15 +343,15 @@ const AdminWorkshops = () => {
                       <div className="flex items-center justify-between">
                         <Label className="flex items-center gap-2"><LinkIcon className="w-4 h-4" /> Links</Label>
                         <Button type="button" variant="outline" size="sm" onClick={addLink}>
-                          <Plus className="w-4 h-4 mr-2" /> Add Link
+                          <Plus className="w-4 h-4 mr-2" /> Add link
                         </Button>
                       </div>
                       <p className="text-xs text-muted-foreground">
                         Add any URLs — Instagram, Facebook, YouTube, TikTok, website, etc. Must start with http:// or https://
                       </p>
                       {form.links.length === 0 ? (
-                        <p className="text-xs text-muted-foreground py-4 text-center border border-dashed border-border rounded-lg">
-                          No links added yet. Click "Add Link" to add one.
+                        <p className="text-xs text-muted-foreground py-4 text-center border border-dashed border-border rounded-2xl">
+                          No links added yet. Click "Add link" to add one.
                         </p>
                       ) : (
                         <div className="space-y-2">
@@ -404,21 +406,21 @@ const AdminWorkshops = () => {
                     {editing && (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <Label>Gallery (Images & Videos)</Label>
+                          <Label>Gallery (images & videos)</Label>
                           <Button type="button" variant="outline" size="sm" onClick={() => mediaInputRef.current?.click()} disabled={mediaUploading}>
                             {mediaUploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
-                            Add Media
+                            Add media
                           </Button>
                           <input ref={mediaInputRef} type="file" accept="image/*,video/*" multiple className="hidden" onChange={handleMediaUpload} />
                         </div>
                         {media.length === 0 ? (
-                          <p className="text-xs text-muted-foreground py-4 text-center border border-dashed border-border rounded-lg">No media uploaded yet. Save this type of class first, then add gallery items.</p>
+                          <p className="text-xs text-muted-foreground py-4 text-center border border-dashed border-border rounded-2xl">No media uploaded yet. Save this type of class first, then add gallery items.</p>
                         ) : (
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                             {media.map((m) => (
-                              <div key={m.id} className="relative group rounded-lg overflow-hidden border border-border aspect-square">
+                              <div key={m.id} className="relative group rounded-xl overflow-hidden bg-secondary aspect-square">
                                 {m.media_type === "video" ? (
-                                  <div className="w-full h-full flex items-center justify-center bg-muted">
+                                  <div className="w-full h-full flex items-center justify-center bg-secondary">
                                     <Video className="w-8 h-8 text-muted-foreground" />
                                   </div>
                                 ) : (
@@ -444,47 +446,63 @@ const AdminWorkshops = () => {
                 </Tabs>
               </form>
             </div>
-            <div className="flex shrink-0 gap-3 justify-end pt-4 pb-2 border-t border-border bg-background">
+            <div className="flex shrink-0 gap-3 justify-end pt-4 pb-2 border-t border-border/50 bg-card/95 backdrop-blur">
               <Button type="button" variant="outline" onClick={() => { setOpen(false); resetForm(); }}>Cancel</Button>
-              <Button type="submit" form="workshop-form">{editing ? "Update" : "Create Type of Class"}</Button>
+              <Button type="submit" form="workshop-form">{editing ? "Update" : "Create type of class"}</Button>
             </div>
           </DialogContent>
         </Dialog>
         </div>
       </div>
+      </FadeRise>
 
-      <div className="flex items-center gap-2 mb-6">
-        <Button variant={typeFilter === "all" ? "default" : "outline"} size="sm" onClick={() => setTypeFilter("all")}>All</Button>
-        <Button variant={typeFilter === "children" ? "default" : "outline"} size="sm" onClick={() => setTypeFilter("children")}>Children</Button>
-        <Button variant={typeFilter === "adult" ? "default" : "outline"} size="sm" onClick={() => setTypeFilter("adult")}>Adult</Button>
-        <span className="text-sm text-muted-foreground ml-2">{filteredWorkshops.length} type{filteredWorkshops.length !== 1 ? "s" : ""}</span>
-      </div>
+      <FadeRise delay={80}>
+        <div className="flex flex-wrap items-center gap-3 mb-6">
+          <Tabs value={typeFilter} onValueChange={(v) => setTypeFilter(v as "all" | "children" | "adult")}>
+            <TabsList>
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="children">Children</TabsTrigger>
+              <TabsTrigger value="adult">Adult</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <span className="text-sm text-muted-foreground">{filteredWorkshops.length} type{filteredWorkshops.length !== 1 ? "s" : ""}</span>
+        </div>
+      </FadeRise>
 
       {loading ? <div className="text-muted-foreground">Loading...</div> : filteredWorkshops.length === 0 ? (
-        <Card><CardContent className="py-12 text-center text-muted-foreground">No class types found.</CardContent></Card>
+        <FadeRise delay={140}>
+          <Card>
+            <CardContent className="py-16 text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+                <ImageIcon className="h-6 w-6" />
+              </div>
+              <p className="text-muted-foreground">No class types found.</p>
+            </CardContent>
+          </Card>
+        </FadeRise>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Stagger className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
            {filteredWorkshops.map((w) => {
              const isAdult = w.class_type === "adult";
              return (
-            <Card key={w.id} className={`animate-fade-in overflow-hidden ${isAdult ? "border-accent/40 bg-accent/5" : "border-primary/30 bg-primary/5"}`}>
-              <div className="flex gap-4 p-4">
+            <Card key={w.id} className="h-full flex flex-col overflow-hidden transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg">
+              <div className="flex flex-1 gap-4 p-4">
                 {w.cover_image ? (
-                  <div className="w-24 h-24 rounded-lg overflow-hidden shrink-0 bg-secondary">
+                  <div className="w-24 h-24 rounded-2xl overflow-hidden shrink-0 bg-secondary">
                     <img src={getMediaUrl(w.cover_image)} alt={w.name} className="w-full h-full object-cover" />
                   </div>
                 ) : (
-                  <div className={`w-24 h-24 rounded-lg shrink-0 flex items-center justify-center ${isAdult ? "bg-accent/10" : "bg-primary/10"}`}>
-                    <ImageIcon className={`w-8 h-8 ${isAdult ? "text-accent/60" : "text-primary/60"}`} />
+                  <div className={`w-24 h-24 rounded-2xl shrink-0 flex items-center justify-center ${isAdult ? "bg-accent/8 text-accent" : "bg-primary/8 text-primary"}`}>
+                    <ImageIcon className="w-8 h-8" />
                   </div>
                 )}
                 <div className="flex-1 min-w-0 space-y-2">
                   <div>
-                    <h3 className="font-semibold text-lg leading-tight">{w.name}</h3>
-                    <div className="flex items-center gap-2 flex-wrap mt-1">
-                      <Badge className={`capitalize ${isAdult ? "bg-accent text-accent-foreground hover:bg-accent/90" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}>{w.class_type}</Badge>
+                    <h3 className="font-display font-semibold text-lg leading-tight">{w.name}</h3>
+                    <div className="flex items-center gap-2 flex-wrap mt-1.5">
+                      <Badge variant={isAdult ? "accent" : "default"} className="capitalize">{w.class_type}</Badge>
                       {w.dance_style && <Badge variant="secondary">{w.dance_style}</Badge>}
-                      {!w.is_active && <Badge variant="destructive">Inactive</Badge>}
+                      {!w.is_active && <Badge variant="warning">Inactive</Badge>}
                     </div>
                   </div>
                   {w.description && (
@@ -494,19 +512,19 @@ const AdminWorkshops = () => {
                     {(w.age_min !== null || w.age_max !== null) && (
                       <span>Ages {w.age_min ?? "?"} – {w.age_max ?? "?"}</span>
                     )}
-                    
+
                     {w.duration_minutes && <span>{w.duration_minutes} min</span>}
                   </div>
                 </div>
               </div>
-              <div className={`flex gap-1 px-4 pb-3 border-t pt-2 ${isAdult ? "border-accent/20" : "border-primary/20"}`}>
+              <div className="flex gap-1 px-4 pb-3 border-t border-border/50 pt-2">
                 <Button variant="ghost" size="sm" onClick={() => openEdit(w)}><Edit className="w-4 h-4 mr-1" /> Edit</Button>
-                <Button variant="ghost" size="sm" onClick={() => handleDelete(w.id)} className="text-destructive"><Trash2 className="w-4 h-4 mr-1" /> Delete</Button>
+                <Button variant="ghost" size="sm" onClick={() => handleDelete(w.id)} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4 mr-1" /> Delete</Button>
               </div>
             </Card>
           );
           })}
-        </div>
+        </Stagger>
       )}
     </div>
   );

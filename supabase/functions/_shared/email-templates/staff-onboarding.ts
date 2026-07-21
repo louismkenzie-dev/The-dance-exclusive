@@ -1,4 +1,11 @@
-import { BRAND, ctaButton, escapeHtml, renderLayout } from "./layout.ts";
+import {
+  BRAND,
+  ctaButton,
+  escapeHtml,
+  eyebrow,
+  FONT_STACK,
+  renderLayout,
+} from "./layout.ts";
 
 export interface StaffOnboardingData {
   fullName?: string | null;
@@ -22,7 +29,7 @@ export function renderStaffOnboarding(data: StaffOnboardingData) {
   const roleLabel = data.role ? (ROLE_LABELS[data.role] || data.role) : "team member";
 
   const body = `
-    <h1 style="margin:0 0 16px 0;font-family:'Oswald','Segoe UI',sans-serif;font-size:32px;line-height:38px;font-weight:700;color:${BRAND.text};letter-spacing:0.5px;">
+    <h1 style="margin:0 0 16px 0;font-family:${FONT_STACK};font-size:30px;line-height:36px;font-weight:800;color:${BRAND.text};letter-spacing:-0.3px;">
       Welcome to the team, ${escapeHtml(firstName)}.
     </h1>
     <p style="margin:0 0 16px 0;font-size:15px;line-height:24px;color:${BRAND.text};">
@@ -33,19 +40,15 @@ export function renderStaffOnboarding(data: StaffOnboardingData) {
       Once you're in, you'll be able to view your upcoming classes, mark registers, upload your DBS &amp; PLI documents, and update your profile.
     </p>
 
-    ${ctaButton("Set My Password", data.inviteLink)}
+    ${ctaButton("Set my password", data.inviteLink)}
 
-    <div style="font-size:11px;font-weight:700;color:${BRAND.primary};letter-spacing:1.5px;text-transform:uppercase;margin:32px 0 12px 0;">
-      What's inside your portal
-    </div>
+    <div style="margin:32px 0 12px 0;">${eyebrow("What's inside your portal")}</div>
 
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:separate;border-spacing:0;">
       <tr>
         <td valign="top" style="padding:0 0 12px 0;">
-          <div style="padding:18px;background:#0d1117;border:1px solid ${BRAND.border};border-radius:10px;border-left:3px solid ${BRAND.primary};">
-            <div style="font-size:12px;font-weight:700;color:${BRAND.primary};letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">
-              Day-to-day
-            </div>
+          <div style="padding:18px;background:${BRAND.panelBg};border-radius:16px;">
+            <div style="margin-bottom:10px;">${eyebrow("Day-to-day", BRAND.primary)}</div>
             <ul style="margin:0;padding:0 0 0 18px;font-size:13px;line-height:22px;color:${BRAND.textMuted};">
               <li>See your <strong style="color:${BRAND.text};">today's &amp; upcoming classes</strong> at a glance</li>
               <li>Check students in/out from class <strong style="color:${BRAND.text};">registers</strong></li>
@@ -56,10 +59,8 @@ export function renderStaffOnboarding(data: StaffOnboardingData) {
       </tr>
       <tr>
         <td valign="top" style="padding:0;">
-          <div style="padding:18px;background:#0d1117;border:1px solid ${BRAND.border};border-radius:10px;border-left:3px solid #e85a9b;">
-            <div style="font-size:12px;font-weight:700;color:#e85a9b;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">
-              First login checklist
-            </div>
+          <div style="padding:18px;background:${BRAND.panelBg};border-radius:16px;">
+            <div style="margin-bottom:10px;">${eyebrow("First login checklist", BRAND.accent)}</div>
             <ul style="margin:0;padding:0 0 0 18px;font-size:13px;line-height:22px;color:${BRAND.textMuted};">
               <li>Set a strong password</li>
               <li>Upload a profile photo &amp; complete your bio</li>

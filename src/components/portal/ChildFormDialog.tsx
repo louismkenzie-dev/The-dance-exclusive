@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,9 +13,20 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertTriangle, Camera, Heart, Info, Loader2, Save, Sparkles, Wand2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Camera,
+  Droplets,
+  Heart,
+  HeartPulse,
+  Loader2,
+  Puzzle,
+  Save,
+  ShieldAlert,
+  Sparkles,
+  User,
+  Wand2,
+} from "lucide-react";
 import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 import getCroppedImg from "@/lib/cropImage";
@@ -49,6 +61,50 @@ const ABILITY_LEVELS = [
   { value: "progressive", label: "Progressive — Building skills" },
   { value: "experienced", label: "Experienced — Confident dancer" },
 ];
+
+/** Quiet pill checklist item — a soft rounded chip that lights up when ticked. */
+const PillCheck = ({
+  id,
+  label,
+  checked,
+  onToggle,
+}: {
+  id?: string;
+  label: string;
+  checked: boolean;
+  onToggle: () => void;
+}) => (
+  <label
+    htmlFor={id}
+    className={cn(
+      "flex cursor-pointer items-center gap-2.5 rounded-full px-3.5 py-2 text-sm transition-colors duration-200",
+      checked
+        ? "bg-primary/10 font-medium text-primary"
+        : "bg-secondary/60 text-foreground hover:bg-secondary",
+    )}
+  >
+    <Checkbox id={id} checked={checked} onCheckedChange={onToggle} className="shrink-0" />
+    <span className="leading-tight">{label}</span>
+  </label>
+);
+
+/** Icon tile + label heading used inside each accordion section trigger. */
+const SectionHeading = ({
+  icon: Icon,
+  tile,
+  children,
+}: {
+  icon: typeof User;
+  tile: string;
+  children: React.ReactNode;
+}) => (
+  <span className="flex items-center gap-3 text-left">
+    <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl", tile)}>
+      <Icon className="h-4 w-4" />
+    </span>
+    <span>{children}</span>
+  </span>
+);
 
 interface ChildFormDialogProps {
   open: boolean;
@@ -330,10 +386,12 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle>
-            {selfMode ? (editing ? "Edit Your Attendee Profile" : "Create Your Attendee Profile") : `${editing ? "Edit" : "Add"} Child`}
+            {selfMode
+              ? (editing ? "Edit your attendee profile" : "Create your attendee profile")
+              : (editing ? "Edit child" : "Add child")}
           </DialogTitle>
           {selfMode && (
-            <p className="text-sm text-muted-foreground" style={{ fontFamily: 'var(--font-body)', textTransform: 'none', letterSpacing: 'normal' }}>
+            <p className="text-sm text-muted-foreground">
               Booking a class for yourself? We need your details for the class register —
               age, medical information and when you expect to arrive and leave.
             </p>
@@ -341,12 +399,12 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
         </DialogHeader>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-6">
-          <div className="space-y-4 pb-6">
+          <div className="space-y-5 pb-6">
             {/* ═══ PROFILE PHOTO ═══ */}
             <div className="flex flex-col items-center gap-3">
               {showCropper && photoSrc ? (
                 <div className="w-full space-y-3">
-                  <div className="relative w-full h-64 bg-black rounded-lg overflow-hidden">
+                  <div className="relative w-full h-64 bg-black rounded-2xl overflow-hidden">
                     <Cropper
                       image={photoSrc}
                       crop={crop}
@@ -361,16 +419,16 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                   </div>
                   <div className="flex items-center gap-3">
                     <Label className="text-xs text-muted-foreground">Zoom</Label>
-                    <input type="range" min={1} max={3} step={0.1} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="flex-1" />
+                    <input type="range" min={1} max={3} step={0.1} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="flex-1 accent-primary" />
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => setShowCropper(false)} className="flex-1">Cancel</Button>
-                    <Button size="sm" onClick={handleCropSave} className="flex-1">Save Photo</Button>
+                    <Button size="sm" onClick={handleCropSave} className="flex-1">Save photo</Button>
                   </div>
                 </div>
               ) : (
                 <>
-                  <div className="relative w-28 h-28 rounded-full bg-muted border-2 border-dashed border-border flex items-center justify-center overflow-hidden group cursor-pointer"
+                  <div className="relative w-28 h-28 rounded-full bg-secondary border-2 border-dashed border-border flex items-center justify-center overflow-hidden group cursor-pointer transition-colors hover:border-primary/40"
                     onClick={() => document.getElementById("photo-input")?.click()}>
                     {uploadedPhotoUrl ? (
                       <img src={uploadedPhotoUrl} alt="Child" className="w-full h-full object-cover" />
@@ -393,7 +451,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                             type="button"
                             onClick={handleGenerateAvatar}
                             disabled={avatarLoading}
-                            className="w-full gap-2 bg-gradient-to-r from-primary via-purple-500 to-accent text-white font-semibold uppercase tracking-wider hover:opacity-90 shadow-lg"
+                            className="w-full gap-2 bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold hover:opacity-90 shadow-soft"
                           >
                             {avatarLoading ? (
                               <>
@@ -401,12 +459,12 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                               </>
                             ) : (
                               <>
-                                <Wand2 className="w-4 h-4" /> Create Dance Exclusive Avatar
+                                <Wand2 className="w-4 h-4" /> Create Dance Exclusive avatar
                               </>
                             )}
                           </Button>
                           {!avatarLoading && (
-                            <p className="text-[11px] text-muted-foreground text-center" style={{ textTransform: "none", letterSpacing: "normal" }}>
+                            <p className="text-[11px] text-muted-foreground text-center">
                               {selfMode
                                 ? "Turn this photo into an on-brand studio portrait — you in Dance Exclusive merch under the signature pink lights. ✨"
                                 : "Turn this photo into an on-brand cartoon — your child in Dance Exclusive merch, dancing on stage under the lights. ✨"}
@@ -415,9 +473,9 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                         </>
                       )}
                       {avatarUrl && (
-                        <div className="flex flex-col items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+                        <div className="flex flex-col items-center gap-3 rounded-2xl bg-primary/5 p-4">
                           <PhotoAvatarDuo photoUrl={uploadedPhotoUrl} avatarUrl={avatarUrl} size="lg" showLabels />
-                          <p className="text-[11px] text-muted-foreground text-center" style={{ textTransform: "none", letterSpacing: "normal" }}>
+                          <p className="text-[11px] text-muted-foreground text-center">
                             Both are saved — parents and staff always see the real photo and the avatar together.
                           </p>
                         </div>
@@ -425,7 +483,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                     </div>
                   )}
                   {uploadedPhotoUrl && !editing && (
-                    <p className="text-[11px] text-muted-foreground text-center" style={{ textTransform: "none", letterSpacing: "normal" }}>
+                    <p className="text-[11px] text-muted-foreground text-center">
                       ✨ Save the profile first to unlock the Dance Exclusive Avatar Studio.
                     </p>
                   )}
@@ -433,22 +491,24 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
               )}
             </div>
 
-            <Accordion type="multiple" defaultValue={["basic", "medical", "allergies", "send", "toileting", "dance", "consent"]} className="space-y-2">
+            <Accordion type="multiple" defaultValue={["basic", "medical", "allergies", "send", "toileting", "dance", "consent"]} className="space-y-3">
               {/* ═══ BASIC DETAILS ═══ */}
-              <AccordionItem value="basic" className="border rounded-lg px-4">
-                <AccordionTrigger className="text-sm font-semibold">Basic Details</AccordionTrigger>
+              <AccordionItem value="basic" className="rounded-2xl border-0 bg-secondary/40 px-4">
+                <AccordionTrigger className="text-sm font-semibold hover:no-underline">
+                  <SectionHeading icon={User} tile="bg-primary/10 text-primary">Basic details</SectionHeading>
+                </AccordionTrigger>
                 <AccordionContent className="space-y-4 pt-2">
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label>First Name *</Label><Input value={form.first_name} onChange={(e) => update("first_name", e.target.value)} required /></div>
-                    <div className="space-y-2"><Label>Last Name *</Label><Input value={form.last_name} onChange={(e) => update("last_name", e.target.value)} required /></div>
+                    <div className="space-y-2"><Label>First name *</Label><Input value={form.first_name} onChange={(e) => update("first_name", e.target.value)} required /></div>
+                    <div className="space-y-2"><Label>Last name *</Label><Input value={form.last_name} onChange={(e) => update("last_name", e.target.value)} required /></div>
                   </div>
                   <div className="space-y-2">
-                    <Label>Preferred Name / Nickname</Label>
+                    <Label>Preferred name / nickname</Label>
                     <Input value={form.preferred_name} onChange={(e) => update("preferred_name", e.target.value)} placeholder="What do they like to be called?" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Date of Birth *</Label>
+                      <Label>Date of birth *</Label>
                       <Input type="date" value={form.date_of_birth} onChange={(e) => update("date_of_birth", e.target.value)} required />
                       {age !== null && (
                         <p className="text-sm font-medium text-primary">Age: {age} years old</p>
@@ -465,17 +525,19 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label>Emergency Contact Name</Label><Input value={form.emergency_contact_name} onChange={(e) => update("emergency_contact_name", e.target.value)} /></div>
-                    <div className="space-y-2"><Label>Emergency Contact Phone</Label><Input value={form.emergency_contact_phone} onChange={(e) => update("emergency_contact_phone", e.target.value)} /></div>
+                    <div className="space-y-2"><Label>Emergency contact name</Label><Input value={form.emergency_contact_name} onChange={(e) => update("emergency_contact_name", e.target.value)} /></div>
+                    <div className="space-y-2"><Label>Emergency contact phone</Label><Input value={form.emergency_contact_phone} onChange={(e) => update("emergency_contact_phone", e.target.value)} /></div>
                   </div>
                 </AccordionContent>
               </AccordionItem>
 
               {/* ═══ MEDICAL ═══ */}
-              <AccordionItem value="medical" className="border rounded-lg px-4">
-                <AccordionTrigger className="text-sm font-semibold">Medical Information</AccordionTrigger>
+              <AccordionItem value="medical" className="rounded-2xl border-0 bg-secondary/40 px-4">
+                <AccordionTrigger className="text-sm font-semibold hover:no-underline">
+                  <SectionHeading icon={HeartPulse} tile="bg-warning/10 text-warning">Medical information</SectionHeading>
+                </AccordionTrigger>
                 <AccordionContent className="space-y-4 pt-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-4">
                     <Label className="text-sm">{selfMode ? "Do you have any medical conditions?" : "Does your child have any medical conditions?"}</Label>
                     <Switch checked={form.has_medical_conditions} onCheckedChange={(c) => update("has_medical_conditions", c)} />
                   </div>
@@ -483,23 +545,26 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                   {form.has_medical_conditions && (
                     <>
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium">Known Medical Conditions</Label>
+                        <Label className="text-sm font-medium">Known medical conditions</Label>
                         <p className="text-xs text-muted-foreground">Tick any that apply</p>
                         <div className="grid grid-cols-2 gap-2 mt-2">
                           {MEDICAL_CONDITIONS.map((condition) => (
-                            <div key={condition} className="flex items-center gap-2">
-                              <Checkbox id={`cond-${condition}`} checked={medicalConditions.includes(condition)} onCheckedChange={() => toggleListItem("medical_conditions_list", condition)} />
-                              <Label htmlFor={`cond-${condition}`} className="text-sm cursor-pointer font-normal">{condition}</Label>
-                            </div>
+                            <PillCheck
+                              key={condition}
+                              id={`cond-${condition}`}
+                              label={condition}
+                              checked={medicalConditions.includes(condition)}
+                              onToggle={() => toggleListItem("medical_conditions_list", condition)}
+                            />
                           ))}
                         </div>
                       </div>
 
                       {medicalConditions.includes("Asthma") && (
-                        <Alert className="border-amber-500/30 bg-amber-500/10">
-                          <AlertTriangle className="h-4 w-4 text-amber-500" />
+                        <Alert className="rounded-2xl border-0 bg-warning/10">
+                          <AlertTriangle className="h-4 w-4 text-warning" />
                           <AlertDescription className="text-sm">
-                            <strong>Inhaler Required:</strong> Please ensure your child brings a named inhaler to class.
+                            <strong>Inhaler required:</strong> Please ensure your child brings a named inhaler to class.
                           </AlertDescription>
                         </Alert>
                       )}
@@ -514,8 +579,8 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                           <Label htmlFor="has-epipen" className="text-sm cursor-pointer font-normal">{selfMode ? "I carry an EpiPen" : "Child carries an EpiPen"}</Label>
                         </div>
                         {form.has_epipen && (
-                          <Alert className="border-red-500/30 bg-red-500/10">
-                            <AlertTriangle className="h-4 w-4 text-red-500" />
+                          <Alert className="rounded-2xl border-0 bg-destructive/10">
+                            <AlertTriangle className="h-4 w-4 text-destructive" />
                             <AlertDescription className="text-sm">
                               <strong>Important:</strong> Please ensure the named EpiPen is brought to every class. Our staff include trained first aiders.
                             </AlertDescription>
@@ -524,7 +589,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                       </div>
 
                       <div className="space-y-2">
-                        <Label>Other Medical Information</Label>
+                        <Label>Other medical information</Label>
                         <Textarea placeholder="Any other conditions not listed above..." value={form.medical_info || ""} onChange={(e) => update("medical_info", e.target.value)} rows={2} />
                       </div>
                     </>
@@ -533,10 +598,12 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
               </AccordionItem>
 
               {/* ═══ ALLERGIES ═══ */}
-              <AccordionItem value="allergies" className="border rounded-lg px-4">
-                <AccordionTrigger className="text-sm font-semibold">Allergies</AccordionTrigger>
+              <AccordionItem value="allergies" className="rounded-2xl border-0 bg-secondary/40 px-4">
+                <AccordionTrigger className="text-sm font-semibold hover:no-underline">
+                  <SectionHeading icon={ShieldAlert} tile="bg-destructive/10 text-destructive">Allergies</SectionHeading>
+                </AccordionTrigger>
                 <AccordionContent className="space-y-4 pt-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-4">
                     <Label className="text-sm">{selfMode ? "Do you have any allergies?" : "Does your child have any allergies?"}</Label>
                     <Switch checked={form.has_allergies} onCheckedChange={(c) => update("has_allergies", c)} />
                   </div>
@@ -546,14 +613,17 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                       <p className="text-xs text-muted-foreground">Tick any known allergies</p>
                       <div className="grid grid-cols-2 gap-2">
                         {COMMON_ALLERGIES.map((allergy) => (
-                          <div key={allergy} className="flex items-center gap-2">
-                            <Checkbox id={`allergy-${allergy}`} checked={allergiesList.includes(allergy)} onCheckedChange={() => toggleListItem("allergies_list", allergy)} />
-                            <Label htmlFor={`allergy-${allergy}`} className="text-sm cursor-pointer font-normal">{allergy}</Label>
-                          </div>
+                          <PillCheck
+                            key={allergy}
+                            id={`allergy-${allergy}`}
+                            label={allergy}
+                            checked={allergiesList.includes(allergy)}
+                            onToggle={() => toggleListItem("allergies_list", allergy)}
+                          />
                         ))}
                       </div>
                       <div className="space-y-1 mt-2">
-                        <Label className="text-xs">Other Allergies</Label>
+                        <Label className="text-xs">Other allergies</Label>
                         <Textarea placeholder="Any other allergies not listed above..." value={form.allergies || ""} onChange={(e) => update("allergies", e.target.value)} rows={2} />
                       </div>
                     </div>
@@ -562,10 +632,12 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
               </AccordionItem>
 
               {/* ═══ SEND ═══ */}
-              <AccordionItem value="send" className="border rounded-lg px-4">
-                <AccordionTrigger className="text-sm font-semibold">SEND (Special Educational Needs)</AccordionTrigger>
+              <AccordionItem value="send" className="rounded-2xl border-0 bg-secondary/40 px-4">
+                <AccordionTrigger className="text-sm font-semibold hover:no-underline">
+                  <SectionHeading icon={Puzzle} tile="bg-accent/10 text-accent">SEND (special educational needs)</SectionHeading>
+                </AccordionTrigger>
                 <AccordionContent className="space-y-4 pt-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-4">
                     <Label className="text-sm">{selfMode ? "Do you have any additional needs we should know about?" : "Does your child have any special educational needs?"}</Label>
                     <Switch checked={form.has_send} onCheckedChange={(c) => update("has_send", c)} />
                   </div>
@@ -576,31 +648,34 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                   {form.has_send && (
                     <>
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium">SEND Conditions</Label>
+                        <Label className="text-sm font-medium">SEND conditions</Label>
                         <p className="text-xs text-muted-foreground">Tick any that apply — diagnosed or awaiting assessment</p>
                         <div className="grid grid-cols-2 gap-2 mt-2">
                           {SEND_CONDITIONS.map((condition) => (
-                            <div key={condition} className="flex items-center gap-2">
-                              <Checkbox id={`send-${condition}`} checked={sendConditions.includes(condition)} onCheckedChange={() => toggleSendCondition(condition)} />
-                              <Label htmlFor={`send-${condition}`} className="text-sm cursor-pointer font-normal">{condition}</Label>
-                            </div>
+                            <PillCheck
+                              key={condition}
+                              id={`send-${condition}`}
+                              label={condition}
+                              checked={sendConditions.includes(condition)}
+                              onToggle={() => toggleSendCondition(condition)}
+                            />
                           ))}
                         </div>
                       </div>
 
                       {sendConditions.length > 0 && (
                         <div className="space-y-3">
-                          <Label className="text-sm font-medium">Triggers & Coping Techniques</Label>
+                          <Label className="text-sm font-medium">Triggers & coping techniques</Label>
                           <p className="text-xs text-muted-foreground">For each condition, tell us about known triggers and what works best for your child.</p>
                           {sendConditions.map((condition) => (
-                            <div key={condition} className="border rounded-lg p-3 space-y-3 bg-muted/30">
-                              <span className="text-sm font-medium">{condition}</span>
+                            <div key={condition} className="rounded-2xl bg-card shadow-soft p-4 space-y-3">
+                              <span className="text-sm font-semibold">{condition}</span>
                               <div className="space-y-1">
-                                <Label className="text-xs">Known Triggers</Label>
+                                <Label className="text-xs">Known triggers</Label>
                                 <Textarea placeholder={`What triggers difficulties related to ${condition}?`} value={sendTriggersCoping[condition]?.triggers || ""} onChange={(e) => updateSendDetail(condition, "triggers", e.target.value)} rows={2} />
                               </div>
                               <div className="space-y-1">
-                                <Label className="text-xs">Coping Techniques / How Best to Support</Label>
+                                <Label className="text-xs">Coping techniques / how best to support</Label>
                                 <Textarea placeholder="What strategies work best for your child?" value={sendTriggersCoping[condition]?.coping_techniques || ""} onChange={(e) => updateSendDetail(condition, "coping_techniques", e.target.value)} rows={2} />
                               </div>
                             </div>
@@ -608,7 +683,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                         </div>
                       )}
 
-                      <div className="space-y-2"><Label>Additional SEND Details</Label><Textarea placeholder="Any other information about your child's needs..." value={form.send_details || ""} onChange={(e) => update("send_details", e.target.value)} rows={2} /></div>
+                      <div className="space-y-2"><Label>Additional SEND details</Label><Textarea placeholder="Any other information about your child's needs..." value={form.send_details || ""} onChange={(e) => update("send_details", e.target.value)} rows={2} /></div>
 
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
@@ -620,8 +695,8 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                           <Label htmlFor="1to1" className="text-sm cursor-pointer">1:1 support required</Label>
                         </div>
                         {form.one_to_one_required && (
-                          <Alert className="border-amber-500/30 bg-amber-500/10">
-                            <AlertTriangle className="h-4 w-4 text-amber-500" />
+                          <Alert className="rounded-2xl border-0 bg-warning/10">
+                            <AlertTriangle className="h-4 w-4 text-warning" />
                             <AlertDescription className="text-sm">
                               <strong>Important:</strong> Please contact us to discuss your child's needs before booking. We want to ensure we can provide the best possible support.
                             </AlertDescription>
@@ -635,10 +710,12 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
 
               {/* ═══ TOILETING (children only) ═══ */}
               {!selfMode && (
-              <AccordionItem value="toileting" className="border rounded-lg px-4">
-                <AccordionTrigger className="text-sm font-semibold">Toileting</AccordionTrigger>
+              <AccordionItem value="toileting" className="rounded-2xl border-0 bg-secondary/40 px-4">
+                <AccordionTrigger className="text-sm font-semibold hover:no-underline">
+                  <SectionHeading icon={Droplets} tile="bg-primary/10 text-primary">Toileting</SectionHeading>
+                </AccordionTrigger>
                 <AccordionContent className="space-y-4 pt-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-4">
                     <Label className="text-sm">Is your child fully toilet trained?</Label>
                     <Switch checked={form.is_toilet_trained} onCheckedChange={(c) => update("is_toilet_trained", c)} />
                   </div>
@@ -653,7 +730,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                         <Label htmlFor="prone-accidents" className="text-sm cursor-pointer font-normal">My child is prone to accidents</Label>
                       </div>
                       <div className="space-y-2">
-                        <Label>Toileting Notes</Label>
+                        <Label>Toileting notes</Label>
                         <Textarea placeholder="Please provide any additional details about toileting support needed..." value={form.toileting_notes || ""} onChange={(e) => update("toileting_notes", e.target.value)} />
                       </div>
                     </div>
@@ -664,35 +741,34 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
 
               {/* ═══ DANCE & ABOUT (children only) ═══ */}
               {!selfMode && (
-              <AccordionItem value="dance" className="border rounded-lg px-4">
-                <AccordionTrigger className="text-sm font-semibold">
-                  <span className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> Dance & About Your Child</span>
+              <AccordionItem value="dance" className="rounded-2xl border-0 bg-secondary/40 px-4">
+                <AccordionTrigger className="text-sm font-semibold hover:no-underline">
+                  <SectionHeading icon={Sparkles} tile="bg-accent/10 text-accent">Dance & about your child</SectionHeading>
                 </AccordionTrigger>
                 <AccordionContent className="space-y-4 pt-2">
                   <div className="space-y-2">
-                    <Label>Dance Style Preferences</Label>
+                    <Label>Dance style preferences</Label>
                     <p className="text-xs text-muted-foreground">Tick all the styles your child enjoys or wants to try</p>
                     <div className="grid grid-cols-2 gap-2">
                       {["Ballet", "Tap", "Jazz", "Contemporary", "Street Dance", "Commercial", "Lyrical", "Musical Theatre", "Acro", "Ballroom", "Latin", "Not sure yet"].map(style => {
                         const selected = (form.dance_style_preference || "").split(",").map((s: string) => s.trim()).filter(Boolean);
                         const isChecked = selected.includes(style);
                         return (
-                          <label key={style} className="flex items-center gap-2 text-sm cursor-pointer">
-                            <Checkbox
-                              checked={isChecked}
-                              onCheckedChange={() => {
-                                const next = isChecked ? selected.filter((s: string) => s !== style) : [...selected, style];
-                                update("dance_style_preference", next.join(", "));
-                              }}
-                            />
-                            {style}
-                          </label>
+                          <PillCheck
+                            key={style}
+                            label={style}
+                            checked={isChecked}
+                            onToggle={() => {
+                              const next = isChecked ? selected.filter((s: string) => s !== style) : [...selected, style];
+                              update("dance_style_preference", next.join(", "));
+                            }}
+                          />
                         );
                       })}
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>Ability Level</Label>
+                    <Label>Ability level</Label>
                     <Select value={form.ability_level || ""} onValueChange={(v) => update("ability_level", v)}>
                       <SelectTrigger><SelectValue placeholder="Select ability level" /></SelectTrigger>
                       <SelectContent>
@@ -705,10 +781,10 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                     <Label htmlFor="stage-exp" className="text-sm cursor-pointer font-normal">My child has stage/performance experience</Label>
                   </div>
 
-                  {/* ─── Child's Hook ─── */}
-                  <div className="rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20 p-4 space-y-2">
+                  {/* ─── Child's hook ─── */}
+                  <div className="rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10 p-4 space-y-2">
                     <p className="text-sm flex items-center gap-1.5 font-medium">
-                      <Heart className="h-4 w-4 text-pink-500" /> What Makes Your Child Tick?
+                      <Heart className="h-4 w-4 text-accent" /> What makes your child tick?
                     </p>
                     <p className="text-xs text-muted-foreground">
                       🌟 Help us create an amazing experience! Tell us about your child's passions, favourite things to talk about, their personality, likes and dislikes — anything that helps our instructors build an instant bond.
@@ -726,8 +802,10 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
               )}
 
               {/* ═══ CONSENT ═══ */}
-              <AccordionItem value="consent" className="border rounded-lg px-4">
-                <AccordionTrigger className="text-sm font-semibold">Consent</AccordionTrigger>
+              <AccordionItem value="consent" className="rounded-2xl border-0 bg-secondary/40 px-4">
+                <AccordionTrigger className="text-sm font-semibold hover:no-underline">
+                  <SectionHeading icon={Camera} tile="bg-success/10 text-success">Consent</SectionHeading>
+                </AccordionTrigger>
                 <AccordionContent className="space-y-4 pt-2">
                   <div className="flex items-center gap-2">
                     <Checkbox id="photo-consent" checked={form.photo_consent} onCheckedChange={(c) => update("photo_consent", !!c)} />
@@ -743,7 +821,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
           </div>
         </div>
 
-        <DialogFooter className="px-6 py-4 border-t">
+        <DialogFooter className="px-6 py-4 border-t border-border/50 bg-card/95 backdrop-blur">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button
             onClick={handleSave}
@@ -751,7 +829,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             <Save className="h-4 w-4 mr-2" />
-            {selfMode ? (editing ? "Update Profile" : "Save Profile") : `${editing ? "Update" : "Add"} Child`}
+            {selfMode ? (editing ? "Update profile" : "Save profile") : (editing ? "Update child" : "Add child")}
           </Button>
         </DialogFooter>
       </DialogContent>

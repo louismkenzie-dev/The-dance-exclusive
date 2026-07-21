@@ -29,6 +29,7 @@ import {
 import { ShieldCheck, Search, Mail, Plus, Pencil, ShieldOff, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { FadeRise } from "@/components/motion";
 
 type AdminProfile = {
   id: string;
@@ -163,31 +164,38 @@ const AdminAdmins = () => {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-display font-bold flex items-center gap-2">
-            <ShieldCheck className="h-6 w-6" />
-            Admins
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">Users with administrator access</p>
+    <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-6">
+      <FadeRise>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">Admins</h1>
+              <p className="text-sm text-muted-foreground mt-1">Users with administrator access</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Badge variant="secondary" className="text-sm">
+              {filtered.length} admin{filtered.length !== 1 ? "s" : ""}
+            </Badge>
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4" /> New admin
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="secondary" className="text-sm">
-            {filtered.length} admin{filtered.length !== 1 ? "s" : ""}
-          </Badge>
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4" /> New Admin
-          </Button>
+      </FadeRise>
+
+      <FadeRise delay={60}>
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Search admins..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
-      </div>
+      </FadeRise>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Search admins..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
-      </div>
-
-      <Card>
+      <FadeRise delay={120}>
+      <Card className="overflow-hidden">
         <CardContent className="p-0">
           {isLoading ? (
             <div className="p-4 md:p-8 text-center text-muted-foreground animate-pulse">Loading...</div>
@@ -244,12 +252,13 @@ const AdminAdmins = () => {
           )}
         </CardContent>
       </Card>
+      </FadeRise>
 
       {/* Create dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New Admin</DialogTitle>
+            <DialogTitle>New admin</DialogTitle>
             <DialogDescription>Create a new account with administrator access.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -274,7 +283,7 @@ const AdminAdmins = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={submitting}>Cancel</Button>
             <Button onClick={handleCreate} disabled={submitting}>
-              {submitting && <Loader2 className="h-4 w-4 animate-spin" />} Create Admin
+              {submitting && <Loader2 className="h-4 w-4 animate-spin" />} Create admin
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -284,7 +293,7 @@ const AdminAdmins = () => {
       <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Admin</DialogTitle>
+            <DialogTitle>Edit admin</DialogTitle>
             <DialogDescription>Update profile details or reset the password.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -308,7 +317,7 @@ const AdminAdmins = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditTarget(null)} disabled={submitting}>Cancel</Button>
             <Button onClick={handleUpdate} disabled={submitting}>
-              {submitting && <Loader2 className="h-4 w-4 animate-spin" />} Save Changes
+              {submitting && <Loader2 className="h-4 w-4 animate-spin" />} Save changes
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -326,7 +335,7 @@ const AdminAdmins = () => {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={submitting}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleRemoveAdmin} disabled={submitting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              {submitting && <Loader2 className="h-4 w-4 animate-spin" />} Remove Admin
+              {submitting && <Loader2 className="h-4 w-4 animate-spin" />} Remove admin
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

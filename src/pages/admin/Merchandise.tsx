@@ -3,24 +3,25 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Image, Package, X, Upload } from "lucide-react";
+import { FadeRise } from "@/components/motion";
+import { Plus, Pencil, Trash2, Image, Package, X, Upload, Boxes, Loader2 } from "lucide-react";
 
 const CATEGORIES = [
-  { value: "t-shirt", label: "T-Shirt" },
+  { value: "t-shirt", label: "T-shirt" },
   { value: "hoodie", label: "Hoodie" },
   { value: "jumper", label: "Jumper" },
-  { value: "dance-pants", label: "Dance Pants" },
+  { value: "dance-pants", label: "Dance pants" },
   { value: "bag", label: "Bag" },
-  { value: "water-bottle", label: "Water Bottle" },
-  { value: "baseball-cap", label: "Baseball Cap" },
+  { value: "water-bottle", label: "Water bottle" },
+  { value: "baseball-cap", label: "Baseball cap" },
   { value: "accessories", label: "Accessories" },
   { value: "other", label: "Other" },
 ];
@@ -362,82 +363,106 @@ const Merchandise = () => {
 
   const getCategoryLabel = (val: string) => CATEGORIES.find(c => c.value === val)?.label || val;
 
-  if (loading) return <div className="p-4 md:p-8 text-center text-muted-foreground">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-4 py-24 text-muted-foreground md:p-8">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading…
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: 'var(--font-heading)' }}>Merchandise</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage products, stock levels, and bundles</p>
-        </div>
-        <div className={`flex items-center gap-3 rounded-lg border px-4 py-3 ${sellingActive ? "border-primary/40 bg-primary/5" : "border-amber-500/40 bg-amber-500/5"}`}>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="merch-selling-active" className="text-sm font-semibold cursor-pointer">Uniform sales active</Label>
-              <Badge variant={sellingActive ? "default" : "secondary"} className="text-[10px] uppercase tracking-wide">{sellingActive ? "Open" : "Closed"}</Badge>
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5 max-w-[16rem]">
-              {sellingActive ? "Customers can order from the public shop." : "Shop is visible but ordering is disabled."}
-            </p>
+    <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
+      <FadeRise>
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+          <div>
+            <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Merchandise</h1>
+            <p className="mt-1 text-muted-foreground">Manage products, stock levels, and bundles</p>
           </div>
-          <Switch id="merch-selling-active" checked={sellingActive} disabled={savingSelling} onCheckedChange={toggleSellingActive} />
+          <div className="flex items-center gap-4 rounded-2xl bg-card px-5 py-4 shadow-soft">
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="merch-selling-active" className="cursor-pointer text-sm font-semibold">Uniform sales active</Label>
+                <Badge variant={sellingActive ? "success" : "warning"}>{sellingActive ? "Open" : "Closed"}</Badge>
+              </div>
+              <p className="mt-0.5 max-w-[16rem] text-xs text-muted-foreground">
+                {sellingActive ? "Customers can order from the public shop." : "Shop is visible but ordering is disabled."}
+              </p>
+            </div>
+            <Switch id="merch-selling-active" checked={sellingActive} disabled={savingSelling} onCheckedChange={toggleSellingActive} />
+          </div>
         </div>
-      </div>
+      </FadeRise>
 
       <Tabs defaultValue="items" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="items">Products</TabsTrigger>
-          <TabsTrigger value="bundles">Bundles</TabsTrigger>
-        </TabsList>
+        <FadeRise delay={80}>
+          <TabsList>
+            <TabsTrigger value="items">Products</TabsTrigger>
+            <TabsTrigger value="bundles">Bundles</TabsTrigger>
+          </TabsList>
+        </FadeRise>
 
         {/* ─── Products Tab ──────────────────────── */}
         <TabsContent value="items" className="space-y-4">
           <div className="flex justify-end">
-            <Button onClick={() => openItemDialog()} size="sm"><Plus className="w-4 h-4 mr-1" /> Add Product</Button>
+            <Button onClick={() => openItemDialog()} size="sm"><Plus className="mr-1.5 h-4 w-4" /> Add product</Button>
           </div>
 
           {items.length === 0 ? (
-            <Card><CardContent className="py-12 text-center text-muted-foreground">No merchandise items yet. Add your first product above.</CardContent></Card>
+            <Card>
+              <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+                  <Package className="h-6 w-6" />
+                </div>
+                <p className="text-muted-foreground">No merchandise items yet. Add your first product above.</p>
+              </CardContent>
+            </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {items.map(item => (
-                <Card key={item.id} className={!item.is_active ? "opacity-60" : ""}>
-                  {primaryImages[item.id] && (
-                    <div className="aspect-[4/3] overflow-hidden rounded-t-lg">
-                      <img src={getStorageUrl(primaryImages[item.id])} alt={item.name} className="w-full h-full object-cover" />
+            <div className="grid gap-4 sm:grid-cols-2 md:gap-5 lg:grid-cols-3">
+              {items.map((item, i) => (
+                <FadeRise key={item.id} delay={(i % 3) * 70} className="h-full">
+                  <Card className={`flex h-full flex-col p-3 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg ${!item.is_active ? "opacity-60" : ""}`}>
+                    <div className="relative aspect-square overflow-hidden rounded-2xl bg-secondary/40">
+                      {primaryImages[item.id] ? (
+                        <img src={getStorageUrl(primaryImages[item.id])} alt={item.name} loading="lazy" className="h-full w-full object-contain p-6" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-muted-foreground/50">
+                          <Package className="h-10 w-10" />
+                        </div>
+                      )}
+                      {!item.is_active && (
+                        <Badge variant="secondary" className="absolute left-3 top-3">Inactive</Badge>
+                      )}
                     </div>
-                  )}
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-base">{item.name}</CardTitle>
-                        <div className="flex gap-1.5 mt-1">
-                          <Badge variant="secondary" className="text-xs">{getCategoryLabel(item.category)}</Badge>
-                          {!item.is_active && <Badge variant="outline" className="text-xs">Inactive</Badge>}
+
+                    <div className="flex flex-1 flex-col px-2 pb-2 pt-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="eyebrow">{getCategoryLabel(item.category)}</p>
+                          <h3 className="mt-1 font-display text-lg font-semibold leading-tight tracking-tight">{item.name}</h3>
+                        </div>
+                        <p className="font-display text-lg font-bold tabular-nums">£{item.base_price.toFixed(2)}</p>
+                      </div>
+                      {item.description && <p className="mt-1.5 text-xs text-muted-foreground line-clamp-2">{item.description}</p>}
+
+                      <div className="mb-3 mt-3 flex flex-wrap gap-1.5">
+                        <Button variant="secondary" size="sm" onClick={() => openMedia(item)}><Image className="mr-1.5 h-3.5 w-3.5" /> Gallery</Button>
+                        <Button variant="secondary" size="sm" onClick={() => openVariants(item)}><Package className="mr-1.5 h-3.5 w-3.5" /> Sizes & stock</Button>
+                      </div>
+
+                      <div className="mt-auto flex items-center justify-between border-t border-border/50 pt-3">
+                        <div className="flex items-center gap-2">
+                          <Switch checked={item.is_active} onCheckedChange={() => toggleItemActive(item)} />
+                          <span className="text-xs text-muted-foreground">{item.is_active ? "Active" : "Inactive"}</span>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openItemDialog(item)} aria-label="Edit product"><Pencil className="h-3.5 w-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteItem(item.id)} aria-label="Delete product"><Trash2 className="h-3.5 w-3.5" /></Button>
                         </div>
                       </div>
-                      <p className="text-lg font-bold text-primary">£{item.base_price.toFixed(2)}</p>
                     </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {item.description && <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>}
-                    <div className="flex flex-wrap gap-1.5">
-                      <Button variant="outline" size="sm" onClick={() => openMedia(item)}><Image className="w-3.5 h-3.5 mr-1" /> Gallery</Button>
-                      <Button variant="outline" size="sm" onClick={() => openVariants(item)}><Package className="w-3.5 h-3.5 mr-1" /> Sizes & Stock</Button>
-                    </div>
-                    <div className="flex items-center justify-between pt-2 border-t">
-                      <div className="flex items-center gap-2">
-                        <Switch checked={item.is_active} onCheckedChange={() => toggleItemActive(item)} />
-                        <span className="text-xs text-muted-foreground">{item.is_active ? "Active" : "Inactive"}</span>
-                      </div>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openItemDialog(item)}><Pencil className="w-3.5 h-3.5" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteItem(item.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                  </Card>
+                </FadeRise>
               ))}
             </div>
           )}
@@ -446,82 +471,97 @@ const Merchandise = () => {
         {/* ─── Bundles Tab ───────────────────────── */}
         <TabsContent value="bundles" className="space-y-4">
           <div className="flex justify-end">
-            <Button onClick={() => openBundleDialog()} size="sm"><Plus className="w-4 h-4 mr-1" /> Create Bundle</Button>
+            <Button onClick={() => openBundleDialog()} size="sm"><Plus className="mr-1.5 h-4 w-4" /> Create bundle</Button>
           </div>
 
           {bundles.length === 0 ? (
-            <Card><CardContent className="py-12 text-center text-muted-foreground">No bundles yet. Create a bundle to offer discounted product combinations.</CardContent></Card>
+            <Card>
+              <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent">
+                  <Boxes className="h-6 w-6" />
+                </div>
+                <p className="text-muted-foreground">No bundles yet. Create a bundle to offer discounted product combinations.</p>
+              </CardContent>
+            </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {bundles.map(bundle => {
+            <div className="grid gap-4 sm:grid-cols-2 md:gap-5 lg:grid-cols-3">
+              {bundles.map((bundle, i) => {
                 const biList = allBundleItems[bundle.id] || [];
                 const totalValue = biList.reduce((sum, bi) => {
-                  const item = items.find(i => i.id === bi.item_id);
+                  const item = items.find(it => it.id === bi.item_id);
                   return sum + (item ? item.base_price * bi.quantity : 0);
                 }, 0);
                 const savings = totalValue - bundle.bundle_price;
 
                 return (
-                <Card key={bundle.id} className={!bundle.is_active ? "opacity-60" : ""}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <CardTitle className="text-base">{bundle.name}</CardTitle>
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-primary">£{bundle.bundle_price.toFixed(2)}</p>
-                        {totalValue > 0 && <p className="text-xs text-muted-foreground line-through">£{totalValue.toFixed(2)}</p>}
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {bundle.description && <p className="text-xs text-muted-foreground line-clamp-2">{bundle.description}</p>}
-
-                    {/* Included items showcase */}
-                    {biList.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Included items</p>
-                        <div className="border rounded-md divide-y">
-                          {biList.map(bi => {
-                            const item = items.find(i => i.id === bi.item_id);
-                            if (!item) return null;
-                            const imgPath = primaryImages[item.id];
-                            return (
-                              <div key={bi.id} className="flex items-center gap-3 px-3 py-2">
-                                {imgPath ? (
-                                  <img src={getStorageUrl(imgPath)} alt={item.name} className="w-10 h-10 rounded object-cover flex-shrink-0" />
-                                ) : (
-                                  <div className="w-10 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                                    <Package className="w-4 h-4 text-muted-foreground" />
-                                  </div>
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium truncate">{item.name}</p>
-                                  <p className="text-xs text-muted-foreground">{getCategoryLabel(item.category)}{bi.quantity > 1 ? ` × ${bi.quantity}` : ''}</p>
-                                </div>
-                                <p className="text-sm text-muted-foreground">£{(item.base_price * bi.quantity).toFixed(2)}</p>
-                              </div>
-                            );
-                          })}
+                  <FadeRise key={bundle.id} delay={(i % 3) * 70} className="h-full">
+                    <Card className={`flex h-full flex-col p-5 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg ${!bundle.is_active ? "opacity-60" : ""}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent/10 text-accent">
+                            <Boxes className="h-5 w-5" />
+                          </div>
+                          <h3 className="font-display text-lg font-semibold leading-tight tracking-tight">{bundle.name}</h3>
                         </div>
-                        {savings > 0 && (
-                          <div className="flex items-center justify-between px-3 py-2 rounded-md bg-accent">
-                            <span className="text-xs font-semibold text-accent-foreground">You save</span>
-                            <span className="text-sm font-bold text-accent-foreground">£{savings.toFixed(2)} ({Math.round((savings / totalValue) * 100)}% off)</span>
+                        <div className="text-right">
+                          <p className="font-display text-lg font-bold tabular-nums">£{bundle.bundle_price.toFixed(2)}</p>
+                          {totalValue > 0 && <p className="text-xs text-muted-foreground line-through tabular-nums">£{totalValue.toFixed(2)}</p>}
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex flex-1 flex-col space-y-3">
+                        {bundle.description && <p className="text-xs text-muted-foreground line-clamp-2">{bundle.description}</p>}
+
+                        {/* Included items showcase */}
+                        {biList.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="eyebrow">Included items</p>
+                            <div className="overflow-hidden rounded-2xl bg-secondary/40 divide-y divide-border/50">
+                              {biList.map(bi => {
+                                const item = items.find(it => it.id === bi.item_id);
+                                if (!item) return null;
+                                const imgPath = primaryImages[item.id];
+                                return (
+                                  <div key={bi.id} className="flex items-center gap-3 px-3 py-2">
+                                    {imgPath ? (
+                                      <img src={getStorageUrl(imgPath)} alt={item.name} className="h-10 w-10 flex-shrink-0 rounded-lg object-cover" />
+                                    ) : (
+                                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-card shadow-soft">
+                                        <Package className="h-4 w-4 text-muted-foreground" />
+                                      </div>
+                                    )}
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate text-sm font-medium">{item.name}</p>
+                                      <p className="text-xs text-muted-foreground">{getCategoryLabel(item.category)}{bi.quantity > 1 ? ` × ${bi.quantity}` : ''}</p>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground tabular-nums">£{(item.base_price * bi.quantity).toFixed(2)}</p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            {savings > 0 && (
+                              <div className="flex items-center justify-between rounded-xl bg-success/10 px-3 py-2">
+                                <span className="text-xs font-semibold text-success">You save</span>
+                                <span className="text-sm font-bold text-success tabular-nums">£{savings.toFixed(2)} ({Math.round((savings / totalValue) * 100)}% off)</span>
+                              </div>
+                            )}
                           </div>
                         )}
-                      </div>
-                    )}
 
-                    <Button variant="outline" size="sm" className="w-full" onClick={() => openBundleItems(bundle)}>
-                      <Package className="w-3.5 h-3.5 mr-1" /> Manage Items
-                    </Button>
-                    <div className="flex items-center justify-between pt-2 border-t">
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openBundleDialog(bundle)}><Pencil className="w-3.5 h-3.5" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteBundle(bundle.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                        <div className="mt-auto space-y-3 pt-1">
+                          <Button variant="secondary" size="sm" className="w-full" onClick={() => openBundleItems(bundle)}>
+                            <Package className="mr-1.5 h-3.5 w-3.5" /> Manage items
+                          </Button>
+                          <div className="flex items-center justify-between border-t border-border/50 pt-3">
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openBundleDialog(bundle)} aria-label="Edit bundle"><Pencil className="h-3.5 w-3.5" /></Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteBundle(bundle.id)} aria-label="Delete bundle"><Trash2 className="h-3.5 w-3.5" /></Button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </Card>
+                  </FadeRise>
                 );
               })}
             </div>
@@ -532,18 +572,18 @@ const Merchandise = () => {
       {/* ─── Item Dialog ─────────────────────────── */}
       <Dialog open={itemDialogOpen} onOpenChange={setItemDialogOpen}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>{editingItem ? "Edit Product" : "Add Product"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingItem ? "Edit product" : "Add product"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div><Label>Name</Label><Input value={itemForm.name} onChange={e => setItemForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Dance T-Shirt" /></div>
-            <div><Label>Category</Label>
+            <div className="grid gap-2"><Label>Name</Label><Input value={itemForm.name} onChange={e => setItemForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Dance T-shirt" /></div>
+            <div className="grid gap-2"><Label>Category</Label>
               <Select value={itemForm.category} onValueChange={v => setItemForm(f => ({ ...f, category: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>{CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div><Label>Base Price (£)</Label><Input type="number" step="0.01" value={itemForm.base_price} onChange={e => setItemForm(f => ({ ...f, base_price: e.target.value }))} /></div>
-            <div><Label>Description</Label><Textarea value={itemForm.description} onChange={e => setItemForm(f => ({ ...f, description: e.target.value }))} rows={3} /></div>
-            <Button onClick={saveItem} className="w-full">{editingItem ? "Update" : "Create"} Product</Button>
+            <div className="grid gap-2"><Label>Base price (£)</Label><Input type="number" step="0.01" value={itemForm.base_price} onChange={e => setItemForm(f => ({ ...f, base_price: e.target.value }))} /></div>
+            <div className="grid gap-2"><Label>Description</Label><Textarea value={itemForm.description} onChange={e => setItemForm(f => ({ ...f, description: e.target.value }))} rows={3} /></div>
+            <Button onClick={saveItem} className="w-full">{editingItem ? "Update product" : "Create product"}</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -551,39 +591,39 @@ const Merchandise = () => {
       {/* ─── Variants Dialog ─────────────────────── */}
       <Dialog open={variantDialogOpen} onOpenChange={setVariantDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Sizes & Stock — {selectedItemForVariants?.name}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Sizes & stock — {selectedItemForVariants?.name}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             {/* Add variant form */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end">
-              <div>
+            <div className="grid grid-cols-2 items-end gap-2 sm:grid-cols-5">
+              <div className="grid gap-1.5">
                 <Label className="text-xs">Size</Label>
                 <Select value={variantForm.size} onValueChange={v => setVariantForm(f => ({ ...f, size: v }))}>
                   <SelectTrigger className="h-9"><SelectValue placeholder="Size" /></SelectTrigger>
                   <SelectContent>{COMMON_SIZES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div><Label className="text-xs">Colour</Label><Input className="h-9" value={variantForm.color} onChange={e => setVariantForm(f => ({ ...f, color: e.target.value }))} placeholder="Optional" /></div>
-              <div><Label className="text-xs">Price Override</Label><Input className="h-9" type="number" step="0.01" value={variantForm.price_override} onChange={e => setVariantForm(f => ({ ...f, price_override: e.target.value }))} placeholder="Base" /></div>
-              <div><Label className="text-xs">Stock</Label><Input className="h-9" type="number" value={variantForm.stock_quantity} onChange={e => setVariantForm(f => ({ ...f, stock_quantity: e.target.value }))} /></div>
-              <Button size="sm" className="h-9" onClick={addVariant}><Plus className="w-3.5 h-3.5" /></Button>
+              <div className="grid gap-1.5"><Label className="text-xs">Colour</Label><Input className="h-9" value={variantForm.color} onChange={e => setVariantForm(f => ({ ...f, color: e.target.value }))} placeholder="Optional" /></div>
+              <div className="grid gap-1.5"><Label className="text-xs">Price override</Label><Input className="h-9" type="number" step="0.01" value={variantForm.price_override} onChange={e => setVariantForm(f => ({ ...f, price_override: e.target.value }))} placeholder="Base" /></div>
+              <div className="grid gap-1.5"><Label className="text-xs">Stock</Label><Input className="h-9" type="number" value={variantForm.stock_quantity} onChange={e => setVariantForm(f => ({ ...f, stock_quantity: e.target.value }))} /></div>
+              <Button size="sm" className="h-9" onClick={addVariant} aria-label="Add size"><Plus className="h-3.5 w-3.5" /></Button>
             </div>
 
             {/* Variant list */}
             {variants.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No sizes added yet</p>
+              <p className="py-4 text-center text-sm text-muted-foreground">No sizes added yet</p>
             ) : (
-              <div className="border rounded-md divide-y">
+              <div className="overflow-hidden rounded-2xl bg-secondary/40 divide-y divide-border/50">
                 {variants.map(v => (
                   <div key={v.id} className="flex items-center justify-between px-3 py-2 text-sm">
                     <div className="flex items-center gap-3">
                       <Badge variant="secondary">{v.size}</Badge>
                       {v.color && <span className="text-muted-foreground">{v.color}</span>}
-                      <span className="font-medium">£{(v.price_override ?? selectedItemForVariants?.base_price ?? 0).toFixed(2)}</span>
+                      <span className="font-medium tabular-nums">£{(v.price_override ?? selectedItemForVariants?.base_price ?? 0).toFixed(2)}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Label className="text-xs text-muted-foreground">Stock:</Label>
-                      <Input type="number" className="h-8 w-20" value={v.stock_quantity} onChange={e => updateStock(v, parseInt(e.target.value) || 0)} />
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteVariant(v.id)}><X className="w-3.5 h-3.5" /></Button>
+                      <Input type="number" className="h-8 w-20 rounded-xl" value={v.stock_quantity} onChange={e => updateStock(v, parseInt(e.target.value) || 0)} />
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteVariant(v.id)} aria-label="Delete size"><X className="h-3.5 w-3.5" /></Button>
                     </div>
                   </div>
                 ))}
@@ -599,29 +639,29 @@ const Merchandise = () => {
           <DialogHeader><DialogTitle>Gallery — {selectedItemForMedia?.name}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="merch-upload" className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-md border border-dashed border-primary/40 text-sm hover:bg-accent transition-colors">
-                <Upload className="w-4 h-4" /> {uploading ? "Uploading..." : "Upload Images"}
+              <Label htmlFor="merch-upload" className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-dashed border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-secondary/60">
+                <Upload className="h-4 w-4" /> {uploading ? "Uploading…" : "Upload images"}
               </Label>
               <input id="merch-upload" type="file" accept="image/*,video/*" multiple className="hidden" onChange={uploadMedia} disabled={uploading} />
             </div>
 
             {media.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No images yet</p>
+              <p className="py-4 text-center text-sm text-muted-foreground">No images yet</p>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {media.map(m => (
-                  <div key={m.id} className="relative group rounded-md overflow-hidden border">
+                  <div key={m.id} className="group relative overflow-hidden rounded-2xl bg-secondary/40 shadow-soft">
                     {m.media_type === "video" ? (
-                      <video src={getStorageUrl(m.file_path)} className="w-full aspect-square object-cover" />
+                      <video src={getStorageUrl(m.file_path)} className="aspect-square w-full object-cover" />
                     ) : (
-                      <img src={getStorageUrl(m.file_path)} alt="" className="w-full aspect-square object-cover" />
+                      <img src={getStorageUrl(m.file_path)} alt="" className="aspect-square w-full object-cover" />
                     )}
-                    {m.is_primary && <Badge className="absolute top-1 left-1 text-[10px]">Primary</Badge>}
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    {m.is_primary && <Badge variant="solid" className="absolute left-2 top-2">Primary</Badge>}
+                    <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
                       {!m.is_primary && (
-                        <Button size="sm" variant="secondary" className="text-xs h-7" onClick={() => setPrimaryImage(m.id)}>Set Primary</Button>
+                        <Button size="sm" variant="secondary" className="h-7 text-xs" onClick={() => setPrimaryImage(m.id)}>Set primary</Button>
                       )}
-                      <Button size="sm" variant="destructive" className="text-xs h-7" onClick={() => deleteMedia(m)}><Trash2 className="w-3 h-3" /></Button>
+                      <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => deleteMedia(m)} aria-label="Delete media"><Trash2 className="h-3 w-3" /></Button>
                     </div>
                   </div>
                 ))}
@@ -634,12 +674,12 @@ const Merchandise = () => {
       {/* ─── Bundle Dialog ───────────────────────── */}
       <Dialog open={bundleDialogOpen} onOpenChange={setBundleDialogOpen}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>{editingBundle ? "Edit Bundle" : "Create Bundle"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingBundle ? "Edit bundle" : "Create bundle"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div><Label>Bundle Name</Label><Input value={bundleForm.name} onChange={e => setBundleForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Starter Pack" /></div>
-            <div><Label>Bundle Price (£)</Label><Input type="number" step="0.01" value={bundleForm.bundle_price} onChange={e => setBundleForm(f => ({ ...f, bundle_price: e.target.value }))} /></div>
-            <div><Label>Description</Label><Textarea value={bundleForm.description} onChange={e => setBundleForm(f => ({ ...f, description: e.target.value }))} rows={3} /></div>
-            <Button onClick={saveBundle} className="w-full">{editingBundle ? "Update" : "Create"} Bundle</Button>
+            <div className="grid gap-2"><Label>Bundle name</Label><Input value={bundleForm.name} onChange={e => setBundleForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Starter pack" /></div>
+            <div className="grid gap-2"><Label>Bundle price (£)</Label><Input type="number" step="0.01" value={bundleForm.bundle_price} onChange={e => setBundleForm(f => ({ ...f, bundle_price: e.target.value }))} /></div>
+            <div className="grid gap-2"><Label>Description</Label><Textarea value={bundleForm.description} onChange={e => setBundleForm(f => ({ ...f, description: e.target.value }))} rows={3} /></div>
+            <Button onClick={saveBundle} className="w-full">{editingBundle ? "Update bundle" : "Create bundle"}</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -647,36 +687,36 @@ const Merchandise = () => {
       {/* ─── Bundle Items Dialog ─────────────────── */}
       <Dialog open={bundleItemsDialogOpen} onOpenChange={setBundleItemsDialogOpen}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Bundle Items — {selectedBundle?.name}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Bundle items — {selectedBundle?.name}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             {/* Current items in bundle */}
             {bundleItems.length > 0 && (
-              <div className="border rounded-md divide-y">
+              <div className="overflow-hidden rounded-2xl bg-secondary/40 divide-y divide-border/50">
                 {bundleItems.map(bi => {
-                  const item = items.find(i => i.id === bi.item_id);
+                  const item = items.find(it => it.id === bi.item_id);
                   return (
                     <div key={bi.id} className="flex items-center justify-between px-3 py-2 text-sm">
                       <div>
                         <span className="font-medium">{item?.name || "Unknown"}</span>
-                        <span className="text-muted-foreground ml-2">×{bi.quantity}</span>
-                        <span className="text-muted-foreground ml-2">£{((item?.base_price || 0) * bi.quantity).toFixed(2)}</span>
+                        <span className="ml-2 text-muted-foreground">×{bi.quantity}</span>
+                        <span className="ml-2 text-muted-foreground tabular-nums">£{((item?.base_price || 0) * bi.quantity).toFixed(2)}</span>
                       </div>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeItemFromBundle(bi.id)}><X className="w-3.5 h-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeItemFromBundle(bi.id)} aria-label="Remove from bundle"><X className="h-3.5 w-3.5" /></Button>
                     </div>
                   );
                 })}
-                <div className="flex items-center justify-between px-3 py-2 text-sm bg-muted/50">
+                <div className="flex items-center justify-between bg-secondary/60 px-3 py-2 text-sm">
                   <span className="text-muted-foreground">Items total value</span>
-                  <span className="font-bold">£{getTotalItemsValue().toFixed(2)}</span>
+                  <span className="font-bold tabular-nums">£{getTotalItemsValue().toFixed(2)}</span>
                 </div>
-                <div className="flex items-center justify-between px-3 py-2 text-sm bg-primary/5">
+                <div className="flex items-center justify-between bg-primary/8 px-3 py-2 text-sm">
                   <span className="font-medium text-primary">Bundle price</span>
-                  <span className="font-bold text-primary">£{selectedBundle?.bundle_price.toFixed(2)}</span>
+                  <span className="font-bold text-primary tabular-nums">£{selectedBundle?.bundle_price.toFixed(2)}</span>
                 </div>
                 {getTotalItemsValue() > (selectedBundle?.bundle_price || 0) && (
-                  <div className="flex items-center justify-between px-3 py-2 text-sm bg-green-50 dark:bg-green-900/10">
-                    <span className="text-green-700 dark:text-green-400 font-medium">Customer saves</span>
-                    <span className="font-bold text-green-700 dark:text-green-400">£{(getTotalItemsValue() - (selectedBundle?.bundle_price || 0)).toFixed(2)}</span>
+                  <div className="flex items-center justify-between bg-success/10 px-3 py-2 text-sm">
+                    <span className="font-medium text-success">Customer saves</span>
+                    <span className="font-bold text-success tabular-nums">£{(getTotalItemsValue() - (selectedBundle?.bundle_price || 0)).toFixed(2)}</span>
                   </div>
                 )}
               </div>
@@ -684,12 +724,12 @@ const Merchandise = () => {
 
             {/* Add items */}
             <div>
-              <Label className="text-sm font-medium mb-2 block">Add products to bundle</Label>
+              <Label className="mb-2 block text-sm font-medium">Add products to bundle</Label>
               <div className="space-y-1">
-                {items.filter(i => i.is_active).map(item => (
-                  <button key={item.id} onClick={() => addItemToBundle(item.id)} className="w-full flex items-center justify-between px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors text-left">
+                {items.filter(it => it.is_active).map(item => (
+                  <button key={item.id} onClick={() => addItemToBundle(item.id)} className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-secondary/60">
                     <span>{item.name}</span>
-                    <span className="text-muted-foreground">£{item.base_price.toFixed(2)}</span>
+                    <span className="text-muted-foreground tabular-nums">£{item.base_price.toFixed(2)}</span>
                   </button>
                 ))}
               </div>

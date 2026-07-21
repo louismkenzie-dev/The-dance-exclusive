@@ -18,6 +18,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, ShieldCheck, Lock, Loader2, ChevronDown, Tag, X, UserPlus } from "lucide-react";
 import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
+import { FadeRise } from "@/components/motion";
 import {
   Collapsible,
   CollapsibleContent,
@@ -26,10 +27,10 @@ import {
 import { cn } from "@/lib/utils";
 
 const planLabel: Record<PricingPlan, string> = {
-  trial: "Free Trial",
-  session: "Per Session",
+  trial: "Free trial",
+  session: "Per session",
   monthly: "Monthly",
-  term: "Full Term",
+  term: "Full term",
 };
 
 /**
@@ -44,16 +45,18 @@ function cssVar(name: string): string {
 }
 
 function buildAppearance(): Appearance {
-  const bg = cssVar("--background") || "hsl(220 20% 4%)";
-  const card = cssVar("--card") || "hsl(220 18% 8%)";
-  const fg = cssVar("--foreground") || "hsl(0 0% 98%)";
-  const muted = cssVar("--muted-foreground") || "hsl(220 10% 55%)";
-  const border = cssVar("--border") || "hsl(220 15% 16%)";
-  const primary = cssVar("--primary") || "hsl(201 70% 65%)";
+  // Read the page's actual theme tokens so the Stripe iframe inherits whatever
+  // route theme is active (light "Studio Light" by default here).
+  const bg = cssVar("--background") || "hsl(220 25% 97%)";
+  const card = cssVar("--card") || "hsl(0 0% 100%)";
+  const fg = cssVar("--foreground") || "hsl(220 40% 13%)";
+  const muted = cssVar("--muted-foreground") || "hsl(220 10% 45%)";
+  const border = cssVar("--border") || "hsl(220 15% 88%)";
+  const primary = cssVar("--primary") || "hsl(201 70% 50%)";
   const destructive = cssVar("--destructive") || "hsl(0 72% 51%)";
 
   return {
-    theme: "night",
+    theme: "stripe",
     labels: "floating",
     variables: {
       colorPrimary: primary,
@@ -66,7 +69,7 @@ function buildAppearance(): Appearance {
       colorIconHover: fg,
       fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
       fontSizeBase: "15px",
-      borderRadius: "8px",
+      borderRadius: "14px",
       spacingUnit: "4px",
     },
     rules: {
@@ -205,9 +208,7 @@ const PaymentForm = ({
   return (
     <form onSubmit={handleSubmit} className="p-6 space-y-5">
       <div>
-        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
-          Contact
-        </p>
+        <p className="eyebrow mb-3">Contact</p>
         <LinkAuthenticationElement
           options={{ defaultValues: { email: customerEmail || "" } }}
           onChange={(e) => setEmail(e.value.email)}
@@ -215,9 +216,7 @@ const PaymentForm = ({
       </div>
 
       <div>
-        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
-          Payment method
-        </p>
+        <p className="eyebrow mb-3">Payment method</p>
         <PaymentElement
           options={{
             layout: { type: "tabs", defaultCollapsed: false },
@@ -236,7 +235,7 @@ const PaymentForm = ({
         type="submit"
         size="lg"
         disabled={!stripe || !elements || submitting}
-        className="w-full font-bold uppercase tracking-wider"
+        className="w-full"
       >
         {submitting ? (
           <>
@@ -247,9 +246,9 @@ const PaymentForm = ({
         )}
       </Button>
 
-      <div className="flex items-center justify-center gap-4 pt-1 text-xs text-muted-foreground uppercase tracking-wider">
+      <div className="flex items-center justify-center gap-4 pt-1 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <Lock className="w-3.5 h-3.5" /> Secure Payment
+          <Lock className="w-3.5 h-3.5" /> Secure payment
         </span>
         <span className="flex items-center gap-1.5">
           <ShieldCheck className="w-3.5 h-3.5" /> Powered by Stripe
@@ -434,20 +433,20 @@ const CheckoutPage = () => {
           <ArrowLeft className="w-4 h-4 mr-1.5" /> Back
         </Button>
 
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2 uppercase tracking-tight">
+        <FadeRise className="mb-8">
+          <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight text-foreground">
             Checkout
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground mt-1">
             Review your booking{items.length > 1 ? "s" : ""} and complete your
             secure payment below.
           </p>
-        </div>
+        </FadeRise>
 
         <div className="grid gap-8 lg:grid-cols-[1fr_minmax(0,420px)]">
           {/* Payment form */}
-          <div className="order-2 lg:order-1">
-            <div className="rounded-xl overflow-hidden border border-border bg-card">
+          <FadeRise className="order-2 lg:order-1" delay={120}>
+            <div className="rounded-3xl overflow-hidden bg-card shadow-soft">
               {initializing && (
                 <div className="p-10 flex flex-col items-center justify-center gap-3 text-muted-foreground text-sm">
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -478,10 +477,10 @@ const CheckoutPage = () => {
                 </Elements>
               )}
             </div>
-          </div>
+          </FadeRise>
 
           {/* Order summary */}
-          <aside className="order-1 lg:order-2">
+          <FadeRise as="aside" className="order-1 lg:order-2" delay={60}>
             <div className="lg:sticky lg:top-32 space-y-4">
               <Collapsible defaultOpen={false}>
                 {(() => {
@@ -500,18 +499,18 @@ const CheckoutPage = () => {
                     );
 
                   return (
-                    <div className="rounded-xl border border-border bg-card overflow-hidden">
-                      <CollapsibleTrigger className="group w-full p-5 flex items-center justify-between gap-3 text-left hover:bg-muted/30 transition-colors">
+                    <div className="rounded-3xl bg-card shadow-soft overflow-hidden">
+                      <CollapsibleTrigger className="group w-full p-5 flex items-center justify-between gap-3 text-left hover:bg-secondary/40 transition-colors">
                         <div className="min-w-0 flex-1">
-                          <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">
-                            Order Summary
+                          <h2 className="text-sm font-semibold text-foreground">
+                            Order summary
                           </h2>
                           <p className="text-xs text-muted-foreground mt-1 truncate">
                             {summaryParts.join(" · ")}
                           </p>
                         </div>
                         <div className="flex items-center gap-3 shrink-0">
-                          <span className="text-lg font-bold text-foreground">
+                          <span className="text-lg font-display font-bold tabular-nums text-foreground">
                             £{finalTotal.toFixed(2)}
                           </span>
                           <ChevronDown
@@ -525,11 +524,11 @@ const CheckoutPage = () => {
 
                       <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
                         <div className="px-5 pb-5">
-                          <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1 border-t border-border pt-4">
+                          <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1 border-t border-border/50 pt-4">
                             {items.map((item) => (
                               <div
                                 key={item.id}
-                                className="pb-3 border-b border-border last:border-0 last:pb-0"
+                                className="pb-3 border-b border-border/50 last:border-0 last:pb-0"
                               >
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="min-w-0 flex-1">
@@ -566,7 +565,7 @@ const CheckoutPage = () => {
                                       {planLabel[item.pricingPlan]}
                                     </Badge>
                                   </div>
-                                  <span className="font-bold text-sm text-foreground whitespace-nowrap">
+                                  <span className="font-semibold text-sm tabular-nums text-foreground whitespace-nowrap">
                                     £{item.totalPrice.toFixed(2)}
                                   </span>
                                 </div>
@@ -576,24 +575,24 @@ const CheckoutPage = () => {
                         </div>
                       </CollapsibleContent>
 
-                      <div className="px-5 py-4 border-t border-border space-y-2 bg-muted/20">
+                      <div className="px-5 py-4 border-t border-border/50 space-y-2 bg-secondary/40">
                         <div className="flex items-center justify-between text-sm text-muted-foreground">
                           <span>Subtotal</span>
-                          <span>£{totalAmount.toFixed(2)}</span>
+                          <span className="tabular-nums">£{totalAmount.toFixed(2)}</span>
                         </div>
                         {coupon && (
                           <div className="flex items-center justify-between text-sm text-primary">
                             <span className="flex items-center gap-1.5">
                               <Tag className="w-3.5 h-3.5" /> Discount ({coupon.code})
                             </span>
-                            <span>-£{coupon.discountAmount.toFixed(2)}</span>
+                            <span className="tabular-nums">-£{coupon.discountAmount.toFixed(2)}</span>
                           </div>
                         )}
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-bold text-foreground uppercase tracking-wider">
+                          <span className="text-sm font-semibold text-foreground">
                             Total
                           </span>
-                          <span className="text-2xl font-bold text-foreground">
+                          <span className="text-2xl font-display font-bold tabular-nums text-foreground">
                             £{finalTotal.toFixed(2)}
                           </span>
                         </div>
@@ -604,15 +603,15 @@ const CheckoutPage = () => {
               </Collapsible>
 
               {/* Coupon code */}
-              <div className="rounded-xl border border-border bg-card p-4">
+              <div className="rounded-3xl bg-card shadow-soft p-4">
                 {coupon ? (
                   <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-                        <Tag className="w-4 h-4 text-primary" />
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary shrink-0">
+                        <Tag className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-bold text-foreground font-mono truncate">{coupon.code}</p>
+                        <p className="text-sm font-semibold text-foreground font-mono truncate">{coupon.code}</p>
                         <p className="text-xs text-muted-foreground">
                           Saving £{coupon.discountAmount.toFixed(2)}
                         </p>
@@ -630,9 +629,7 @@ const CheckoutPage = () => {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                      Have a coupon?
-                    </p>
+                    <p className="eyebrow">Have a coupon?</p>
                     <div className="flex gap-2">
                       <Input
                         value={couponInput}
@@ -674,7 +671,7 @@ const CheckoutPage = () => {
                 are confirmed immediately after payment.
               </p>
             </div>
-          </aside>
+          </FadeRise>
         </div>
       </div>
     </div>

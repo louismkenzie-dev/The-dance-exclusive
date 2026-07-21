@@ -1,8 +1,8 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { AlertTriangle, LogIn, LogOut, ShieldCheck, Users } from "lucide-react";
+import { AlertTriangle, Check, LogIn, LogOut, ShieldCheck, Users, XCircle } from "lucide-react";
+import { FadeRise } from "@/components/motion";
 import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
 
 interface FamilyRow {
@@ -70,39 +70,44 @@ const FamilyCheckInSheet = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-primary" /> QR Scanned — Family Check-In
-          </DialogTitle>
-          <DialogDescription>
-            {className} · {sessionTime}
-            {parentName && <> · booked by <span className="font-medium text-foreground">{parentName}</span></>}
-          </DialogDescription>
+          <div className="flex items-center gap-3 text-left">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <DialogTitle>QR scanned — family check-in</DialogTitle>
+              <DialogDescription className="mt-1">
+                {className} · {sessionTime}
+                {parentName && <> · booked by <span className="font-medium text-foreground">{parentName}</span></>}
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
-        <p className="text-xs text-muted-foreground -mt-1">
+        <p className="text-xs text-muted-foreground">
           Nobody has been marked yet. Tap <span className="font-semibold text-foreground">Arrived</span> or{" "}
           <span className="font-semibold text-foreground">Departed</span> next to each name, or use the
           mark-everyone shortcuts below.
         </p>
 
-        {/* Shortcuts — clearly labelled as ALL */}
+        {/* Shortcuts — clearly labelled as everyone */}
         <div className="grid grid-cols-2 gap-2">
           <Button
             className="gap-1.5 bg-success text-success-foreground hover:bg-success/90 h-auto py-2.5 flex-col"
             disabled={notArrived.length === 0}
             onClick={() => notArrived.forEach(onMarkArrived)}
           >
-            <span className="flex items-center gap-1.5"><LogIn className="w-4 h-4" /> Mark ALL arrived</span>
+            <span className="flex items-center gap-1.5"><LogIn className="w-4 h-4" /> Mark all arrived</span>
             <span className="text-[10px] font-normal opacity-80">
               {notArrived.length === 0 ? "everyone is in" : `${notArrived.length} ${notArrived.length === 1 ? "person" : "people"}`}
             </span>
           </Button>
           <Button
-            className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 h-auto py-2.5 flex-col"
+            className="gap-1.5 h-auto py-2.5 flex-col"
             disabled={arrivedNotDeparted.length === 0}
             onClick={() => arrivedNotDeparted.forEach(onMarkDeparted)}
           >
-            <span className="flex items-center gap-1.5"><LogOut className="w-4 h-4" /> Mark ALL departed</span>
+            <span className="flex items-center gap-1.5"><LogOut className="w-4 h-4" /> Mark all departed</span>
             <span className="text-[10px] font-normal opacity-80">
               {arrivedNotDeparted.length === 0 ? "no one to sign out" : `${arrivedNotDeparted.length} ${arrivedNotDeparted.length === 1 ? "person" : "people"}`}
             </span>
@@ -111,7 +116,7 @@ const FamilyCheckInSheet = ({
 
         {/* Individual attendees */}
         <div className="space-y-2">
-          <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
+          <p className="eyebrow flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5" /> On this booking ({rows.length})
           </p>
           {rows.map((r) => {
@@ -122,7 +127,7 @@ const FamilyCheckInSheet = ({
             const s = r.students;
             const urgent = s?.has_epipen || s?.has_inhaler;
             return (
-              <Card key={r.id} className="p-3">
+              <div key={r.id} className="rounded-2xl bg-secondary/40 p-3 space-y-2.5">
                 <div className="flex items-center gap-3">
                   <PhotoAvatarDuo
                     photoUrl={s?.profile_photo}
@@ -131,12 +136,12 @@ const FamilyCheckInSheet = ({
                     size="sm"
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate flex items-center gap-1.5">
+                    <p className="font-semibold text-sm truncate flex items-center gap-1.5">
                       {displayName(r)}
                       {urgent && (
                         <span title="EpiPen / Inhaler"><AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0" /></span>
                       )}
-                      {s?.has_send && <Badge className="text-[9px] bg-amber-500 hover:bg-amber-600">SEND</Badge>}
+                      {s?.has_send && <Badge variant="warning" className="text-[9px] px-2 py-0">SEND</Badge>}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
                       {isAbsent ? "Marked absent"
@@ -145,33 +150,48 @@ const FamilyCheckInSheet = ({
                         : "Not arrived yet"}
                     </p>
                   </div>
-                  <div className="flex gap-1.5 shrink-0">
-                    <Button
-                      size="sm"
-                      className="gap-1 h-8 px-2.5 bg-success text-success-foreground hover:bg-success/90 disabled:opacity-40"
-                      disabled={isIn || isOut}
-                      onClick={() => onMarkArrived(r)}
-                      title={`Mark ${displayName(r)} arrived`}
-                    >
-                      <LogIn className="w-3.5 h-3.5" /> Arrived
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="gap-1 h-8 px-2.5 bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-40"
-                      disabled={!isIn}
-                      onClick={() => onMarkDeparted(r)}
-                      title={`Mark ${displayName(r)} departed`}
-                    >
-                      <LogOut className="w-3.5 h-3.5" /> Departed
-                    </Button>
-                  </div>
+                  {(isIn || isOut || isAbsent) && (
+                    <FadeRise key={isAbsent ? "absent" : isOut ? "out" : "in"} className="shrink-0">
+                      <span
+                        className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                          isAbsent
+                            ? "bg-destructive/10 text-destructive"
+                            : isOut
+                              ? "bg-primary/10 text-primary"
+                              : "bg-success/10 text-success"
+                        }`}
+                      >
+                        {isAbsent ? <XCircle className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+                      </span>
+                    </FadeRise>
+                  )}
                 </div>
-              </Card>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <Button
+                    size="sm"
+                    className="gap-1 h-8 bg-success text-success-foreground hover:bg-success/90 disabled:opacity-40"
+                    disabled={isIn || isOut}
+                    onClick={() => onMarkArrived(r)}
+                    title={`Mark ${displayName(r)} arrived`}
+                  >
+                    <LogIn className="w-3.5 h-3.5" /> Arrived
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="gap-1 h-8 disabled:opacity-40"
+                    disabled={!isIn}
+                    onClick={() => onMarkDeparted(r)}
+                    title={`Mark ${displayName(r)} departed`}
+                  >
+                    <LogOut className="w-3.5 h-3.5" /> Departed
+                  </Button>
+                </div>
+              </div>
             );
           })}
         </div>
 
-        <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full">
+        <Button variant="secondary" onClick={() => onOpenChange(false)} className="w-full">
           Done
         </Button>
       </DialogContent>

@@ -84,45 +84,50 @@ export function EditCartItemDialog({ open, onOpenChange, item }: EditCartItemDia
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-0 gap-0">
-        <DialogHeader className="px-6 pt-6 pb-3 border-b border-border/50">
-          <DialogTitle className="text-lg font-display">Edit dates</DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50">
+          <DialogTitle className="text-xl font-display font-bold tracking-tight">Edit dates</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
             {item.className} {item.studentName && <>· for {item.studentName}</>}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-3">
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-3">
           {isLocked ? (
-            <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-3">
+            <div className="rounded-2xl bg-secondary/60 p-4 text-sm text-muted-foreground">
               This booking covers all sessions in the {item.pricingPlan === "term" ? "term" : "subscription"}. Dates can't be edited individually — remove and re-add to change the plan.
             </div>
           ) : loading ? (
-            <div className="text-sm text-muted-foreground text-center py-6">Loading sessions...</div>
+            <div className="py-6 text-center text-sm text-muted-foreground">Loading sessions...</div>
           ) : sessions.length === 0 ? (
-            <div className="text-sm text-muted-foreground text-center py-6">No upcoming sessions available.</div>
+            <div className="py-6 text-center text-sm text-muted-foreground">No upcoming sessions available.</div>
           ) : (
             <>
               {!isTrial && (
-                <div className="flex items-center justify-between">
-                  <p className="text-[11px] text-muted-foreground font-medium">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-medium text-muted-foreground">
                     {selSessions.length} session{selSessions.length !== 1 ? "s" : ""} selected
                   </p>
                   <button
+                    type="button"
                     onClick={() => setSelSessions(selSessions.length === sessions.length ? [] : sessions.map(s => s.id))}
-                    className="text-[10px] text-primary hover:underline"
+                    className="text-xs font-medium text-primary hover:underline"
                   >
                     {selSessions.length === sessions.length ? "Deselect all" : "Select all"}
                   </button>
                 </div>
               )}
-              <div className="grid gap-1.5">
+              <div className="grid gap-2">
                 {sessions.map(s => {
                   const isSel = selSessions.includes(s.id);
                   return (
                     <label
                       key={s.id}
-                      className={`flex items-center gap-2.5 p-2 rounded-lg border text-sm cursor-pointer transition-all ${
-                        isSel ? "border-primary bg-primary/10 ring-1 ring-primary/30" : "border-border/50 bg-background/50 hover:border-border"
+                      className={`flex cursor-pointer items-center gap-3 rounded-2xl p-2.5 text-sm transition-all ${
+                        isSel
+                          ? isTrial
+                            ? "bg-success/10 ring-2 ring-success"
+                            : "bg-primary/10 ring-2 ring-primary"
+                          : "bg-secondary/60 hover:bg-secondary"
                       }`}
                     >
                       <input
@@ -130,11 +135,13 @@ export function EditCartItemDialog({ open, onOpenChange, item }: EditCartItemDia
                         name={isTrial ? `edit-trial-${item.id}` : undefined}
                         checked={isSel}
                         onChange={() => toggleSession(s.id)}
-                        className="accent-primary w-4 h-4"
+                        className={`h-4 w-4 ${isTrial ? "accent-success" : "rounded border-border accent-primary"}`}
                       />
-                      <CalendarDays className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                      <span className="flex-1 text-foreground font-medium">{format(parseISO(s.session_date), "EEE d MMM yyyy")}</span>
-                      <span className="text-xs text-muted-foreground">{s.start_time?.slice(0, 5)}–{s.end_time?.slice(0, 5)}</span>
+                      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${isTrial ? "bg-success/10 text-success" : "bg-primary/10 text-primary"}`}>
+                        <CalendarDays className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="flex-1 font-medium text-foreground">{format(parseISO(s.session_date), "EEE d MMM yyyy")}</span>
+                      <span className="text-xs tabular-nums text-muted-foreground">{s.start_time?.slice(0, 5)}–{s.end_time?.slice(0, 5)}</span>
                     </label>
                   );
                 })}
@@ -143,13 +150,13 @@ export function EditCartItemDialog({ open, onOpenChange, item }: EditCartItemDia
           )}
         </div>
 
-        <DialogFooter className="px-6 py-4 border-t border-border/50 flex-row sm:justify-between items-center gap-2">
+        <DialogFooter className="flex-row items-center gap-2 border-t border-border/50 bg-card/95 px-6 py-4 backdrop-blur sm:justify-between">
           {!isLocked && isDropIn && (
-            <span className="text-sm font-bold text-foreground">
+            <span className="font-display text-lg font-bold tabular-nums text-foreground">
               £{(item.unitPrice * selSessions.length).toFixed(2)}
             </span>
           )}
-          <div className="flex gap-2 ml-auto">
+          <div className="ml-auto flex gap-2">
             <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
             {!isLocked && (
               <Button size="sm" onClick={handleSave} disabled={!canSave}>Save changes</Button>

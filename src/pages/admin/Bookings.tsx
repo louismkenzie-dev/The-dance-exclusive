@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { CalendarCheck } from "lucide-react";
+import { FadeRise, Stagger } from "@/components/motion";
 
 interface Booking {
   id: string;
@@ -19,10 +21,16 @@ interface Booking {
   profiles: { full_name: string; email: string } | null;
 }
 
-const statusColors: Record<string, "default" | "secondary" | "destructive"> = {
-  confirmed: "default",
-  pending_payment: "secondary",
+const statusVariants: Record<string, "success" | "warning" | "destructive"> = {
+  confirmed: "success",
+  pending_payment: "warning",
   cancelled: "destructive",
+};
+
+const statusLabels: Record<string, string> = {
+  confirmed: "Confirmed",
+  pending_payment: "Pending payment",
+  cancelled: "Cancelled",
 };
 
 const AdminBookings = () => {
@@ -46,7 +54,7 @@ const AdminBookings = () => {
       const parentIds = [...new Set(data.map((b: any) => b.parent_id))];
       const { data: profiles } = await supabase.from("profiles").select("user_id, full_name, email").in("user_id", parentIds);
       const profileMap = new Map(profiles?.map((p) => [p.user_id, p]) || []);
-      
+
       setBookings(data.map((b: any) => ({ ...b, profiles: profileMap.get(b.parent_id) || null })));
     }
     setLoading(false);
@@ -72,49 +80,62 @@ const AdminBookings = () => {
   });
 
   return (
-    <div className="p-4 md:p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold">Bookings</h1>
-        <p className="text-muted-foreground mt-1">Manage all bookings</p>
-      </div>
+    <div className="p-6 md:p-8 max-w-6xl mx-auto">
+      <FadeRise>
+        <div className="mb-8">
+          <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">Bookings</h1>
+          <p className="text-muted-foreground mt-1">Manage all bookings</p>
+        </div>
+      </FadeRise>
 
-      <div className="flex gap-4 mb-6">
-        <Input placeholder="Search bookings..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
-        <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="confirmed">Confirmed</SelectItem>
-            <SelectItem value="pending_payment">Pending Payment</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <FadeRise delay={60}>
+        <div className="flex gap-3 mb-6 flex-wrap">
+          <Input placeholder="Search bookings…" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="confirmed">Confirmed</SelectItem>
+              <SelectItem value="pending_payment">Pending payment</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </FadeRise>
 
       {loading ? (
-        <div className="text-muted-foreground">Loading bookings...</div>
+        <p className="text-muted-foreground text-sm">Loading bookings…</p>
       ) : filtered.length === 0 ? (
-        <Card><CardContent className="py-12 text-center text-muted-foreground">No bookings found.</CardContent></Card>
+        <FadeRise>
+          <Card><CardContent className="py-12 text-center text-muted-foreground">No bookings found.</CardContent></Card>
+        </FadeRise>
       ) : (
-        <div className="space-y-3">
+        <Stagger className="space-y-3" step={60}>
           {filtered.map((b) => (
-            <Card key={b.id} className="animate-fade-in">
-              <CardContent className="flex items-center justify-between py-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">{b.classes?.name || "Unknown class"}</span>
-                    <Badge variant={statusColors[b.status] || "secondary"}>{b.status.replace("_", " ")}</Badge>
+            <Card key={b.id} className="transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg">
+              <CardContent className="flex items-center justify-between gap-4 p-4 md:p-5">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+                    <CalendarCheck className="w-5 h-5" />
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {b.students ? `${b.students.first_name} ${b.students.last_name}` : "Adult booking"}
-                    {b.profiles && ` — Parent: ${b.profiles.full_name}`}
-                    {b.amount && ` — £${b.amount}`}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Booked: {new Date(b.booked_at).toLocaleDateString("en-GB")}
-                  </p>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold">{b.classes?.name || "Unknown class"}</span>
+                      <Badge variant={statusVariants[b.status] || "secondary"}>
+                        {statusLabels[b.status] ?? b.status.replace("_", " ")}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {b.students ? `${b.students.first_name} ${b.students.last_name}` : "Adult booking"}
+                      {b.profiles && ` — Parent: ${b.profiles.full_name}`}
+                      {b.amount && ` — £${b.amount}`}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Booked: {new Date(b.booked_at).toLocaleDateString("en-GB")}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   {b.status === "pending_payment" && (
                     <Button size="sm" onClick={() => updateStatus(b.id, "confirmed")}>Confirm</Button>
                   )}
@@ -125,7 +146,7 @@ const AdminBookings = () => {
               </CardContent>
             </Card>
           ))}
-        </div>
+        </Stagger>
       )}
     </div>
   );

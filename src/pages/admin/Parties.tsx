@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FadeRise, Stagger } from "@/components/motion";
 
 type PartyPackage = {
   id: string;
@@ -402,18 +403,22 @@ const AdminParties = () => {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-display font-bold flex items-center gap-2">
-            <PartyPopper className="h-6 w-6" />
-            Birthday Parties
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage party packages, pricing and optional extras
-          </p>
+    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+      <FadeRise>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+              <PartyPopper className="h-6 w-6" />
+            </div>
+            <div>
+              <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">Birthday parties</h1>
+              <p className="text-muted-foreground mt-1">
+                Manage party packages, pricing and optional extras
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
+      </FadeRise>
 
       <Tabs defaultValue="packages">
         <TabsList>
@@ -421,7 +426,7 @@ const AdminParties = () => {
             <Package className="h-4 w-4" /> Packages
           </TabsTrigger>
           <TabsTrigger value="extras" className="gap-2">
-            <Gift className="h-4 w-4" /> Optional Extras
+            <Gift className="h-4 w-4" /> Optional extras
           </TabsTrigger>
         </TabsList>
 
@@ -433,15 +438,15 @@ const AdminParties = () => {
               if (!open) { setEditingPackage(null); setPackageForm(emptyPackage); }
             }}>
               <DialogTrigger asChild>
-                <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Add Package</Button>
+                <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Add package</Button>
               </DialogTrigger>
               <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>{editingPackage ? "Edit" : "Add"} Party Package</DialogTitle>
+                  <DialogTitle>{editingPackage ? "Edit party package" : "Add party package"}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={(e) => { e.preventDefault(); savePackage.mutate({ ...packageForm, id: editingPackage?.id }); }} className="space-y-4">
                   <div>
-                    <Label>Package Name</Label>
+                    <Label>Package name</Label>
                     <Input value={packageForm.name} onChange={e => setPackageForm(f => ({ ...f, name: e.target.value }))} required />
                   </div>
                   <div>
@@ -479,19 +484,19 @@ const AdminParties = () => {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label>Max Guests Included</Label>
+                      <Label>Max guests included</Label>
                       <Input type="number" value={packageForm.max_guests} onChange={e => setPackageForm(f => ({ ...f, max_guests: e.target.value }))} />
                     </div>
                     <div>
-                      <Label>Extra Guest Price (£)</Label>
+                      <Label>Extra guest price (£)</Label>
                       <Input type="number" step="0.01" value={packageForm.extra_guest_price} onChange={e => setPackageForm(f => ({ ...f, extra_guest_price: e.target.value }))} />
                     </div>
                   </div>
                   <div>
-                    <Label>What's Included</Label>
+                    <Label>What's included</Label>
                     <div className="space-y-2 mt-1">
                       {packageForm.included_items.map((item, i) => (
-                        <div key={i} className="flex items-center gap-2 text-sm">
+                        <div key={i} className="flex items-center gap-2 rounded-xl bg-secondary/60 px-3 py-1.5 text-sm">
                           <GripVertical className="h-3 w-3 text-muted-foreground" />
                           <span className="flex-1">{item}</span>
                           <Button type="button" variant="ghost" size="sm" onClick={() => removeIncludedItem(i)}>
@@ -506,7 +511,7 @@ const AdminParties = () => {
                     </div>
                   </div>
                   <Button type="submit" className="w-full" disabled={savePackage.isPending}>
-                    {savePackage.isPending ? "Saving..." : "Save Package"}
+                    {savePackage.isPending ? "Saving..." : "Save package"}
                   </Button>
                 </form>
               </DialogContent>
@@ -516,9 +521,18 @@ const AdminParties = () => {
           {packagesLoading ? (
             <p className="text-sm text-muted-foreground">Loading...</p>
           ) : packages.length === 0 ? (
-            <Card><CardContent className="py-8 text-center text-muted-foreground">No packages yet. Add your first party package.</CardContent></Card>
+            <FadeRise>
+              <Card>
+                <CardContent className="py-16 text-center">
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+                    <Package className="h-6 w-6" />
+                  </div>
+                  <p className="text-muted-foreground">No packages yet. Add your first party package.</p>
+                </CardContent>
+              </Card>
+            </FadeRise>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
+            <Stagger className="grid gap-4 md:grid-cols-2">
               {packages.map(pkg => {
                 const media = mediaForPackage(pkg.id);
                 const images = media.filter(m => m.media_type === "image");
@@ -527,10 +541,10 @@ const AdminParties = () => {
                 const totalMedia = images.length + videos.length + youtubes.length;
 
                 return (
-                  <Card key={pkg.id} className={!pkg.is_active ? "opacity-60" : ""}>
+                  <Card key={pkg.id} className={`h-full overflow-hidden transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg ${!pkg.is_active ? "opacity-60" : ""}`}>
                     {/* Header image */}
                     {pkg.header_image && (
-                      <div className="relative h-40 overflow-hidden rounded-t-lg">
+                      <div className="relative h-40 overflow-hidden">
                         <img
                           src={getPublicUrl(pkg.header_image)}
                           alt={pkg.name}
@@ -539,10 +553,10 @@ const AdminParties = () => {
                       </div>
                     )}
                     <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-start justify-between gap-2">
                         <div>
-                          <CardTitle className="text-lg">{pkg.name}</CardTitle>
-                          {!pkg.is_active && <Badge variant="secondary" className="mt-1">Inactive</Badge>}
+                          <CardTitle className="text-lg font-display">{pkg.name}</CardTitle>
+                          {!pkg.is_active && <Badge variant="warning" className="mt-1">Inactive</Badge>}
                         </div>
                         <div className="flex items-center gap-1">
                           <Switch checked={pkg.is_active} onCheckedChange={(checked) => togglePackageActive.mutate({ id: pkg.id, is_active: checked })} />
@@ -556,13 +570,13 @@ const AdminParties = () => {
                       <CardDescription className="text-xs mt-1">{pkg.description}</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <div className="flex gap-4">
+                      <div className="flex gap-6">
                         <div className="text-center">
-                          <p className="text-2xl font-bold text-primary">£{pkg.price_1hr}</p>
+                          <p className="text-2xl font-display font-bold tabular-nums text-primary">£{pkg.price_1hr}</p>
                           <p className="text-xs text-muted-foreground">1 hour</p>
                         </div>
                         <div className="text-center">
-                          <p className="text-2xl font-bold text-primary">£{pkg.price_1_5hr}</p>
+                          <p className="text-2xl font-display font-bold tabular-nums text-primary">£{pkg.price_1_5hr}</p>
                           <p className="text-xs text-muted-foreground">1.5 hours</p>
                         </div>
                       </div>
@@ -595,7 +609,7 @@ const AdminParties = () => {
                   </Card>
                 );
               })}
-            </div>
+            </Stagger>
           )}
         </TabsContent>
 
@@ -607,11 +621,11 @@ const AdminParties = () => {
               if (!open) { setEditingExtra(null); setExtraForm(emptyExtra); }
             }}>
               <DialogTrigger asChild>
-                <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Add Extra</Button>
+                <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Add extra</Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>{editingExtra ? "Edit" : "Add"} Optional Extra</DialogTitle>
+                  <DialogTitle>{editingExtra ? "Edit optional extra" : "Add optional extra"}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={(e) => { e.preventDefault(); saveExtra.mutate({ ...extraForm, id: editingExtra?.id }); }} className="space-y-4">
                   <div>
@@ -627,7 +641,7 @@ const AdminParties = () => {
                     <Textarea value={extraForm.description} onChange={e => setExtraForm(f => ({ ...f, description: e.target.value }))} rows={2} />
                   </div>
                   <Button type="submit" className="w-full" disabled={saveExtra.isPending}>
-                    {saveExtra.isPending ? "Saving..." : "Save Extra"}
+                    {saveExtra.isPending ? "Saving..." : "Save extra"}
                   </Button>
                 </form>
               </DialogContent>
@@ -637,20 +651,31 @@ const AdminParties = () => {
           {extrasLoading ? (
             <p className="text-sm text-muted-foreground">Loading...</p>
           ) : extras.length === 0 ? (
-            <Card><CardContent className="py-8 text-center text-muted-foreground">No extras yet.</CardContent></Card>
+            <FadeRise>
+              <Card>
+                <CardContent className="py-16 text-center">
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+                    <Gift className="h-6 w-6" />
+                  </div>
+                  <p className="text-muted-foreground">No extras yet.</p>
+                </CardContent>
+              </Card>
+            </FadeRise>
           ) : (
-            <div className="grid gap-3">
+            <Stagger className="grid gap-3" step={60}>
               {extras.map(extra => (
-                <Card key={extra.id} className={!extra.is_active ? "opacity-60" : ""}>
-                  <CardHeader className="flex flex-row items-center gap-4 py-4">
-                    <Gift className="h-5 w-5 text-primary shrink-0" />
-                    <div className="flex-1">
-                      <CardTitle className="text-base">{extra.name}</CardTitle>
-                      {extra.description && <CardDescription className="text-xs">{extra.description}</CardDescription>}
+                <Card key={extra.id} className={`transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg ${!extra.is_active ? "opacity-60" : ""}`}>
+                  <CardContent className="flex items-center gap-3 p-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+                      <Gift className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold">{extra.name}</p>
+                      {extra.description && <p className="text-xs text-muted-foreground">{extra.description}</p>}
                     </div>
                     <div className="flex items-center gap-2">
                       {extra.price ? (
-                        <Badge variant="outline" className="font-bold">£{extra.price}</Badge>
+                        <Badge className="font-bold tabular-nums">£{extra.price}</Badge>
                       ) : (
                         <Badge variant="secondary">POA</Badge>
                       )}
@@ -658,10 +683,10 @@ const AdminParties = () => {
                       <Button variant="ghost" size="icon" onClick={() => openEditExtra(extra)}><Pencil className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="icon" onClick={() => { if (confirm("Delete this extra?")) deleteExtra.mutate(extra.id); }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                     </div>
-                  </CardHeader>
+                  </CardContent>
                 </Card>
               ))}
-            </div>
+            </Stagger>
           )}
         </TabsContent>
       </Tabs>
@@ -672,7 +697,7 @@ const AdminParties = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Image className="h-5 w-5" />
-              Manage Media — {packages.find(p => p.id === mediaPackageId)?.name}
+              Manage media — {packages.find(p => p.id === mediaPackageId)?.name}
             </DialogTitle>
           </DialogHeader>
 
@@ -688,11 +713,11 @@ const AdminParties = () => {
               <div className="space-y-6">
                 {/* Header Image */}
                 <div>
-                  <Label className="text-sm font-semibold">Header Image</Label>
+                  <Label className="text-sm font-semibold">Header image</Label>
                   <p className="text-xs text-muted-foreground mb-2">The main banner image for this package</p>
                   {pkg.header_image ? (
                     <div className="relative inline-block">
-                      <img src={getPublicUrl(pkg.header_image)} alt="Header" className="h-32 rounded-md object-cover" />
+                      <img src={getPublicUrl(pkg.header_image)} alt="Header" className="h-32 rounded-xl object-cover" />
                       <Button
                         variant="destructive"
                         size="icon"
@@ -721,7 +746,7 @@ const AdminParties = () => {
                         disabled={uploadingHeader}
                       >
                         <Upload className="h-4 w-4 mr-1" />
-                        {uploadingHeader ? "Uploading..." : "Upload Header Image"}
+                        {uploadingHeader ? "Uploading..." : "Upload header image"}
                       </Button>
                     </div>
                   )}
@@ -731,13 +756,13 @@ const AdminParties = () => {
 
                 {/* Gallery Images */}
                 <div>
-                  <Label className="text-sm font-semibold">Gallery Images</Label>
+                  <Label className="text-sm font-semibold">Gallery images</Label>
                   <p className="text-xs text-muted-foreground mb-2">Additional photos for this package</p>
                   {images.length > 0 && (
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-3">
                       {images.map(img => (
                         <div key={img.id} className="relative group">
-                          <img src={getPublicUrl(img.file_path)} alt="" className="h-24 w-full rounded-md object-cover" />
+                          <img src={getPublicUrl(img.file_path)} alt="" className="h-24 w-full rounded-xl object-cover" />
                           <Button
                             variant="destructive"
                             size="icon"
@@ -767,7 +792,7 @@ const AdminParties = () => {
                     disabled={uploadingMedia}
                   >
                     <Image className="h-4 w-4 mr-1" />
-                    {uploadingMedia ? "Uploading..." : "Add Photos"}
+                    {uploadingMedia ? "Uploading..." : "Add photos"}
                   </Button>
                 </div>
 
@@ -775,12 +800,12 @@ const AdminParties = () => {
 
                 {/* Videos */}
                 <div>
-                  <Label className="text-sm font-semibold">Video Uploads</Label>
+                  <Label className="text-sm font-semibold">Video uploads</Label>
                   <p className="text-xs text-muted-foreground mb-2">Upload video files directly</p>
                   {videos.length > 0 && (
                     <div className="space-y-2 mb-3">
                       {videos.map(vid => (
-                        <div key={vid.id} className="flex items-center gap-2 p-2 rounded-md border bg-muted/30">
+                        <div key={vid.id} className="flex items-center gap-2 p-2.5 rounded-xl bg-secondary/60">
                           <Video className="h-4 w-4 text-muted-foreground shrink-0" />
                           <span className="text-sm flex-1 truncate">{vid.file_path.split("/").pop()}</span>
                           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deleteMedia.mutate(vid)}>
@@ -807,7 +832,7 @@ const AdminParties = () => {
                     disabled={uploadingMedia}
                   >
                     <Video className="h-4 w-4 mr-1" />
-                    {uploadingMedia ? "Uploading..." : "Upload Video"}
+                    {uploadingMedia ? "Uploading..." : "Upload video"}
                   </Button>
                 </div>
 
@@ -815,7 +840,7 @@ const AdminParties = () => {
 
                 {/* YouTube Links */}
                 <div>
-                  <Label className="text-sm font-semibold">YouTube Links</Label>
+                  <Label className="text-sm font-semibold">YouTube links</Label>
                   <p className="text-xs text-muted-foreground mb-2">Add YouTube video links</p>
                   {youtubes.length > 0 && (
                     <div className="space-y-2 mb-3">
@@ -824,7 +849,7 @@ const AdminParties = () => {
                         return (
                           <div key={yt.id} className="space-y-1">
                             {embedUrl && (
-                              <div className="aspect-video rounded-md overflow-hidden">
+                              <div className="aspect-video rounded-xl overflow-hidden">
                                 <iframe src={embedUrl} className="w-full h-full" allowFullScreen title="YouTube video" />
                               </div>
                             )}

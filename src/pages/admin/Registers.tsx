@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, LogIn, LogOut, AlertTriangle, Check, MapPin, Users, History, CalendarDays } from "lucide-react";
+import { ClipboardList, Clock, ChevronLeft, ChevronRight, AlertTriangle, Check, MapPin, Users, History, CalendarDays } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { addDays, differenceInYears, format, parseISO } from "date-fns";
 import StudentProfileDrawer from "@/components/staff/StudentProfileDrawer";
+import { FadeRise } from "@/components/motion";
 
 const formatDay = (d: string) => d.charAt(0).toUpperCase() + d.slice(1);
 
@@ -155,11 +156,11 @@ const AdminRegisters = () => {
 
   const selectedSession = sessions.find((s) => s.id === selectedSessionId);
 
-  const statusInfo = (att: any) => {
-    if (att?.status === "absent") return { label: "Absent", badge: "bg-destructive text-destructive-foreground hover:bg-destructive", row: "border-l-2 border-l-destructive" };
-    if (att?.checked_out_at) return { label: "Departed", badge: "bg-blue-500 text-white hover:bg-blue-500", row: "border-l-2 border-l-blue-500" };
-    if (att?.checked_in_at) return { label: "Arrived", badge: "bg-success text-success-foreground hover:bg-success", row: "border-l-2 border-l-success" };
-    return { label: "Unaccounted", badge: "bg-muted text-foreground hover:bg-muted", row: "border-l-2 border-l-border" };
+  const statusInfo = (att: any): { label: string; variant: "success" | "warning" | "destructive" | "default" | "secondary"; row: string } => {
+    if (att?.status === "absent") return { label: "Absent", variant: "destructive", row: "border-l-2 border-l-destructive" };
+    if (att?.checked_out_at) return { label: "Departed", variant: "default", row: "border-l-2 border-l-primary" };
+    if (att?.checked_in_at) return { label: "Arrived", variant: "success", row: "border-l-2 border-l-success" };
+    return { label: "Unaccounted", variant: "secondary", row: "border-l-2 border-l-transparent" };
   };
 
   const sessionLabel = (s: any) => {
@@ -172,200 +173,215 @@ const AdminRegisters = () => {
 
   return (
     <div className="p-6 md:p-8 max-w-6xl mx-auto">
-      <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
-        <div>
-          <h1 className="text-3xl font-display font-bold tracking-tight">{isPast ? "PAST REGISTERS" : "LIVE REGISTERS"}</h1>
-          <p className="text-muted-foreground mt-1">Attendance for {format(new Date(date + "T00:00:00"), "EEEE, d MMMM yyyy")}</p>
+      <FadeRise>
+        <div className="flex items-start justify-between mb-8 gap-4 flex-wrap">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">{isPast ? "Past registers" : "Live registers"}</h1>
+            <p className="text-muted-foreground mt-1">Attendance for {format(new Date(date + "T00:00:00"), "EEEE, d MMMM yyyy")}</p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant={isToday ? "default" : "outline"}
+              onClick={() => setDate(todayIso)}
+              className="gap-1.5"
+            >
+              <CalendarDays className="w-4 h-4" /> Today
+            </Button>
+            <Button
+              variant={isPast ? "default" : "outline"}
+              onClick={() => shiftDate(-1)}
+              className="gap-1.5"
+            >
+              <History className="w-4 h-4" /> Past registers
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant={isToday ? "default" : "outline"}
-            onClick={() => setDate(todayIso)}
-            className="gap-1.5"
-          >
-            <CalendarDays className="w-4 h-4" /> Today
-          </Button>
-          <Button
-            variant={isPast ? "default" : "outline"}
-            onClick={() => shiftDate(-1)}
-            className="gap-1.5"
-          >
-            <History className="w-4 h-4" /> Past registers
-          </Button>
-        </div>
-      </div>
+      </FadeRise>
 
       {/* Date navigator */}
-      <Card className="mb-6">
-        <CardContent className="p-3 flex items-center gap-3">
-          <Button variant="outline" size="icon" onClick={() => shiftDate(-1)}><ChevronLeft className="w-4 h-4" /></Button>
-          <div className="flex-1 text-center">
-            <p className="text-sm font-semibold">{format(new Date(date + "T00:00:00"), "EEEE, d MMMM yyyy")}</p>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="text-xs text-muted-foreground bg-transparent border-none focus:outline-none mt-0.5"
-            />
-          </div>
-          <Button variant="outline" size="icon" onClick={() => shiftDate(1)}><ChevronRight className="w-4 h-4" /></Button>
-        </CardContent>
-      </Card>
+      <FadeRise delay={60}>
+        <Card className="mb-6">
+          <CardContent className="p-3 flex items-center gap-3">
+            <Button variant="outline" size="icon" onClick={() => shiftDate(-1)} aria-label="Previous day"><ChevronLeft className="w-4 h-4" /></Button>
+            <div className="flex-1 text-center">
+              <p className="text-sm font-semibold">{format(new Date(date + "T00:00:00"), "EEEE, d MMMM yyyy")}</p>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="text-xs text-muted-foreground bg-transparent border-none focus:outline-none mt-0.5"
+              />
+            </div>
+            <Button variant="outline" size="icon" onClick={() => shiftDate(1)} aria-label="Next day"><ChevronRight className="w-4 h-4" /></Button>
+          </CardContent>
+        </Card>
+      </FadeRise>
 
       {loading ? (
         <p className="text-muted-foreground text-sm">Loading…</p>
       ) : sessions.length === 0 ? (
-        <Card><CardContent className="py-12 text-center text-muted-foreground">No classes scheduled for this day.</CardContent></Card>
+        <FadeRise>
+          <Card><CardContent className="py-12 text-center text-muted-foreground">No classes scheduled for this day.</CardContent></Card>
+        </FadeRise>
       ) : (
         <>
           {/* Session picker */}
-          <div className="mb-6">
-            <label className="text-xs uppercase tracking-wider text-muted-foreground mb-2 block">Pick a register</label>
-            <Select value={selectedSessionId} onValueChange={setSelectedSessionId}>
-              <SelectTrigger className="w-full md:w-[640px] h-auto py-3">
-                <SelectValue>
-                  {selectedSession && (
-                    <div className="flex flex-col items-start gap-1 text-left">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">{selectedSession.classes?.name}</span>
-                        <Badge variant="outline" className="text-[10px]">{format(new Date(selectedSession.session_date + "T00:00:00"), "EEE d MMM")}</Badge>
+          <FadeRise delay={100}>
+            <div className="mb-6">
+              <label className="eyebrow mb-2 block">Pick a register</label>
+              <Select value={selectedSessionId} onValueChange={setSelectedSessionId}>
+                <SelectTrigger className="w-full md:w-[640px] h-auto py-3">
+                  <SelectValue>
+                    {selectedSession && (
+                      <div className="flex flex-col items-start gap-1 text-left">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold">{selectedSession.classes?.name}</span>
+                          <Badge variant="outline" className="text-[10px]">{format(new Date(selectedSession.session_date + "T00:00:00"), "EEE d MMM")}</Badge>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{selectedSession.start_time?.slice(0,5)}–{selectedSession.end_time?.slice(0,5)}</span>
+                          <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{selectedSession.classes?.venues?.name ?? "Venue TBC"}</span>
+                          {selectedSession.instructors?.length > 0 && (
+                            <span className="flex items-center gap-1"><Users className="w-3 h-3" />{selectedSession.instructors.map((s: any) => s.first_name || s.full_name).join(", ")}</span>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{selectedSession.start_time?.slice(0,5)}–{selectedSession.end_time?.slice(0,5)}</span>
-                        <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{selectedSession.classes?.venues?.name ?? "Venue TBC"}</span>
-                        {selectedSession.instructors?.length > 0 && (
-                          <span className="flex items-center gap-1"><Users className="w-3 h-3" />{selectedSession.instructors.map((s: any) => s.first_name || s.full_name).join(", ")}</span>
-                        )}
+                    )}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="max-w-[90vw]">
+                  {sessions.map((s) => (
+                    <SelectItem key={s.id} value={s.id} className="py-3">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium">{s.classes?.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {format(new Date(s.session_date + "T00:00:00"), "EEE d MMM")} · {s.start_time?.slice(0,5)}–{s.end_time?.slice(0,5)} · {s.classes?.venues?.name ?? "Venue TBC"}
+                          {s.instructors?.length > 0 && <> · {s.instructors.map((st: any) => st.first_name || st.full_name).join(", ")}</>}
+                        </span>
                       </div>
-                    </div>
-                  )}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent className="max-w-[90vw]">
-                {sessions.map((s) => (
-                  <SelectItem key={s.id} value={s.id} className="py-3">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-medium">{s.classes?.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {format(new Date(s.session_date + "T00:00:00"), "EEE d MMM")} · {s.start_time?.slice(0,5)}–{s.end_time?.slice(0,5)} · {s.classes?.venues?.name ?? "Venue TBC"}
-                        {s.instructors?.length > 0 && <> · {s.instructors.map((st: any) => st.first_name || st.full_name).join(", ")}</>}
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </FadeRise>
 
           {selectedSession && (
-            <Card>
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between mb-4 pb-4 border-b border-border flex-wrap gap-3">
-                  <div>
-                    <h3 className="font-semibold text-lg">{selectedSession.classes?.name}</h3>
-                    <p className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap mt-1">
-                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{selectedSession.start_time?.slice(0,5)}–{selectedSession.end_time?.slice(0,5)}</span>
-                      <span>•</span>
-                      <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{selectedSession.classes?.venues?.name ?? "Venue TBC"}</span>
-                      {selectedSession.instructors?.length > 0 && (
-                        <>
+            <FadeRise delay={140}>
+              <Card>
+                <CardContent className="p-5 md:p-6">
+                  <div className="flex items-center justify-between mb-4 pb-4 border-b border-border/50 flex-wrap gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+                        <ClipboardList className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-display font-semibold text-lg">{selectedSession.classes?.name}</h3>
+                        <p className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap mt-1">
+                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{selectedSession.start_time?.slice(0,5)}–{selectedSession.end_time?.slice(0,5)}</span>
                           <span>•</span>
-                          <span className="flex items-center gap-1"><Users className="w-3 h-3" />{selectedSession.instructors.map((s: any) => s.full_name || `${s.first_name} ${s.last_name}`).join(", ")}</span>
-                        </>
-                      )}
-                    </p>
+                          <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{selectedSession.classes?.venues?.name ?? "Venue TBC"}</span>
+                          {selectedSession.instructors?.length > 0 && (
+                            <>
+                              <span>•</span>
+                              <span className="flex items-center gap-1"><Users className="w-3 h-3" />{selectedSession.instructors.map((s: any) => s.full_name || `${s.first_name} ${s.last_name}`).join(", ")}</span>
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Badge variant="outline">{bookings.length} booked</Badge>
+                      <Badge variant="success">{presentCount} present</Badge>
+                      {absentCount > 0 && <Badge variant="destructive">{absentCount} absent</Badge>}
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Badge variant="outline">{bookings.length} booked</Badge>
-                    <Badge className="bg-success text-success-foreground hover:bg-success">{presentCount} present</Badge>
-                    {absentCount > 0 && <Badge variant="destructive">{absentCount} absent</Badge>}
-                  </div>
-                </div>
 
-                {bookings.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-8 text-center">No confirmed bookings for this class.</p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Student</TableHead>
-                        <TableHead className="w-[80px]">Age</TableHead>
-                        <TableHead className="w-[90px] text-center">Medical</TableHead>
-                        <TableHead>Arrival / Departure</TableHead>
-                        <TableHead className="text-right w-[140px]">Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {bookings.map((b: any) => {
-                        const att = b.attendance;
-                        const isIn = att?.checked_in_at && !att?.checked_out_at;
-                        const isOut = !!att?.checked_out_at;
-                        const isAbsent = att?.status === "absent";
-                        const student = b.students;
-                        const age = student?.date_of_birth ? differenceInYears(new Date(), new Date(student.date_of_birth)) : null;
-                        const hasMedical = !!(student?.has_epipen || student?.has_inhaler || student?.allergies_list?.length || student?.medical_conditions_list?.length || student?.medical_info);
-                        const hasUrgent = student?.has_epipen || student?.has_inhaler;
-                        const fmt = (d: string) => new Date(d).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-                        const status = statusInfo(att);
+                  {bookings.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-8 text-center">No confirmed bookings for this class.</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-border/50 hover:bg-transparent">
+                          <TableHead className="text-xs font-semibold">Student</TableHead>
+                          <TableHead className="text-xs font-semibold w-[80px]">Age</TableHead>
+                          <TableHead className="text-xs font-semibold w-[90px] text-center">Medical</TableHead>
+                          <TableHead className="text-xs font-semibold">Arrival / departure</TableHead>
+                          <TableHead className="text-xs font-semibold text-right w-[140px]">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-border/50">
+                        {bookings.map((b: any) => {
+                          const att = b.attendance;
+                          const isIn = att?.checked_in_at && !att?.checked_out_at;
+                          const isOut = !!att?.checked_out_at;
+                          const isAbsent = att?.status === "absent";
+                          const student = b.students;
+                          const age = student?.date_of_birth ? differenceInYears(new Date(), new Date(student.date_of_birth)) : null;
+                          const hasMedical = !!(student?.has_epipen || student?.has_inhaler || student?.allergies_list?.length || student?.medical_conditions_list?.length || student?.medical_info);
+                          const hasUrgent = student?.has_epipen || student?.has_inhaler;
+                          const fmt = (d: string) => new Date(d).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+                          const status = statusInfo(att);
 
-                        return (
-                          <TableRow key={b.id} className={`cursor-pointer ${status.row}`} onClick={() => setProfileBooking({ booking: b, sessionId: selectedSession.id, classId: selectedSession.class_id })}>
-                            <TableCell>
-                              <div className="flex items-center gap-3">
-                                {student?.profile_photo ? (
-                                  <img src={student.profile_photo} alt="" className="w-9 h-9 rounded-full object-cover" />
-                                ) : (
-                                  <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold flex-shrink-0">
-                                    {student?.first_name?.[0] ?? "?"}
+                          return (
+                            <TableRow key={b.id} className={`cursor-pointer border-border/50 ${status.row}`} onClick={() => setProfileBooking({ booking: b, sessionId: selectedSession.id, classId: selectedSession.class_id })}>
+                              <TableCell>
+                                <div className="flex items-center gap-3">
+                                  {student?.profile_photo ? (
+                                    <img src={student.profile_photo} alt="" className="w-9 h-9 rounded-full object-cover" />
+                                  ) : (
+                                    <div className="w-9 h-9 rounded-full bg-primary/8 text-primary flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                      {student?.first_name?.[0] ?? "?"}
+                                    </div>
+                                  )}
+                                  <div className="min-w-0">
+                                    <p className="font-medium text-sm hover:underline">
+                                      {student ? `${student.first_name} ${student.last_name}` : "Adult attendee"}
+                                    </p>
+                                    <div className="flex gap-1 mt-0.5">
+                                      {student?.is_self && <Badge variant="outline" className="text-[10px]">Adult</Badge>}
+                                      {student?.has_send && <Badge variant="warning" className="text-[10px]">SEND</Badge>}
+                                      {!student && <Badge variant="outline" className="text-[10px]">No profile</Badge>}
+                                    </div>
                                   </div>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-sm tabular-nums">{age != null ? `${age}y` : "—"}</TableCell>
+                              <TableCell className="text-center">
+                                {hasMedical ? (
+                                  hasUrgent ? (
+                                    <span title="Urgent: EpiPen / Inhaler" className="inline-flex items-center gap-1 text-destructive">
+                                      <AlertTriangle className="w-4 h-4" />
+                                    </span>
+                                  ) : (
+                                    <Check className="w-4 h-4 inline text-success" />
+                                  )
+                                ) : (
+                                  <span className="text-muted-foreground/50">—</span>
                                 )}
-                                <div className="min-w-0">
-                                  <p className="font-medium text-sm hover:underline">
-                                    {student ? `${student.first_name} ${student.last_name}` : "Adult attendee"}
-                                  </p>
-                                  <div className="flex gap-1 mt-0.5">
-                                    {student?.is_self && <Badge variant="outline" className="text-[10px]">Adult</Badge>}
-                                    {student?.has_send && <Badge className="text-[10px] bg-amber-500 hover:bg-amber-600">SEND</Badge>}
-                                    {!student && <Badge variant="outline" className="text-[10px] text-muted-foreground">No profile</Badge>}
+                              </TableCell>
+                              <TableCell className="text-xs tabular-nums">
+                                {att?.checked_in_at || att?.checked_out_at ? (
+                                  <div className="flex flex-col gap-0.5">
+                                    {att?.checked_in_at && <span className="text-foreground">In {fmt(att.checked_in_at)}</span>}
+                                    {att?.checked_out_at && <span className="text-foreground">Out {fmt(att.checked_out_at)}</span>}
                                   </div>
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-sm">{age != null ? `${age}y` : "—"}</TableCell>
-                            <TableCell className="text-center">
-                              {hasMedical ? (
-                                hasUrgent ? (
-                                  <span title="Urgent: EpiPen / Inhaler" className="inline-flex items-center gap-1 text-destructive">
-                                    <AlertTriangle className="w-4 h-4" />
-                                  </span>
                                 ) : (
-                                  <Check className="w-4 h-4 inline text-success" />
-                                )
-                              ) : (
-                                <span className="text-muted-foreground/50">—</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-xs tabular-nums">
-                              {att?.checked_in_at || att?.checked_out_at ? (
-                                <div className="flex flex-col gap-0.5">
-                                  {att?.checked_in_at && <span className="text-foreground">In {fmt(att.checked_in_at)}</span>}
-                                  {att?.checked_out_at && <span className="text-foreground">Out {fmt(att.checked_out_at)}</span>}
-                                </div>
-                              ) : (
-                                <span className="opacity-50">—</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Badge className={status.badge}>{status.label}</Badge>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
+                                  <span className="opacity-50">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Badge variant={status.variant}>{status.label}</Badge>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </FadeRise>
           )}
         </>
       )}

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { FadeRise } from "@/components/motion";
 import { useToast } from "@/hooks/use-toast";
 import { DEFAULT_NAV_CONFIG, NAV_SETTINGS_KEY, NavItem } from "@/config/adminNavConfig";
 import {
@@ -55,15 +56,17 @@ const SortableItem = ({ item, depth, onToggleExpand, expanded, onRemove, onUnnes
     <div ref={setNodeRef} style={style} className={cn("transition-opacity", isDragging && "opacity-40")}>
       <div
         className={cn(
-          "flex items-center gap-2 px-3 py-2.5 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors group",
-          depth > 0 && "ml-8 border-l-2 border-l-primary/30"
+          "flex items-center gap-2 px-3 py-2.5 rounded-2xl bg-secondary/50 hover:bg-secondary/80 transition-colors group",
+          depth > 0 && "ml-8 border-l-2 border-l-primary/20"
         )}
       >
-        <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1">
+        <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-foreground transition-colors p-1">
           <GripVertical className="h-4 w-4" />
         </button>
 
-        <LucideIcon name={item.icon} className="h-4 w-4 text-muted-foreground shrink-0" />
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/8 text-primary">
+          <LucideIcon name={item.icon} className="h-4 w-4" />
+        </span>
 
         <span className="text-sm font-medium flex-1">{item.label}</span>
 
@@ -206,16 +209,16 @@ const SettingsNavigation = () => {
     if (!activeInfo.parent || !overInfo.parent) return;
 
     // Same level reorder
-    if (activeInfo.parent === overInfo.parent || 
+    if (activeInfo.parent === overInfo.parent ||
         (activeInfo.parentItem?.id === overInfo.parentItem?.id)) {
-      const arr = activeInfo.parentItem 
+      const arr = activeInfo.parentItem
         ? newItems.find(i => i.id === activeInfo.parentItem!.id)!.children!
         : newItems;
-      
+
       // Find indices in the actual array
       const oldIndex = arr.findIndex(i => i.id === active.id);
       const newIndex = arr.findIndex(i => i.id === over.id);
-      
+
       if (oldIndex !== -1 && newIndex !== -1) {
         const reordered = arrayMove(arr, oldIndex, newIndex);
         if (activeInfo.parentItem) {
@@ -266,7 +269,7 @@ const SettingsNavigation = () => {
     const newItems = JSON.parse(JSON.stringify(config)) as NavItem[];
     const idx = newItems.findIndex((i) => i.id === id);
     if (idx <= 0) return;
-    
+
     const item = newItems.splice(idx, 1)[0];
     const target = newItems[idx - 1];
     if (!target.children) target.children = [];
@@ -325,7 +328,7 @@ const SettingsNavigation = () => {
     const insertIdx = settingsIdx !== -1 ? settingsIdx : newItems.length;
     newItems.splice(insertIdx, 0, {
       id: groupId,
-      label: "New Group",
+      label: "New group",
       icon: "FolderOpen",
       path: "",
       children: [],
@@ -363,107 +366,110 @@ const SettingsNavigation = () => {
 
   if (isLoading) {
     return (
-      <div className="p-6 max-w-4xl mx-auto">
-        <div className="animate-pulse text-muted-foreground">Loading navigation settings...</div>
+      <div className="p-6 md:p-8 max-w-4xl mx-auto">
+        <div className="animate-pulse text-muted-foreground">Loading navigation settings…</div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center gap-3">
-        <Link to="/admin/settings">
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-display font-bold flex items-center gap-2">
-            <Menu className="h-6 w-6" />
-            Menu Navigation
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Drag and drop to reorder sidebar items. Nest items to create dropdown groups.
-          </p>
+    <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6">
+      <FadeRise>
+        <div className="flex items-center gap-3">
+          <Link to="/admin/settings">
+            <Button variant="ghost" size="icon" className="h-9 w-9">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">Menu navigation</h1>
+            <p className="text-muted-foreground mt-1">
+              Drag and drop to reorder sidebar items. Nest items to create dropdown groups.
+            </p>
+          </div>
         </div>
-      </div>
+      </FadeRise>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-base">Sidebar Items</CardTitle>
-              <CardDescription>
-                Drag items to reorder. Use the arrow button to unnest, or drag items onto groups.
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handleCreateGroup} className="gap-1.5">
-                <FolderOpen className="h-3.5 w-3.5" />
-                New Group
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleReset} className="gap-1.5">
-                <RotateCcw className="h-3.5 w-3.5" />
-                Reset
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext items={getAllIds(config)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-1.5">
-                {config.map((item) => (
-                  <SortableItem
-                    key={item.id}
-                    item={item}
-                    depth={0}
-                    onToggleExpand={toggleExpand}
-                    expanded={expanded}
-                    onRemove={handleRemove}
-                    onUnnest={handleUnnest}
-                  />
-                ))}
+      <FadeRise delay={80}>
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <CardTitle className="text-base">Sidebar items</CardTitle>
+                <CardDescription>
+                  Drag items to reorder. Use the arrow button to unnest, or drag items onto groups.
+                </CardDescription>
               </div>
-            </SortableContext>
-            <DragOverlay>
-              {activeItem && (
-                <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-primary bg-card shadow-lg">
-                  <GripVertical className="h-4 w-4 text-muted-foreground" />
-                  <LucideIcon name={activeItem.icon} className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">{activeItem.label}</span>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={handleCreateGroup} className="gap-1.5">
+                  <FolderOpen className="h-3.5 w-3.5" />
+                  New group
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleReset} className="gap-1.5">
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Reset
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext items={getAllIds(config)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-1.5">
+                  {config.map((item) => (
+                    <SortableItem
+                      key={item.id}
+                      item={item}
+                      depth={0}
+                      onToggleExpand={toggleExpand}
+                      expanded={expanded}
+                      onRemove={handleRemove}
+                      onUnnest={handleUnnest}
+                    />
+                  ))}
                 </div>
-              )}
-            </DragOverlay>
-          </DndContext>
+              </SortableContext>
+              <DragOverlay>
+                {activeItem && (
+                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-2xl bg-card shadow-soft-lg">
+                    <GripVertical className="h-4 w-4 text-muted-foreground/50" />
+                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/8 text-primary">
+                      <LucideIcon name={activeItem.icon} className="h-4 w-4" />
+                    </span>
+                    <span className="text-sm font-medium">{activeItem.label}</span>
+                  </div>
+                )}
+              </DragOverlay>
+            </DndContext>
 
-          <div className="mt-4 p-3 rounded-lg bg-muted/50 text-xs text-muted-foreground space-y-1">
-            <p><strong>Tips:</strong></p>
-            <ul className="list-disc pl-4 space-y-0.5">
-              <li>Drag the grip handle to reorder items</li>
-              <li>Click the arrow icon on nested items to move them out of a group</li>
-              <li>Create a new group and drag items into it to build dropdown menus</li>
-              <li>Dashboard and Settings cannot be removed</li>
-            </ul>
-          </div>
-        </CardContent>
-      </Card>
+            <div className="mt-4 p-4 rounded-2xl bg-secondary/50 text-xs text-muted-foreground space-y-1">
+              <p><strong>Tips:</strong></p>
+              <ul className="list-disc pl-4 space-y-0.5">
+                <li>Drag the grip handle to reorder items</li>
+                <li>Click the arrow icon on nested items to move them out of a group</li>
+                <li>Create a new group and drag items into it to build dropdown menus</li>
+                <li>Dashboard and Settings cannot be removed</li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+      </FadeRise>
 
       {/* Sticky save bar */}
       <div className="sticky bottom-4">
-        <Card className="shadow-lg border-primary/20">
+        <Card className="shadow-soft-lg bg-card/95 backdrop-blur">
           <CardContent className="py-3 flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
               {items ? "You have unsaved changes" : "No changes to save"}
             </p>
             <Button onClick={handleSave} disabled={saving || !items} className="gap-1.5">
               <Save className="h-4 w-4" />
-              {saving ? "Saving…" : "Save Navigation"}
+              {saving ? "Saving…" : "Save navigation"}
             </Button>
           </CardContent>
         </Card>

@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Link, useLocation, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { icons, LogOut, ChevronRight, ChevronDown, Menu } from "lucide-react";
-import logo from "@/assets/logo-dark.png";
+import logo from "@/assets/logo.png";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useNavConfig } from "@/hooks/useNavConfig";
@@ -59,32 +59,23 @@ const AdminLayout = () => {
 
     if (hasChildren) {
       const isOpen = isGroupOpen(item.id);
-      const isChildActive = item.children!.some(
-        (c) => pathname === c.path || pathname.startsWith(c.path + "/")
-      );
       return (
         <div key={item.id}>
           <button
+            type="button"
             onClick={() => toggleGroup(item.id)}
-            className={cn(
-              "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-all duration-200 w-full",
-              depth > 0 && "ml-4",
-              isChildActive
-                ? "text-sidebar-primary-foreground font-semibold"
-                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-            )}
-            style={{ fontFamily: 'var(--font-body)', textTransform: 'none', letterSpacing: 'normal' }}
+            aria-expanded={isOpen}
+            className="flex w-full items-center gap-2 rounded-2xl px-3 pb-1 pt-4 text-left transition-colors"
           >
-            <LucideIcon name={item.icon} className="w-4 h-4" />
-            {item.label}
+            <span className="eyebrow">{item.label}</span>
             {isOpen ? (
-              <ChevronDown className="w-3 h-3 ml-auto" />
+              <ChevronDown className="ml-auto h-3 w-3 shrink-0 text-muted-foreground" />
             ) : (
-              <ChevronRight className="w-3 h-3 ml-auto" />
+              <ChevronRight className="ml-auto h-3 w-3 shrink-0 text-muted-foreground" />
             )}
           </button>
           {isOpen && (
-            <div className="pl-3 space-y-0.5">
+            <div className="space-y-1">
               {item.children!.map((child) => renderItem(child, depth + 1))}
             </div>
           )}
@@ -98,75 +89,85 @@ const AdminLayout = () => {
         key={item.id}
         to={item.path}
         className={cn(
-          "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-all duration-200",
-          depth > 0 && "py-2",
+          "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition-colors",
           isActive
-            ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
-            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            ? "bg-secondary font-semibold text-foreground"
+            : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
         )}
-        style={{ fontFamily: 'var(--font-body)', textTransform: 'none', letterSpacing: 'normal' }}
       >
-        <LucideIcon name={item.icon} className="w-4 h-4" />
-        {item.label}
-        {isActive && <ChevronRight className="w-3 h-3 ml-auto" />}
+        <span
+          className={cn(
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors",
+            isActive ? "bg-primary/10 text-primary" : "bg-secondary/80 text-muted-foreground"
+          )}
+        >
+          <LucideIcon name={item.icon} className="h-4 w-4" />
+        </span>
+        <span className="truncate">{item.label}</span>
       </Link>
     );
   };
 
-  const SidebarBody = (
+  const sidebarBody = (
     <>
-      <div className="p-5 border-b border-sidebar-border">
-          <div className="flex flex-col items-center gap-1">
-            <img src={logo} alt="The Dance Exclusive" className="w-36 object-contain" />
-            <p className="text-[10px] text-sidebar-foreground/50 uppercase tracking-widest" style={{ fontFamily: 'var(--font-body)' }}>Admin</p>
-          </div>
-        </div>
+      <div className="flex flex-col items-center gap-1.5 px-5 pb-3 pt-7">
+        <img src={logo} alt="The Dance Exclusive" className="w-28 object-contain" />
+        <p className="eyebrow">Admin</p>
+      </div>
 
-        <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-          {navConfig.map((item) => renderItem(item))}
-        </nav>
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-3">
+        {navConfig.map((item) => renderItem(item))}
+      </nav>
 
-        <div className="p-4 border-t border-sidebar-border">
-          <div className="flex items-center gap-3 mb-3 px-1">
-            <div className="w-8 h-8 rounded-full bg-sidebar-primary/20 border border-sidebar-primary/30 flex items-center justify-center text-xs font-bold text-sidebar-primary">
-              {profile?.full_name?.charAt(0) || "A"}
-            </div>
-            <div className="flex-1 min-w-0" style={{ fontFamily: 'var(--font-body)', textTransform: 'none', letterSpacing: 'normal' }}>
-              <p className="text-xs font-medium text-sidebar-accent-foreground truncate">{profile?.full_name || "Admin"}</p>
-              <p className="text-[10px] text-sidebar-foreground/50 truncate">{profile?.email}</p>
-            </div>
+      <div className="p-3">
+        <div className="flex items-center gap-3 rounded-2xl bg-secondary/50 p-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+            {profile?.full_name?.charAt(0) || "A"}
           </div>
-          <Button variant="ghost" size="sm" onClick={handleSignOut} className="w-full justify-start text-sidebar-foreground/60 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent" style={{ fontFamily: 'var(--font-body)', textTransform: 'none', letterSpacing: 'normal' }}>
-            <LogOut className="w-4 h-4 mr-2" /> Sign out
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-foreground">{profile?.full_name || "Admin"}</p>
+            <p className="truncate text-xs text-muted-foreground">{profile?.email}</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleSignOut}
+            aria-label="Sign out"
+            title="Sign out"
+            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+          >
+            <LogOut className="h-4 w-4" />
           </Button>
         </div>
+      </div>
     </>
   );
 
   return (
-    <div className="flex h-screen bg-background">
-      <aside className="hidden md:flex w-64 bg-sidebar border-r border-sidebar-border flex-col">
-        {SidebarBody}
+    <div className="min-h-screen bg-background">
+      <aside className="fixed bottom-3 left-3 top-3 z-40 hidden w-[264px] flex-col overflow-hidden rounded-3xl bg-card shadow-soft-lg md:flex">
+        {sidebarBody}
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="md:hidden sticky top-0 z-30 flex items-center gap-2 h-16 px-3 border-b border-border bg-background/95 backdrop-blur">
-          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Open menu">
-                <Menu className="w-5 h-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-72 bg-sidebar border-sidebar-border flex flex-col">
-              {SidebarBody}
-            </SheetContent>
-          </Sheet>
-          <span className="flex-1 text-center font-display font-bold text-2xl tracking-wider text-primary pr-10">DANCE EXCLUSIVE</span>
-        </header>
-        <main className="flex-1 overflow-auto">
-          <Outlet />
-        </main>
-      </div>
+      <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-border/50 bg-background/80 px-3 backdrop-blur-xl md:hidden">
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="Open menu">
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="flex w-[280px] flex-col p-0">
+            {sidebarBody}
+          </SheetContent>
+        </Sheet>
+        <span className="flex-1 pr-10 text-center font-display text-lg font-bold tracking-tight text-foreground">
+          The Dance Exclusive
+        </span>
+      </header>
+
+      <main className="md:pl-[280px]">
+        <Outlet />
+      </main>
     </div>
   );
 };

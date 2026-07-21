@@ -82,12 +82,10 @@ const VenuePhotoUpload = ({ venueId, label, description, currentUrl, photoType, 
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <p className="text-xs text-muted-foreground" style={{ fontFamily: 'var(--font-body)', textTransform: 'none', letterSpacing: 'normal' }}>
-        {description}
-      </p>
+      <p className="text-xs text-muted-foreground">{description}</p>
 
       {currentUrl ? (
-        <div className="relative group rounded-lg overflow-hidden border border-border">
+        <div className="relative group rounded-2xl overflow-hidden shadow-soft">
           <img src={currentUrl} alt={label} className="w-full h-48 object-cover" />
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
             <Button type="button" size="sm" variant="secondary" onClick={() => fileRef.current?.click()} disabled={uploading}>
@@ -103,7 +101,7 @@ const VenuePhotoUpload = ({ venueId, label, description, currentUrl, photoType, 
           type="button"
           onClick={() => fileRef.current?.click()}
           disabled={uploading}
-          className="w-full h-36 rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-50"
+          className="w-full h-36 rounded-2xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-secondary/40 transition-colors flex flex-col items-center justify-center gap-2 text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-50"
         >
           <Image className="w-8 h-8" />
           <span className="text-sm">{uploading ? "Uploading..." : "Click to upload"}</span>
@@ -295,23 +293,21 @@ export const VenuePhotoGallery = ({ venueId, category, label, description, legac
     <div className="space-y-3">
       <div>
         <Label>{label}</Label>
-        <p className="text-xs text-muted-foreground" style={{ fontFamily: 'var(--font-body)', textTransform: 'none', letterSpacing: 'normal' }}>
-          {description}
-        </p>
+        <p className="text-xs text-muted-foreground">{description}</p>
       </div>
 
       {/* Legacy single-photo fallback shown only when no gallery photos exist */}
       {loaded && photos.length === 0 && legacyUrl && (
-        <div className="rounded-lg overflow-hidden border border-border/50">
+        <div className="rounded-2xl overflow-hidden shadow-soft bg-card">
           <img src={legacyUrl} alt={label} className="w-full h-40 object-cover" />
-          <p className="text-[11px] text-muted-foreground px-2 py-1">Existing photo. Upload below to start a gallery.</p>
+          <p className="text-[11px] text-muted-foreground px-3 py-1.5">Existing photo. Upload below to start a gallery.</p>
         </div>
       )}
 
       {photos.length > 0 && (
         <div className="space-y-3">
           {photos.map((photo, idx) => (
-            <div key={photo.id} className="rounded-lg border border-border/50 overflow-hidden">
+            <div key={photo.id} className="rounded-2xl overflow-hidden bg-card shadow-soft">
               <div className="relative group">
                 <img src={publicUrlFor(photo.file_path)} alt={photo.caption || label} className="w-full h-40 object-cover" />
                 {photo.is_primary && (
@@ -342,7 +338,7 @@ export const VenuePhotoGallery = ({ venueId, category, label, description, legac
                   onChange={(e) => updateCaption(photo.id, e.target.value)}
                   onBlur={() => handleCaptionBlur(photo)}
                   placeholder="Optional caption"
-                  className="h-8 text-xs"
+                  className="h-9 rounded-xl text-xs"
                 />
               </div>
             </div>
@@ -354,7 +350,7 @@ export const VenuePhotoGallery = ({ venueId, category, label, description, legac
         type="button"
         onClick={() => fileRef.current?.click()}
         disabled={uploading}
-        className="w-full h-24 rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-50"
+        className="w-full h-24 rounded-2xl border-2 border-dashed border-border hover:border-primary/50 hover:bg-secondary/40 transition-colors flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-50"
       >
         {photos.length > 0 ? <Plus className="w-6 h-6" /> : <Image className="w-7 h-7" />}
         <span className="text-xs">{uploading ? "Uploading..." : photos.length > 0 ? "Add more photos" : "Click to upload (multiple allowed)"}</span>

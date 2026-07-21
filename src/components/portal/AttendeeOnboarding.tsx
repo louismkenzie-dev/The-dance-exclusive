@@ -8,8 +8,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Baby, User, Users, Sparkles } from "lucide-react";
+import { Stagger, PressScale } from "@/components/motion";
 import { ChildFormDialog } from "@/components/portal/ChildFormDialog";
 
 type Choice = "parent_only" | "adult_dancer" | "both";
@@ -76,44 +76,71 @@ const AttendeeOnboarding = () => {
 
   if (!ready) return null;
 
+  const options: {
+    choice: Choice;
+    icon: typeof Baby;
+    tile: string;
+    title: string;
+    caption: string;
+  }[] = [
+    {
+      choice: "parent_only",
+      icon: Baby,
+      tile: "bg-primary/10 text-primary",
+      title: "My child / children",
+      caption: "Add their details to book kids' classes",
+    },
+    {
+      choice: "adult_dancer",
+      icon: User,
+      tile: "bg-accent/10 text-accent",
+      title: "Me — I'm the dancer",
+      caption: "Set up your own profile for adult classes",
+    },
+    {
+      choice: "both",
+      icon: Users,
+      tile: "bg-primary/10 text-primary",
+      title: "Both",
+      caption: "Me and my children",
+    },
+  ];
+
   return (
     <>
       <Dialog open={show} onOpenChange={(o) => { if (!o) dismiss(); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" /> Welcome to The Dance Exclusive!
-            </DialogTitle>
+            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary sm:mx-0">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <DialogTitle className="pt-1">Welcome to The Dance Exclusive!</DialogTitle>
             <DialogDescription>
               Let's set up who'll be dancing so you can book classes. Who are you booking for?
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-3 py-2">
-            <Button variant="outline" className="h-auto py-3 justify-start gap-3" onClick={() => choose("parent_only")}>
-              <Baby className="w-5 h-5 text-primary shrink-0" />
-              <span className="text-left">
-                <span className="block font-semibold">My child / children</span>
-                <span className="block text-xs text-muted-foreground normal-case">Add their details to book kids' classes</span>
-              </span>
-            </Button>
-            <Button variant="outline" className="h-auto py-3 justify-start gap-3" onClick={() => choose("adult_dancer")}>
-              <User className="w-5 h-5 text-accent shrink-0" />
-              <span className="text-left">
-                <span className="block font-semibold">Me — I'm the dancer</span>
-                <span className="block text-xs text-muted-foreground normal-case">Set up your own profile for adult classes</span>
-              </span>
-            </Button>
-            <Button variant="outline" className="h-auto py-3 justify-start gap-3" onClick={() => choose("both")}>
-              <Users className="w-5 h-5 text-primary shrink-0" />
-              <span className="text-left">
-                <span className="block font-semibold">Both</span>
-                <span className="block text-xs text-muted-foreground normal-case">Me and my children</span>
-              </span>
-            </Button>
-          </div>
+          <Stagger className="grid gap-3 py-2">
+            {options.map(({ choice, icon: Icon, tile, title, caption }) => (
+              <PressScale key={choice}>
+                <button
+                  type="button"
+                  onClick={() => choose(choice)}
+                  className="flex w-full items-center gap-4 rounded-2xl bg-secondary/50 p-4 text-left transition-all duration-300 ease-out hover:-translate-y-0.5 hover:bg-secondary hover:shadow-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                >
+                  <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${tile}`}>
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <span>
+                    <span className="block font-display font-semibold">{title}</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">{caption}</span>
+                  </span>
+                </button>
+              </PressScale>
+            ))}
+          </Stagger>
 
-          <button onClick={dismiss} className="text-xs text-muted-foreground hover:text-foreground mx-auto">
+          <button onClick={dismiss} className="mx-auto text-xs text-muted-foreground transition-colors hover:text-foreground">
             I'll do this later
           </button>
         </DialogContent>

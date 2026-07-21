@@ -47,14 +47,14 @@ interface Props {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  scheduled: "bg-primary/10 text-primary border-primary/20",
-  completed: "bg-green-500/10 text-green-400 border-green-500/20",
-  cancelled: "bg-destructive/10 text-destructive border-destructive/20",
+  scheduled: "bg-primary/10 text-primary",
+  completed: "bg-success/10 text-success",
+  cancelled: "bg-destructive/10 text-destructive",
 };
 
 const ATTENDANCE_STATUS: Record<string, { label: string; color: string; icon: typeof UserCheck }> = {
   expected: { label: "Expected", color: "text-muted-foreground", icon: Clock },
-  present: { label: "Present", color: "text-green-400", icon: UserCheck },
+  present: { label: "Present", color: "text-success", icon: UserCheck },
   absent: { label: "Absent", color: "text-destructive", icon: UserX },
 };
 
@@ -233,7 +233,7 @@ export default function SessionManager({ classId, className, defaultInstructorId
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             Sessions — {className}
-            <Badge variant="outline">{sessions.length} sessions</Badge>
+            <Badge variant="secondary">{sessions.length} sessions</Badge>
           </DialogTitle>
         </DialogHeader>
 
@@ -253,7 +253,7 @@ export default function SessionManager({ classId, className, defaultInstructorId
               const isOverridden = sessionInstructors[session.id] !== undefined;
 
               return (
-                <div key={session.id} className={`rounded-lg border transition-colors ${today ? 'border-primary/40 bg-primary/5' : 'border-border bg-card/50'} ${past ? 'opacity-70' : ''}`}>
+                <div key={session.id} className={`rounded-2xl transition-colors ${today ? 'bg-primary/5 ring-1 ring-primary/30' : 'bg-secondary/40'} ${past ? 'opacity-70' : ''}`}>
                   {/* Session header row */}
                   <div
                     className="flex items-center gap-3 p-3 cursor-pointer"
@@ -264,8 +264,8 @@ export default function SessionManager({ classId, className, defaultInstructorId
                         <span className="text-sm font-medium text-foreground">
                           {format(dateObj, "EEEE, d MMM yyyy")}
                         </span>
-                        {today && <Badge className="bg-primary/20 text-primary text-xs">Today</Badge>}
-                        <Badge variant="outline" className={`text-xs ${STATUS_COLORS[session.status] || ''}`}>
+                        {today && <Badge className="text-xs">Today</Badge>}
+                        <Badge className={`text-xs capitalize ${STATUS_COLORS[session.status] || 'bg-secondary text-secondary-foreground'}`}>
                           {session.status}
                         </Badge>
                       </div>
@@ -288,11 +288,11 @@ export default function SessionManager({ classId, className, defaultInstructorId
 
                   {/* Expanded details */}
                   {expanded && (
-                    <div className="border-t border-border px-3 pb-3 pt-3 space-y-4">
+                    <div className="border-t border-border/50 px-3 pb-3 pt-3 space-y-4">
                       {/* Session controls */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div className="space-y-1">
-                          <label className="text-xs text-muted-foreground">Start Time</label>
+                          <label className="text-xs font-medium text-muted-foreground">Start time</label>
                           <Input
                             type="time"
                             value={session.start_time?.slice(0, 5)}
@@ -301,7 +301,7 @@ export default function SessionManager({ classId, className, defaultInstructorId
                           />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-xs text-muted-foreground">End Time</label>
+                          <label className="text-xs font-medium text-muted-foreground">End time</label>
                           <Input
                             type="time"
                             value={session.end_time?.slice(0, 5)}
@@ -310,7 +310,7 @@ export default function SessionManager({ classId, className, defaultInstructorId
                           />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-xs text-muted-foreground">Price (£)</label>
+                          <label className="text-xs font-medium text-muted-foreground">Price (£)</label>
                           <Input
                             type="number"
                             step="0.01"
@@ -322,7 +322,7 @@ export default function SessionManager({ classId, className, defaultInstructorId
                           />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-xs text-muted-foreground">Status</label>
+                          <label className="text-xs font-medium text-muted-foreground">Status</label>
                           <Select value={session.status} onValueChange={v => updateSessionStatus(session.id, v)}>
                             <SelectTrigger className="h-8 text-sm">
                               <SelectValue />
@@ -339,9 +339,9 @@ export default function SessionManager({ classId, className, defaultInstructorId
                       {/* Instructors */}
                       <div>
                         <div className="flex items-center justify-between mb-2">
-                          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                          <h4 className="eyebrow">
                             Instructors ({currentIds.length})
-                            {!isOverridden && <span className="normal-case ml-1">(using class defaults)</span>}
+                            {!isOverridden && <span className="normal-case tracking-normal ml-1">(using class defaults)</span>}
                           </h4>
                           {isOverridden && (
                             <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => resetSessionInstructors(session.id)}>
@@ -385,7 +385,7 @@ export default function SessionManager({ classId, className, defaultInstructorId
 
                       {/* Attendance */}
                       <div>
-                        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                        <h4 className="eyebrow mb-2">
                           Attendance ({sessionAttendance.length} student{sessionAttendance.length !== 1 ? 's' : ''})
                         </h4>
                         {sessionAttendance.length === 0 ? (
@@ -396,7 +396,7 @@ export default function SessionManager({ classId, className, defaultInstructorId
                               const statusInfo = ATTENDANCE_STATUS[record.status] || ATTENDANCE_STATUS.expected;
                               const Icon = statusInfo.icon;
                               return (
-                                <div key={record.id} className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-md hover:bg-muted/50 transition-colors">
+                                <div key={record.id} className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-xl hover:bg-secondary/60 transition-colors">
                                   <div className="flex items-center gap-2">
                                     <Icon className={`w-4 h-4 ${statusInfo.color}`} />
                                     <span className="text-sm text-foreground">

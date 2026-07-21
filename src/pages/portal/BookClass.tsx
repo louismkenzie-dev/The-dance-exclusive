@@ -33,8 +33,8 @@ const BookClass = () => {
   }, [classId, navigate]);
 
   return (
-    <div className="container py-12 text-center text-muted-foreground">
-      Taking you to the class browser…
+    <div className="container flex min-h-[50vh] items-center justify-center py-12">
+      <p className="text-center text-muted-foreground">Taking you to the class browser…</p>
     </div>
   );
 };

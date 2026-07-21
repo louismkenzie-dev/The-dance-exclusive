@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { MapPin, ArrowRight, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { FadeRise } from "@/components/motion";
 import {
   Carousel,
   CarouselContent,
@@ -37,22 +38,18 @@ export const FeaturedVenueCards = ({ venues }: { venues: FeaturedVenue[] }) => {
   if (display.length === 0) return null;
 
   return (
-    <section aria-label="Featured venues" className="relative py-24 px-4 overflow-hidden">
-      <div className="absolute inset-0 stage-light-blue opacity-40" />
-      <div className="relative container">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <p className="text-accent uppercase tracking-[0.3em] text-xs font-semibold mb-3">
-            <Sparkles className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
+    <section aria-label="Featured venues" className="relative py-16 md:py-24 px-4 overflow-hidden bg-secondary/40">
+      <div className="relative container max-w-7xl">
+        <FadeRise className="text-center max-w-2xl mx-auto mb-12">
+          <p className="eyebrow mb-3">
+            <Sparkles className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5 text-accent" />
             New for September
           </p>
-          <h2 className="font-display font-bold text-4xl md:text-6xl">Brand-New Venues</h2>
-          <p
-            className="mt-4 text-muted-foreground"
-            style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
-          >
+          <h2 className="font-display font-bold tracking-tight text-3xl md:text-5xl">Brand-new venues</h2>
+          <p className="mt-3 text-muted-foreground">
             The Dance Exclusive is expanding — find a brand-new class night near you.
           </p>
-        </div>
+        </FadeRise>
 
         <Carousel
           opts={{ align: "start", loop: display.length > 3 }}
@@ -73,42 +70,41 @@ export const FeaturedVenueCards = ({ venues }: { venues: FeaturedVenue[] }) => {
               >
                 <article
                   data-testid="featured-venue-card"
-                  className="group h-full flex flex-col rounded-2xl border border-border bg-card/60 backdrop-blur-sm overflow-hidden transition-all duration-500 hover:-translate-y-1.5 hover:border-primary/40"
+                  className="group h-full flex flex-col rounded-3xl bg-card shadow-soft overflow-hidden transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg dark:border dark:border-border/60"
                 >
                   <div className="relative aspect-[4/3] overflow-hidden bg-muted">
                     <img
                       src={venueCardImage(v.hero_image, v.photo_outside)}
                       alt={`${v.name}, ${v.city}`}
                       loading="lazy"
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                     />
-                    <div className="absolute top-3 left-3 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-background/70 backdrop-blur-sm border border-border text-[10px] uppercase tracking-[0.18em] text-foreground/80">
-                      <Sparkles className="w-3 h-3 text-accent" /> New Venue
-                    </div>
+                    <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-card/85 backdrop-blur px-3 py-1 text-xs font-semibold text-foreground shadow-soft">
+                      <Sparkles className="w-3 h-3 text-accent" /> New venue
+                    </span>
                   </div>
                   <div className="flex flex-col flex-1 p-6">
-                    <div className="flex items-start gap-2">
-                      <MapPin className="w-4 h-4 mt-1 shrink-0 text-primary" />
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <MapPin className="w-5 h-5" />
+                      </span>
                       <div>
-                        <h3 className="font-display text-2xl leading-tight">{v.name}</h3>
-                        <p className="text-xs uppercase tracking-[0.18em] mt-0.5 text-primary">
+                        <h3 className="font-display font-bold tracking-tight text-xl leading-tight">{v.name}</h3>
+                        <p className="text-sm text-muted-foreground mt-0.5">
                           {v.city}
                           {v.county ? `, ${v.county}` : ""}
                         </p>
                       </div>
                     </div>
                     {(v.short_description || v.description) && (
-                      <p
-                        className="mt-3 text-sm text-muted-foreground flex-1"
-                        style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
-                      >
+                      <p className="mt-3 text-sm text-muted-foreground flex-1">
                         {v.short_description || v.description}
                       </p>
                     )}
-                    <div className="mt-5 pt-4 border-t border-border/60">
-                      <Button asChild className="font-semibold uppercase tracking-wider">
+                    <div className="mt-5 pt-4 border-t border-border/50">
+                      <Button asChild>
                         <Link to="/classes/children" aria-label={`View classes at ${v.name}`}>
-                          View Classes <ArrowRight className="w-4 h-4 ml-2" />
+                          View classes <ArrowRight className="w-4 h-4 ml-2" />
                         </Link>
                       </Button>
                     </div>

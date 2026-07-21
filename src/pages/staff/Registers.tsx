@@ -5,9 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, LogIn, LogOut, ScanLine, AlertTriangle, Heart, Check } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Clock, ChevronLeft, ChevronRight, ScanLine, AlertTriangle, Check, XCircle, HelpCircle, LogOut, CalendarX } from "lucide-react";
 import { addDays, differenceInYears, format, parseISO } from "date-fns";
+import { FadeRise, Stagger, PressScale } from "@/components/motion";
 import StudentProfileDrawer from "@/components/staff/StudentProfileDrawer";
 import QrScannerDialog from "@/components/staff/QrScannerDialog";
 import FamilyCheckInSheet from "@/components/staff/FamilyCheckInSheet";
@@ -262,145 +262,172 @@ const StaffRegisters = () => {
   };
 
   const statusInfo = (att: any) => {
-    if (att?.status === "absent") return { label: "Absent", badge: "bg-destructive text-destructive-foreground hover:bg-destructive", row: "border-l-2 border-l-destructive" };
-    if (att?.checked_out_at) return { label: "Departed", badge: "bg-blue-500 text-white hover:bg-blue-500", row: "border-l-2 border-l-blue-500" };
-    if (att?.checked_in_at) return { label: "Arrived", badge: "bg-success text-success-foreground hover:bg-success", row: "border-l-2 border-l-success" };
-    return { label: "Unaccounted", badge: "bg-muted text-foreground hover:bg-muted", row: "border-l-2 border-l-border" };
+    if (att?.status === "absent")
+      return { label: "Absent", variant: "destructive" as const, tint: "bg-destructive/10 text-destructive", Icon: XCircle };
+    if (att?.checked_out_at)
+      return { label: "Departed", variant: "default" as const, tint: "bg-primary/10 text-primary", Icon: LogOut };
+    if (att?.checked_in_at)
+      return { label: "Arrived", variant: "success" as const, tint: "bg-success/10 text-success", Icon: Check };
+    return { label: "Unaccounted", variant: "secondary" as const, tint: "bg-secondary text-muted-foreground", Icon: HelpCircle };
   };
 
   return (
-    <div className="p-6 md:p-8 max-w-5xl mx-auto">
-      <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
-        <div>
-          <h1 className="text-3xl font-display font-bold mb-1">Registers</h1>
-          <p className="text-muted-foreground">Mark attendance for your classes</p>
+    <div className="max-w-5xl mx-auto space-y-6">
+      <FadeRise>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">Registers</h1>
+            <p className="text-muted-foreground mt-1">Mark attendance for your classes</p>
+          </div>
+          <Button onClick={() => setScannerOpen(true)} size="lg" className="gap-2">
+            <ScanLine className="w-4 h-4" /> Scan QR
+          </Button>
         </div>
-        <Button onClick={() => setScannerOpen(true)} size="lg" className="gap-2">
-          <ScanLine className="w-4 h-4" /> Scan QR
-        </Button>
-      </div>
+      </FadeRise>
 
-      <div className="flex items-center justify-between mb-6 gap-3">
-        <Button variant="outline" size="icon" onClick={() => shiftDate(-1)}><ChevronLeft className="w-4 h-4" /></Button>
-        <div className="flex-1 text-center">
-          <p className="text-lg font-semibold">{new Date(date).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="text-xs text-muted-foreground bg-transparent border-none focus:outline-none" />
-        </div>
-        <Button variant="outline" size="icon" onClick={() => shiftDate(1)}><ChevronRight className="w-4 h-4" /></Button>
-      </div>
+      <FadeRise delay={60}>
+        <Card>
+          <CardContent className="flex items-center justify-between gap-3 p-3">
+            <Button variant="secondary" size="icon" aria-label="Previous day" onClick={() => shiftDate(-1)}>
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <div className="flex-1 text-center">
+              <p className="font-display font-semibold">
+                {new Date(date).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+              </p>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="text-xs text-muted-foreground bg-transparent border-none text-center focus:outline-none"
+              />
+            </div>
+            <Button variant="secondary" size="icon" aria-label="Next day" onClick={() => shiftDate(1)}>
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </CardContent>
+        </Card>
+      </FadeRise>
 
       {loading ? (
         <p className="text-muted-foreground text-sm">Loading...</p>
       ) : sessions.length === 0 ? (
-        <Card><CardContent className="py-12 text-center text-muted-foreground">No classes scheduled for this day.</CardContent></Card>
+        <FadeRise>
+          <Card>
+            <CardContent className="py-14 text-center space-y-3">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary text-muted-foreground">
+                <CalendarX className="h-6 w-6" />
+              </div>
+              <p className="text-muted-foreground">No classes scheduled for this day.</p>
+            </CardContent>
+          </Card>
+        </FadeRise>
       ) : (
-        <div className="space-y-4">
+        <Stagger className="space-y-4">
           {sessions.map((s) => (
-            <Card key={s.id}>
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
-                  <div>
-                    <h3 className="font-semibold text-lg">{s.classes?.name}</h3>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                      <Clock className="w-3 h-3" /> {s.start_time.slice(0, 5)} – {s.end_time.slice(0, 5)} • {s.classes?.venues?.name || "Venue TBC"}
+            <Card key={s.id} className="overflow-hidden">
+              <CardContent className="p-0">
+                <div className="flex items-center gap-3 px-5 py-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+                    <Clock className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-display font-bold text-lg truncate">{s.classes?.name}</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {s.start_time.slice(0, 5)} – {s.end_time.slice(0, 5)} · {s.classes?.venues?.name || "Venue TBC"}
                     </p>
                   </div>
-                  <Badge variant="outline">{(attendance[s.id] || []).length} students</Badge>
+                  <Badge variant="secondary" className="shrink-0">{(attendance[s.id] || []).length} students</Badge>
                 </div>
                 {(attendance[s.id] || []).length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">No bookings yet for this class.</p>
+                  <p className="text-sm text-muted-foreground py-6 text-center border-t border-border/50">
+                    No bookings yet for this class.
+                  </p>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[34%]">Student</TableHead>
-                        <TableHead className="w-[80px]">Age</TableHead>
-                        <TableHead className="w-[90px] text-center">Medical</TableHead>
-                        <TableHead>Arrival / Departure</TableHead>
-                        <TableHead className="text-right w-[130px]">Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {attendance[s.id].map((b: any) => {
-                        const att = b.attendance;
-                        const isIn = att?.checked_in_at && !att?.checked_out_at;
-                        const isOut = !!att?.checked_out_at;
-                        const isAbsent = att?.status === "absent";
-                        const student = b.students;
-                        const age = student?.date_of_birth ? differenceInYears(new Date(), new Date(student.date_of_birth)) : null;
-                        const hasMedical = !!(
-                          student?.has_epipen || student?.has_inhaler ||
-                          student?.allergies_list?.length || student?.medical_conditions_list?.length ||
-                          student?.medical_info
-                        );
-                        const hasUrgent = student?.has_epipen || student?.has_inhaler;
-                        const fmt = (d: string) => new Date(d).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-                        const status = statusInfo(att);
+                  <div className="divide-y divide-border/50 border-t border-border/50">
+                    {attendance[s.id].map((b: any) => {
+                      const att = b.attendance;
+                      const student = b.students;
+                      const age = student?.date_of_birth ? differenceInYears(new Date(), new Date(student.date_of_birth)) : null;
+                      const hasMedical = !!(
+                        student?.has_epipen || student?.has_inhaler ||
+                        student?.allergies_list?.length || student?.medical_conditions_list?.length ||
+                        student?.medical_info
+                      );
+                      const hasUrgent = student?.has_epipen || student?.has_inhaler;
+                      const fmt = (d: string) => new Date(d).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+                      const status = statusInfo(att);
 
-                        return (
-                          <TableRow
-                            key={b.id}
-                            className={`cursor-pointer ${status.row}`}
+                      return (
+                        <PressScale key={b.id}>
+                          <div
+                            className="flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-secondary/40"
                             onClick={() => setProfileBooking({ booking: b, sessionId: s.id, classId: s.class_id })}
                           >
-                            <TableCell>
-                              <div className="flex items-center gap-3">
-                                <PhotoAvatarDuo
-                                  photoUrl={student?.profile_photo}
-                                  avatarUrl={student?.avatar_url}
-                                  initials={student?.first_name?.[0] ?? "?"}
-                                  size="sm"
-                                />
-                                <div className="min-w-0">
-                                  <p className="font-medium text-sm">
-                                    {student ? `${student.first_name} ${student.last_name}` : "Adult attendee"}
-                                  </p>
-                                  <div className="flex gap-1 mt-0.5">
-                                    {student?.is_self && <Badge variant="outline" className="text-[10px]">Adult</Badge>}
-                                    {student?.has_send && <Badge className="text-[10px] bg-amber-500 hover:bg-amber-600">SEND</Badge>}
-                                    {!student && <Badge variant="outline" className="text-[10px] text-muted-foreground">No profile</Badge>}
-                                  </div>
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-sm">{age != null ? `${age}y` : "—"}</TableCell>
-                            <TableCell className="text-center">
-                              {hasMedical ? (
-                                hasUrgent ? (
-                                  <span title="Urgent: EpiPen / Inhaler" className="inline-flex items-center gap-1 text-destructive">
-                                    <AlertTriangle className="w-4 h-4" />
+                            <PhotoAvatarDuo
+                              photoUrl={student?.profile_photo}
+                              avatarUrl={student?.avatar_url}
+                              initials={student?.first_name?.[0] ?? "?"}
+                              size="sm"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-sm truncate">
+                                {student ? `${student.first_name} ${student.last_name}` : "Adult attendee"}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-[11px] text-muted-foreground">
+                                {age != null && <span>{age}y</span>}
+                                {student?.is_self && <Badge variant="outline" className="text-[10px] px-2 py-0">Adult</Badge>}
+                                {student?.has_send && <Badge variant="warning" className="text-[10px] px-2 py-0">SEND</Badge>}
+                                {!student && <Badge variant="outline" className="text-[10px] px-2 py-0">No profile</Badge>}
+                                {hasMedical && (
+                                  hasUrgent ? (
+                                    <span title="Urgent: EpiPen / Inhaler" className="inline-flex items-center gap-1 text-destructive">
+                                      <AlertTriangle className="w-3.5 h-3.5" /> Medical
+                                    </span>
+                                  ) : (
+                                    <span title="Medical notes on file" className="inline-flex items-center gap-1 text-success">
+                                      <Check className="w-3.5 h-3.5" /> Medical
+                                    </span>
+                                  )
+                                )}
+                                {(att?.checked_in_at || att?.checked_out_at) && (
+                                  <span className="sm:hidden tabular-nums">
+                                    {att?.checked_in_at && <>In {fmt(att.checked_in_at)}</>}
+                                    {att?.checked_out_at && <> · Out {fmt(att.checked_out_at)}</>}
+                                    {att?.collector_name && <> · {att.collector_name}</>}
                                   </span>
-                                ) : (
-                                  <Check className="w-4 h-4 inline text-success" />
-                                )
-                              ) : (
-                                <span className="text-muted-foreground/50">—</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-xs tabular-nums">
+                                )}
+                              </div>
+                            </div>
+                            <div className="hidden sm:flex flex-col items-end text-xs tabular-nums shrink-0">
                               {att?.checked_in_at || att?.checked_out_at ? (
-                                <div className="flex flex-col gap-0.5">
+                                <>
                                   {att?.checked_in_at && <span className="text-foreground">In {fmt(att.checked_in_at)}</span>}
                                   {att?.checked_out_at && <span className="text-foreground">Out {fmt(att.checked_out_at)}</span>}
                                   {att?.collector_name && <span className="text-[11px] text-muted-foreground">{att.collector_name}</span>}
-                                </div>
+                                </>
                               ) : (
-                                <span className="opacity-50">—</span>
+                                <span className="text-muted-foreground/50">—</span>
                               )}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Badge className={status.badge}>{status.label}</Badge>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <FadeRise key={status.label} className="flex">
+                                <span className={`flex h-8 w-8 items-center justify-center rounded-full ${status.tint}`}>
+                                  <status.Icon className="w-4 h-4" />
+                                </span>
+                              </FadeRise>
+                              <Badge variant={status.variant} className="hidden sm:inline-flex">{status.label}</Badge>
+                            </div>
+                          </div>
+                        </PressScale>
+                      );
+                    })}
+                  </div>
                 )}
               </CardContent>
             </Card>
           ))}
-        </div>
+        </Stagger>
       )}
 
       <StudentProfileDrawer

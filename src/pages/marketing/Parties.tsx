@@ -16,6 +16,8 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -25,16 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import GrainOverlay from "@/components/immersive/GrainOverlay";
-import { Reveal } from "@/components/immersive/Reveal";
-import { Marquee } from "@/components/immersive/Marquee";
-import { useMagnetic } from "@/hooks/useMagnetic";
-
-const bodyStyle = {
-  textTransform: "none" as const,
-  letterSpacing: "normal",
-  fontFamily: "var(--font-body)",
-};
+import { FadeRise, Stagger, AmbientGlow } from "@/components/motion";
 
 type PartyPackage = {
   id: string;
@@ -48,26 +41,38 @@ type PartyPackage = {
   display_order: number;
 };
 
-// magenta-leaning tints to cycle through the package cards
-const CARD_TINTS = ["330 90% 55%", "300 80% 58%", "320 85% 56%", "280 75% 62%"];
+// token tints to cycle through the package cards (magenta-led, party energy)
+const CARD_TINTS = [
+  { tile: "bg-accent/10 text-accent", price: "text-accent" },
+  { tile: "bg-primary/10 text-primary", price: "text-primary" },
+];
+
+const PARTY_FEATURES = [
+  "Routines",
+  "Spotlight moments",
+  "Pro choreographers",
+  "Games & prizes",
+  "Big sound",
+  "Happy faces",
+];
 
 const HIGHLIGHTS = [
   {
     icon: Music2,
-    tint: "330 90% 55%",
-    title: "A Real Dance Party",
+    tile: "bg-primary/10 text-primary",
+    title: "A real dance party",
     copy: "Pro choreographers lead the room through high-energy routines to the music your dancer loves — no sitting around, all moving and grinning.",
   },
   {
     icon: Cake,
-    tint: "300 80% 58%",
-    title: "The Birthday Star",
+    tile: "bg-accent/10 text-accent",
+    title: "The birthday star",
     copy: "The birthday child takes centre stage with their own spotlight moment, a routine to show off and a room full of friends cheering them on.",
   },
   {
     icon: Sparkles,
-    tint: "320 85% 56%",
-    title: "We Bring the Magic",
+    tile: "bg-warning/10 text-warning",
+    title: "We bring the magic",
     copy: "Lights, sound, games and good vibes — our crew handles the lot so the grown-ups can relax and enjoy the show.",
   },
 ];
@@ -89,7 +94,6 @@ const emptyForm = {
 const NO_PACKAGE = "none";
 
 const Parties = () => {
-  const magPrimary = useMagnetic<HTMLDivElement>(0.22);
   const [form, setForm] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
 
@@ -145,324 +149,214 @@ const Parties = () => {
 
   return (
     <div className="bg-background text-foreground overflow-x-clip">
-      {/* ───────────────── HERO ───────────────── */}
-      <section className="relative min-h-[68vh] flex flex-col items-center justify-center text-center px-4 py-24 overflow-hidden">
-        <div className="absolute inset-0 stage-light-mag opacity-80" />
-        <div className="absolute inset-0 bg-[radial-gradient(120%_90%_at_50%_-10%,transparent,hsl(220_20%_4%)_75%)]" />
-        <GrainOverlay />
-
-        <span
-          aria-hidden
-          className="pointer-events-none select-none absolute inset-x-0 top-[16%] text-center font-display font-bold text-[24vw] leading-none text-stroke-faint tracking-tighter"
-        >
-          PARTY
-        </span>
-
-        <div className="relative z-10 max-w-3xl">
-          <Reveal>
-            <p className="text-primary uppercase tracking-[0.3em] text-xs font-semibold mb-5">
-              Birthday Parties · Essex
-            </p>
-          </Reveal>
-          <Reveal delay={100}>
-            <h1 className="font-display font-bold leading-[0.92] tracking-tight text-[16vw] sm:text-7xl md:text-8xl">
-              <span className="block">Dance-Floor</span>
-              <span
-                className="block drop-shadow-[0_0_40px_hsl(330_90%_55%/0.4)]"
-                style={{ color: "hsl(330,90%,55%)" }}
-              >
-                Birthdays
-              </span>
+      {/* ───────────────── Hero ───────────────── */}
+      <section className="relative overflow-hidden px-4 pt-24 pb-16 md:pt-32 md:pb-20">
+        <AmbientGlow variant="duo" />
+        <div className="relative container max-w-7xl text-center">
+          <FadeRise>
+            <p className="eyebrow mb-5">Birthday parties · Essex</p>
+            <h1 className="font-display text-5xl font-extrabold tracking-tight md:text-7xl">
+              Dance-floor{" "}
+              <em className="font-serif italic font-normal text-accent">birthdays</em>
             </h1>
-          </Reveal>
-          <Reveal delay={200}>
-            <p
-              className="mt-7 text-base md:text-xl text-muted-foreground max-w-xl mx-auto leading-relaxed"
-              style={bodyStyle}
-            >
+            <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-muted-foreground md:text-xl">
               The most unforgettable birthday in town. We turn the studio into your
               dancer's own pop video — lights, music, games and a whole crew of
               friends learning routines together. You just bring the cake.
             </p>
-          </Reveal>
-          <Reveal delay={300}>
-            <div className="mt-9 flex flex-col sm:flex-row gap-4 justify-center">
-              <div ref={magPrimary} className="inline-block will-change-transform">
-                <Button
-                  asChild
-                  size="lg"
-                  className="px-9 py-6 text-base font-semibold uppercase tracking-wider animate-glow-pulse"
-                >
-                  <a href="#enquire">
-                    <PartyPopper className="w-4 h-4 mr-2" /> Enquire Now
-                  </a>
-                </Button>
-              </div>
-              <Button
-                asChild
-                size="lg"
-                variant="outline"
-                className="px-9 py-6 text-base font-semibold uppercase tracking-wider border-accent/40 text-foreground hover:bg-accent/10"
-              >
+          </FadeRise>
+          <FadeRise delay={140}>
+            <div className="mt-9 flex flex-col justify-center gap-4 sm:flex-row">
+              <Button asChild size="lg">
+                <a href="#enquire">
+                  <PartyPopper className="mr-2 h-4 w-4" /> Enquire now
+                </a>
+              </Button>
+              <Button asChild size="lg" variant="outline">
                 <a href="#packages">
-                  See Packages <ArrowRight className="w-4 h-4 ml-2" />
+                  See packages <ArrowRight className="ml-2 h-4 w-4" />
                 </a>
               </Button>
             </div>
-          </Reveal>
-        </div>
-
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-10">
-          <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground/60">
-            Let's Party
-          </span>
-          <div className="w-5 h-8 rounded-full border border-muted-foreground/30 flex justify-center pt-1.5">
-            <span className="w-1 h-1.5 rounded-full bg-primary animate-scroll-cue" />
-          </div>
+          </FadeRise>
+          <FadeRise delay={220}>
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
+              {PARTY_FEATURES.map((label) => (
+                <span
+                  key={label}
+                  className="rounded-full bg-secondary px-4 py-1.5 text-sm font-medium text-secondary-foreground"
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+          </FadeRise>
         </div>
       </section>
 
-      {/* ───────────────── MARQUEE ───────────────── */}
-      <div className="relative py-5 border-y border-border/60 bg-card/30">
-        <Marquee
-          items={[
-            "Routines",
-            "Spotlight Moments",
-            "Pro Choreographers",
-            "Games & Prizes",
-            "Big Sound",
-            "Happy Faces",
-          ]}
-          speed={38}
-          accent="text-accent"
-        />
-      </div>
-
-      {/* ───────────────── HIGHLIGHTS ───────────────── */}
-      <section className="relative py-24 px-4 overflow-hidden">
-        <div className="absolute inset-0 stage-light-duo opacity-60" />
-        <GrainOverlay />
-        <div className="relative container">
-          <Reveal className="text-center max-w-2xl mx-auto mb-16">
-            <p className="text-accent uppercase tracking-[0.3em] text-xs font-semibold mb-3">
-              Why Our Parties Hit Different
-            </p>
-            <h2 className="font-display font-bold text-4xl md:text-6xl">
-              Two Hours They'll Never Forget
+      {/* ───────────────── Highlights ───────────────── */}
+      <section className="px-4 py-16 md:py-24">
+        <div className="container max-w-7xl">
+          <FadeRise className="mx-auto mb-12 max-w-2xl text-center md:mb-16">
+            <p className="eyebrow mb-3">Why our parties hit different</p>
+            <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
+              Two hours they'll never forget
             </h2>
-            <p className="mt-4 text-muted-foreground" style={bodyStyle}>
+            <p className="mt-4 text-muted-foreground">
               Forget bouncy castles and soft play. We give your dancer a proper
               performance experience with their friends — the kind of party people
               talk about for the rest of the school year.
             </p>
-          </Reveal>
+          </FadeRise>
 
-          <div className="grid sm:grid-cols-3 gap-5">
-            {HIGHLIGHTS.map((h, i) => {
+          <Stagger className="grid gap-4 sm:grid-cols-3 md:gap-5" childClassName="h-full">
+            {HIGHLIGHTS.map((h) => {
               const Icon = h.icon;
               return (
-                <Reveal key={h.title} delay={i * 110}>
+                <Card
+                  key={h.title}
+                  className="h-full p-7 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg"
+                >
                   <div
-                    className="group relative h-full rounded-2xl border p-7 bg-card/60 backdrop-blur-sm transition-all duration-500 hover:-translate-y-1.5 overflow-hidden"
-                    style={{ borderColor: `hsl(${h.tint} / 0.35)` }}
+                    className={`flex h-12 w-12 items-center justify-center rounded-2xl ${h.tile}`}
                   >
-                    <div
-                      className="absolute -top-16 -right-16 w-40 h-40 rounded-full blur-2xl opacity-40 transition-opacity duration-500 group-hover:opacity-70"
-                      style={{ background: `hsl(${h.tint} / 0.5)` }}
-                    />
-                    <div className="relative">
-                      <div
-                        className="w-12 h-12 rounded-xl flex items-center justify-center border"
-                        style={{
-                          borderColor: `hsl(${h.tint} / 0.5)`,
-                          background: `hsl(${h.tint} / 0.12)`,
-                        }}
-                      >
-                        <Icon className="w-6 h-6" style={{ color: `hsl(${h.tint})` }} />
-                      </div>
-                      <h3 className="mt-4 font-display text-2xl">{h.title}</h3>
-                      <p className="mt-3 text-sm text-muted-foreground" style={bodyStyle}>
-                        {h.copy}
-                      </p>
-                    </div>
+                    <Icon className="h-6 w-6" />
                   </div>
-                </Reveal>
+                  <h3 className="mt-4 font-display text-xl font-bold tracking-tight">
+                    {h.title}
+                  </h3>
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                    {h.copy}
+                  </p>
+                </Card>
               );
             })}
-          </div>
+          </Stagger>
         </div>
       </section>
 
-      {/* ───────────────── PACKAGES ───────────────── */}
-      <section id="packages" className="relative py-24 px-4 overflow-hidden scroll-mt-24">
-        <div
-          className="absolute inset-0 opacity-90"
-          style={{
-            background:
-              "linear-gradient(180deg, hsl(220 20% 4%), hsl(220 22% 6%)), radial-gradient(80% 60% at 100% 0%, hsl(330 90% 55% / 0.12), transparent 60%), radial-gradient(80% 60% at 0% 100%, hsl(300 80% 58% / 0.12), transparent 60%)",
-          }}
-        />
-        <GrainOverlay />
-        <div className="relative container">
-          <Reveal className="text-center max-w-2xl mx-auto mb-16">
-            <p className="text-primary uppercase tracking-[0.3em] text-xs font-semibold mb-3">
-              The Packages
-            </p>
-            <h2 className="font-display font-bold text-4xl md:text-6xl">
-              Pick Your Party
+      {/* ───────────────── Packages ───────────────── */}
+      <section id="packages" className="scroll-mt-24 bg-secondary/40 px-4 py-16 md:py-24">
+        <div className="container max-w-7xl">
+          <FadeRise className="mx-auto mb-12 max-w-2xl text-center md:mb-16">
+            <p className="eyebrow mb-3">The packages</p>
+            <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
+              Pick your party
             </h2>
-            <p className="mt-4 text-muted-foreground" style={bodyStyle}>
+            <p className="mt-4 text-muted-foreground">
               Every package is fully hosted by our team. Choose your length, tell us a
               little about your dancer, and we'll build the perfect celebration around
               them.
             </p>
-          </Reveal>
+          </FadeRise>
 
           {isLoading ? (
-            <p className="text-center text-muted-foreground" style={bodyStyle}>
-              Loading packages…
-            </p>
+            <p className="text-center text-muted-foreground">Loading packages…</p>
           ) : packages.length === 0 ? (
-            <Reveal>
-              <div className="max-w-xl mx-auto text-center rounded-2xl border border-dashed border-primary/30 bg-card/40 backdrop-blur-sm p-10">
-                <PartyPopper className="w-10 h-10 mx-auto text-primary" />
-                <h3 className="mt-4 font-display text-2xl">Packages Coming Soon</h3>
-                <p className="mt-2 text-muted-foreground" style={bodyStyle}>
+            <FadeRise>
+              <Card className="mx-auto max-w-xl p-10 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent">
+                  <PartyPopper className="h-6 w-6" />
+                </div>
+                <h3 className="mt-4 font-display text-2xl font-bold tracking-tight">
+                  Packages coming soon
+                </h3>
+                <p className="mt-2 text-muted-foreground">
                   We're finalising our party packages right now. Send us an enquiry
                   below and we'll talk you through everything we can put on for your
                   dancer.
                 </p>
-                <Button asChild className="mt-6 font-semibold uppercase tracking-wider">
-                  <a href="#enquire">Enquire Now</a>
+                <Button asChild className="mt-6">
+                  <a href="#enquire">Enquire now</a>
                 </Button>
-              </div>
-            </Reveal>
+              </Card>
+            </FadeRise>
           ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid gap-4 sm:grid-cols-2 md:gap-5 lg:grid-cols-3">
               {packages.map((pkg, i) => {
                 const tint = CARD_TINTS[i % CARD_TINTS.length];
                 return (
-                  <Reveal key={pkg.id} delay={i * 90}>
-                    <article
-                      className="group relative h-full flex flex-col rounded-2xl border bg-card/60 backdrop-blur-sm overflow-hidden transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl"
-                      style={{ borderColor: `hsl(${tint} / 0.35)` }}
-                    >
-                      {/* decorative header band */}
-                      <div className="relative h-28 overflow-hidden">
+                  <FadeRise key={pkg.id} delay={i * 90} className="h-full">
+                    <Card className="flex h-full flex-col p-6 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg md:p-7">
+                      <div className="flex items-start justify-between gap-3">
                         <div
-                          className="absolute inset-0 transition-transform duration-700 group-hover:scale-105"
-                          style={{
-                            background: `radial-gradient(120% 120% at 20% 0%, hsl(${tint} / 0.5), transparent 60%), linear-gradient(155deg, hsl(220 24% 9%), hsl(220 28% 5%))`,
-                          }}
-                        />
-                        <GrainOverlay />
-                        <span
-                          aria-hidden
-                          className="pointer-events-none select-none absolute -bottom-5 right-3 font-display font-bold text-[5.5rem] leading-none text-stroke-faint tracking-tighter opacity-70"
+                          className={`flex h-12 w-12 items-center justify-center rounded-2xl ${tint.tile}`}
                         >
-                          {pkg.name.charAt(0)}
-                        </span>
-                        <div className="relative h-full flex items-center px-6">
-                          <div
-                            className="w-12 h-12 rounded-full flex items-center justify-center border"
-                            style={{
-                              borderColor: `hsl(${tint} / 0.5)`,
-                              background: `hsl(${tint} / 0.14)`,
-                            }}
-                          >
-                            <Gift className="w-6 h-6" style={{ color: `hsl(${tint})` }} />
+                          <Gift className="h-6 w-6" />
+                        </div>
+                        <Badge variant="accent" className="gap-1">
+                          <Star className="h-3 w-3" fill="currentColor" />
+                          Fully hosted
+                        </Badge>
+                      </div>
+
+                      <h3 className="mt-4 font-display text-2xl font-bold leading-tight tracking-tight">
+                        {pkg.name}
+                      </h3>
+                      {pkg.description && (
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          {pkg.description}
+                        </p>
+                      )}
+
+                      {/* pricing */}
+                      <div className="mt-5 flex flex-wrap gap-6">
+                        {pkg.price_1hr != null && (
+                          <div>
+                            <p
+                              className={`font-display text-3xl font-bold tabular-nums ${tint.price}`}
+                            >
+                              £{pkg.price_1hr}
+                            </p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              1 hour
+                            </p>
                           </div>
-                        </div>
-                        <div className="absolute top-3 right-3 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-background/70 backdrop-blur-sm border border-border text-[10px] uppercase tracking-[0.18em] text-foreground/80">
-                          <Star className="w-3 h-3 text-accent" fill="currentColor" />
-                          Fully Hosted
-                        </div>
+                        )}
+                        {pkg.price_1_5hr != null && (
+                          <div>
+                            <p
+                              className={`font-display text-3xl font-bold tabular-nums ${tint.price}`}
+                            >
+                              £{pkg.price_1_5hr}
+                            </p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              1.5 hours
+                            </p>
+                          </div>
+                        )}
                       </div>
 
-                      {/* body */}
-                      <div className="relative flex flex-col flex-1 p-6">
-                        <h3 className="font-display text-2xl leading-tight">{pkg.name}</h3>
-                        {pkg.description && (
-                          <p className="mt-2 text-sm text-muted-foreground" style={bodyStyle}>
-                            {pkg.description}
-                          </p>
-                        )}
+                      {/* included */}
+                      {pkg.included_items.length > 0 && (
+                        <ul className="mt-5 space-y-2">
+                          {pkg.included_items.map((item, idx) => (
+                            <li
+                              key={idx}
+                              className="flex items-start gap-2 text-sm text-muted-foreground"
+                            >
+                              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
 
-                        {/* pricing */}
-                        <div className="mt-5 flex flex-wrap gap-4">
-                          {pkg.price_1hr != null && (
-                            <div>
-                              <p
-                                className="font-display font-bold text-3xl"
-                                style={{ color: `hsl(${tint})` }}
-                              >
-                                £{pkg.price_1hr}
-                              </p>
-                              <p
-                                className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground"
-                              >
-                                1 hour
-                              </p>
-                            </div>
-                          )}
-                          {pkg.price_1_5hr != null && (
-                            <div>
-                              <p
-                                className="font-display font-bold text-3xl"
-                                style={{ color: `hsl(${tint})` }}
-                              >
-                                £{pkg.price_1_5hr}
-                              </p>
-                              <p
-                                className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground"
-                              >
-                                1.5 hours
-                              </p>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* included */}
-                        {pkg.included_items.length > 0 && (
-                          <ul className="mt-5 space-y-2">
-                            {pkg.included_items.map((item, idx) => (
-                              <li
-                                key={idx}
-                                className="flex items-start gap-2 text-sm text-muted-foreground"
-                                style={bodyStyle}
-                              >
-                                <CheckCircle2
-                                  className="w-4 h-4 mt-0.5 shrink-0"
-                                  style={{ color: `hsl(${tint})` }}
-                                />
-                                {item}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-
-                        <div className="mt-auto pt-6">
-                          <p
-                            className="flex items-center gap-2 text-[11px] uppercase tracking-[0.15em] text-muted-foreground/80"
-                          >
-                            <Users className="w-3.5 h-3.5" />
-                            Up to {pkg.max_guests} dancers
-                            {pkg.extra_guest_price > 0 &&
-                              ` · £${pkg.extra_guest_price} per extra`}
-                          </p>
-                          <Button
-                            asChild
-                            className="mt-4 w-full font-semibold uppercase tracking-wider"
-                            style={{ background: `hsl(${tint})`, color: "hsl(220 20% 6%)" }}
-                          >
-                            <a href="#enquire">
-                              Enquire <ArrowRight className="w-4 h-4 ml-2" />
-                            </a>
-                          </Button>
-                        </div>
+                      <div className="mt-auto pt-6">
+                        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Users className="h-3.5 w-3.5" />
+                          Up to {pkg.max_guests} dancers
+                          {pkg.extra_guest_price > 0 &&
+                            ` · £${pkg.extra_guest_price} per extra`}
+                        </p>
+                        <Button asChild className="mt-4 w-full">
+                          <a href="#enquire">
+                            Enquire <ArrowRight className="ml-2 h-4 w-4" />
+                          </a>
+                        </Button>
                       </div>
-                    </article>
-                  </Reveal>
+                    </Card>
+                  </FadeRise>
                 );
               })}
             </div>
@@ -470,34 +364,27 @@ const Parties = () => {
         </div>
       </section>
 
-      {/* ───────────────── ENQUIRY FORM ───────────────── */}
-      <section id="enquire" className="relative py-24 px-4 overflow-hidden scroll-mt-24">
-        <div className="absolute inset-0 stage-light-mag opacity-60" />
-        <GrainOverlay />
+      {/* ───────────────── Enquiry form ───────────────── */}
+      <section id="enquire" className="relative scroll-mt-24 overflow-hidden px-4 py-16 md:py-24">
+        <AmbientGlow variant="light" />
         <div className="relative container max-w-3xl">
-          <Reveal className="text-center mb-12">
-            <p className="text-accent uppercase tracking-[0.3em] text-xs font-semibold mb-3">
-              Start the Party
-            </p>
-            <h2 className="font-display font-bold text-4xl md:text-6xl">
-              Send Us an Enquiry
+          <FadeRise className="mb-10 text-center md:mb-12">
+            <p className="eyebrow mb-3">Start the party</p>
+            <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">
+              Send us an enquiry
             </h2>
-            <p className="mt-4 text-muted-foreground" style={bodyStyle}>
+            <p className="mt-4 text-muted-foreground">
               Tell us a little about your dancer and the day you have in mind. A real
               human from the crew will get back to you — usually the same day.
             </p>
-          </Reveal>
+          </FadeRise>
 
-          <Reveal delay={120}>
-            <div className="relative rounded-3xl border border-border bg-card/60 backdrop-blur-sm p-7 md:p-10 overflow-hidden">
-              <div className="absolute -top-24 -right-24 h-56 w-56 rounded-full bg-accent/10 blur-3xl pointer-events-none" />
-              <form onSubmit={handleSubmit} className="relative space-y-5">
-                <div className="grid sm:grid-cols-2 gap-5">
+          <FadeRise delay={120}>
+            <Card className="p-6 md:p-10">
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="grid gap-5 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <label
-                      htmlFor="party-parent"
-                      className="block text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"
-                    >
+                    <label htmlFor="party-parent" className="block text-sm font-medium">
                       Your name
                     </label>
                     <Input
@@ -506,15 +393,10 @@ const Parties = () => {
                       onChange={(e) => set("parent_name", e.target.value)}
                       placeholder="Jordan Smith"
                       required
-                      className="h-12 bg-background/60"
-                      style={bodyStyle}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label
-                      htmlFor="party-email"
-                      className="block text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"
-                    >
+                    <label htmlFor="party-email" className="block text-sm font-medium">
                       Email
                     </label>
                     <Input
@@ -524,18 +406,13 @@ const Parties = () => {
                       onChange={(e) => set("email", e.target.value)}
                       placeholder="you@email.com"
                       required
-                      className="h-12 bg-background/60"
-                      style={bodyStyle}
                     />
                   </div>
                 </div>
 
-                <div className="grid sm:grid-cols-2 gap-5">
+                <div className="grid gap-5 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <label
-                      htmlFor="party-phone"
-                      className="block text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"
-                    >
+                    <label htmlFor="party-phone" className="block text-sm font-medium">
                       Phone
                     </label>
                     <Input
@@ -544,22 +421,17 @@ const Parties = () => {
                       value={form.phone}
                       onChange={(e) => set("phone", e.target.value)}
                       placeholder="07123 456789"
-                      className="h-12 bg-background/60"
-                      style={bodyStyle}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label
-                      htmlFor="party-package"
-                      className="block text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"
-                    >
+                    <label htmlFor="party-package" className="block text-sm font-medium">
                       Package
                     </label>
                     <Select
                       value={form.party_package_id || NO_PACKAGE}
                       onValueChange={(v) => set("party_package_id", v)}
                     >
-                      <SelectTrigger id="party-package" className="h-12 bg-background/60" style={bodyStyle}>
+                      <SelectTrigger id="party-package">
                         <SelectValue placeholder="Not sure yet" />
                       </SelectTrigger>
                       <SelectContent>
@@ -574,11 +446,11 @@ const Parties = () => {
                   </div>
                 </div>
 
-                <div className="grid sm:grid-cols-2 gap-5">
+                <div className="grid gap-5 sm:grid-cols-2">
                   <div className="space-y-2">
                     <label
                       htmlFor="party-child-name"
-                      className="block text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"
+                      className="block text-sm font-medium"
                     >
                       Birthday child's name
                     </label>
@@ -588,14 +460,12 @@ const Parties = () => {
                       onChange={(e) => set("birthday_child_name", e.target.value)}
                       placeholder="Ava"
                       required
-                      className="h-12 bg-background/60"
-                      style={bodyStyle}
                     />
                   </div>
                   <div className="space-y-2">
                     <label
                       htmlFor="party-child-age"
-                      className="block text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"
+                      className="block text-sm font-medium"
                     >
                       Turning age
                     </label>
@@ -607,18 +477,13 @@ const Parties = () => {
                       value={form.birthday_child_age}
                       onChange={(e) => set("birthday_child_age", e.target.value)}
                       placeholder="8"
-                      className="h-12 bg-background/60"
-                      style={bodyStyle}
                     />
                   </div>
                 </div>
 
-                <div className="grid sm:grid-cols-3 gap-5">
+                <div className="grid gap-5 sm:grid-cols-3">
                   <div className="space-y-2">
-                    <label
-                      htmlFor="party-date"
-                      className="block text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"
-                    >
+                    <label htmlFor="party-date" className="block text-sm font-medium">
                       Preferred date
                     </label>
                     <Input
@@ -626,15 +491,10 @@ const Parties = () => {
                       type="date"
                       value={form.preferred_date}
                       onChange={(e) => set("preferred_date", e.target.value)}
-                      className="h-12 bg-background/60"
-                      style={bodyStyle}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label
-                      htmlFor="party-time"
-                      className="block text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"
-                    >
+                    <label htmlFor="party-time" className="block text-sm font-medium">
                       Preferred time
                     </label>
                     <Input
@@ -642,15 +502,10 @@ const Parties = () => {
                       type="time"
                       value={form.preferred_time}
                       onChange={(e) => set("preferred_time", e.target.value)}
-                      className="h-12 bg-background/60"
-                      style={bodyStyle}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label
-                      htmlFor="party-guests"
-                      className="block text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"
-                    >
+                    <label htmlFor="party-guests" className="block text-sm font-medium">
                       Number of children
                     </label>
                     <Input
@@ -660,17 +515,12 @@ const Parties = () => {
                       value={form.guest_count}
                       onChange={(e) => set("guest_count", e.target.value)}
                       placeholder="15"
-                      className="h-12 bg-background/60"
-                      style={bodyStyle}
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label
-                    htmlFor="party-venue"
-                    className="block text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"
-                  >
+                  <label htmlFor="party-venue" className="block text-sm font-medium">
                     Preferred venue / area
                   </label>
                   <Input
@@ -678,16 +528,11 @@ const Parties = () => {
                     value={form.venue_preference}
                     onChange={(e) => set("venue_preference", e.target.value)}
                     placeholder="Kelvedon, Braintree, Chelmsford…"
-                    className="h-12 bg-background/60"
-                    style={bodyStyle}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label
-                    htmlFor="party-notes"
-                    className="block text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground"
-                  >
+                  <label htmlFor="party-notes" className="block text-sm font-medium">
                     Anything else?
                   </label>
                   <Textarea
@@ -696,8 +541,7 @@ const Parties = () => {
                     onChange={(e) => set("notes", e.target.value)}
                     placeholder="Favourite music, dance styles, special requests…"
                     rows={5}
-                    className="bg-background/60 resize-none"
-                    style={bodyStyle}
+                    className="resize-none"
                   />
                 </div>
 
@@ -705,20 +549,20 @@ const Parties = () => {
                   type="submit"
                   size="lg"
                   disabled={submitting}
-                  className="w-full sm:w-auto px-8 py-6 text-base font-semibold uppercase tracking-wider"
+                  className="w-full sm:w-auto"
                 >
-                  {submitting ? "Sending…" : "Send Enquiry"}
+                  {submitting ? "Sending…" : "Send enquiry"}
                   <Send className="ml-2 h-4 w-4" />
                 </Button>
 
-                <p className="flex items-center gap-2 text-xs text-muted-foreground pt-1" style={bodyStyle}>
+                <p className="flex items-center gap-2 pt-1 text-xs text-muted-foreground">
                   <Clock className="h-3.5 w-3.5 text-accent" />
                   No payment needed now — this is just an enquiry. We'll reply within 24
                   hours to confirm availability.
                 </p>
               </form>
-            </div>
-          </Reveal>
+            </Card>
+          </FadeRise>
         </div>
       </section>
     </div>

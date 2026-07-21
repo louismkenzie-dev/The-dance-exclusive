@@ -196,7 +196,7 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] p-0 flex flex-col gap-0 overflow-hidden">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border shrink-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50 shrink-0">
           <DialogTitle>{coupon ? "Edit coupon" : "New coupon"}</DialogTitle>
           <DialogDescription>
             Create a discount code customers can apply at checkout.
@@ -211,7 +211,7 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
                 value={code}
                 onChange={(e) => setCode(e.target.value.toUpperCase())}
                 placeholder="SUMMER25"
-                className="uppercase font-mono"
+                className="font-mono"
               />
               <Button type="button" variant="outline" onClick={handleGenerate}>
                 <Sparkles className="h-4 w-4 mr-1.5" /> Generate
@@ -274,7 +274,7 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
                     className="p-3 pointer-events-auto"
                   />
                   {validFrom && (
-                    <div className="p-2 border-t"><Button variant="ghost" size="sm" onClick={() => setValidFrom(undefined)}>Clear</Button></div>
+                    <div className="p-2 border-t border-border/50"><Button variant="ghost" size="sm" onClick={() => setValidFrom(undefined)}>Clear</Button></div>
                   )}
                 </PopoverContent>
               </Popover>
@@ -300,7 +300,7 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
                     className="p-3 pointer-events-auto"
                   />
                   {validUntil && (
-                    <div className="p-2 border-t"><Button variant="ghost" size="sm" onClick={() => setValidUntil(undefined)}>Clear</Button></div>
+                    <div className="p-2 border-t border-border/50"><Button variant="ghost" size="sm" onClick={() => setValidUntil(undefined)}>Clear</Button></div>
                   )}
                 </PopoverContent>
               </Popover>
@@ -330,11 +330,11 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
             </div>
           </div>
 
-          <div className="space-y-3 rounded-lg border border-border p-4">
+          <div className="space-y-3 rounded-2xl bg-secondary/40 p-4">
             <p className="text-sm font-semibold">Targeting <span className="text-muted-foreground font-normal">(leave empty to apply to everything)</span></p>
 
             <div className="grid gap-2">
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Class types</Label>
+              <p className="eyebrow">Class types</p>
               <div className="flex flex-wrap gap-3">
                 {ALL_CLASS_TYPES.map((t) => (
                   <label key={t} className="flex items-center gap-2 cursor-pointer">
@@ -346,7 +346,7 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
             </div>
 
             <div className="grid gap-2">
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Pricing plans</Label>
+              <p className="eyebrow">Pricing plans</p>
               <div className="flex flex-wrap gap-3">
                 {ALL_PLANS.map((p) => (
                   <label key={p} className="flex items-center gap-2 cursor-pointer">
@@ -358,13 +358,13 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
             </div>
 
             <div className="grid gap-2">
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Specific classes (optional)</Label>
-              <div className="max-h-40 overflow-y-auto border border-border rounded-md p-2 space-y-1">
+              <p className="eyebrow">Specific classes (optional)</p>
+              <div className="max-h-40 overflow-y-auto rounded-xl bg-card p-2 space-y-1 shadow-soft">
                 {classOptions.length === 0 && (
                   <p className="text-xs text-muted-foreground p-2">No classes available</p>
                 )}
                 {classOptions.map((c) => (
-                  <label key={c.id} className="flex items-center gap-2 cursor-pointer hover:bg-muted/40 rounded px-2 py-1">
+                  <label key={c.id} className="flex items-center gap-2 cursor-pointer hover:bg-secondary/60 rounded-lg px-2 py-1.5 transition-colors">
                     <Checkbox checked={classIds.includes(c.id)} onCheckedChange={() => toggle(classIds, c.id, setClassIds)} />
                     <span className="text-sm">{c.name}</span>
                   </label>
@@ -373,7 +373,7 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
             </div>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg border border-border p-4">
+          <div className="flex items-center justify-between rounded-2xl bg-secondary/40 p-4">
             <div>
               <p className="text-sm font-medium">Active</p>
               <p className="text-xs text-muted-foreground">Inactive coupons cannot be redeemed</p>
@@ -382,7 +382,7 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
           </div>
         </div>
 
-        <DialogFooter className="px-6 py-4 border-t border-border bg-background shrink-0">
+        <DialogFooter className="px-6 py-4 border-t border-border/50 bg-card/95 backdrop-blur shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
           <Button onClick={handleSubmit} disabled={submitting}>
             {submitting && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FadeRise } from "@/components/motion";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import {
@@ -201,254 +202,270 @@ const SettingsCompany = () => {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link to="/admin/settings">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-2xl font-display font-bold flex items-center gap-2">
-              <Building2 className="h-6 w-6" />
-              Company Information
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">Branding, business details, and contact information</p>
+    <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6">
+      <FadeRise>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Link to="/admin/settings">
+              <Button variant="ghost" size="icon" className="h-9 w-9">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">Company information</h1>
+              <p className="text-muted-foreground mt-1">Branding, business details, and contact information</p>
+            </div>
           </div>
+          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} size="lg">
+            {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Save all settings
+          </Button>
         </div>
-        <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} size="lg">
-          {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Save All Settings
-        </Button>
-      </div>
+      </FadeRise>
 
       {/* Branding Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Palette className="h-5 w-5" />
-            Branding
-          </CardTitle>
-          <CardDescription>Configure your business name, logo, and brand colours</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="businessName">Business Name</Label>
-            <Input id="businessName" value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="The Dance Exclusive" />
-          </div>
-
-          {/* Logo */}
-          <div className="space-y-2">
-            <Label>Business Logo</Label>
-            <div className="flex items-center gap-4">
-              <div className="h-20 w-20 rounded-lg border bg-muted flex items-center justify-center overflow-hidden">
-                {logoUrl ? (
-                  <img src={logoUrl} alt="Logo" className="h-full w-full object-contain" />
-                ) : (
-                  <div className="text-xs text-muted-foreground">No logo</div>
-                )}
+      <FadeRise>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+                <Palette className="h-5 w-5" />
               </div>
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" className="relative" disabled={uploading}>
-                    {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                    Upload Logo
-                    <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0], "logo", setLogoUrl, setUploading)} className="absolute inset-0 cursor-pointer opacity-0" disabled={uploading} />
-                  </Button>
-                  {logoUrl && <Button variant="ghost" size="sm" onClick={() => setLogoUrl("")}><X className="h-4 w-4" /></Button>}
-                </div>
-                <p className="text-xs text-muted-foreground">PNG or SVG, max 5MB</p>
+              <div>
+                <CardTitle>Branding</CardTitle>
+                <CardDescription>Configure your business name, logo, and brand colours</CardDescription>
               </div>
             </div>
-          </div>
-
-          {/* Favicon */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2"><Globe className="h-4 w-4" />Website Favicon</Label>
-            <div className="flex items-center gap-4">
-              <div className="h-16 w-16 rounded-lg border bg-muted flex items-center justify-center overflow-hidden">
-                {faviconUrl ? (
-                  <img src={faviconUrl} alt="Favicon" className="h-full w-full object-contain p-2" />
-                ) : (
-                  <div className="text-[10px] text-muted-foreground">No icon</div>
-                )}
-              </div>
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" className="relative" disabled={uploadingFavicon}>
-                    {uploadingFavicon ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                    Upload Favicon
-                    <input type="file" accept=".png,.svg,image/png,image/svg+xml" onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0], "favicon", setFaviconUrl, setUploadingFavicon, 1)} className="absolute inset-0 cursor-pointer opacity-0" disabled={uploadingFavicon} />
-                  </Button>
-                  {faviconUrl && <Button variant="ghost" size="sm" onClick={() => setFaviconUrl("")}><X className="h-4 w-4" /></Button>}
-                </div>
-                <p className="text-xs text-muted-foreground">PNG or SVG, recommended 32×32 or 64×64px</p>
-              </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="businessName">Business name</Label>
+              <Input id="businessName" value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="The Dance Exclusive" />
             </div>
-          </div>
 
-          {/* Brand Colours */}
-          <div className="grid gap-4 sm:grid-cols-3">
-            {[
-              { label: "Primary Colour", value: primaryColor, set: setPrimaryColor },
-              { label: "Secondary Colour", value: secondaryColor, set: setSecondaryColor },
-              { label: "Accent Colour", value: accentColor, set: setAccentColor },
-            ].map(({ label, value, set }) => (
-              <div key={label} className="space-y-2">
-                <Label className="flex items-center gap-2"><Palette className="h-4 w-4" />{label}</Label>
-                <div className="flex items-center gap-2">
-                  <div className="h-10 w-10 rounded-md border cursor-pointer shrink-0" style={{ backgroundColor: value }}>
-                    <input type="color" value={value} onChange={(e) => set(e.target.value)} className="h-full w-full cursor-pointer opacity-0" />
+            {/* Logo */}
+            <div className="space-y-2">
+              <Label>Business logo</Label>
+              <div className="flex items-center gap-4">
+                <div className="h-20 w-20 rounded-2xl bg-secondary/60 flex items-center justify-center overflow-hidden">
+                  {logoUrl ? (
+                    <img src={logoUrl} alt="Logo" className="h-full w-full object-contain" />
+                  ) : (
+                    <div className="text-xs text-muted-foreground">No logo</div>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" className="relative" disabled={uploading}>
+                      {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                      Upload logo
+                      <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0], "logo", setLogoUrl, setUploading)} className="absolute inset-0 cursor-pointer opacity-0" disabled={uploading} />
+                    </Button>
+                    {logoUrl && <Button variant="ghost" size="sm" onClick={() => setLogoUrl("")}><X className="h-4 w-4" /></Button>}
                   </div>
-                  <Input value={value} onChange={(e) => set(e.target.value)} className="font-mono" />
+                  <p className="text-xs text-muted-foreground">PNG or SVG, max 5MB</p>
                 </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Preview */}
-          <div className="space-y-2">
-            <Label>Preview</Label>
-            <div className="rounded-lg border p-4 space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded overflow-hidden bg-muted flex items-center justify-center">
-                  {logoUrl ? <img src={logoUrl} alt="Preview" className="h-full w-full object-contain" /> : <span className="text-xs text-muted-foreground">Logo</span>}
-                </div>
-                <span className="font-semibold text-lg">{businessName || "Your Business Name"}</span>
-              </div>
-              <div className="flex gap-2">
-                <div className="rounded px-4 py-2 text-white text-sm font-medium" style={{ backgroundColor: primaryColor }}>Primary</div>
-                <div className="rounded px-4 py-2 text-white text-sm font-medium" style={{ backgroundColor: secondaryColor }}>Secondary</div>
-                <div className="rounded px-4 py-2 text-white text-sm font-medium" style={{ backgroundColor: accentColor }}>Accent</div>
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+
+            {/* Favicon */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2"><Globe className="h-4 w-4" />Website favicon</Label>
+              <div className="flex items-center gap-4">
+                <div className="h-16 w-16 rounded-2xl bg-secondary/60 flex items-center justify-center overflow-hidden">
+                  {faviconUrl ? (
+                    <img src={faviconUrl} alt="Favicon" className="h-full w-full object-contain p-2" />
+                  ) : (
+                    <div className="text-[10px] text-muted-foreground">No icon</div>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" className="relative" disabled={uploadingFavicon}>
+                      {uploadingFavicon ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                      Upload favicon
+                      <input type="file" accept=".png,.svg,image/png,image/svg+xml" onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0], "favicon", setFaviconUrl, setUploadingFavicon, 1)} className="absolute inset-0 cursor-pointer opacity-0" disabled={uploadingFavicon} />
+                    </Button>
+                    {faviconUrl && <Button variant="ghost" size="sm" onClick={() => setFaviconUrl("")}><X className="h-4 w-4" /></Button>}
+                  </div>
+                  <p className="text-xs text-muted-foreground">PNG or SVG, recommended 32×32 or 64×64px</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Brand Colours */}
+            <div className="grid gap-4 sm:grid-cols-3">
+              {[
+                { label: "Primary colour", value: primaryColor, set: setPrimaryColor },
+                { label: "Secondary colour", value: secondaryColor, set: setSecondaryColor },
+                { label: "Accent colour", value: accentColor, set: setAccentColor },
+              ].map(({ label, value, set }) => (
+                <div key={label} className="space-y-2">
+                  <Label className="flex items-center gap-2"><Palette className="h-4 w-4" />{label}</Label>
+                  <div className="flex items-center gap-2">
+                    <div className="h-11 w-11 rounded-xl border border-border/60 cursor-pointer shrink-0" style={{ backgroundColor: value }}>
+                      <input type="color" value={value} onChange={(e) => set(e.target.value)} className="h-full w-full cursor-pointer opacity-0" />
+                    </div>
+                    <Input value={value} onChange={(e) => set(e.target.value)} className="font-mono" />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Preview */}
+            <div className="space-y-2">
+              <Label>Preview</Label>
+              <div className="rounded-2xl bg-secondary/40 p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-xl overflow-hidden bg-card flex items-center justify-center">
+                    {logoUrl ? <img src={logoUrl} alt="Preview" className="h-full w-full object-contain" /> : <span className="text-xs text-muted-foreground">Logo</span>}
+                  </div>
+                  <span className="font-display font-semibold text-lg">{businessName || "Your business name"}</span>
+                </div>
+                <div className="flex gap-2">
+                  <div className="rounded-full px-4 py-2 text-white text-sm font-medium" style={{ backgroundColor: primaryColor }}>Primary</div>
+                  <div className="rounded-full px-4 py-2 text-white text-sm font-medium" style={{ backgroundColor: secondaryColor }}>Secondary</div>
+                  <div className="rounded-full px-4 py-2 text-white text-sm font-medium" style={{ backgroundColor: accentColor }}>Accent</div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </FadeRise>
 
       {/* Logo Library */}
-      <BrandLogoLibrary />
+      <FadeRise>
+        <BrandLogoLibrary />
+      </FadeRise>
 
       {/* Business Details */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" />Business Details</CardTitle>
-          <CardDescription>Company registration, contact information, and legal details</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div>
-            <h3 className="text-sm font-medium mb-4 flex items-center gap-2"><FileText className="h-4 w-4" />Company Identity</h3>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Legal Entity Name</Label>
-                <Input value={legalEntityName} onChange={(e) => setLegalEntityName(e.target.value)} placeholder="The Dance Exclusive Ltd" />
+      <FadeRise>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+                <Building2 className="h-5 w-5" />
               </div>
-              <div className="space-y-2">
-                <Label>Trading Name (if different)</Label>
-                <Input value={tradingName} onChange={(e) => setTradingName(e.target.value)} placeholder="The Dance Exclusive" />
+              <div>
+                <CardTitle>Business details</CardTitle>
+                <CardDescription>Company registration, contact information, and legal details</CardDescription>
               </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2"><Hash className="h-3 w-3" />Company Number</Label>
-                <Input value={companyNumber} onChange={(e) => setCompanyNumber(e.target.value)} placeholder="12345678" />
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2"><CreditCard className="h-3 w-3" />VAT Number</Label>
-                <Input value={vatNumber} onChange={(e) => setVatNumber(e.target.value)} placeholder="GB123456789" disabled={notVatRegistered} />
-                <div className="flex items-center space-x-2 mt-2">
-                  <Checkbox id="notVatRegistered" checked={notVatRegistered} onCheckedChange={(checked) => { setNotVatRegistered(checked === true); if (checked) setVatNumber(""); }} />
-                  <Label htmlFor="notVatRegistered" className="text-sm text-muted-foreground cursor-pointer">Not VAT registered</Label>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div>
+              <h3 className="eyebrow mb-4 flex items-center gap-2"><FileText className="h-3.5 w-3.5" />Company identity</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Legal entity name</Label>
+                  <Input value={legalEntityName} onChange={(e) => setLegalEntityName(e.target.value)} placeholder="The Dance Exclusive Ltd" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Trading name (if different)</Label>
+                  <Input value={tradingName} onChange={(e) => setTradingName(e.target.value)} placeholder="The Dance Exclusive" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2"><Hash className="h-3 w-3" />Company number</Label>
+                  <Input value={companyNumber} onChange={(e) => setCompanyNumber(e.target.value)} placeholder="12345678" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2"><CreditCard className="h-3 w-3" />VAT number</Label>
+                  <Input value={vatNumber} onChange={(e) => setVatNumber(e.target.value)} placeholder="GB123456789" disabled={notVatRegistered} />
+                  <div className="flex items-center space-x-2 mt-2">
+                    <Checkbox id="notVatRegistered" checked={notVatRegistered} onCheckedChange={(checked) => { setNotVatRegistered(checked === true); if (checked) setVatNumber(""); }} />
+                    <Label htmlFor="notVatRegistered" className="text-sm text-muted-foreground cursor-pointer">Not VAT registered</Label>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Industry sector</Label>
+                  <Input value={industrySector} onChange={(e) => setIndustrySector(e.target.value)} placeholder="Dance & Performing Arts" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2"><Users className="h-3 w-3" />Full-time employees</Label>
+                  <Input type="number" value={fulltimeEmployees} onChange={(e) => setFulltimeEmployees(e.target.value)} placeholder="5" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2"><Users className="h-3 w-3" />Part-time employees</Label>
+                  <Input type="number" value={parttimeEmployees} onChange={(e) => setParttimeEmployees(e.target.value)} placeholder="15" />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Industry Sector</Label>
-                <Input value={industrySector} onChange={(e) => setIndustrySector(e.target.value)} placeholder="Dance & Performing Arts" />
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2"><Users className="h-3 w-3" />Full-time Employees</Label>
-                <Input type="number" value={fulltimeEmployees} onChange={(e) => setFulltimeEmployees(e.target.value)} placeholder="5" />
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2"><Users className="h-3 w-3" />Part-time Employees</Label>
-                <Input type="number" value={parttimeEmployees} onChange={(e) => setParttimeEmployees(e.target.value)} placeholder="15" />
+            </div>
+
+            <Separator />
+
+            <div>
+              <h3 className="eyebrow mb-4 flex items-center gap-2"><MapPin className="h-3.5 w-3.5" />Addresses</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Registered address</Label>
+                  <Textarea value={registeredAddress} onChange={(e) => setRegisteredAddress(e.target.value)} placeholder={"123 Business Street\nCity, County\nAB12 3CD"} rows={3} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Trading address</Label>
+                  <Textarea value={tradingAddress} onChange={(e) => setTradingAddress(e.target.value)} placeholder={"456 Studio Lane\nCity, County\nXY98 7ZW"} rows={3} />
+                </div>
               </div>
             </div>
-          </div>
 
-          <Separator />
+            <Separator />
 
-          <div>
-            <h3 className="text-sm font-medium mb-4 flex items-center gap-2"><MapPin className="h-4 w-4" />Addresses</h3>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Registered Address</Label>
-                <Textarea value={registeredAddress} onChange={(e) => setRegisteredAddress(e.target.value)} placeholder={"123 Business Street\nCity, County\nAB12 3CD"} rows={3} />
-              </div>
-              <div className="space-y-2">
-                <Label>Trading Address</Label>
-                <Textarea value={tradingAddress} onChange={(e) => setTradingAddress(e.target.value)} placeholder={"456 Studio Lane\nCity, County\nXY98 7ZW"} rows={3} />
+            <div>
+              <h3 className="eyebrow mb-4 flex items-center gap-2"><Phone className="h-3.5 w-3.5" />Contact information</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2"><Globe className="h-3 w-3" />Website URL</Label>
+                  <Input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="https://www.thedanceexclusive.com" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2"><Phone className="h-3 w-3" />Phone number</Label>
+                  <Input value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="+44 1234 567890" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2"><Mail className="h-3 w-3" />Main email</Label>
+                  <Input type="email" value={emailAddress} onChange={(e) => setEmailAddress(e.target.value)} placeholder="info@thedanceexclusive.com" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2"><Mail className="h-3 w-3" />Support email</Label>
+                  <Input type="email" value={supportEmail} onChange={(e) => setSupportEmail(e.target.value)} placeholder="support@thedanceexclusive.com" />
+                </div>
               </div>
             </div>
-          </div>
 
-          <Separator />
+            <Separator />
 
-          <div>
-            <h3 className="text-sm font-medium mb-4 flex items-center gap-2"><Phone className="h-4 w-4" />Contact Information</h3>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2"><Globe className="h-3 w-3" />Website URL</Label>
-                <Input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="https://www.thedanceexclusive.com" />
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2"><Phone className="h-3 w-3" />Phone Number</Label>
-                <Input value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="+44 1234 567890" />
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2"><Mail className="h-3 w-3" />Main Email</Label>
-                <Input type="email" value={emailAddress} onChange={(e) => setEmailAddress(e.target.value)} placeholder="info@thedanceexclusive.com" />
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2"><Mail className="h-3 w-3" />Support Email</Label>
-                <Input type="email" value={supportEmail} onChange={(e) => setSupportEmail(e.target.value)} placeholder="support@thedanceexclusive.com" />
+            <div>
+              <h3 className="eyebrow mb-4 flex items-center gap-2"><AtSign className="h-3.5 w-3.5" />Social media</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Facebook</Label>
+                  <Input value={socialFacebook} onChange={(e) => setSocialFacebook(e.target.value)} placeholder="https://facebook.com/yourpage" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Instagram</Label>
+                  <Input value={socialInstagram} onChange={(e) => setSocialInstagram(e.target.value)} placeholder="https://instagram.com/yourprofile" />
+                </div>
+                <div className="space-y-2">
+                  <Label>TikTok</Label>
+                  <Input value={socialTiktok} onChange={(e) => setSocialTiktok(e.target.value)} placeholder="https://tiktok.com/@yourhandle" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Twitter / X</Label>
+                  <Input value={socialTwitter} onChange={(e) => setSocialTwitter(e.target.value)} placeholder="https://x.com/yourhandle" />
+                </div>
+                <div className="space-y-2">
+                  <Label>LinkedIn</Label>
+                  <Input value={socialLinkedin} onChange={(e) => setSocialLinkedin(e.target.value)} placeholder="https://linkedin.com/company/yourcompany" />
+                </div>
               </div>
             </div>
-          </div>
-
-          <Separator />
-
-          <div>
-            <h3 className="text-sm font-medium mb-4 flex items-center gap-2"><AtSign className="h-4 w-4" />Social Media</h3>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Facebook</Label>
-                <Input value={socialFacebook} onChange={(e) => setSocialFacebook(e.target.value)} placeholder="https://facebook.com/yourpage" />
-              </div>
-              <div className="space-y-2">
-                <Label>Instagram</Label>
-                <Input value={socialInstagram} onChange={(e) => setSocialInstagram(e.target.value)} placeholder="https://instagram.com/yourprofile" />
-              </div>
-              <div className="space-y-2">
-                <Label>TikTok</Label>
-                <Input value={socialTiktok} onChange={(e) => setSocialTiktok(e.target.value)} placeholder="https://tiktok.com/@yourhandle" />
-              </div>
-              <div className="space-y-2">
-                <Label>Twitter / X</Label>
-                <Input value={socialTwitter} onChange={(e) => setSocialTwitter(e.target.value)} placeholder="https://x.com/yourhandle" />
-              </div>
-              <div className="space-y-2">
-                <Label>LinkedIn</Label>
-                <Input value={socialLinkedin} onChange={(e) => setSocialLinkedin(e.target.value)} placeholder="https://linkedin.com/company/yourcompany" />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </FadeRise>
 
       <div className="flex justify-end pb-8">
         <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} size="lg">
           {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Save All Settings
+          Save all settings
         </Button>
       </div>
     </div>

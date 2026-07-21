@@ -30,15 +30,15 @@ const PhotoAvatarDuo = ({ photoUrl, avatarUrl, initials, size = "md", showLabels
   const s = SIZES[size];
 
   const photoImg = photoUrl ? (
-    <img src={photoUrl} alt="" className={cn(s.img, "rounded-full object-cover border-2 border-border bg-muted")} />
+    <img src={photoUrl} alt="" className={cn(s.img, "rounded-full object-cover border-2 border-card bg-secondary shadow-soft")} />
   ) : (
-    <div className={cn(s.img, "rounded-full bg-muted border-2 border-border flex items-center justify-center font-bold text-muted-foreground", s.text)}>
+    <div className={cn(s.img, "rounded-full bg-secondary border-2 border-card shadow-soft flex items-center justify-center font-display font-bold text-muted-foreground", s.text)}>
       {initials || "?"}
     </div>
   );
 
   const avatarImg = avatarUrl ? (
-    <div className={cn("rounded-full bg-gradient-to-br from-sky-400 via-primary to-pink-500 shrink-0", s.ring)}>
+    <div className={cn("rounded-full bg-gradient-to-br from-primary via-primary/70 to-accent shadow-soft shrink-0", s.ring)}>
       <img src={avatarUrl} alt="" className={cn(s.img, "rounded-full object-cover bg-background")} />
     </div>
   ) : null;
@@ -48,12 +48,12 @@ const PhotoAvatarDuo = ({ photoUrl, avatarUrl, initials, size = "md", showLabels
       <div className={cn("flex items-start justify-center gap-4", className)}>
         <div className="flex flex-col items-center gap-1.5">
           {photoImg}
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Photo</span>
+          <span className="eyebrow">Photo</span>
         </div>
         <div className="flex flex-col items-center gap-1.5">
           {avatarImg}
-          <span className="text-[10px] uppercase tracking-wider text-primary font-semibold flex items-center gap-1">
-            <Sparkles className="w-3 h-3" /> Avatar
+          <span className="eyebrow flex items-center gap-1">
+            <Sparkles className="w-3 h-3 text-primary" /> Avatar
           </span>
         </div>
       </div>

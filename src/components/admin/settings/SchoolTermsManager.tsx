@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { FadeRise } from "@/components/motion";
 import { toast } from "sonner";
 import {
   Calendar, Loader2, Plus, Trash2, Edit2, GraduationCap, Palmtree, Flag, ExternalLink
@@ -26,18 +27,18 @@ const ACADEMIC_YEARS = Array.from({ length: 5 }, (_, i) => {
   return `${y}-${y + 1}`;
 });
 
-const TERM_TYPES = [
-  { value: "autumn", label: "Autumn", color: "bg-amber-500/15 text-amber-500 border-amber-500/30" },
-  { value: "spring", label: "Spring", color: "bg-emerald-500/15 text-emerald-500 border-emerald-500/30" },
-  { value: "summer", label: "Summer", color: "bg-sky-500/15 text-sky-500 border-sky-500/30" },
+const TERM_TYPES: { value: string; label: string; variant: "warning" | "success" | "default" }[] = [
+  { value: "autumn", label: "Autumn", variant: "warning" },
+  { value: "spring", label: "Spring", variant: "success" },
+  { value: "summer", label: "Summer", variant: "default" },
 ];
 
 const HOLIDAY_TYPES = [
-  { value: "half_term", label: "Half Term" },
+  { value: "half_term", label: "Half term" },
   { value: "christmas", label: "Christmas" },
   { value: "easter", label: "Easter" },
-  { value: "summer", label: "Summer Holiday" },
-  { value: "bank_holiday", label: "Bank Holiday" },
+  { value: "summer", label: "Summer holiday" },
+  { value: "bank_holiday", label: "Bank holiday" },
 ];
 
 interface TermRow {
@@ -192,219 +193,227 @@ export const SchoolTermsManager = () => {
     else { toast.success("Holiday deleted"); queryClient.invalidateQueries({ queryKey: ["school-holidays", selectedYear] }); }
   };
 
-  const getTermColor = (type: string) => TERM_TYPES.find(t => t.value === type)?.color || "";
+  const getTermVariant = (type: string) => TERM_TYPES.find(t => t.value === type)?.variant || "default";
   const getTermLabel = (type: string) => TERM_TYPES.find(t => t.value === type)?.label || type;
 
   const isLoading = termsLoading || holidaysLoading;
 
   return (
     <>
-      {/* Academic Year Selector */}
-      <div className="flex items-center justify-between rounded-xl border border-border bg-card p-5">
-        <div>
-          <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-1">Academic Year</p>
-          <p className="text-3xl font-display font-bold tracking-tight">{selectedYear}</p>
-        </div>
-        <Select value={selectedYear} onValueChange={setSelectedYear}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {ACADEMIC_YEARS.map(y => (
-              <SelectItem key={y} value={y}>{y}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <GraduationCap className="h-5 w-5" />
-            School Terms, Holidays & Bank Holidays
-          </CardTitle>
-          <CardDescription>
-            Manage school term dates, holidays, and bank holidays. Classes and holiday camps will not run during bank holidays.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Essex CC reference link */}
-          <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 p-4">
-            <div className="space-y-1">
-              <p className="text-sm font-medium">Essex County Council term dates</p>
-              <p className="text-xs text-muted-foreground">
-                Reference the official term dates and school holidays for {selectedYear}
-              </p>
-            </div>
-            <Button asChild variant="ghost" size="sm" className="gap-1.5 text-muted-foreground">
-              <a
-                href={`https://www.essex.gov.uk/schools-and-learning/schools/essex-school-terms-and-holidays/academic-year-${selectedYear}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                Go to Essex term dates
-              </a>
-            </Button>
+      {/* Academic year selector */}
+      <FadeRise>
+        <Card className="flex flex-wrap items-center justify-between gap-4 p-5">
+          <div>
+            <p className="eyebrow mb-1">Academic year</p>
+            <p className="text-3xl font-display font-bold tracking-tight tabular-nums">{selectedYear}</p>
           </div>
+          <Select value={selectedYear} onValueChange={setSelectedYear}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ACADEMIC_YEARS.map(y => (
+                <SelectItem key={y} value={y}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Card>
+      </FadeRise>
 
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : (
-            <>
-              {/* Terms Section */}
+      <FadeRise delay={80}>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+                <GraduationCap className="h-5 w-5" />
+              </div>
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    Term Dates
-                  </h3>
-                  <Button variant="outline" size="sm" onClick={openAddTerm}>
-                    <Plus className="h-3 w-3 mr-1" /> Add Term
-                  </Button>
+                <CardTitle>School terms, holidays & bank holidays</CardTitle>
+                <CardDescription>
+                  Manage school term dates, holidays, and bank holidays. Classes and holiday camps will not run during bank holidays.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Essex CC reference link */}
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-primary/5 p-4">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Essex County Council term dates</p>
+                <p className="text-xs text-muted-foreground">
+                  Reference the official term dates and school holidays for {selectedYear}
+                </p>
+              </div>
+              <Button asChild variant="ghost" size="sm" className="gap-1.5 text-muted-foreground">
+                <a
+                  href={`https://www.essex.gov.uk/schools-and-learning/schools/essex-school-terms-and-holidays/academic-year-${selectedYear}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Go to Essex term dates
+                </a>
+              </Button>
+            </div>
+
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <>
+                {/* Terms Section */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-display font-semibold flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      Term dates
+                    </h3>
+                    <Button variant="outline" size="sm" onClick={openAddTerm}>
+                      <Plus className="h-3 w-3 mr-1" /> Add term
+                    </Button>
+                  </div>
+                  {terms.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-4 text-center">
+                      No terms configured. Import from Essex CC or add manually.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {terms.map(t => {
+                        const weeks = differenceInWeeks(parseISO(t.end_date), parseISO(t.start_date));
+                        return (
+                          <div key={t.id} className="flex items-center justify-between rounded-2xl bg-secondary/40 hover:bg-secondary/60 transition-colors p-3 group">
+                            <div className="flex items-center gap-3">
+                              <Badge variant={getTermVariant(t.term_type)}>
+                                {getTermLabel(t.term_type)}
+                              </Badge>
+                              <div>
+                                <span className="text-sm font-medium">{t.name}</span>
+                                <p className="text-xs text-muted-foreground tabular-nums">
+                                  {format(parseISO(t.start_date), "d MMM yyyy")} – {format(parseISO(t.end_date), "d MMM yyyy")}
+                                  <span className="ml-2 text-muted-foreground/60">({weeks} weeks)</span>
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditTerm(t)}>
+                                <Edit2 className="h-3 w-3" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteTerm(t.id)}>
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-                {terms.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">
-                    No terms configured. Import from Essex CC or add manually.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {terms.map(t => {
-                      const weeks = differenceInWeeks(parseISO(t.end_date), parseISO(t.start_date));
-                      return (
-                        <div key={t.id} className="flex items-center justify-between rounded-lg border border-border p-3 group">
+
+                <Separator />
+
+                {/* School Holidays Section */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-display font-semibold flex items-center gap-2">
+                      <Palmtree className="h-4 w-4 text-muted-foreground" />
+                      School holidays
+                    </h3>
+                    <Button variant="outline" size="sm" onClick={openAddHoliday}>
+                      <Plus className="h-3 w-3 mr-1" /> Add holiday
+                    </Button>
+                  </div>
+                  {schoolHolidays.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-4 text-center">
+                      No school holidays configured. Import from Essex CC or add manually.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {schoolHolidays.map(h => (
+                        <div key={h.id} className="flex items-center justify-between rounded-2xl bg-secondary/40 hover:bg-secondary/60 transition-colors p-3 group">
                           <div className="flex items-center gap-3">
-                            <Badge className={getTermColor(t.term_type)}>
-                              {getTermLabel(t.term_type)}
+                            <Badge variant="destructive">
+                              {HOLIDAY_TYPES.find(ht => ht.value === h.holiday_type)?.label || h.holiday_type}
                             </Badge>
                             <div>
-                              <span className="text-sm font-medium">{t.name}</span>
-                              <p className="text-xs text-muted-foreground">
-                                {format(parseISO(t.start_date), "d MMM yyyy")} – {format(parseISO(t.end_date), "d MMM yyyy")}
-                                <span className="ml-2 text-muted-foreground/60">({weeks} weeks)</span>
+                              <span className="text-sm font-medium">{h.name}</span>
+                              <p className="text-xs text-muted-foreground tabular-nums">
+                                {format(parseISO(h.start_date), "d MMM yyyy")} – {format(parseISO(h.end_date), "d MMM yyyy")}
+                                {h.source === "essex_cc_ai" && (
+                                  <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0">Essex CC</Badge>
+                                )}
                               </p>
                             </div>
                           </div>
                           <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditTerm(t)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditHoliday(h)}>
                               <Edit2 className="h-3 w-3" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteTerm(t.id)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteHoliday(h.id)}>
                               <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <Separator />
-
-              {/* School Holidays Section */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold flex items-center gap-2">
-                    <Palmtree className="h-4 w-4" />
-                    School Holidays
-                  </h3>
-                  <Button variant="outline" size="sm" onClick={openAddHoliday}>
-                    <Plus className="h-3 w-3 mr-1" /> Add Holiday
-                  </Button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                {schoolHolidays.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">
-                    No school holidays configured. Import from Essex CC or add manually.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {schoolHolidays.map(h => (
-                      <div key={h.id} className="flex items-center justify-between rounded-lg border border-border p-3 group">
-                        <div className="flex items-center gap-3">
-                          <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30">
-                            {HOLIDAY_TYPES.find(ht => ht.value === h.holiday_type)?.label || h.holiday_type}
-                          </Badge>
-                          <div>
-                            <span className="text-sm font-medium">{h.name}</span>
-                            <p className="text-xs text-muted-foreground">
-                              {format(parseISO(h.start_date), "d MMM yyyy")} – {format(parseISO(h.end_date), "d MMM yyyy")}
-                              {h.source === "essex_cc_ai" && (
-                                <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0">Essex CC</Badge>
-                              )}
-                            </p>
+
+                <Separator />
+
+                {/* Bank Holidays Section */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-display font-semibold flex items-center gap-2">
+                      <Flag className="h-4 w-4 text-muted-foreground" />
+                      Bank holidays
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">England &amp; Wales</Badge>
+                    </h3>
+                  </div>
+                  {bankHolidays.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-4 text-center">
+                      No bank holidays loaded. Click "Import bank holidays" above to fetch from GOV.UK.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {bankHolidays.map(h => (
+                        <div key={h.id} className="flex items-center justify-between rounded-2xl bg-secondary/40 hover:bg-secondary/60 transition-colors p-3 group">
+                          <div className="flex items-center gap-3">
+                            <Badge variant="warning">
+                              Bank holiday
+                            </Badge>
+                            <div>
+                              <span className="text-sm font-medium">{h.name}</span>
+                              <p className="text-xs text-muted-foreground tabular-nums">
+                                {format(parseISO(h.start_date), "EEEE d MMMM yyyy")}
+                                {h.source === "gov_uk" && (
+                                  <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0">GOV.UK</Badge>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteHoliday(h.id)}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditHoliday(h)}>
-                            <Edit2 className="h-3 w-3" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteHoliday(h.id)}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <Separator />
-
-              {/* Bank Holidays Section */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold flex items-center gap-2">
-                    <Flag className="h-4 w-4" />
-                    Bank Holidays
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">England &amp; Wales</Badge>
-                  </h3>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                {bankHolidays.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">
-                    No bank holidays loaded. Click "Import Bank Holidays" above to fetch from GOV.UK.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {bankHolidays.map(h => (
-                      <div key={h.id} className="flex items-center justify-between rounded-lg border border-border p-3 group">
-                        <div className="flex items-center gap-3">
-                          <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30">
-                            Bank Holiday
-                          </Badge>
-                          <div>
-                            <span className="text-sm font-medium">{h.name}</span>
-                            <p className="text-xs text-muted-foreground">
-                              {format(parseISO(h.start_date), "EEEE d MMMM yyyy")}
-                              {h.source === "gov_uk" && (
-                                <Badge variant="outline" className="ml-2 text-[10px] px-1.5 py-0">GOV.UK</Badge>
-                              )}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteHoliday(h.id)}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </FadeRise>
 
       {/* Edit Dialog */}
       <Dialog open={!!editDialog} onOpenChange={() => setEditDialog(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editItem ? "Edit" : "Add"} {editDialog === "term" ? "Term" : "Holiday"}
+              {editItem ? "Edit" : "Add"} {editDialog === "term" ? "term" : "holiday"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
@@ -425,11 +434,11 @@ export const SchoolTermsManager = () => {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Start Date</Label>
+                <Label>Start date</Label>
                 <Input type="date" value={formStart} onChange={e => setFormStart(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>End Date</Label>
+                <Label>End date</Label>
                 <Input type="date" value={formEnd} onChange={e => setFormEnd(e.target.value)} />
               </div>
             </div>

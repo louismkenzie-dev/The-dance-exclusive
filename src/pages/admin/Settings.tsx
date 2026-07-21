@@ -1,22 +1,23 @@
 import { Link } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, GraduationCap, ChevronRight, Settings as SettingsIcon, Menu } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { FadeRise, Stagger } from "@/components/motion";
+import { Building2, GraduationCap, ChevronRight, Menu } from "lucide-react";
 
 const settingsSections = [
   {
-    title: "Company Information",
+    title: "Company information",
     description: "Branding, business details, contact information, and social media",
     icon: Building2,
     path: "/admin/settings/company",
   },
   {
-    title: "Term Dates & Holidays",
+    title: "Term dates & holidays",
     description: "School terms, school holidays, and UK bank holidays",
     icon: GraduationCap,
     path: "/admin/settings/term-dates",
   },
   {
-    title: "Menu Navigation",
+    title: "Menu navigation",
     description: "Customise the sidebar order, grouping, and dropdown menus",
     icon: Menu,
     path: "/admin/settings/navigation",
@@ -25,33 +26,28 @@ const settingsSections = [
 
 const AdminSettings = () => {
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-display font-bold flex items-center gap-2">
-          <SettingsIcon className="h-6 w-6" />
-          Settings
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">Manage your business configuration</p>
-      </div>
+    <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-8">
+      <FadeRise>
+        <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">Settings</h1>
+        <p className="text-muted-foreground mt-1">Manage your business configuration</p>
+      </FadeRise>
 
-      <div className="grid gap-4">
+      <Stagger className="grid gap-4">
         {settingsSections.map((section) => (
-          <Link key={section.path} to={section.path}>
-            <Card className="hover:bg-muted/50 transition-colors cursor-pointer group">
-              <CardHeader className="flex flex-row items-center gap-4 py-5">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <section.icon className="h-5 w-5 text-primary" />
-                </div>
-                <div className="flex-1">
-                  <CardTitle className="text-base">{section.title}</CardTitle>
-                  <CardDescription className="text-sm">{section.description}</CardDescription>
-                </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-              </CardHeader>
+          <Link key={section.path} to={section.path} className="group block">
+            <Card className="flex items-center gap-4 p-5 transition-all duration-300 ease-out group-hover:-translate-y-0.5 group-hover:shadow-soft-lg">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+                <section.icon className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-display font-semibold">{section.title}</p>
+                <p className="text-sm text-muted-foreground">{section.description}</p>
+              </div>
+              <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground/60 transition-all duration-300 group-hover:translate-x-0.5 group-hover:text-foreground" />
             </Card>
           </Link>
         ))}
-      </div>
+      </Stagger>
     </div>
   );
 };

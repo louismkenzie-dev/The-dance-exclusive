@@ -4,7 +4,7 @@ import { Scanner } from "@yudiel/react-qr-scanner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { parseQrPayload } from "@/lib/qrTokens";
-import { ScanLine, Keyboard } from "lucide-react";
+import { ScanLine, Keyboard, Camera } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -31,17 +31,23 @@ const QrScannerDialog = ({ open, onOpenChange, onScanned }: Props) => {
     <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) { setManual(""); setError(null); setShowManual(false); } }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ScanLine className="w-5 h-5 text-primary" /> Scan sign-in QR
-          </DialogTitle>
-          <DialogDescription>
-            Point the camera at the parent's QR code. The system automatically detects whether it's a check-in or check-out.
-          </DialogDescription>
+          <div className="flex items-center gap-3 text-left">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+              <ScanLine className="h-5 w-5" />
+            </div>
+            <div>
+              <DialogTitle>Scan sign-in QR</DialogTitle>
+              <DialogDescription className="mt-1">
+                Point the camera at the parent's QR code. The system automatically detects whether it's a check-in or check-out.
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         {!showManual ? (
           <div className="space-y-3">
-            <div className="aspect-square w-full overflow-hidden rounded-lg bg-black">
+            {/* Camera surface stays true black for scan contrast — do not tint. */}
+            <div className="aspect-square w-full overflow-hidden rounded-3xl bg-black">
               {open && (
                 <Scanner
                   onScan={(detected) => {
@@ -53,9 +59,11 @@ const QrScannerDialog = ({ open, onOpenChange, onScanned }: Props) => {
                 />
               )}
             </div>
-            {error && <p className="text-xs text-destructive">{error}</p>}
-            <Button variant="outline" size="sm" className="w-full" onClick={() => setShowManual(true)}>
-              <Keyboard className="w-4 h-4 mr-2" /> Enter code manually
+            {error && (
+              <p className="rounded-2xl bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</p>
+            )}
+            <Button variant="secondary" size="sm" className="w-full gap-2" onClick={() => setShowManual(true)}>
+              <Keyboard className="w-4 h-4" /> Enter code manually
             </Button>
           </div>
         ) : (
@@ -66,9 +74,13 @@ const QrScannerDialog = ({ open, onOpenChange, onScanned }: Props) => {
               onChange={(e) => setManual(e.target.value)}
               autoFocus
             />
-            {error && <p className="text-xs text-destructive">{error}</p>}
+            {error && (
+              <p className="rounded-2xl bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</p>
+            )}
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setShowManual(false)}>Use camera</Button>
+              <Button variant="secondary" className="flex-1 gap-2" onClick={() => setShowManual(false)}>
+                <Camera className="w-4 h-4" /> Use camera
+              </Button>
               <Button className="flex-1" onClick={() => handleResult(manual)} disabled={!manual.trim()}>Submit</Button>
             </div>
           </div>

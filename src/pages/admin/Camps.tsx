@@ -8,8 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FadeRise, Stagger } from "@/components/motion";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, X, Copy, MapPin, Calendar, Users, Clock } from "lucide-react";
+import { Plus, Edit, Trash2, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, X, Copy, MapPin, Calendar, Users, Clock, Tent } from "lucide-react";
 import { format, parseISO, eachDayOfInterval, isBefore, isWeekend, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameMonth, isSameDay, getDay } from "date-fns";
 
 interface WorkshopOption {
@@ -397,39 +399,39 @@ const AdminCamps = () => {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6 md:mb-8">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-display font-bold">Camps</h1>
-          <p className="text-muted-foreground mt-1 text-sm md:text-base">Manage holiday camps & one-off events</p>
-        </div>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8 md:mb-10">
+        <FadeRise>
+          <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">Camps</h1>
+          <p className="text-muted-foreground mt-1">Manage holiday camps & one-off events</p>
+        </FadeRise>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
           <DialogTrigger asChild>
-            <Button className="self-start md:self-auto"><Plus className="w-4 h-4 mr-2" /> Add Camp</Button>
+            <Button className="self-start md:self-auto"><Plus className="w-4 h-4 mr-2" /> Add camp</Button>
           </DialogTrigger>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{editing ? "Edit Camp" : "New Camp"}</DialogTitle>
+              <DialogTitle>{editing ? "Edit camp" : "New camp"}</DialogTitle>
             </DialogHeader>
 
             {/* Step indicators */}
             <div className="flex items-center gap-2 mb-4">
               {[1, 2, 3, 4].map(s => {
                 const canNavigate = s === 1 || (s === 2 && canProceedStep1) || (s === 3 && canProceedStep1 && canProceedStep2) || (s === 4 && canProceedStep1 && canProceedStep2 && sessions.length > 0);
-                const labels: Record<number, string> = { 1: "Details", 2: "Dates & Sessions", 3: "Review Sessions", 4: "Staffing" };
+                const labels: Record<number, string> = { 1: "Details", 2: "Dates & sessions", 3: "Review sessions", 4: "Staffing" };
                 return (
                   <div key={s} className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => canNavigate && setStep(s)}
                       disabled={!canNavigate}
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold tabular-nums transition-colors ${
                         step === s
-                          ? 'bg-primary text-primary-foreground'
+                          ? 'bg-primary text-primary-foreground shadow-soft'
                           : step > s
-                            ? 'bg-primary/30 text-primary-foreground cursor-pointer hover:bg-primary/50'
+                            ? 'bg-primary/10 text-primary cursor-pointer hover:bg-primary/20'
                             : canNavigate
-                              ? 'bg-muted text-muted-foreground cursor-pointer hover:bg-muted/80'
-                              : 'bg-muted text-muted-foreground opacity-50 cursor-not-allowed'
+                              ? 'bg-secondary text-muted-foreground cursor-pointer hover:bg-secondary/80'
+                              : 'bg-secondary text-muted-foreground opacity-50 cursor-not-allowed'
                       }`}
                     >
                       {s}
@@ -440,7 +442,7 @@ const AdminCamps = () => {
                     >
                       {labels[s]}
                     </span>
-                    {s < 4 && <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                    {s < 4 && <ChevronRight className="w-4 h-4 text-muted-foreground/60" />}
                   </div>
                 );
               })}
@@ -448,19 +450,19 @@ const AdminCamps = () => {
 
             {/* STEP 1: Workshop, Venue, Pricing */}
             {step === 1 && (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div className="space-y-2">
-                  <Label>Camp Type *</Label>
+                  <Label>Camp type *</Label>
                   <div className="flex gap-2">
-                    <Button type="button" variant={classType === "children" ? "default" : "outline"} onClick={() => { setClassType("children"); setWorkshopId(""); }}>Children</Button>
-                    <Button type="button" variant={classType === "adult" ? "default" : "outline"} onClick={() => { setClassType("adult"); setWorkshopId(""); }}>Adult</Button>
+                    <Button type="button" variant={classType === "children" ? "default" : "secondary"} onClick={() => { setClassType("children"); setWorkshopId(""); }}>Children</Button>
+                    <Button type="button" variant={classType === "adult" ? "default" : "secondary"} onClick={() => { setClassType("adult"); setWorkshopId(""); }}>Adult</Button>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Workshop Theme *</Label>
+                  <Label>Workshop theme *</Label>
                   <Select value={workshopId} onValueChange={setWorkshopId}>
-                    <SelectTrigger><SelectValue placeholder="Choose a workshop..." /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Choose a workshop…" /></SelectTrigger>
                     <SelectContent>
                       {filteredWorkshops.map(w => (
                         <SelectItem key={w.id} value={w.id}>
@@ -472,24 +474,24 @@ const AdminCamps = () => {
                 </div>
 
                 {selectedWorkshop && (
-                  <Card className="border-primary/20 bg-primary/5">
+                  <Card className="bg-primary/5 shadow-none">
                     <CardContent className="pt-4 space-y-2">
                       <div className="flex items-start gap-4">
                         {selectedWorkshop.cover_image && (
                           <img
                             src={selectedWorkshop.cover_image}
                             alt={selectedWorkshop.name}
-                            className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
+                            className="w-20 h-20 rounded-2xl object-cover flex-shrink-0"
                           />
                         )}
                         <div className="min-w-0">
-                          <h4 className="font-semibold text-foreground">{selectedWorkshop.name}</h4>
-                          <div className="flex gap-2 mt-1 flex-wrap">
-                            {selectedWorkshop.dance_style && <Badge variant="outline">{selectedWorkshop.dance_style}</Badge>}
-                            <Badge variant="secondary">{selectedWorkshop.class_type === "children" ? "Children" : "Adult"}</Badge>
-                            {selectedWorkshop.theme && <Badge variant="outline">{selectedWorkshop.theme}</Badge>}
+                          <h4 className="font-display font-semibold text-foreground">{selectedWorkshop.name}</h4>
+                          <div className="flex gap-2 mt-1.5 flex-wrap">
+                            {selectedWorkshop.dance_style && <Badge variant="secondary">{selectedWorkshop.dance_style}</Badge>}
+                            <Badge variant={selectedWorkshop.class_type === "children" ? "default" : "accent"}>{selectedWorkshop.class_type === "children" ? "Children" : "Adult"}</Badge>
+                            {selectedWorkshop.theme && <Badge variant="secondary">{selectedWorkshop.theme}</Badge>}
                             {(selectedWorkshop.age_min || selectedWorkshop.age_max) && (
-                              <Badge variant="outline">Ages {selectedWorkshop.age_min || '?'}–{selectedWorkshop.age_max || '?'}</Badge>
+                              <Badge variant="secondary">Ages {selectedWorkshop.age_min || '?'}–{selectedWorkshop.age_max || '?'}</Badge>
                             )}
                           </div>
                           {selectedWorkshop.description && (
@@ -519,7 +521,7 @@ const AdminCamps = () => {
                   <Label className="text-sm font-semibold">Capacity</Label>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Max Students</Label>
+                      <Label className="text-xs text-muted-foreground">Max students</Label>
                       <Input type="number" value={capacity} onChange={e => setCapacity(e.target.value)} />
                     </div>
                   </div>
@@ -529,11 +531,11 @@ const AdminCamps = () => {
                   <Label className="text-sm font-semibold">Pricing</Label>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-xs">Per Day (£)</Label>
+                      <Label className="text-xs text-muted-foreground">Per day (£)</Label>
                       <Input type="number" step="0.01" value={pricePerDay} onChange={e => setPricePerDay(e.target.value)} placeholder="e.g. 35" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs">Total / Full Camp (£)</Label>
+                      <Label className="text-xs text-muted-foreground">Total / full camp (£)</Label>
                       <Input type="number" step="0.01" value={priceTotal} onChange={e => setPriceTotal(e.target.value)} placeholder="e.g. 150" />
                     </div>
                   </div>
@@ -541,7 +543,7 @@ const AdminCamps = () => {
 
                 <div className="flex justify-end">
                   <Button onClick={() => setStep(2)} disabled={!canProceedStep1}>
-                    Next: Dates <ChevronRight className="w-4 h-4 ml-1" />
+                    Next: dates <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 </div>
               </div>
@@ -549,11 +551,11 @@ const AdminCamps = () => {
 
             {/* STEP 2: Date range */}
             {step === 2 && (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {/* School holiday quick picks */}
                 {schoolHolidays.length > 0 && (
                   <div className="space-y-2">
-                    <Label className="text-sm font-semibold">Quick Pick: School Holidays</Label>
+                    <Label className="text-sm font-semibold">Quick pick: school holidays</Label>
                     <p className="text-xs text-muted-foreground">Select a holiday period, then toggle individual dates below</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[160px] overflow-y-auto pr-1">
                       {schoolHolidays.filter(h => !isBefore(parseISO(h.end_date), today)).map(h => {
@@ -564,15 +566,15 @@ const AdminCamps = () => {
                             key={h.id}
                             type="button"
                             onClick={() => selectHoliday(h)}
-                            className={`text-left p-3 rounded-lg border transition-colors ${
+                            className={`text-left p-3 rounded-2xl transition-all ${
                               isSelected
-                                ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
-                                : 'border-border bg-card/50 hover:border-primary/50 hover:bg-primary/5'
+                                ? 'bg-primary/10 ring-2 ring-primary/30'
+                                : 'bg-secondary/60 hover:bg-secondary'
                             }`}
                           >
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-2">
                               <span className="text-sm font-medium text-foreground">{h.name}</span>
-                              <Badge variant="outline" className="text-[10px]">{totalDays} weekdays</Badge>
+                              <Badge variant={isSelected ? "default" : "secondary"} className="text-[10px]">{totalDays} weekdays</Badge>
                             </div>
                             <span className="text-xs text-muted-foreground">
                               {format(parseISO(h.start_date), "d MMM")} – {format(parseISO(h.end_date), "d MMM yyyy")}
@@ -604,10 +606,10 @@ const AdminCamps = () => {
 
                   return (
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-sm font-semibold">Select Camp Dates</Label>
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <Label className="text-sm font-semibold">Select camp dates</Label>
                         <div className="flex items-center gap-2">
-                          <Badge className="bg-primary/15 text-primary border-primary/30">
+                          <Badge>
                             {selectedDates.size} days selected
                           </Badge>
                           <Button
@@ -643,9 +645,9 @@ const AdminCamps = () => {
                           const calDays = eachDayOfInterval({ start: calStart, end: calEnd });
 
                           return (
-                            <div key={format(month, "yyyy-MM")} className="rounded-lg border border-border bg-card/50 p-3">
-                              <p className="text-sm font-semibold text-center mb-2">{format(month, "MMMM yyyy")}</p>
-                              <div className="grid grid-cols-7 gap-0.5">
+                            <div key={format(month, "yyyy-MM")} className="rounded-2xl bg-secondary/40 p-3">
+                              <p className="text-sm font-display font-semibold text-center mb-2">{format(month, "MMMM yyyy")}</p>
+                              <div className="grid grid-cols-7 gap-1">
                                 {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
                                   <div key={i} className="text-[10px] text-center text-muted-foreground font-medium py-1">{d}</div>
                                 ))}
@@ -663,16 +665,16 @@ const AdminCamps = () => {
                                       type="button"
                                       disabled={!isClickable}
                                       onClick={() => isClickable && toggleDate(dateStr)}
-                                      className={`h-8 w-full rounded text-xs font-medium transition-all ${
+                                      className={`h-8 w-full rounded-xl text-xs font-medium tabular-nums transition-all ${
                                         !isInMonth
                                           ? "text-transparent cursor-default"
                                           : !isInHoliday
                                           ? "text-muted-foreground/40 cursor-default"
                                           : isSelected
-                                          ? "bg-primary text-primary-foreground hover:bg-primary/80 shadow-sm"
+                                          ? "bg-primary text-primary-foreground shadow-soft hover:bg-primary/90"
                                           : isWeekendDay
-                                          ? "text-muted-foreground/50 hover:bg-muted/60 border border-dashed border-muted-foreground/20"
-                                          : "text-muted-foreground hover:bg-muted/60 border border-dashed border-border"
+                                          ? "text-muted-foreground/50 hover:bg-card hover:shadow-soft"
+                                          : "text-foreground hover:bg-card hover:shadow-soft"
                                       }`}
                                     >
                                       {isInMonth ? format(day, "d") : ""}
@@ -688,17 +690,17 @@ const AdminCamps = () => {
                   );
                 })()}
 
-                <div className="border-t border-border pt-4">
+                <div className="border-t border-border/50 pt-4">
                   <Label className="text-sm font-semibold mb-3 block">
-                    {selectedHolidayId ? "Or Use Custom Dates" : "Custom Dates"}
+                    {selectedHolidayId ? "Or use custom dates" : "Custom dates"}
                   </Label>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Start Date *</Label>
+                      <Label className="text-xs text-muted-foreground">Start date *</Label>
                       <Input type="date" value={startDate} onChange={e => { setStartDate(e.target.value); setSelectedHolidayId(null); setSelectedDates(new Set()); }} />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">End Date *</Label>
+                      <Label className="text-xs text-muted-foreground">End date *</Label>
                       <Input type="date" value={endDate} onChange={e => { setEndDate(e.target.value); setSelectedHolidayId(null); setSelectedDates(new Set()); }} />
                     </div>
                   </div>
@@ -706,11 +708,11 @@ const AdminCamps = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Default Start Time</Label>
+                    <Label>Default start time</Label>
                     <Input type="time" value={defaultStartTime} onChange={e => { setDefaultStartTime(e.target.value); }} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Default End Time</Label>
+                    <Label>Default end time</Label>
                     <Input type="time" value={defaultEndTime} onChange={e => { setDefaultEndTime(e.target.value); }} />
                   </div>
                 </div>
@@ -733,8 +735,8 @@ const AdminCamps = () => {
                   }
                   return (
                     <div className="space-y-2">
-                      <Button variant="outline" onClick={generateSessions} disabled={!canGenerate}>
-                        {sessions.length > 0 ? "Regenerate Sessions" : "Generate Sessions"} ({expectedDates.length} days)
+                      <Button variant="secondary" onClick={generateSessions} disabled={!canGenerate}>
+                        {sessions.length > 0 ? "Regenerate sessions" : "Generate sessions"} ({expectedDates.length} days)
                       </Button>
                       {sessions.length > 0 && !timesMatch && (
                         <p className="text-xs text-muted-foreground">Default times changed — regenerating will reset any per-day time overrides.</p>
@@ -748,7 +750,7 @@ const AdminCamps = () => {
                     <ChevronLeft className="w-4 h-4 mr-1" /> Back
                   </Button>
                   <Button onClick={() => { if (selectedDates.size > 0 && sessions.length === 0) generateSessions(); setStep(3); }} disabled={!canProceedStep2}>
-                    Next: Review <ChevronRight className="w-4 h-4 ml-1" />
+                    Next: review <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 </div>
               </div>
@@ -756,24 +758,24 @@ const AdminCamps = () => {
 
             {/* STEP 3: Review Sessions */}
             {step === 3 && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
+              <div className="space-y-5">
+                <div className="flex items-center justify-between gap-2">
                   <div>
-                    <h3 className="font-semibold text-foreground">{sessions.length} Sessions</h3>
+                    <h3 className="font-display font-semibold text-foreground">{sessions.length} sessions</h3>
                     <p className="text-xs text-muted-foreground">Edit times per session or remove days</p>
                   </div>
-                  {selectedWorkshop && <Badge variant="outline">{selectedWorkshop.name}</Badge>}
+                  {selectedWorkshop && <Badge variant="secondary">{selectedWorkshop.name}</Badge>}
                 </div>
 
                 <div className="max-h-[400px] overflow-y-auto space-y-2 pr-1">
                   {sessions.map((s, i) => (
-                    <div key={s.date} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card/50">
+                    <div key={s.date} className="flex items-center gap-3 p-3 rounded-2xl bg-secondary/50">
                       <div className="flex-1 min-w-0">
                         <span className="text-sm font-medium text-foreground">{s.dayLabel}</span>
                       </div>
-                      <Input type="time" value={s.start_time} onChange={e => updateSessionTime(i, "start_time", e.target.value)} className="w-28" />
+                      <Input type="time" value={s.start_time} onChange={e => updateSessionTime(i, "start_time", e.target.value)} className="w-28 bg-card" />
                       <span className="text-muted-foreground text-sm">–</span>
-                      <Input type="time" value={s.end_time} onChange={e => updateSessionTime(i, "end_time", e.target.value)} className="w-28" />
+                      <Input type="time" value={s.end_time} onChange={e => updateSessionTime(i, "end_time", e.target.value)} className="w-28 bg-card" />
                       <Button variant="ghost" size="icon" className="flex-shrink-0" onClick={() => setSessions(prev => prev.filter((_, idx) => idx !== i))}>
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
@@ -786,7 +788,7 @@ const AdminCamps = () => {
                     <ChevronLeft className="w-4 h-4 mr-1" /> Back
                   </Button>
                   <Button onClick={() => setStep(4)} disabled={sessions.length === 0}>
-                    Next: Staffing <ChevronRight className="w-4 h-4 ml-1" />
+                    Next: staffing <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 </div>
               </div>
@@ -794,10 +796,10 @@ const AdminCamps = () => {
 
             {/* STEP 4: Staffing */}
             {step === 4 && (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div>
-                  <h3 className="font-semibold text-foreground">Default Instructors</h3>
-                  <p className="text-xs text-muted-foreground">Assign one or more instructors. Mark exactly one as Main; the rest are Assistants. Optionally set a pay-per-hour override per instructor. These apply for all days, then override individually below.</p>
+                  <h3 className="font-display font-semibold text-foreground">Default instructors</h3>
+                  <p className="text-xs text-muted-foreground">Assign one or more instructors. Mark exactly one as main; the rest are assistants. Optionally set a pay-per-hour override per instructor. These apply for all days, then override individually below.</p>
                 </div>
 
                 <div className="space-y-2">
@@ -809,7 +811,7 @@ const AdminCamps = () => {
                     if (!s) return null;
                     const isMain = (mainInstructorId || instructorIds[0]) === id;
                     return (
-                      <div key={id} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card/50 flex-wrap">
+                      <div key={id} className="flex items-center gap-3 p-3 rounded-2xl bg-secondary/50 flex-wrap">
                         <span className="text-sm font-medium text-foreground flex-1 min-w-[120px]">{s.full_name}</span>
                         <div className="flex gap-1">
                           <Button
@@ -845,7 +847,7 @@ const AdminCamps = () => {
                             placeholder={s.pay_per_hour != null ? s.pay_per_hour.toString() : "default"}
                             value={instructorPayOverrides[id] ?? ""}
                             onChange={e => setInstructorPayOverrides(prev => ({ ...prev, [id]: e.target.value }))}
-                            className="w-24 h-7 text-xs"
+                            className="w-24 h-7 text-xs bg-card"
                           />
                         </div>
                         <button
@@ -858,7 +860,7 @@ const AdminCamps = () => {
                               setMainInstructorId(other || "");
                             }
                           }}
-                          className="hover:text-destructive"
+                          className="text-muted-foreground hover:text-destructive transition-colors"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -872,7 +874,7 @@ const AdminCamps = () => {
                       if (instructorIds.length === 0 && !mainInstructorId) setMainInstructorId(v);
                     }
                   }}>
-                    <SelectTrigger><SelectValue placeholder="Add instructor..." /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Add instructor…" /></SelectTrigger>
                     <SelectContent>
                       {staffList.filter(s => !instructorIds.includes(s.id)).map(s => (
                         <SelectItem key={s.id} value={s.id}>{s.full_name}</SelectItem>
@@ -881,8 +883,8 @@ const AdminCamps = () => {
                   </Select>
                 </div>
 
-                <div className="border-t border-border pt-4">
-                  <h3 className="font-semibold text-foreground mb-1">Per-Day Overrides</h3>
+                <div className="border-t border-border/50 pt-4">
+                  <h3 className="font-display font-semibold text-foreground mb-1">Per-day overrides</h3>
                   <p className="text-xs text-muted-foreground mb-3">Leave blank to use the default instructors above</p>
 
                   <div className="max-h-[350px] overflow-y-auto space-y-2 pr-1">
@@ -890,7 +892,7 @@ const AdminCamps = () => {
                       const overrideIds = sessionStaffing[i] || [];
                       const usingDefault = overrideIds.length === 0;
                       return (
-                        <div key={s.date} className={`flex items-center gap-3 p-3 rounded-lg border ${usingDefault ? 'border-border bg-card/50' : 'border-primary/30 bg-primary/5'}`}>
+                        <div key={s.date} className={`flex items-center gap-3 p-3 rounded-2xl ${usingDefault ? 'bg-secondary/40' : 'bg-primary/5'}`}>
                           <div className="w-48 flex-shrink-0">
                             <span className="text-sm font-medium text-foreground">{s.dayLabel}</span>
                           </div>
@@ -901,7 +903,7 @@ const AdminCamps = () => {
                               overrideIds.map(sid => {
                                 const staff = staffList.find(st => st.id === sid);
                                 return staff ? (
-                                  <Badge key={sid} variant="outline" className="gap-1 pr-1 text-xs">
+                                  <Badge key={sid} className="gap-1 pr-1 text-xs">
                                     {staff.full_name}
                                     <button type="button" onClick={() => setSessionStaffing(prev => ({
                                       ...prev,
@@ -921,8 +923,8 @@ const AdminCamps = () => {
                               [i]: [...(prev[i] || []), v].filter((id, idx, arr) => arr.indexOf(id) === idx)
                             }));
                           }}>
-                            <SelectTrigger className="w-40">
-                              <SelectValue placeholder="Override..." />
+                            <SelectTrigger className="w-40 bg-card">
+                              <SelectValue placeholder="Override…" />
                             </SelectTrigger>
                             <SelectContent>
                               {staffList.filter(st => !(sessionStaffing[i] || []).includes(st.id)).map(st => (
@@ -950,7 +952,7 @@ const AdminCamps = () => {
                     <ChevronLeft className="w-4 h-4 mr-1" /> Back
                   </Button>
                   <Button onClick={handleSubmit} disabled={saving || sessions.length === 0}>
-                    {saving ? "Saving..." : editing ? "Update Camp" : "Create Camp"}
+                    {saving ? "Saving…" : editing ? "Update camp" : "Create camp"}
                   </Button>
                 </div>
               </div>
@@ -960,20 +962,26 @@ const AdminCamps = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-2 mb-6">
-        <Button variant={!showPast ? "default" : "outline"} size="sm" onClick={() => setShowPast(false)}>Upcoming</Button>
-        <Button variant={showPast ? "default" : "outline"} size="sm" onClick={() => setShowPast(true)}>Past</Button>
-      </div>
+      <FadeRise delay={60} className="mb-6">
+        <Tabs value={showPast ? "past" : "upcoming"} onValueChange={(v) => setShowPast(v === "past")}>
+          <TabsList>
+            <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+            <TabsTrigger value="past">Past</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </FadeRise>
 
       {/* Camp list */}
       {filteredCamps.length === 0 && (
-        <div className="text-center py-16 text-muted-foreground">
-          <Calendar className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p>No {showPast ? "past" : "upcoming"} camps found</p>
-        </div>
+        <FadeRise className="text-center py-16">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary text-muted-foreground">
+            <Calendar className="w-6 h-6" />
+          </div>
+          <p className="text-muted-foreground">No {showPast ? "past" : "upcoming"} camps found</p>
+        </FadeRise>
       )}
 
-      <div className="space-y-3">
+      <Stagger className="space-y-4">
         {filteredCamps.map(c => {
           const isExpanded = expandedCampId === c.id;
           const toggleExpand = () => setExpandedCampId(isExpanded ? null : c.id);
@@ -981,17 +989,21 @@ const AdminCamps = () => {
           const instrIds = campInstructors[c.id] || [];
 
           return (
-            <Card key={c.id} className="overflow-hidden">
-              <CardContent className="p-4">
+            <Card key={c.id} className="overflow-hidden transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg">
+              <CardContent className="p-4 md:p-5">
                 <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-4">
                   <div className="flex items-start gap-3 lg:gap-4 min-w-0 flex-1">
-                  {c.workshops?.cover_image && (
-                    <img src={c.workshops.cover_image} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                  {c.workshops?.cover_image ? (
+                    <img src={c.workshops.cover_image} alt="" className="w-12 h-12 rounded-2xl object-cover flex-shrink-0" />
+                  ) : (
+                    <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl ${c.class_type === "children" ? "bg-primary/8 text-primary" : "bg-accent/8 text-accent"}`}>
+                      <Tent className="w-5 h-5" />
+                    </div>
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold text-foreground">{c.name}</h3>
-                      <Badge variant="outline" className="text-xs">{c.class_type === "children" ? "Children" : "Adult"}</Badge>
+                      <h3 className="font-display font-semibold text-foreground">{c.name}</h3>
+                      <Badge variant={c.class_type === "children" ? "default" : "accent"} className="text-xs">{c.class_type === "children" ? "Children" : "Adult"}</Badge>
                       {c.dance_style && <Badge variant="secondary" className="text-xs">{c.dance_style}</Badge>}
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
@@ -1010,36 +1022,36 @@ const AdminCamps = () => {
                   </div>
                   </div>
                   <div className="flex items-center gap-2 lg:gap-3 flex-wrap justify-end border-t lg:border-t-0 border-border/40 pt-3 lg:pt-0">
-                    {c.price_per_day && <span className="text-sm font-medium">£{c.price_per_day}/day</span>}
-                    {c.price_total && <span className="text-sm text-muted-foreground">£{c.price_total} total</span>}
+                    {c.price_per_day && <span className="text-sm font-display font-semibold tabular-nums">£{c.price_per_day}/day</span>}
+                    {c.price_total && <span className="text-sm text-muted-foreground tabular-nums">£{c.price_total} total</span>}
                     <Button variant="ghost" size="sm" className="flex flex-col items-center gap-0 h-auto py-1 px-2" onClick={() => openClone(c)}>
                       <Copy className="w-4 h-4" />
-                      <span className="text-[9px] text-muted-foreground">Clone</span>
+                      <span className="text-[10px] text-muted-foreground">Clone</span>
                     </Button>
                     <Button variant="ghost" size="sm" className="flex flex-col items-center gap-0 h-auto py-1 px-2" onClick={() => openEdit(c)}>
                       <Edit className="w-4 h-4" />
-                      <span className="text-[9px] text-muted-foreground">Edit</span>
+                      <span className="text-[10px] text-muted-foreground">Edit</span>
                     </Button>
                     <Button variant="ghost" size="sm" className="flex flex-col items-center gap-0 h-auto py-1 px-2" onClick={() => setDeleteId(c.id)}>
                       <Trash2 className="w-4 h-4 text-destructive" />
-                      <span className="text-[9px] text-destructive">Delete</span>
+                      <span className="text-[10px] text-destructive">Delete</span>
                     </Button>
                     <Button variant="ghost" size="sm" className="flex flex-col items-center gap-0 h-auto py-1 px-2" onClick={toggleExpand}>
                       {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      <span className="text-[9px] text-muted-foreground">{isExpanded ? "Less" : "More"}</span>
+                      <span className="text-[10px] text-muted-foreground">{isExpanded ? "Less" : "More"}</span>
                     </Button>
                   </div>
                 </div>
 
                 {isExpanded && (
-                  <div className="mt-4 pt-4 border-t border-border space-y-3">
+                  <div className="mt-4 pt-4 border-t border-border/50 space-y-3">
                     {c.description && <p className="text-sm text-muted-foreground">{c.description}</p>}
                     {instrIds.length > 0 && (
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs text-muted-foreground">Staff:</span>
                         {instrIds.map(id => {
                           const s = staffList.find(st => st.id === id);
-                          return s ? <Badge key={id} variant="outline" className="text-xs">{s.full_name}</Badge> : null;
+                          return s ? <Badge key={id} variant="secondary" className="text-xs">{s.full_name}</Badge> : null;
                         })}
                       </div>
                     )}
@@ -1049,13 +1061,13 @@ const AdminCamps = () => {
             </Card>
           );
         })}
-      </div>
+      </Stagger>
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Camp?</AlertDialogTitle>
+            <AlertDialogTitle>Delete camp?</AlertDialogTitle>
             <AlertDialogDescription>This will permanently delete the camp and all its sessions.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

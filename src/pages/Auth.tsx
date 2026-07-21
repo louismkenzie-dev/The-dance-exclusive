@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff } from "lucide-react";
+import { AmbientGlow, FadeRise } from "@/components/motion";
 import logo from "@/assets/logo-dark.png";
 
 const Auth = () => {
@@ -107,59 +108,53 @@ const Auth = () => {
 
   if (showForgotPassword) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4 relative">
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-primary/5 rounded-full blur-3xl" />
-        </div>
-        <div className="w-full max-w-md animate-fade-in relative z-10">
+      <div className="relative min-h-screen flex items-center justify-center bg-background px-4 py-12 overflow-hidden">
+        <AmbientGlow variant="light" />
+        <FadeRise className="relative z-10 w-full max-w-md">
           <div className="text-center mb-8">
-            <img src={logo} alt="The Dance Exclusive" className="w-24 h-24 object-contain mx-auto mb-4" />
-            <h1 className="text-3xl font-display font-bold text-foreground tracking-wide">Reset Password</h1>
+            <img src={logo} alt="The Dance Exclusive" className="w-16 h-16 object-contain mx-auto mb-5 rounded-2xl" />
+            <h1 className="text-3xl font-display font-bold tracking-tight text-foreground">Reset password</h1>
             <p className="text-muted-foreground mt-2 text-sm">Enter your email and we'll send you a reset link</p>
           </div>
-          <Card className="border-border/50 bg-card/80 backdrop-blur">
+          <Card>
             <CardContent className="pt-6">
               <form onSubmit={handleForgotPassword} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="forgot-email">Email</Label>
                   <Input id="forgot-email" type="email" value={forgotPasswordEmail} onChange={(e) => setForgotPasswordEmail(e.target.value)} required placeholder="you@example.com" />
                 </div>
-                <Button type="submit" className="w-full font-semibold" disabled={loading}>
-                  {loading ? "Sending..." : "Send Reset Link"}
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? "Sending..." : "Send reset link"}
                 </Button>
                 <Button type="button" variant="ghost" className="w-full text-muted-foreground" onClick={() => setShowForgotPassword(false)}>
-                  Back to Sign In
+                  Back to sign in
                 </Button>
               </form>
             </CardContent>
           </Card>
-        </div>
+        </FadeRise>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 relative">
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-primary/5 rounded-full blur-3xl" />
-      </div>
+    <div className="relative min-h-screen flex items-center justify-center bg-background px-4 py-12 overflow-hidden">
+      <AmbientGlow variant="light" />
 
-      <div className="w-full max-w-md animate-fade-in relative z-10">
+      <FadeRise className="relative z-10 w-full max-w-md">
         <div className="text-center mb-8">
-          <img src={logo} alt="The Dance Exclusive" className="w-48 h-48 object-contain mx-auto mb-4 rounded-lg" />
-            <h1 className="text-3xl font-display font-bold text-foreground tracking-wide">Sign in to The Dance Exclusive</h1>
-          <p className="text-muted-foreground text-sm" style={{ textTransform: 'none', letterSpacing: 'normal', fontFamily: 'var(--font-body)' }}>
-            Sign in to book your dance classes
-          </p>
+          <img src={logo} alt="The Dance Exclusive" className="w-16 h-16 object-contain mx-auto mb-5 rounded-2xl" />
+          <h1 className="text-3xl font-display font-bold tracking-tight text-foreground">Sign in to The Dance Exclusive</h1>
+          <p className="text-muted-foreground mt-2 text-sm">Sign in to book your dance classes</p>
         </div>
 
-        <Card className="border-border/50 bg-card/80 backdrop-blur">
+        <Card>
           <CardContent className="pt-6">
             {/* Google Sign In */}
             <Button
               type="button"
               variant="outline"
-              className="w-full mb-4 font-semibold flex items-center gap-3"
+              className="w-full mb-4 flex items-center gap-3"
               onClick={handleGoogleSignIn}
               disabled={loading}
             >
@@ -174,17 +169,17 @@ const Auth = () => {
 
             <div className="relative mb-4">
               <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-border" />
+                <span className="w-full border-t border-border/60" />
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
+              <div className="relative flex justify-center text-xs">
                 <span className="bg-card px-2 text-muted-foreground">or</span>
               </div>
             </div>
 
             <Tabs defaultValue="login" className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="login">Sign In</TabsTrigger>
-                <TabsTrigger value="signup">Create Account</TabsTrigger>
+                <TabsTrigger value="login">Sign in</TabsTrigger>
+                <TabsTrigger value="signup">Create account</TabsTrigger>
               </TabsList>
 
               <TabsContent value="login">
@@ -211,8 +206,8 @@ const Auth = () => {
                       Forgotten password?
                     </button>
                   </div>
-                  <Button type="submit" className="w-full font-semibold" disabled={loading}>
-                    {loading ? "Signing in..." : "Sign In"}
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? "Signing in..." : "Sign in"}
                   </Button>
                 </form>
               </TabsContent>
@@ -220,7 +215,7 @@ const Auth = () => {
               <TabsContent value="signup">
                 <form onSubmit={handleSignup} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signup-name">Full Name</Label>
+                    <Label htmlFor="signup-name">Full name</Label>
                     <Input id="signup-name" value={signupName} onChange={(e) => setSignupName(e.target.value)} required placeholder="Your full name" />
                   </div>
                   <div className="space-y-2">
@@ -236,15 +231,15 @@ const Auth = () => {
                       </button>
                     </div>
                   </div>
-                  <Button type="submit" className="w-full font-semibold" disabled={loading}>
-                    {loading ? "Creating account..." : "Create Account"}
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? "Creating account..." : "Create account"}
                   </Button>
                 </form>
               </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
-      </div>
+      </FadeRise>
     </div>
   );
 };

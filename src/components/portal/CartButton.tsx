@@ -36,35 +36,32 @@ const CartButton = () => {
         onClick={() => setIsOpen(true)}
         aria-label="Open basket"
       >
-        <ShoppingCart className="w-5 h-5" />
+        <ShoppingCart className="h-5 w-5" />
         {itemCount > 0 && (
           <span
             key={itemCount}
-            className={`absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center ${bump ? "animate-badge-pop" : ""}`}
+            className={`absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground ${bump ? "animate-badge-pop" : ""}`}
           >
             {itemCount}
           </span>
         )}
       </Button>
 
-      {/* Anchored popup with arrow pointing UP to the basket icon */}
+      {/* Anchored toast card with arrow pointing up to the basket icon */}
       {showPopup && lastAdded && (
-        <div className="absolute right-0 top-full mt-3 z-50 animate-fade-in pointer-events-none">
+        <div className="pointer-events-none absolute right-0 top-full z-50 mt-3 animate-fade-in">
           {/* Arrow */}
-          <div
-            className="absolute -top-1.5 right-4 w-3 h-3 rotate-45 border-l border-t border-primary/40"
-            style={{ background: "hsl(var(--card))" }}
-          />
-          <div className="relative w-64 rounded-lg border border-primary/40 bg-card shadow-xl shadow-primary/20 px-3 py-2.5">
-            <div className="flex items-start gap-2.5">
-              <div className="mt-0.5 flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
-                <Check className="w-3.5 h-3.5 text-primary" />
+          <div className="absolute -top-1 right-4 h-3 w-3 rotate-45 rounded-[3px] bg-card dark:border-l dark:border-t dark:border-border/60" />
+          <div className="relative w-64 rounded-2xl border border-transparent bg-card px-4 py-3 shadow-soft-lg dark:border-border/60">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-success/10 text-success">
+                <Check className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-primary">Added to basket</p>
-                <p className="text-sm font-semibold text-foreground truncate">
+                <p className="eyebrow">Added to basket</p>
+                <p className="mt-0.5 truncate text-sm font-semibold text-foreground">
                   {lastAdded.item.className}{" "}
-                  <span className="text-muted-foreground font-normal text-xs">
+                  <span className="text-xs font-normal text-muted-foreground">
                     ({lastAdded.item.classType === "adult" ? "Adults" : "Children"})
                   </span>
                 </p>

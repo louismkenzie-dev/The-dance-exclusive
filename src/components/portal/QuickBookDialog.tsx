@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
-import { CalendarDays, ShoppingCart, Sparkles, Tag, UserPlus } from "lucide-react";
+import { CalendarDays, CalendarRange, Repeat, ShoppingCart, Sparkles, Tag, Ticket, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -140,8 +140,6 @@ export function QuickBookDialog({
   const annualSavings = c.price_per_session && c.price_per_year
     ? Math.round((1 - (c.price_per_year / 12) / (c.price_per_session * 4)) * 100)
     : c.monthly_discount_percent || 0;
-
-  const accent = isAdult ? "hsl(330, 90%, 55%)" : "hsl(201, 70%, 65%)";
 
   const toggleSession = (id: string) => {
     setSelSessions(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
@@ -354,100 +352,123 @@ export function QuickBookDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50">
-          <DialogTitle className="text-xl font-display">{c.name}</DialogTitle>
-          <DialogDescription className="text-xs uppercase tracking-widest text-muted-foreground">
+          <DialogTitle className="text-xl font-display font-bold tracking-tight">{c.name}</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
             {c.day_of_week.charAt(0).toUpperCase() + c.day_of_week.slice(1)} · {c.start_time?.slice(0, 5)}–{c.end_time?.slice(0, 5)}
             {c.venues && <> · {c.venues.name}</>}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-5">
           {/* Plan selector */}
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-widest text-muted-foreground/70 font-medium flex items-center gap-1">
-              <Tag className="w-3 h-3" /> Choose Your Plan
+          <div className="space-y-3">
+            <p className="eyebrow flex items-center gap-1.5">
+              <Tag className="h-3 w-3" /> Choose your plan
             </p>
-            <div className="grid gap-2">
+            <div className="grid gap-2.5">
               {isTrialEligible && (
                 <button
+                  type="button"
                   onClick={() => setPlan("trial")}
-                  className={`flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
+                  className={`flex items-center justify-between gap-3 rounded-2xl p-3 text-left text-sm transition-all ${
                     plan === "trial"
-                      ? "border-green-500 bg-green-500/10 ring-1 ring-green-500/30"
-                      : "border-green-500/30 bg-green-500/5 hover:border-green-500/50"
+                      ? "bg-success/10 ring-2 ring-success"
+                      : "bg-secondary/60 hover:bg-secondary"
                   }`}
                 >
-                  <div>
-                    <span className="font-semibold text-foreground flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-green-400" /> Free Trial Session
+                  <span className="flex items-center gap-3 min-w-0">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-success/10 text-success">
+                      <Sparkles className="h-4 w-4" />
                     </span>
-                    <span className="block text-[10px] text-muted-foreground">No commitment — come have fun!</span>
-                  </div>
-                  <span className="font-bold text-green-400">FREE</span>
+                    <span className="min-w-0">
+                      <span className="block font-semibold text-foreground">Free trial session</span>
+                      <span className="block text-xs text-muted-foreground">No commitment — come have fun!</span>
+                    </span>
+                  </span>
+                  <span className="shrink-0 font-display font-bold text-success">Free</span>
                 </button>
               )}
               {c.price_per_session && (
                 <button
+                  type="button"
                   onClick={() => setPlan("session")}
-                  className={`flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
+                  className={`flex items-center justify-between gap-3 rounded-2xl p-3 text-left text-sm transition-all ${
                     plan === "session"
-                      ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-                      : "border-border/50 bg-background/50 hover:border-border"
+                      ? "bg-primary/10 ring-2 ring-primary"
+                      : "bg-secondary/60 hover:bg-secondary"
                   }`}
                 >
-                  <div>
-                    <span className="font-semibold text-foreground">Drop-in Sessions</span>
-                    <span className="block text-[10px] text-muted-foreground">Pick the dates you want to attend</span>
-                  </div>
-                  <span className="font-bold text-foreground">£{c.price_per_session}<span className="text-[10px] font-normal text-muted-foreground">/each</span></span>
+                  <span className="flex items-center gap-3 min-w-0">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                      <Ticket className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block font-semibold text-foreground">Drop-in sessions</span>
+                      <span className="block text-xs text-muted-foreground">Pick the dates you want to attend</span>
+                    </span>
+                  </span>
+                  <span className="shrink-0 font-display font-bold tabular-nums text-foreground">
+                    £{c.price_per_session}
+                    <span className="font-body text-xs font-normal text-muted-foreground">/each</span>
+                  </span>
                 </button>
               )}
               {c.price_per_term && remaining > 0 && (
                 <button
+                  type="button"
                   onClick={() => setPlan("term")}
-                  className={`flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
+                  className={`flex items-center justify-between gap-3 rounded-2xl p-3 text-left text-sm transition-all ${
                     plan === "term"
-                      ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-                      : "border-border/50 bg-background/50 hover:border-border"
+                      ? "bg-primary/10 ring-2 ring-primary"
+                      : "bg-secondary/60 hover:bg-secondary"
                   }`}
                 >
-                  <div>
-                    <span className="font-semibold text-foreground">Full Term</span>
-                    <span className="block text-[10px] text-muted-foreground">All {remaining} sessions · save vs drop-in</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="font-bold text-foreground">£{c.price_per_term}</span>
+                  <span className="flex items-center gap-3 min-w-0">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                      <CalendarRange className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block font-semibold text-foreground">Full term</span>
+                      <span className="block text-xs text-muted-foreground">All {remaining} sessions · save vs drop-in</span>
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-right">
+                    <span className="block font-display font-bold tabular-nums text-foreground">£{c.price_per_term}</span>
                     {termSavings > 0 && (
-                      <Badge className="ml-1.5 bg-green-500/20 text-green-400 border-green-500/30 text-[9px]">SAVE {termSavings}%</Badge>
+                      <Badge variant="success" className="mt-0.5 text-[10px]">Save {termSavings}%</Badge>
                     )}
-                  </div>
+                  </span>
                 </button>
               )}
               {(c.price_per_year || c.price_per_month) && (
                 <button
+                  type="button"
                   onClick={() => setPlan("monthly")}
-                  className={`relative flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
+                  className={`relative flex items-center justify-between gap-3 rounded-2xl p-3 text-left text-sm transition-all ${
                     plan === "monthly"
-                      ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-                      : "border-border/50 bg-background/50 hover:border-border"
+                      ? "bg-primary/10 ring-2 ring-primary"
+                      : "bg-secondary/60 hover:bg-secondary"
                   }`}
                 >
-                  <div className="absolute -top-2 right-2">
-                    <Badge className="bg-primary text-primary-foreground text-[9px] px-1.5 py-0">BEST VALUE</Badge>
-                  </div>
-                  <div>
-                    <span className="font-semibold text-foreground">Monthly Subscription</span>
-                    <span className="block text-[10px] text-muted-foreground">Commit for the year · cheapest per class</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="font-bold text-foreground">
+                  <Badge variant="solid" className="absolute -top-2 right-3 text-[10px]">Best value</Badge>
+                  <span className="flex items-center gap-3 min-w-0">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                      <Repeat className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block font-semibold text-foreground">Monthly subscription</span>
+                      <span className="block text-xs text-muted-foreground">Commit for the year · cheapest per class</span>
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-right">
+                    <span className="block font-display font-bold tabular-nums text-foreground">
                       £{annualMonthlyCost?.toFixed(2) || c.price_per_month}
-                      <span className="text-[10px] font-normal text-muted-foreground">/mo</span>
+                      <span className="font-body text-xs font-normal text-muted-foreground">/mo</span>
                     </span>
                     {annualSavings > 0 && (
-                      <Badge className="ml-1.5 bg-green-500/20 text-green-400 border-green-500/30 text-[9px]">SAVE {annualSavings}%</Badge>
+                      <Badge variant="success" className="mt-0.5 text-[10px]">Save {annualSavings}%</Badge>
                     )}
-                  </div>
+                  </span>
                 </button>
               )}
             </div>
@@ -455,18 +476,19 @@ export function QuickBookDialog({
 
           {/* Children selector — choose WHO before WHEN */}
           {c.class_type === "children" && user && children.length > 0 && (
-            <div className="space-y-1.5 pt-2 border-t border-border/30">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] text-muted-foreground font-medium">Select who to book on — add more than one and the price adds up:</p>
+            <div className="space-y-2 pt-4 border-t border-border/50">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-medium text-muted-foreground">Select who to book on — add more than one and the price adds up:</p>
                 <button
+                  type="button"
                   onClick={() => setChildDialog({ editing: null, selfMode: false })}
-                  className="text-[10px] text-primary hover:underline inline-flex items-center gap-0.5 shrink-0"
+                  className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:underline"
                 >
-                  <UserPlus className="w-3 h-3" /> Add a child
+                  <UserPlus className="h-3 w-3" /> Add a child
                 </button>
               </div>
               {!hasEligible && (
-                <p className="text-[11px] text-amber-500">
+                <p className="text-xs text-warning">
                   None of your children are in the age range{c.age_min != null && c.age_max != null ? ` (ages ${c.age_min}–${c.age_max})` : ""}.
                 </p>
               )}
@@ -480,12 +502,12 @@ export function QuickBookDialog({
                 return (
                   <label
                     key={ch.id}
-                    className={`flex items-center gap-2.5 p-2 rounded-lg border text-sm transition-all ${
+                    className={`flex items-center gap-3 rounded-2xl p-3 text-sm transition-all ${
                       !ch.eligible
-                        ? "opacity-40 cursor-not-allowed border-border/30 bg-muted/20"
+                        ? "cursor-not-allowed bg-secondary/40 opacity-50"
                         : selKids.includes(ch.id)
-                          ? "border-primary bg-primary/10 ring-1 ring-primary/30 cursor-pointer"
-                          : "border-border/50 bg-background/50 hover:border-border cursor-pointer"
+                          ? "cursor-pointer bg-primary/10 ring-2 ring-primary"
+                          : "cursor-pointer bg-secondary/60 hover:bg-secondary"
                     }`}
                   >
                     <input
@@ -493,16 +515,16 @@ export function QuickBookDialog({
                       checked={selKids.includes(ch.id)}
                       disabled={!ch.eligible}
                       onChange={() => toggleKid(ch.id)}
-                      className="rounded border-border accent-primary w-4 h-4"
+                      className="h-4 w-4 rounded border-border accent-primary"
                     />
-                    <span className="flex-1 text-foreground font-medium">
+                    <span className="flex-1 font-medium text-foreground">
                       {ch.first_name} {ch.last_name}
-                      <span className="text-muted-foreground font-normal ml-1">(age {ch.age})</span>
+                      <span className="ml-1 font-normal text-muted-foreground">(age {ch.age})</span>
                     </span>
-                    {!ch.eligible && <span className="text-[10px] text-amber-500">not in age group</span>}
+                    {!ch.eligible && <span className="text-xs text-warning">Not in age group</span>}
                     {ch.eligible && showInBasketHint && (
-                      <span className="text-[10px] text-muted-foreground italic">
-                        {isPickPlan ? `${overlapCount} in basket` : "in basket"}
+                      <span className="text-xs text-muted-foreground">
+                        {isPickPlan ? `${overlapCount} in basket` : "In basket"}
                       </span>
                     )}
                   </label>
@@ -512,27 +534,28 @@ export function QuickBookDialog({
           )}
 
           {c.class_type === "children" && user && children.length === 0 && (
-            <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/5 text-sm space-y-2">
+            <div className="space-y-3 rounded-2xl bg-warning/10 p-4 text-sm text-foreground">
               <p>Add your child's details to book them in — we'll pre-fill their arrival and pickup times from the class.</p>
-              <Button size="sm" onClick={() => setChildDialog({ editing: null, selfMode: false })} className="gap-1.5">
-                <UserPlus className="w-3.5 h-3.5" /> Add a Child
+              <Button size="sm" onClick={() => setChildDialog({ editing: null, selfMode: false })}>
+                <UserPlus /> Add a child
               </Button>
             </div>
           )}
 
           {/* Drop-in: pick dates */}
           {plan === "session" && sessions.length > 0 && (
-            <div className="space-y-2 pt-2 border-t border-border/30">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] text-muted-foreground font-medium">Select sessions to attend:</p>
+            <div className="space-y-2 pt-4 border-t border-border/50">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-medium text-muted-foreground">Select sessions to attend:</p>
                 <button
+                  type="button"
                   onClick={() => setSelSessions(selSessions.length === sessions.length ? [] : sessions.map(s => s.id))}
-                  className="text-[10px] text-primary hover:underline"
+                  className="text-xs font-medium text-primary hover:underline"
                 >
                   {selSessions.length === sessions.length ? "Deselect all" : "Select all"}
                 </button>
               </div>
-              <div className="grid gap-1.5 max-h-48 overflow-y-auto pr-1">
+              <div className="grid gap-2 max-h-48 overflow-y-auto pr-1">
                 {sessions.map(s => {
                   const isSel = selSessions.includes(s.id);
                   // Inline hint: only show "in basket" if relevant for the user's current selection.
@@ -549,24 +572,26 @@ export function QuickBookDialog({
                   return (
                     <label
                       key={s.id}
-                      className={`flex items-center gap-2.5 p-2 rounded-lg border text-sm transition-all cursor-pointer ${
+                      className={`flex cursor-pointer items-center gap-3 rounded-2xl p-2.5 text-sm transition-all ${
                         isSel
-                          ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-                          : "border-border/50 bg-background/50 hover:border-border"
+                          ? "bg-primary/10 ring-2 ring-primary"
+                          : "bg-secondary/60 hover:bg-secondary"
                       }`}
                     >
                       <input
                         type="checkbox"
                         checked={isSel}
                         onChange={() => toggleSession(s.id)}
-                        className="rounded border-border accent-primary w-4 h-4"
+                        className="h-4 w-4 rounded border-border accent-primary"
                       />
-                      <CalendarDays className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                      <span className="flex-1 text-foreground font-medium">{format(parseISO(s.session_date), "EEE d MMM yyyy")}</span>
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="flex-1 font-medium text-foreground">{format(parseISO(s.session_date), "EEE d MMM yyyy")}</span>
                       {inBasketForSelection ? (
-                        <span className="text-[10px] text-muted-foreground italic">in basket</span>
+                        <span className="text-xs text-muted-foreground">In basket</span>
                       ) : (
-                        <span className="text-xs text-muted-foreground">{s.start_time?.slice(0, 5)} – {s.end_time?.slice(0, 5)}</span>
+                        <span className="text-xs tabular-nums text-muted-foreground">{s.start_time?.slice(0, 5)} – {s.end_time?.slice(0, 5)}</span>
                       )}
                     </label>
                   );
@@ -577,9 +602,9 @@ export function QuickBookDialog({
 
           {/* Trial: pick one */}
           {plan === "trial" && sessions.length > 0 && (
-            <div className="space-y-2 pt-2 border-t border-border/30">
-              <p className="text-[11px] text-muted-foreground font-medium">Pick your trial session:</p>
-              <div className="grid gap-1.5 max-h-48 overflow-y-auto pr-1">
+            <div className="space-y-2 pt-4 border-t border-border/50">
+              <p className="text-xs font-medium text-muted-foreground">Pick your trial session:</p>
+              <div className="grid gap-2 max-h-48 overflow-y-auto pr-1">
                 {sessions.map(s => {
                   const isSel = selSessions.includes(s.id);
                   let inBasketForSelection = false;
@@ -593,10 +618,10 @@ export function QuickBookDialog({
                   return (
                     <label
                       key={s.id}
-                      className={`flex items-center gap-2.5 p-2 rounded-lg border text-sm transition-all cursor-pointer ${
+                      className={`flex cursor-pointer items-center gap-3 rounded-2xl p-2.5 text-sm transition-all ${
                         isSel
-                          ? "border-green-500 bg-green-500/10 ring-1 ring-green-500/30"
-                          : "border-border/50 bg-background/50 hover:border-border"
+                          ? "bg-success/10 ring-2 ring-success"
+                          : "bg-secondary/60 hover:bg-secondary"
                       }`}
                     >
                       <input
@@ -604,14 +629,16 @@ export function QuickBookDialog({
                         name={`qb-trial-${c.id}`}
                         checked={isSel}
                         onChange={() => setSelSessions([s.id])}
-                        className="accent-green-500 w-4 h-4"
+                        className="h-4 w-4 accent-success"
                       />
-                      <CalendarDays className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
-                      <span className="flex-1 text-foreground font-medium">{format(parseISO(s.session_date), "EEE d MMM yyyy")}</span>
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-success/10 text-success">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="flex-1 font-medium text-foreground">{format(parseISO(s.session_date), "EEE d MMM yyyy")}</span>
                       {inBasketForSelection ? (
-                        <span className="text-[10px] text-muted-foreground italic">in basket</span>
+                        <span className="text-xs text-muted-foreground">In basket</span>
                       ) : (
-                        <span className="text-xs text-muted-foreground">{s.start_time?.slice(0, 5)} – {s.end_time?.slice(0, 5)}</span>
+                        <span className="text-xs tabular-nums text-muted-foreground">{s.start_time?.slice(0, 5)} – {s.end_time?.slice(0, 5)}</span>
                       )}
                     </label>
                   );
@@ -624,18 +651,18 @@ export function QuickBookDialog({
 
 
         {/* Sticky footer */}
-        <div className="border-t border-border/50 px-6 py-4 flex items-center justify-between gap-3">
-          <div style={{ fontFamily: "var(--font-body)" }}>
+        <div className="flex items-center justify-between gap-3 border-t border-border/50 bg-card/95 px-6 py-4 backdrop-blur">
+          <div>
             {plan === "trial" ? (
-              <span className="text-lg font-bold text-green-400">FREE</span>
+              <span className="font-display text-xl font-bold text-success">Free</span>
             ) : displayPrice ? (
-              <span className="text-lg font-bold text-foreground">
+              <span className="font-display text-xl font-bold tabular-nums text-foreground">
                 £{displayPrice.toFixed(2).replace(/\.00$/, "")}
-                <span className="text-xs font-normal text-muted-foreground ml-0.5">
+                <span className="ml-0.5 font-body text-xs font-normal text-muted-foreground">
                   /{plan === "term" ? "term" : plan === "monthly" ? "mo" : sessionsSelected > 1 ? `${sessionsSelected} sessions` : "session"}
                 </span>
                 {selKids.length > 1 && (
-                  <span className="text-xs font-normal text-muted-foreground ml-1">× {selKids.length} children</span>
+                  <span className="ml-1 font-body text-xs font-normal text-muted-foreground">× {selKids.length} children</span>
                 )}
               </span>
             ) : null}
@@ -647,21 +674,17 @@ export function QuickBookDialog({
               if (needsSelfProfile) return setChildDialog({ editing: selfStudent, selfMode: true });
               handleAddToCart();
             }}
-            className="uppercase tracking-wider text-xs font-semibold gap-1.5"
-            style={{
-              background: plan === "trial" ? "hsl(142, 71%, 45%)" : accent,
-              color: "white",
-            }}
+            className={plan === "trial" ? "bg-success text-success-foreground hover:bg-success/90" : undefined}
           >
-            {(needsChild || needsSelfProfile) ? <UserPlus className="w-3.5 h-3.5" /> : <ShoppingCart className="w-3.5 h-3.5" />}
-            {!user ? "Sign In to Book"
-              : needsChild ? "Add a Child"
-              : needsSelfProfile ? "Set Up Your Profile"
+            {(needsChild || needsSelfProfile) ? <UserPlus /> : <ShoppingCart />}
+            {!user ? "Sign in to book"
+              : needsChild ? "Add a child"
+              : needsSelfProfile ? "Set up your profile"
               : noSessionsSelected ? "Select sessions"
               : noKidsSelected ? "Select child"
-              : plan === "trial" ? "Book Free Trial"
-              : selKids.length > 1 ? `Add ${selKids.length} to Basket`
-              : "Add to Basket"}
+              : plan === "trial" ? "Book free trial"
+              : selKids.length > 1 ? `Add ${selKids.length} to basket`
+              : "Add to basket"}
           </Button>
         </div>
       </DialogContent>

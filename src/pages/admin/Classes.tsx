@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, CalendarDays, ChevronRight, ChevronLeft, ListChecks, ChevronDown, ChevronUp, Clock, User, Archive, X, Copy, Flag, AlertTriangle } from "lucide-react";
+import { Plus, Edit, Trash2, CalendarDays, ChevronRight, ChevronLeft, ListChecks, ChevronDown, ChevronUp, Clock, User, Archive, X, Copy, Flag, AlertTriangle, Check, Music } from "lucide-react";
+import { Stagger } from "@/components/motion";
 import SessionManager from "@/components/admin/SessionManager";
 import { AssignStaffDialog } from "@/components/admin/AssignStaffDialog";
 import { format, addDays, parseISO, eachDayOfInterval, getDay, isBefore, isWithinInterval } from "date-fns";
@@ -633,20 +634,20 @@ const AdminClasses = () => {
     <div className="p-4 md:p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-display font-bold">Classes</h1>
+          <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">Classes</h1>
           <p className="text-muted-foreground mt-1">Manage dance classes & sessions</p>
         </div>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
           <DialogTrigger asChild>
-            <Button><Plus className="w-4 h-4 mr-2" /> Add Class</Button>
+            <Button><Plus className="w-4 h-4 mr-2" /> Add class</Button>
           </DialogTrigger>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{editing ? "Edit Class" : "New Class"}</DialogTitle>
+              <DialogTitle>{editing ? "Edit class" : "New class"}</DialogTitle>
             </DialogHeader>
 
-            {/* Step indicators - clickable */}
-            <div className="flex items-center gap-2 mb-4">
+            {/* Step progress — numbered circles joined by a connecting line, clickable */}
+            <div className="flex items-start mb-6">
               {[1, 2, 3, 4, 5].map(s => {
                 const canNavigate =
                   s === 1 ||
@@ -654,32 +655,35 @@ const AdminClasses = () => {
                   (s === 3 && canProceedStep1 && canProceedStep2) ||
                   (s === 4 && canProceedStep1 && canProceedStep2 && canProceedStep3) ||
                   (s === 5 && canProceedStep1 && canProceedStep2 && canProceedStep3 && canProceedStep4);
-                const labels: Record<number, string> = { 1: "Type of Class & Details", 2: "Schedule", 3: "Review Sessions", 4: "Pricing", 5: "Staffing" };
+                const labels: Record<number, string> = { 1: "Type of class & details", 2: "Schedule", 3: "Review sessions", 4: "Pricing", 5: "Staffing" };
                 return (
-                  <div key={s} className="flex items-center gap-2">
+                  <div key={s} className={`flex items-start ${s > 1 ? "flex-1" : ""}`}>
+                    {s > 1 && (
+                      <div className={`mt-4 h-0.5 flex-1 min-w-3 rounded-full transition-colors ${step >= s ? "bg-primary" : "bg-border"}`} />
+                    )}
                     <button
                       type="button"
                       onClick={() => canNavigate && setStep(s)}
                       disabled={!canNavigate}
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
-                        step === s
-                          ? 'bg-primary text-primary-foreground'
-                          : step > s
-                            ? 'bg-primary/30 text-primary-foreground cursor-pointer hover:bg-primary/50'
-                            : canNavigate
-                              ? 'bg-muted text-muted-foreground cursor-pointer hover:bg-muted/80'
-                              : 'bg-muted text-muted-foreground opacity-50 cursor-not-allowed'
-                      }`}
+                      className="flex flex-col items-center gap-1.5 px-1 disabled:cursor-not-allowed"
                     >
-                      {s}
+                      <span
+                        className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition-colors ${
+                          step === s
+                            ? "bg-primary text-primary-foreground shadow-soft"
+                            : step > s
+                              ? "bg-primary/10 text-primary hover:bg-primary/20"
+                              : canNavigate
+                                ? "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                                : "bg-secondary text-muted-foreground opacity-50"
+                        }`}
+                      >
+                        {step > s ? <Check className="w-4 h-4" /> : s}
+                      </span>
+                      <span className={`hidden sm:block text-[11px] leading-tight text-center max-w-[7.5rem] ${step === s ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+                        {labels[s]}
+                      </span>
                     </button>
-                    <span
-                      className={`text-xs hidden sm:inline cursor-pointer ${step === s ? 'text-foreground font-medium' : 'text-muted-foreground'}`}
-                      onClick={() => canNavigate && setStep(s)}
-                    >
-                      {labels[s]}
-                    </span>
-                    {s < 5 && <ChevronRight className="w-4 h-4 text-muted-foreground" />}
                   </div>
                 );
               })}
@@ -689,7 +693,7 @@ const AdminClasses = () => {
             {step === 1 && (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Class Type *</Label>
+                  <Label>Class type *</Label>
                   <div className="flex gap-2">
                     <Button type="button" variant={classType === "children" ? "default" : "outline"} onClick={() => { setClassType("children"); setWorkshopId(""); }}>Children</Button>
                     <Button type="button" variant={classType === "adult" ? "default" : "outline"} onClick={() => { setClassType("adult"); setWorkshopId(""); }}>Adult</Button>
@@ -697,7 +701,7 @@ const AdminClasses = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Type of Class *</Label>
+                  <Label>Type of class *</Label>
                   <Select value={workshopId} onValueChange={(v) => {
                     setWorkshopId(v);
                     const ws = workshops.find(w => w.id === v);
@@ -716,21 +720,21 @@ const AdminClasses = () => {
                     </SelectContent>
                   </Select>
                   {filteredWorkshops.length === 0 && (
-                    <p className="text-xs text-amber-500">
+                    <p className="text-xs text-warning">
                       No {classType} class types exist yet — create one under Admin → Type of Class first, then come back here.
                     </p>
                   )}
                 </div>
 
                 {selectedWorkshop && (
-                  <Card className="border-primary/20 bg-primary/5">
+                  <Card className="bg-primary/5 shadow-none">
                     <CardContent className="pt-4 space-y-2">
                       <div className="flex items-start gap-4">
                         {selectedWorkshop.cover_image && (
                           <img
                             src={selectedWorkshop.cover_image}
                             alt={selectedWorkshop.name}
-                            className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
+                            className="w-20 h-20 rounded-2xl object-cover flex-shrink-0"
                           />
                         )}
                         <div className="min-w-0">
@@ -754,7 +758,7 @@ const AdminClasses = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Ability Level (minimum) *</Label>
+                    <Label>Ability level (minimum) *</Label>
                     <Select value={abilityLevel} onValueChange={setAbilityLevel}>
                       <SelectTrigger><SelectValue placeholder="Select ability level" /></SelectTrigger>
                       <SelectContent>
@@ -810,15 +814,15 @@ const AdminClasses = () => {
                   <Label className="text-sm font-semibold">Capacity</Label>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Max Students</Label>
+                      <Label className="text-xs text-muted-foreground">Max students</Label>
                       <Input type="number" value={capacity} onChange={e => setCapacity(e.target.value)} />
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-3">
-                  <Label className="text-sm font-semibold">Trial Session</Label>
-                  <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors">
+                  <Label className="text-sm font-semibold">Trial session</Label>
+                  <label className="flex items-start gap-3 cursor-pointer rounded-2xl bg-secondary/40 p-4 hover:bg-secondary/60 transition-colors">
                     <Checkbox
                       checked={allowTrial}
                       onCheckedChange={(checked) => setAllowTrial(!!checked)}
@@ -833,20 +837,20 @@ const AdminClasses = () => {
                   </label>
                 </div>
 
-                <div className="space-y-3 border-t border-border pt-4">
-                  <Label className="text-sm font-semibold">Audience & Access</Label>
+                <div className="space-y-3 border-t border-border/60 pt-4">
+                  <Label className="text-sm font-semibold">Audience & access</Label>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-xs">Audience Label</Label>
+                      <Label className="text-xs">Audience label</Label>
                       <Input value={audienceLabel} onChange={e => setAudienceLabel(e.target.value)} placeholder='e.g. "Ages 8–16", "O17", "Adults"' />
                       <p className="text-[11px] text-muted-foreground">Shown to parents. Overrides age/school-year display.</p>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs">School Year (min)</Label>
+                      <Label className="text-xs">School year (min)</Label>
                       <Input type="number" min="0" max="13" value={schoolYearMin} onChange={e => setSchoolYearMin(e.target.value)} placeholder="e.g. 2" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs">School Year (max)</Label>
+                      <Label className="text-xs">School year (max)</Label>
                       <Input type="number" min="0" max="13" value={schoolYearMax} onChange={e => setSchoolYearMax(e.target.value)} placeholder="e.g. 6" />
                     </div>
                   </div>
@@ -855,7 +859,7 @@ const AdminClasses = () => {
                       <AlertTriangle className="w-3.5 h-3.5" /> Minimum school year cannot be above the maximum.
                     </div>
                   )}
-                  <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors">
+                  <label className="flex items-start gap-3 cursor-pointer rounded-2xl bg-secondary/40 p-4 hover:bg-secondary/60 transition-colors">
                     <Checkbox checked={inviteOnly} onCheckedChange={(v) => setInviteOnly(!!v)} className="mt-0.5" />
                     <div className="space-y-1">
                       <span className="text-sm font-medium text-foreground">Invite only</span>
@@ -891,7 +895,7 @@ const AdminClasses = () => {
 
                 <div className="flex justify-end">
                   <Button onClick={() => setStep(2)} disabled={!canProceedStep1}>
-                    Next: Schedule <ChevronRight className="w-4 h-4 ml-1" />
+                    Next: schedule <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 </div>
               </div>
@@ -902,29 +906,29 @@ const AdminClasses = () => {
               <div className="space-y-5">
                 {/* Term Selection */}
                 <div className="space-y-3">
-                  <Label className="text-sm font-semibold">Select School Terms *</Label>
+                  <Label className="text-sm font-semibold">Select school terms *</Label>
                   <p className="text-xs text-muted-foreground">Choose one or more terms. Select all terms for a year-long class.</p>
                   {Object.keys(termsByYear).length === 0 ? (
-                    <div className="rounded-lg border border-border bg-muted/50 p-4 text-center">
+                    <div className="rounded-2xl bg-secondary/40 p-4 text-center">
                       <p className="text-sm text-muted-foreground">No future terms found. Please add terms in Settings → Term Dates & Holidays first.</p>
                     </div>
                   ) : (
                     Object.entries(termsByYear).map(([year, terms]) => (
                       <div key={year} className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{year}</p>
+                        <p className="eyebrow">{year}</p>
                         <div className="grid gap-2">
                           {terms.map(term => {
                             const isSelected = selectedTermIds.includes(term.id);
-                            const termColor = term.term_type === 'autumn' ? 'border-amber-500/40 bg-amber-500/10' :
-                              term.term_type === 'spring' ? 'border-emerald-500/40 bg-emerald-500/10' :
-                              'border-sky-500/40 bg-sky-500/10';
+                            const termColor = term.term_type === 'autumn' ? 'bg-warning/10' :
+                              term.term_type === 'spring' ? 'bg-success/10' :
+                              'bg-primary/10';
                             return (
                               <label
                                 key={term.id}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-colors ${
+                                className={`flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer transition-colors ${
                                   isSelected
                                     ? `${termColor} ring-1 ring-primary/30`
-                                    : 'border-border bg-card hover:border-primary/30'
+                                    : 'bg-secondary/40 hover:bg-secondary/60'
                                 }`}
                               >
                                 <Checkbox
@@ -937,9 +941,7 @@ const AdminClasses = () => {
                                     {format(parseISO(term.start_date), "d MMM yyyy")} – {format(parseISO(term.end_date), "d MMM yyyy")}
                                   </p>
                                 </div>
-                                <Badge variant="outline" className={term.term_type === 'autumn' ? 'bg-amber-500/15 text-amber-500 border-amber-500/30' :
-                                  term.term_type === 'spring' ? 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30' :
-                                  'bg-sky-500/15 text-sky-500 border-sky-500/30'}>
+                                <Badge variant={term.term_type === 'autumn' ? 'warning' : term.term_type === 'spring' ? 'success' : 'default'}>
                                   {term.term_type.charAt(0).toUpperCase() + term.term_type.slice(1)}
                                 </Badge>
                               </label>
@@ -973,14 +975,14 @@ const AdminClasses = () => {
 
                 {/* Bank Holiday Warning */}
                 {bankHolidaysInSelection.length > 0 && (
-                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
-                    <div className="flex items-center gap-2 text-amber-500">
+                  <div className="rounded-2xl bg-warning/10 p-4 space-y-2">
+                    <div className="flex items-center gap-2 text-warning">
                       <Flag className="h-4 w-4" />
                       <span className="text-sm font-medium">{bankHolidaysInSelection.length} bank holiday{bankHolidaysInSelection.length !== 1 ? 's' : ''} excluded</span>
                     </div>
                     <div className="flex flex-wrap gap-1">
                       {bankHolidaysInSelection.map(bh => (
-                        <Badge key={bh.id} variant="outline" className="text-xs bg-amber-500/10 text-amber-600 border-amber-500/30">
+                        <Badge key={bh.id} variant="warning" className="text-xs">
                           {bh.name} ({format(parseISO(bh.start_date), "d MMM")})
                         </Badge>
                       ))}
@@ -990,15 +992,15 @@ const AdminClasses = () => {
 
                 {/* Days of the Week */}
                 <div className="space-y-2">
-                  <Label>Days of the Week *</Label>
+                  <Label>Days of the week *</Label>
                   <div className="flex flex-wrap gap-2">
                     {DAYS.map(day => (
                       <label
                         key={day}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
+                        className={`flex items-center gap-2 px-3.5 py-2 rounded-full cursor-pointer transition-colors ${
                           selectedDays.includes(day)
-                            ? 'border-primary bg-primary/10 text-foreground'
-                            : 'border-border bg-card text-muted-foreground hover:border-primary/40'
+                            ? 'bg-primary/10 text-primary ring-1 ring-primary/30'
+                            : 'bg-secondary/40 text-muted-foreground hover:bg-secondary/60'
                         }`}
                       >
                         <Checkbox
@@ -1014,11 +1016,11 @@ const AdminClasses = () => {
                 {/* Times — admin sets START; END auto-computes from duration but stays editable */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Default Start Time</Label>
+                    <Label>Default start time</Label>
                     <Input type="time" value={defaultStartTime} onChange={e => setDefaultStartTime(e.target.value)} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Default End Time (auto)</Label>
+                    <Label>Default end time (auto)</Label>
                     <Input
                       type="time"
                       value={defaultEndTime}
@@ -1044,13 +1046,13 @@ const AdminClasses = () => {
 
                 {/* Session count summary */}
                 {selectedTermIds.length > 0 && selectedDays.length > 0 && (
-                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                  <div className="rounded-2xl bg-primary/5 p-4">
                     <p className="text-sm font-medium">
-                      <CalendarDays className="w-4 h-4 inline mr-1" />
+                      <CalendarDays className="w-4 h-4 inline mr-1 text-primary" />
                       {sessions.length} session{sessions.length !== 1 ? 's' : ''} will be generated
                       {selectedTermIds.length > 1 && ` across ${selectedTermIds.length} terms`}
                       {bankHolidaysInSelection.length > 0 && (
-                        <span className="text-amber-500 ml-1">
+                        <span className="text-warning ml-1">
                           ({bankHolidaysInSelection.length} bank holiday{bankHolidaysInSelection.length !== 1 ? 's' : ''} excluded)
                         </span>
                       )}
@@ -1063,7 +1065,7 @@ const AdminClasses = () => {
                     <ChevronLeft className="w-4 h-4 mr-1" /> Back
                   </Button>
                   <Button onClick={() => setStep(3)} disabled={!canProceedStep2 || minutesBetween(defaultStartTime, defaultEndTime) <= 0}>
-                    Next: Review Sessions <ChevronRight className="w-4 h-4 ml-1" />
+                    Next: review sessions <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 </div>
               </div>
@@ -1074,7 +1076,7 @@ const AdminClasses = () => {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="font-semibold text-foreground">{sessions.length} Sessions</h3>
+                    <h3 className="font-semibold text-foreground">{sessions.length} sessions</h3>
                     <p className="text-xs text-muted-foreground">Edit times per session if needed</p>
                   </div>
                   {selectedWorkshop && (
@@ -1084,7 +1086,7 @@ const AdminClasses = () => {
 
                 <div className="max-h-[400px] overflow-y-auto space-y-2 pr-1">
                   {sessions.map((s, i) => (
-                    <div key={s.date} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card/50">
+                    <div key={s.date} className="flex items-center gap-3 p-3 rounded-2xl bg-secondary/40">
                       <div className="flex-1 min-w-0">
                         <span className="text-sm font-medium text-foreground">{s.dayLabel}</span>
                       </div>
@@ -1125,7 +1127,7 @@ const AdminClasses = () => {
                     <ChevronLeft className="w-4 h-4 mr-1" /> Back
                   </Button>
                   <Button onClick={() => setStep(4)} disabled={sessions.length === 0 || sessions.some(s => minutesBetween(s.start_time, s.end_time) <= 0)}>
-                    Next: Pricing <ChevronRight className="w-4 h-4 ml-1" />
+                    Next: pricing <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 </div>
               </div>
@@ -1144,37 +1146,37 @@ const AdminClasses = () => {
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-xs">Per Session (£)</Label>
+                      <Label className="text-xs">Per session (£)</Label>
                       <Input type="number" step="0.01" value={pricePerSession} onChange={e => setPricePerSession(e.target.value)} placeholder="e.g. 9" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs">Monthly Subscription (£)</Label>
+                      <Label className="text-xs">Monthly subscription (£)</Label>
                       <Input type="number" step="0.01" value={pricePerMonth} onChange={e => setPricePerMonth(e.target.value)} placeholder="e.g. 30" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs">Per Term (£)</Label>
+                      <Label className="text-xs">Per term (£)</Label>
                       <Input type="number" step="0.01" value={pricePerTerm} onChange={e => setPricePerTerm(e.target.value)} placeholder="e.g. 60" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs">Per Year (£)</Label>
+                      <Label className="text-xs">Per year (£)</Label>
                       <Input type="number" step="0.01" value={pricePerYear} onChange={e => setPricePerYear(e.target.value)} placeholder="e.g. 150" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Term Discount %</Label>
+                      <Label className="text-xs text-muted-foreground">Term discount %</Label>
                       <Input type="number" step="1" value={termDiscountPercent} onChange={e => setTermDiscountPercent(e.target.value)} placeholder="e.g. 10" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Term Discount (£)</Label>
+                      <Label className="text-xs text-muted-foreground">Term discount (£)</Label>
                       <Input type="number" step="0.01" value={termDiscountAmount} onChange={e => setTermDiscountAmount(e.target.value)} placeholder="e.g. 5" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Year Discount %</Label>
+                      <Label className="text-xs text-muted-foreground">Year discount %</Label>
                       <Input type="number" step="1" value={yearDiscountPercent} onChange={e => setYearDiscountPercent(e.target.value)} placeholder="e.g. 20" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Year Discount (£)</Label>
+                      <Label className="text-xs text-muted-foreground">Year discount (£)</Label>
                       <Input type="number" step="0.01" value={yearDiscountAmount} onChange={e => setYearDiscountAmount(e.target.value)} placeholder="e.g. 10" />
                     </div>
                   </div>
@@ -1185,7 +1187,7 @@ const AdminClasses = () => {
                     <ChevronLeft className="w-4 h-4 mr-1" /> Back
                   </Button>
                   <Button onClick={() => setStep(5)}>
-                    Next: Staffing <ChevronRight className="w-4 h-4 ml-1" />
+                    Next: staffing <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 </div>
               </div>
@@ -1195,7 +1197,7 @@ const AdminClasses = () => {
             {step === 5 && (
               <div className="space-y-4">
                 <div>
-                  <h3 className="font-semibold text-foreground">Default Instructors</h3>
+                  <h3 className="font-semibold text-foreground">Default instructors</h3>
                   <p className="text-xs text-muted-foreground">Assign one or more instructors. Mark exactly one as Main; the rest are Assistants. Optionally set a pay-per-hour override per instructor.</p>
                 </div>
 
@@ -1208,7 +1210,7 @@ const AdminClasses = () => {
                     if (!s) return null;
                     const isMain = (mainInstructorId || instructorIds[0]) === id;
                     return (
-                      <div key={id} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card/50 flex-wrap">
+                      <div key={id} className="flex items-center gap-3 p-3 rounded-2xl bg-secondary/40 flex-wrap">
                         <span className="text-sm font-medium text-foreground flex-1 min-w-[120px]">{s.full_name}</span>
                         <div className="flex gap-1">
                           <Button
@@ -1280,8 +1282,8 @@ const AdminClasses = () => {
                   </Select>
                 </div>
 
-                <div className="border-t border-border pt-4">
-                  <h3 className="font-semibold text-foreground mb-1">Per-Session Overrides</h3>
+                <div className="border-t border-border/60 pt-4">
+                  <h3 className="font-semibold text-foreground mb-1">Per-session overrides</h3>
                   <p className="text-xs text-muted-foreground mb-3">Leave blank to use the default instructors above</p>
 
                   <div className="max-h-[350px] overflow-y-auto space-y-2 pr-1">
@@ -1289,7 +1291,7 @@ const AdminClasses = () => {
                       const overrideIds = sessionStaffing[i] || [];
                       const usingDefault = overrideIds.length === 0;
                       return (
-                        <div key={s.date} className={`flex items-center gap-3 p-3 rounded-lg border ${usingDefault ? 'border-border bg-card/50' : 'border-primary/30 bg-primary/5'}`}>
+                        <div key={s.date} className={`flex items-center gap-3 p-3 rounded-2xl ${usingDefault ? 'bg-secondary/40' : 'bg-primary/5 ring-1 ring-primary/30'}`}>
                           <div className="w-48 flex-shrink-0">
                             <span className="text-sm font-medium text-foreground">{s.dayLabel}</span>
                           </div>
@@ -1349,7 +1351,7 @@ const AdminClasses = () => {
                     <ChevronLeft className="w-4 h-4 mr-1" /> Back
                   </Button>
                   <Button onClick={handleSubmit} disabled={saving || sessions.length === 0}>
-                    {saving ? "Saving..." : editing ? "Update Class" : "Create Class"}
+                    {saving ? "Saving..." : editing ? "Update class" : "Create class"}
                   </Button>
                 </div>
               </div>
@@ -1365,17 +1367,17 @@ const AdminClasses = () => {
         <Button variant={typeFilter === "adult" ? "default" : "outline"} size="sm" onClick={() => setTypeFilter("adult")}>Adult</Button>
         <div className="w-px h-6 bg-border mx-1" />
         <Select value={venueFilter} onValueChange={setVenueFilter}>
-          <SelectTrigger className="w-[180px] h-8 text-sm">
-            <SelectValue placeholder="All Venues" />
+          <SelectTrigger className="w-[180px] h-9 text-sm">
+            <SelectValue placeholder="All venues" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Venues</SelectItem>
+            <SelectItem value="all">All venues</SelectItem>
             {venues.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <div className="w-px h-6 bg-border mx-1" />
         <Button variant={showPast ? "default" : "outline"} size="sm" onClick={() => setShowPast(!showPast)}>
-          <Archive className="w-4 h-4 mr-1" /> Past Classes
+          <Archive className="w-4 h-4 mr-1" /> Past classes
         </Button>
         <span className="text-sm text-muted-foreground ml-2">{filteredClasses.length} class{filteredClasses.length !== 1 ? "es" : ""}</span>
       </div>
@@ -1385,11 +1387,11 @@ const AdminClasses = () => {
       ) : filteredClasses.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            {showPast ? "No past classes found." : "No classes found. Click \"Add Class\" to create your first class."}
+            {showPast ? "No past classes found." : "No classes found. Click \"Add class\" to create your first class."}
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <Stagger className="grid gap-4">
           {filteredClasses.map((c) => {
             const isExpanded = expandedClassId === c.id;
             const count = sessionCounts[c.id] || 0;
@@ -1413,32 +1415,36 @@ const AdminClasses = () => {
 
             const isAdult = c.class_type === "adult";
             return (
-              <Card key={c.id} className={`animate-fade-in overflow-hidden ${isAdult ? "border-accent/40 bg-accent/5" : "border-primary/30 bg-primary/5"}`}>
+              <Card key={c.id} className="overflow-hidden transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg">
                 {/* Main row */}
                 <CardContent className="py-4">
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                     <div className="flex items-start gap-3 md:gap-4 flex-1 min-w-0 cursor-pointer" onClick={toggleExpand}>
-                      {c.workshops?.cover_image && (
-                        <img src={getMediaUrl(c.workshops.cover_image)} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                      {c.workshops?.cover_image ? (
+                        <img src={getMediaUrl(c.workshops.cover_image)} alt="" className="w-12 h-12 rounded-2xl object-cover flex-shrink-0" />
+                      ) : (
+                        <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl ${isAdult ? "bg-accent/8 text-accent" : "bg-primary/8 text-primary"}`}>
+                          <Music className="w-5 h-5" />
+                        </div>
                       )}
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold">{c.name}</h3>
-                          <Badge className={`capitalize ${isAdult ? "bg-accent text-accent-foreground hover:bg-accent/90" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}>
+                          <h3 className="font-display font-semibold">{c.name}</h3>
+                          <Badge variant={isAdult ? "accent" : "default"}>
                             {c.class_type === "children" ? "Children" : "Adult"}
                           </Badge>
-                          {c.dance_style && <Badge variant="outline">{c.dance_style}</Badge>}
+                          {c.dance_style && <Badge variant="secondary">{c.dance_style}</Badge>}
                           {(c as any).invite_only && (
-                            <Badge variant="outline" className="border-amber-500/40 text-amber-500">Invite Only</Badge>
+                            <Badge variant="warning">Invite only</Badge>
                           )}
                           {(c as any).status && (c as any).status !== "confirmed" && (
-                            <Badge variant="outline" className="border-amber-500/40 text-amber-500 capitalize">{(c as any).status}</Badge>
+                            <Badge variant="warning" className="capitalize">{(c as any).status}</Badge>
                           )}
                           {(c as any).publicly_visible === false && (
-                            <Badge variant="outline" className="text-muted-foreground">Hidden</Badge>
+                            <Badge variant="outline">Hidden</Badge>
                           )}
                           {(c as any).booking_enabled === false && !(c as any).invite_only && (
-                            <Badge variant="outline" className="text-muted-foreground">Booking Off</Badge>
+                            <Badge variant="outline">Booking off</Badge>
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
@@ -1462,7 +1468,7 @@ const AdminClasses = () => {
                               : [];
                             return matchedTerms.length > 0 ? (
                               matchedTerms.map(t => (
-                                <Badge key={t.id} variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-500/40 bg-emerald-500/10 text-emerald-400">
+                                <Badge key={t.id} variant="success" className="text-[10px] px-1.5 py-0">
                                   {t.name} ({t.academic_year})
                                 </Badge>
                               ))
@@ -1517,46 +1523,48 @@ const AdminClasses = () => {
 
                 {/* Expanded sessions */}
                 {isExpanded && (
-                  <div className="border-t border-border bg-muted/30 px-6 py-3 space-y-1">
+                  <div className="border-t border-border/50 bg-secondary/30 px-6 py-3">
                     {sessionsForClass.length === 0 ? (
                       <p className="text-xs text-muted-foreground py-2">No sessions found.</p>
                     ) : (
-                      sessionsForClass.map(session => {
-                        const defaultInstructor = c.staff ? (c.staff as any).full_name : null;
-                        const instructor = session.staff?.full_name || defaultInstructor;
-                        return (
-                          <div key={session.id} className="flex items-center gap-4 py-1.5 text-sm">
-                            <span className="text-foreground font-medium w-48">
-                              {format(parseISO(session.session_date), "EEE, d MMM yyyy")}
-                            </span>
-                            <span className="flex items-center gap-1 text-muted-foreground w-32">
-                              <Clock className="w-3 h-3" />
-                              {session.start_time?.slice(0, 5)} – {session.end_time?.slice(0, 5)}
-                            </span>
-                            <span className="flex items-center gap-1 text-muted-foreground">
-                              <User className="w-3 h-3" />
-                              {instructor || "Unassigned"}
-                              {session.instructor_id && session.staff && defaultInstructor && session.staff.full_name !== defaultInstructor && (
-                                <Badge variant="outline" className="ml-1 text-xs py-0">cover</Badge>
-                              )}
-                            </span>
-                            <Badge variant="outline" className={`text-xs ml-auto ${
-                              session.status === 'completed' ? 'text-green-400 border-green-500/20' :
-                              session.status === 'cancelled' ? 'text-destructive border-destructive/20' :
-                              'text-muted-foreground'
-                            }`}>
-                              {session.status}
-                            </Badge>
-                          </div>
-                        );
-                      })
+                      <div className="divide-y divide-border/50">
+                        {sessionsForClass.map(session => {
+                          const defaultInstructor = c.staff ? (c.staff as any).full_name : null;
+                          const instructor = session.staff?.full_name || defaultInstructor;
+                          return (
+                            <div key={session.id} className="flex items-center gap-4 py-2 text-sm">
+                              <span className="text-foreground font-medium w-48">
+                                {format(parseISO(session.session_date), "EEE, d MMM yyyy")}
+                              </span>
+                              <span className="flex items-center gap-1 text-muted-foreground w-32 tabular-nums">
+                                <Clock className="w-3 h-3" />
+                                {session.start_time?.slice(0, 5)} – {session.end_time?.slice(0, 5)}
+                              </span>
+                              <span className="flex items-center gap-1 text-muted-foreground">
+                                <User className="w-3 h-3" />
+                                {instructor || "Unassigned"}
+                                {session.instructor_id && session.staff && defaultInstructor && session.staff.full_name !== defaultInstructor && (
+                                  <Badge variant="secondary" className="ml-1 text-xs py-0">cover</Badge>
+                                )}
+                              </span>
+                              <span className={`ml-auto text-xs font-medium capitalize ${
+                                session.status === 'completed' ? 'text-success' :
+                                session.status === 'cancelled' ? 'text-destructive' :
+                                'text-muted-foreground'
+                              }`}>
+                                {session.status}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
                 )}
               </Card>
             );
           })}
-        </div>
+        </Stagger>
       )}
 
       {/* Quick staff assignment — works for any class without re-running the wizard */}

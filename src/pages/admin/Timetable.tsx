@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { FadeRise, Stagger } from "@/components/motion";
+import { CalendarDays } from "lucide-react";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
@@ -42,43 +44,48 @@ const AdminTimetable = () => {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold">Timetable</h1>
+      <FadeRise className="mb-8">
+        <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">Timetable</h1>
         <p className="text-muted-foreground mt-1">Weekly class schedule</p>
-      </div>
+      </FadeRise>
 
       {loading ? (
         <div className="text-muted-foreground">Loading timetable...</div>
       ) : (
-        <div className="grid gap-6">
+        <Stagger className="grid gap-4">
           {classesByDay.map(({ day, classes: dayClasses }) => (
-            <Card key={day} className="animate-fade-in">
+            <Card key={day}>
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg capitalize">{day}</CardTitle>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+                    <CalendarDays className="h-5 w-5" />
+                  </div>
+                  <CardTitle className="text-lg capitalize">{day}</CardTitle>
+                </div>
               </CardHeader>
               <CardContent>
                 {dayClasses.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No classes scheduled</p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     {dayClasses.map((c) => (
-                      <div key={c.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                        <div className="flex items-center gap-3">
-                          <div className="text-sm font-mono font-medium text-primary">
+                      <div key={c.id} className="flex flex-col gap-2 rounded-2xl bg-secondary/50 p-3 md:flex-row md:items-center md:justify-between">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
+                          <div className="text-sm font-display font-semibold tabular-nums text-primary whitespace-nowrap">
                             {c.start_time?.slice(0, 5)} – {c.end_time?.slice(0, 5)}
                           </div>
-                          <div>
-                            <span className="font-medium">{c.name}</span>
+                          <div className="min-w-0">
+                            <span className="font-medium break-words">{c.name}</span>
                             {c.dance_style && <span className="text-muted-foreground ml-2 text-sm">({c.dance_style})</span>}
                           </div>
-                          <Badge variant={c.class_type === "children" ? "default" : "secondary"}>
+                          <Badge variant={c.class_type === "children" ? "default" : "accent"}>
                             {c.class_type === "children" ? "Children" : "Adult"}
                           </Badge>
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          {c.venues && <span>{(c.venues as any).name}</span>}
-                          {c.staff && <span>{(c.staff as any).full_name}</span>}
-                          <span>Cap: {c.capacity}</span>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground min-w-0">
+                          {c.venues && <span className="truncate">{(c.venues as any).name}</span>}
+                          {c.staff && <span className="truncate">{(c.staff as any).full_name}</span>}
+                          <span className="whitespace-nowrap">Cap: {c.capacity}</span>
                         </div>
                       </div>
                     ))}
@@ -87,7 +94,7 @@ const AdminTimetable = () => {
               </CardContent>
             </Card>
           ))}
-        </div>
+        </Stagger>
       )}
     </div>
   );

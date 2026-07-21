@@ -1,4 +1,4 @@
-import { BRAND, ctaButton, escapeHtml, renderLayout } from "./layout.ts";
+import { BRAND, ctaButton, escapeHtml, FONT_STACK, renderLayout } from "./layout.ts";
 
 export interface PasswordResetData {
   email: string;
@@ -10,7 +10,7 @@ export function renderPasswordReset(data: PasswordResetData) {
   const firstName = data.fullName?.split(" ")[0] || "there";
 
   const body = `
-    <h1 style="margin:0 0 16px 0;font-family:'Oswald','Segoe UI',sans-serif;font-size:28px;line-height:34px;font-weight:700;color:${BRAND.text};letter-spacing:0.5px;">
+    <h1 style="margin:0 0 16px 0;font-family:${FONT_STACK};font-size:26px;line-height:32px;font-weight:800;color:${BRAND.text};letter-spacing:-0.3px;">
       Reset your password
     </h1>
     <p style="margin:0 0 12px 0;font-size:15px;line-height:24px;color:${BRAND.text};">
@@ -20,14 +20,14 @@ export function renderPasswordReset(data: PasswordResetData) {
       We received a request to reset the password for <strong style="color:${BRAND.text};">${escapeHtml(data.email)}</strong>. Click the button below to choose a new one. The link will expire in 1 hour.
     </p>
 
-    ${ctaButton("Reset Password", data.resetUrl)}
+    ${ctaButton("Reset password", data.resetUrl)}
 
     <p style="margin:24px 0 0 0;font-size:13px;line-height:20px;color:${BRAND.textMuted};">
       Or copy and paste this link into your browser:<br/>
       <a href="${escapeHtml(data.resetUrl)}" style="color:${BRAND.primary};word-break:break-all;">${escapeHtml(data.resetUrl)}</a>
     </p>
 
-    <div style="margin-top:32px;padding:16px;background:#0d1117;border:1px solid ${BRAND.border};border-radius:10px;">
+    <div style="margin-top:32px;padding:16px 20px;background:${BRAND.panelBg};border-radius:16px;">
       <p style="margin:0;font-size:13px;line-height:20px;color:${BRAND.textMuted};">
         🔒 <strong style="color:${BRAND.text};">Didn't request this?</strong> You can safely ignore this email — your password won't change unless you click the link above.
       </p>

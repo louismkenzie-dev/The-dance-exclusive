@@ -11,9 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { FadeRise } from "@/components/motion";
 import {
   CalendarDays, ChevronLeft, ChevronRight, Clock, MapPin, User,
-  Plus, Pencil, Trash2, LayoutGrid, Columns, TableProperties,
+  Plus, Pencil, Trash2, LayoutGrid, Columns, TableProperties, Tent,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -143,7 +145,7 @@ const AdminCalendar = () => {
     ? eachDayOfInterval({ start: monthCalendarStart, end: monthCalendarEnd })
     : eachDayOfInterval({ start: weekStart, end: weekEnd });
 
-      const { data: sessions = [], isLoading } = useQuery({
+  const { data: sessions = [], isLoading } = useQuery({
     queryKey: ["calendar-sessions", viewMode, format(queryStart, "yyyy-MM-dd"), format(queryEnd, "yyyy-MM-dd")],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -329,10 +331,10 @@ const AdminCalendar = () => {
 
   const getTermBarColor = (termType?: string) => {
     switch (termType) {
-      case "autumn": return "bg-amber-400 dark:bg-amber-500";
-      case "spring": return "bg-emerald-400 dark:bg-emerald-500";
-      case "summer": return "bg-sky-400 dark:bg-sky-500";
-      default: return "bg-emerald-400 dark:bg-emerald-500";
+      case "autumn": return "bg-warning";
+      case "spring": return "bg-success";
+      case "summer": return "bg-primary/50";
+      default: return "bg-success";
     }
   };
 
@@ -513,9 +515,9 @@ const AdminCalendar = () => {
       <div className="space-y-2">
         <div>
           <p className="font-semibold text-sm">{cls?.name}</p>
-          <div className="flex gap-1.5">
-            {isCamp && <Badge className="bg-amber-500 text-white">Camp</Badge>}
-            <Badge className={isAdult ? "bg-accent text-accent-foreground" : "bg-primary text-primary-foreground"}>
+          <div className="flex gap-1.5 mt-1">
+            {isCamp && <Badge variant="warning">Camp</Badge>}
+            <Badge variant={isAdult ? "accent" : "default"}>
               {isAdult ? "Adult" : "Children"}
             </Badge>
           </div>
@@ -538,7 +540,7 @@ const AdminCalendar = () => {
               <span>{cls.venues.name}</span>
             </div>
           )}
-          <div className="pt-1 border-t text-xs text-muted-foreground">
+          <div className="pt-1 border-t border-border/50 text-xs text-muted-foreground">
             {format(new Date(session.session_date), "EEEE d MMMM yyyy")}
           </div>
         </div>
@@ -548,8 +550,8 @@ const AdminCalendar = () => {
 
   // --- WEEK VIEW ---
   const WeekView = () => (
-    <div className="border border-border rounded-lg overflow-hidden">
-      <div className="grid grid-cols-7 bg-muted">
+    <div className="overflow-hidden rounded-2xl">
+      <div className="grid grid-cols-7 divide-x divide-border/50 rounded-t-2xl border-b border-border/60 bg-secondary/40">
         {calendarDays.map((day, idx) => {
           const isToday = isSameDay(day, new Date());
           const isWeekendDay = isWeekend(day);
@@ -557,17 +559,14 @@ const AdminCalendar = () => {
           return (
             <div
               key={idx}
-              className={`p-2 text-center border-b border-r border-border last:border-r-0 ${
-                isWeekendDay ? "text-muted-foreground" : ""
-              }`}
+              className={cn("p-2 text-center", isWeekendDay && "text-muted-foreground")}
             >
               <div className="text-xs font-medium">{format(day, "EEE")}</div>
               <div
-                className={`text-lg font-semibold mt-0.5 ${
-                  isToday
-                    ? "bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center mx-auto"
-                    : ""
-                }`}
+                className={cn(
+                  "mt-0.5 text-lg font-display font-semibold",
+                  isToday && "mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground",
+                )}
               >
                 {format(day, "d")}
               </div>
@@ -576,13 +575,14 @@ const AdminCalendar = () => {
                 <div
                   key={i}
                   title={bar.name}
-                  className={`h-1 rounded-full mt-1 ${
+                  className={cn(
+                    "h-1 rounded-full mt-1",
                     bar.type === "term"
                       ? getTermBarColor(bar.termType)
                       : bar.type === "bank_holiday"
-                      ? "bg-red-400 dark:bg-red-500"
-                      : "bg-red-300 dark:bg-red-400"
-                  }`}
+                      ? "bg-destructive/60"
+                      : "bg-destructive/40",
+                  )}
                 />
               ))}
             </div>
@@ -590,7 +590,7 @@ const AdminCalendar = () => {
         })}
       </div>
 
-      <div className="grid grid-cols-7">
+      <div className="grid grid-cols-7 divide-x divide-border/50">
         {calendarDays.map((day, idx) => {
           const daySessions = getSessionsForDay(day);
           const isWeekendDay = isWeekend(day);
@@ -598,9 +598,7 @@ const AdminCalendar = () => {
           return (
             <div
               key={idx}
-              className={`min-h-[300px] border-r border-border last:border-r-0 p-1.5 ${
-                isWeekendDay ? "bg-muted/20" : ""
-              }`}
+              className={cn("min-h-[300px] p-1.5", isWeekendDay && "bg-secondary/20")}
             >
               <div className="space-y-1.5">
                 {daySessions.map((session) => {
@@ -614,13 +612,14 @@ const AdminCalendar = () => {
                     <div
                       key={session.id}
                       onClick={() => !isCamp && openEditFormFromWeek(session)}
-                      className={`rounded-md border p-2 transition-colors hover:shadow-sm ${
+                      className={cn(
+                        "rounded-xl p-2 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft",
                         isCamp
-                          ? "border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/15 cursor-default"
+                          ? "bg-warning/10 hover:bg-warning/15 cursor-default"
                           : isAdult
-                          ? "border-accent/40 bg-accent/10 hover:bg-accent/15 cursor-pointer"
-                          : "border-primary/30 bg-primary/10 hover:bg-primary/15 cursor-pointer"
-                      }`}
+                          ? "bg-accent/10 hover:bg-accent/15 cursor-pointer"
+                          : "bg-primary/10 hover:bg-primary/15 cursor-pointer",
+                      )}
                     >
                       <p className="text-xs font-semibold truncate">{cls?.name}</p>
                       <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
@@ -650,7 +649,7 @@ const AdminCalendar = () => {
                 {/* Add session button for each day */}
                 <button
                   onClick={() => openCreateFormForDay(day)}
-                  className="w-full rounded-md border border-dashed border-border p-1.5 text-[10px] text-muted-foreground hover:bg-muted/40 hover:text-foreground transition-colors flex items-center justify-center gap-1"
+                  className="w-full rounded-xl border border-dashed border-border/70 p-1.5 text-[10px] text-muted-foreground hover:bg-secondary/60 hover:text-foreground transition-colors flex items-center justify-center gap-1"
                 >
                   <Plus className="h-3 w-3" />
                   Add
@@ -665,15 +664,16 @@ const AdminCalendar = () => {
 
   // --- MONTH VIEW ---
   const MonthView = () => (
-    <div className="border border-border rounded-lg overflow-hidden">
+    <div className="space-y-1.5">
       {/* Day headers */}
-      <div className="grid grid-cols-7 bg-muted">
+      <div className="grid grid-cols-7 gap-1.5">
         {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day, idx) => (
           <div
             key={day}
-            className={`p-2 text-center text-sm font-medium border-b border-border ${
-              idx >= 5 ? "text-muted-foreground" : ""
-            }`}
+            className={cn(
+              "py-1.5 text-center text-xs font-semibold",
+              idx >= 5 ? "text-muted-foreground/70" : "text-muted-foreground",
+            )}
           >
             {day}
           </div>
@@ -681,7 +681,7 @@ const AdminCalendar = () => {
       </div>
 
       {/* Calendar grid */}
-      <div className="grid grid-cols-7">
+      <div className="grid grid-cols-7 gap-1.5">
         {calendarDays.map((day, idx) => {
           const daySessions = getSessionsForDay(day);
           const isToday = isSameDay(day, new Date());
@@ -693,19 +693,23 @@ const AdminCalendar = () => {
             <div
               key={idx}
               onClick={() => setSelectedDay(day)}
-              className={`min-h-[90px] sm:min-h-[110px] p-1 border-b border-r border-border last:border-r-0 cursor-pointer hover:bg-muted/40 transition-colors ${
-                !isCurrentMonth ? "bg-muted/30 text-muted-foreground" : ""
-              } ${isWeekendDay ? "bg-muted/20" : ""}`}
+              className={cn(
+                "min-h-[90px] sm:min-h-[110px] rounded-xl p-1.5 cursor-pointer transition-colors",
+                isCurrentMonth ? "bg-secondary/40 hover:bg-secondary/70" : "bg-secondary/20 text-muted-foreground hover:bg-secondary/40",
+                isCurrentMonth && isWeekendDay && "bg-secondary/25",
+                isToday && "ring-2 ring-primary",
+              )}
             >
-              <div className="flex items-center gap-1 mb-0.5">
+              <div className="mb-1 flex items-center gap-1">
                 <div
-                  className={`text-sm ${
+                  className={cn(
+                    "flex h-6 w-6 items-center justify-center rounded-full text-sm",
                     isToday
-                      ? "bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center"
+                      ? "bg-primary font-semibold text-primary-foreground"
                       : isWeekendDay
                       ? "text-muted-foreground"
-                      : ""
-                  }`}
+                      : "",
+                  )}
                 >
                   {format(day, "d")}
                 </div>
@@ -716,11 +720,10 @@ const AdminCalendar = () => {
                 <div
                   key={i}
                   title={bar.name}
-                  className={`h-[3px] rounded-full mb-0.5 cursor-help ${
-                    bar.type === "term"
-                      ? getTermBarColor(bar.termType)
-                      : "bg-red-300 dark:bg-red-400"
-                  }`}
+                  className={cn(
+                    "h-[3px] rounded-full mb-0.5 cursor-help",
+                    bar.type === "term" ? getTermBarColor(bar.termType) : "bg-destructive/40",
+                  )}
                 />
               ))}
 
@@ -728,7 +731,7 @@ const AdminCalendar = () => {
               {bars.filter(b => b.type === "bank_holiday").map((bar, i) => (
                 <div
                   key={`bh-${i}`}
-                  className="text-[10px] sm:text-xs px-1 py-0.5 rounded truncate bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border border-red-200 dark:border-red-800/50"
+                  className="mb-0.5 truncate rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive sm:text-xs"
                 >
                   {bar.name}
                 </div>
@@ -741,15 +744,17 @@ const AdminCalendar = () => {
                   const pill = (
                     <div
                       onClick={(e) => e.stopPropagation()}
-                      className={`text-[10px] sm:text-xs px-1 py-0.5 rounded truncate cursor-pointer ${
+                      className={cn(
+                        "flex items-center gap-1 overflow-hidden rounded-full px-1.5 py-0.5 text-[10px] sm:text-xs font-medium cursor-pointer transition-colors",
                         isCamp
-                          ? "bg-amber-500 text-white"
+                          ? "bg-warning/15 text-warning hover:bg-warning/25"
                           : isAdult
-                          ? "bg-accent text-accent-foreground"
-                          : "bg-primary text-primary-foreground"
-                      }`}
+                          ? "bg-accent/10 text-accent hover:bg-accent/20"
+                          : "bg-primary/10 text-primary hover:bg-primary/20",
+                      )}
                     >
-                      {isCamp ? `🏕 ${session.classes?.name}` : session.classes?.name}
+                      {isCamp && <Tent className="h-3 w-3 shrink-0" />}
+                      <span className="truncate">{session.classes?.name}</span>
                     </div>
                   );
 
@@ -771,7 +776,7 @@ const AdminCalendar = () => {
                 })}
 
                 {daySessions.length > 3 && (
-                  <div className="text-[10px] text-muted-foreground px-1">
+                  <div className="text-[10px] text-muted-foreground px-1.5">
                     +{daySessions.length - 3} more
                   </div>
                 )}
@@ -784,103 +789,118 @@ const AdminCalendar = () => {
   );
 
   return (
-    <div className="p-4 md:p-8">
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+    <div className="p-4 md:p-8 space-y-6">
+      {/* Page header */}
+      <FadeRise>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+              <CalendarDays className="h-6 w-6" />
+            </div>
             <div>
-              <CardTitle className="flex items-center gap-2 text-2xl font-display">
-                <CalendarDays className="h-6 w-6" />
-                Class Calendar
-              </CardTitle>
-              <CardDescription>
+              <h1 className="text-3xl font-display font-bold tracking-tight">Class calendar</h1>
+              <p className="text-muted-foreground mt-1">
                 {viewMode === "month" ? "Monthly" : "Weekly"} overview of all scheduled class sessions
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* View mode toggle */}
-              <div className="flex items-center rounded-md border border-border overflow-hidden">
-                <Button
-                  variant={viewMode === "month" ? "default" : "ghost"}
-                  size="sm"
-                  className="rounded-none gap-1.5 h-8"
-                  onClick={() => setViewMode("month")}
-                >
-                  <LayoutGrid className="h-3.5 w-3.5" />
-                  Month
-                </Button>
-                <Button
-                  variant={viewMode === "week" ? "default" : "ghost"}
-                  size="sm"
-                  className="rounded-none gap-1.5 h-8"
-                  onClick={() => setViewMode("week")}
-                >
-                  <Columns className="h-3.5 w-3.5" />
-                  Week
-                </Button>
-              </div>
-
-              <Button variant="outline" size="sm" onClick={goToToday}>Today</Button>
-              <div className="flex items-center gap-1">
-                <Button variant="outline" size="icon" className="h-8 w-8" onClick={goBack}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="font-medium min-w-[160px] text-center text-sm">
-                  {headerLabel}
-                </span>
-                <Button variant="outline" size="icon" className="h-8 w-8" onClick={goForward}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {/* Legend */}
-          <div className="flex flex-wrap gap-4 mb-4 text-xs">
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded bg-primary" />
-              <span>Children</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded bg-accent" />
-              <span>Adult</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded bg-amber-500" />
-              <span>Camp</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-6 h-[3px] rounded-full bg-amber-400" />
-              <span>Autumn term</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-6 h-[3px] rounded-full bg-emerald-400" />
-              <span>Spring term</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-6 h-[3px] rounded-full bg-sky-400" />
-              <span>Summer term</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-6 h-[3px] rounded-full bg-red-300 dark:bg-red-400" />
-              <span>School holiday</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded bg-red-100 dark:bg-red-900/40 border border-red-200 dark:border-red-800/50" />
-              <span>Bank holiday</span>
+              </p>
             </div>
           </div>
 
-          {isLoading ? (
-            <div className="text-center py-12 text-muted-foreground">Loading calendar…</div>
-          ) : viewMode === "month" ? (
-            <MonthView />
-          ) : (
-            <WeekView />
-          )}
-        </CardContent>
-      </Card>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* View mode segmented control */}
+            <div className="flex items-center rounded-full bg-secondary p-1">
+              <button
+                type="button"
+                onClick={() => setViewMode("month")}
+                className={cn(
+                  "flex h-8 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium transition-colors",
+                  viewMode === "month"
+                    ? "bg-card text-foreground shadow-soft"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                Month
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("week")}
+                className={cn(
+                  "flex h-8 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium transition-colors",
+                  viewMode === "week"
+                    ? "bg-card text-foreground shadow-soft"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Columns className="h-3.5 w-3.5" />
+                Week
+              </button>
+            </div>
+
+            <Button variant="outline" size="sm" onClick={goToToday}>Today</Button>
+            <div className="flex items-center gap-1">
+              <Button variant="outline" size="icon" className="h-9 w-9" onClick={goBack}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="min-w-[160px] text-center text-sm font-display font-semibold">
+                {headerLabel}
+              </span>
+              <Button variant="outline" size="icon" className="h-9 w-9" onClick={goForward}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </FadeRise>
+
+      <FadeRise delay={80}>
+        <Card>
+          <CardContent className="p-4 md:p-6">
+            {/* Legend */}
+            <div className="mb-5 flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5">
+                <div className="h-2.5 w-2.5 rounded-full bg-primary" />
+                <span>Children</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-2.5 w-2.5 rounded-full bg-accent" />
+                <span>Adult</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-2.5 w-2.5 rounded-full bg-warning" />
+                <span>Camp</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-[3px] w-6 rounded-full bg-warning" />
+                <span>Autumn term</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-[3px] w-6 rounded-full bg-success" />
+                <span>Spring term</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-[3px] w-6 rounded-full bg-primary/50" />
+                <span>Summer term</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-[3px] w-6 rounded-full bg-destructive/40" />
+                <span>School holiday</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-3 w-3 rounded-md bg-destructive/15" />
+                <span>Bank holiday</span>
+              </div>
+            </div>
+
+            {isLoading ? (
+              <div className="text-center py-12 text-muted-foreground">Loading calendar…</div>
+            ) : viewMode === "month" ? (
+              <MonthView />
+            ) : (
+              <WeekView />
+            )}
+          </CardContent>
+        </Card>
+      </FadeRise>
 
       {/* Day detail dialog (month view only) */}
       <Dialog open={!!selectedDay && !sessionFormOpen && viewMode === "month"} onOpenChange={(open) => !open && setSelectedDay(null)}>
@@ -894,7 +914,7 @@ const AdminCalendar = () => {
                   </DialogTitle>
                   <Button size="sm" onClick={openCreateForm} className="gap-1.5">
                     <Plus className="h-4 w-4" />
-                    Add Session
+                    Add session
                   </Button>
                 </div>
               </DialogHeader>
@@ -907,14 +927,13 @@ const AdminCalendar = () => {
                     {dayBars.map((bar, i) => (
                       <Badge
                         key={i}
-                        variant="outline"
-                        className={`text-xs ${
+                        variant={
                           bar.type === "term"
-                            ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                            ? "success"
                             : bar.type === "bank_holiday"
-                            ? "border-red-300 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-900/30 dark:text-red-400"
-                            : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                        }`}
+                            ? "destructive"
+                            : "warning"
+                        }
                       >
                         {bar.name}
                       </Badge>
@@ -941,25 +960,16 @@ const AdminCalendar = () => {
                       return (
                         <div
                           key={session.id}
-                          className={`rounded-lg border p-4 space-y-2 ${
-                            isCamp
-                              ? "border-amber-500/40 bg-amber-500/5"
-                              : isAdult
-                              ? "border-accent/40 bg-accent/5"
-                              : "border-primary/30 bg-primary/5"
-                          }`}
+                          className={cn(
+                            "rounded-2xl p-4 space-y-2",
+                            isCamp ? "bg-warning/10" : isAdult ? "bg-accent/5" : "bg-primary/5",
+                          )}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <p className="font-semibold">{cls?.name}</p>
                             <div className="flex items-center gap-2 shrink-0">
-                              {isCamp && <Badge className="bg-amber-500 text-white">Camp</Badge>}
-                              <Badge
-                                className={
-                                  isAdult
-                                    ? "bg-accent text-accent-foreground"
-                                    : "bg-primary text-primary-foreground"
-                                }
-                              >
+                              {isCamp && <Badge variant="warning">Camp</Badge>}
+                              <Badge variant={isAdult ? "accent" : "default"}>
                                 {isAdult ? "Adult" : "Children"}
                               </Badge>
                               {!isCamp && (
@@ -1017,7 +1027,7 @@ const AdminCalendar = () => {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="font-display">
-              {editingSession ? "Edit Session" : "New Session"}
+              {editingSession ? "Edit session" : "New session"}
               {selectedDay && (
                 <span className="text-sm font-normal text-muted-foreground ml-2">
                   — {format(selectedDay, "d MMMM yyyy")}
@@ -1050,7 +1060,7 @@ const AdminCalendar = () => {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Start Time</Label>
+                <Label>Start time</Label>
                 <Input
                   type="time"
                   value={formData.start_time}
@@ -1058,7 +1068,7 @@ const AdminCalendar = () => {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>End Time</Label>
+                <Label>End time</Label>
                 <Input
                   type="time"
                   value={formData.end_time}
@@ -1139,13 +1149,15 @@ const AdminCalendar = () => {
           </div>
         </DialogContent>
       </Dialog>
-      {/* Weekly Timetable */}
-      <TimetableSection />
+      {/* Weekly timetable */}
+      <FadeRise delay={160}>
+        <TimetableSection />
+      </FadeRise>
     </div>
   );
 };
 
-/* ─── Inline Timetable ─── */
+/* ─── Inline timetable ─── */
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
@@ -1182,13 +1194,17 @@ const TimetableSection = () => {
   }));
 
   return (
-    <Card className="mt-6">
+    <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-2xl font-display">
-          <TableProperties className="h-6 w-6" />
-          Weekly Timetable
-        </CardTitle>
-        <CardDescription>Recurring class schedule by day of week</CardDescription>
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+            <TableProperties className="h-5 w-5" />
+          </div>
+          <div>
+            <CardTitle className="text-2xl font-display">Weekly timetable</CardTitle>
+            <CardDescription>Recurring class schedule by day of week</CardDescription>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -1196,9 +1212,9 @@ const TimetableSection = () => {
         ) : (
           <div className="grid gap-4">
             {classesByDay.map(({ day, classes: dayClasses }) => (
-              <div key={day} className="rounded-lg border border-border overflow-hidden">
-                <div className="bg-muted px-4 py-2">
-                  <h3 className="text-sm font-semibold capitalize">{day}</h3>
+              <div key={day} className="overflow-hidden rounded-2xl bg-secondary/30">
+                <div className="border-b border-border/50 px-4 py-2.5">
+                  <h3 className="text-sm font-display font-semibold capitalize">{day}</h3>
                 </div>
                 <div className="p-3">
                   {dayClasses.length === 0 ? (
@@ -1206,16 +1222,16 @@ const TimetableSection = () => {
                   ) : (
                     <div className="space-y-2">
                       {dayClasses.map((c) => (
-                        <div key={c.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 p-3 rounded-lg bg-muted/50">
+                        <div key={c.id} className="flex flex-col gap-2 rounded-xl bg-card p-3 shadow-soft md:flex-row md:items-center md:justify-between">
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
-                            <div className="text-xs md:text-sm font-mono font-medium text-primary whitespace-nowrap">
+                            <div className="text-xs md:text-sm font-display font-semibold tabular-nums text-primary whitespace-nowrap">
                               {c.start_time?.slice(0, 5)} – {c.end_time?.slice(0, 5)}
                             </div>
                             <div className="min-w-0">
                               <span className="font-medium break-words">{c.name}</span>
                               {c.dance_style && <span className="text-muted-foreground ml-2 text-sm">({c.dance_style})</span>}
                             </div>
-                            <Badge variant={c.class_type === "children" ? "default" : "secondary"}>
+                            <Badge variant={c.class_type === "children" ? "default" : "accent"}>
                               {c.class_type === "children" ? "Children" : "Adult"}
                             </Badge>
                           </div>

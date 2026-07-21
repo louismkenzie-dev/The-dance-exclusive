@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, Loader2, Camera, User, Star, ChevronDown, MapPin, Phone, Mail, Car, Briefcase, Heart, Upload, FileText, Shield, X, CheckCircle, Send, MailCheck, CalendarClock, AlertTriangle } from "lucide-react";
+import { Plus, Edit, Trash2, Loader2, Camera, User, Users, Star, ChevronDown, MapPin, Phone, Mail, Car, Briefcase, Heart, Upload, FileText, Shield, X, CheckCircle, Send, MailCheck, CalendarClock, AlertTriangle } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { YearsAtTdeBadge } from "@/components/staff/YearsAtTdeBadge";
@@ -20,6 +20,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 import getCroppedImg from "@/lib/cropImage";
+import { FadeRise, Stagger } from "@/components/motion";
 
 type DocType = "paediatric_first_aid" | "other_first_aid" | "safeguarding" | "pli";
 
@@ -153,9 +154,9 @@ const calculateAge = (dob: string) => {
 };
 
 const ROLE_LABELS: Record<string, string> = {
-  ceo_owner: "CEO / Owner",
+  ceo_owner: "CEO / owner",
   instructor: "Instructor",
-  assistant_instructor: "Assistant Instructor",
+  assistant_instructor: "Assistant instructor",
   assistant: "Assistant",
   admin: "Admin",
   receptionist: "Receptionist",
@@ -547,13 +548,15 @@ const AdminStaff = () => {
   const renderDocSection = (docType: DocType, title: string, description?: string) => {
     const docs = documents.filter(d => d.doc_type === docType);
     return (
-      <div className="rounded-lg border border-border p-4 space-y-3">
+      <div className="rounded-2xl bg-secondary/40 p-4 space-y-3">
         <div>
-          <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-primary" />
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <FileText className="w-4 h-4" />
+            </div>
             <Label className="text-sm font-semibold">{title}</Label>
           </div>
-          {description && <p className="text-xs text-muted-foreground mt-0.5">{description}</p>}
+          {description && <p className="text-xs text-muted-foreground mt-1.5">{description}</p>}
         </div>
 
         {!editing ? (
@@ -567,7 +570,7 @@ const AdminStaff = () => {
                   return (
                     <div
                       key={doc.id}
-                      className={`rounded border p-2 space-y-2 text-xs ${st === "expired" ? "border-destructive/50 bg-destructive/5" : st === "expiring" ? "border-amber-500/50 bg-amber-500/5" : "border-border"}`}
+                      className={`rounded-xl p-2.5 space-y-2 text-xs ${st === "expired" ? "bg-destructive/10" : st === "expiring" ? "bg-warning/10" : "bg-card shadow-soft"}`}
                     >
                       <div className="flex items-center gap-2">
                         <FileText className="w-4 h-4 text-primary shrink-0" />
@@ -584,17 +587,17 @@ const AdminStaff = () => {
                           type="date"
                           value={doc.expiry_date || ""}
                           onChange={(e) => updateDocExpiry(doc.id, e.target.value)}
-                          className="h-7 text-xs"
+                          className="h-8 text-xs"
                         />
-                        {st === "expired" && <Badge className="bg-destructive/15 text-destructive border-destructive/30 shrink-0">Expired</Badge>}
-                        {st === "expiring" && <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 shrink-0">Soon</Badge>}
+                        {st === "expired" && <Badge variant="destructive" className="shrink-0">Expired</Badge>}
+                        {st === "expiring" && <Badge variant="warning" className="shrink-0">Soon</Badge>}
                       </div>
                     </div>
                   );
                 })}
               </div>
             )}
-            <label className="flex items-center gap-2 rounded border border-dashed border-border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
+            <label className="flex items-center gap-2 rounded-xl border border-dashed border-border p-3 cursor-pointer hover:bg-secondary/60 transition-colors">
               {docUploadingType === docType ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /> : <Upload className="w-4 h-4 text-muted-foreground" />}
               <span className="text-xs text-muted-foreground">Upload file</span>
               <input
@@ -612,40 +615,44 @@ const AdminStaff = () => {
   };
 
   return (
-    <div className="p-4 md:p-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-display font-bold">Staff</h1>
-          <p className="text-muted-foreground mt-1">Manage instructors and team</p>
-        </div>
-      </div>
-
-      <div>
-      <div className="flex items-center justify-end mb-6">
+    <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-6">
+      <FadeRise>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <Users className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">Staff</h1>
+              <p className="text-sm text-muted-foreground mt-1">Manage instructors and team</p>
+            </div>
+          </div>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
-          <DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-2" /> Add Staff</Button></DialogTrigger>
+          <DialogTrigger asChild><Button><Plus className="w-4 h-4" /> Add staff</Button></DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-            <DialogHeader><DialogTitle>{editing ? "Edit Staff Member" : "New Staff Member"}</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{editing ? "Edit staff member" : "New staff member"}</DialogTitle></DialogHeader>
             <div className="flex-1 min-h-0 overflow-y-auto pr-4">
               <form id="staff-form" onSubmit={handleSubmit} className="space-y-6 pb-4">
                 <Tabs defaultValue="personal" className="w-full">
-                  <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 h-auto">
-                    <TabsTrigger value="personal">Personal</TabsTrigger>
-                    <TabsTrigger value="address">Address</TabsTrigger>
-                    <TabsTrigger value="next-of-kin">Next of Kin</TabsTrigger>
-                    <TabsTrigger value="work">Work</TabsTrigger>
-                    <TabsTrigger value="documents">Documents</TabsTrigger>
-                    <TabsTrigger value="safeguarding">Safeguarding</TabsTrigger>
-                    <TabsTrigger value="skills">Skills</TabsTrigger>
-                    <TabsTrigger value="bio">Bio</TabsTrigger>
-                  </TabsList>
+                  <div className="overflow-x-auto -mx-1 px-1 pb-1">
+                    <TabsList className="w-max">
+                      <TabsTrigger value="personal">Personal</TabsTrigger>
+                      <TabsTrigger value="address">Address</TabsTrigger>
+                      <TabsTrigger value="next-of-kin">Next of kin</TabsTrigger>
+                      <TabsTrigger value="work">Work</TabsTrigger>
+                      <TabsTrigger value="documents">Documents</TabsTrigger>
+                      <TabsTrigger value="safeguarding">Safeguarding</TabsTrigger>
+                      <TabsTrigger value="skills">Skills</TabsTrigger>
+                      <TabsTrigger value="bio">Bio</TabsTrigger>
+                    </TabsList>
+                  </div>
 
                   {/* Personal Tab */}
                   <TabsContent value="personal" className="space-y-4 mt-4">
                     {/* Profile Photo */}
                     {showCropper && cropSrc ? (
                       <div className="space-y-3">
-                        <div className="relative w-full h-64 bg-black rounded-lg overflow-hidden">
+                        <div className="relative w-full h-64 bg-black rounded-2xl overflow-hidden">
                           <Cropper
                             image={cropSrc}
                             crop={crop}
@@ -665,16 +672,16 @@ const AdminStaff = () => {
                         <div className="flex gap-2">
                           <Button type="button" variant="outline" size="sm" onClick={() => { setShowCropper(false); setCropSrc(null); }} className="flex-1">Cancel</Button>
                           <Button type="button" size="sm" onClick={handleCropSave} disabled={photoUploading} className="flex-1">
-                            {photoUploading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null} Save Photo
+                            {photoUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Save photo
                           </Button>
                         </div>
                       </div>
                     ) : (
                       <div className="flex items-center gap-6">
                         <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                          <Avatar className="w-32 h-32 border-2 border-border">
+                          <Avatar className="w-32 h-32 shadow-soft-md">
                             <AvatarImage src={photoPreview || undefined} />
-                            <AvatarFallback className="bg-muted text-muted-foreground">
+                            <AvatarFallback className="bg-secondary text-muted-foreground">
                               <User className="w-12 h-12" />
                             </AvatarFallback>
                           </Avatar>
@@ -684,33 +691,33 @@ const AdminStaff = () => {
                           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
                         </div>
                         <div>
-                          <p className="text-sm font-medium">Profile Photo</p>
+                          <p className="text-sm font-medium">Profile photo</p>
                           <p className="text-xs text-muted-foreground">Click to upload — you can reframe it before saving</p>
                         </div>
                       </div>
                     )}
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>First Name *</Label>
+                        <Label>First name *</Label>
                         <Input value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} required />
                       </div>
                       <div className="space-y-2">
-                        <Label>Last Name *</Label>
+                        <Label>Last name *</Label>
                         <Input value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} required />
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label>Middle Name</Label>
+                      <Label>Middle name</Label>
                       <Input value={form.middle_name} onChange={(e) => setForm({ ...form, middle_name: e.target.value })} placeholder="Optional" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Date of Birth</Label>
+                        <Label>Date of birth</Label>
                         <Input type="date" value={form.date_of_birth} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} />
                       </div>
                       <div className="space-y-2">
                         <Label>Age</Label>
-                        <Input value={age !== null ? `${age} years old` : ""} disabled className="bg-muted" />
+                        <Input value={age !== null ? `${age} years old` : ""} disabled />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -724,7 +731,7 @@ const AdminStaff = () => {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label>Secondary Phone</Label>
+                      <Label>Secondary phone</Label>
                       <Input value={form.secondary_phone} onChange={(e) => setForm({ ...form, secondary_phone: e.target.value })} placeholder="Optional" />
                     </div>
                     <div className="space-y-2">
@@ -743,9 +750,9 @@ const AdminStaff = () => {
                       >
                         <SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="ceo_owner">CEO / Owner</SelectItem>
+                          <SelectItem value="ceo_owner">CEO / owner</SelectItem>
                           <SelectItem value="instructor">Instructor</SelectItem>
-                          <SelectItem value="assistant_instructor">Assistant Instructor</SelectItem>
+                          <SelectItem value="assistant_instructor">Assistant instructor</SelectItem>
                           <SelectItem value="assistant">Assistant</SelectItem>
                           <SelectItem value="admin">Admin</SelectItem>
                           <SelectItem value="receptionist">Receptionist</SelectItem>
@@ -768,16 +775,16 @@ const AdminStaff = () => {
                   {/* Address Tab */}
                   <TabsContent value="address" className="space-y-4 mt-4">
                     <div className="space-y-2">
-                      <Label>Address Line 1</Label>
+                      <Label>Address line 1</Label>
                       <Input value={form.address_line1} onChange={(e) => setForm({ ...form, address_line1: e.target.value })} placeholder="e.g. 10 High Street" />
                     </div>
                     <div className="space-y-2">
-                      <Label>Address Line 2</Label>
+                      <Label>Address line 2</Label>
                       <Input value={form.address_line2} onChange={(e) => setForm({ ...form, address_line2: e.target.value })} placeholder="Optional" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>City / Town</Label>
+                        <Label>City / town</Label>
                         <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
                       </div>
                       <div className="space-y-2">
@@ -794,11 +801,11 @@ const AdminStaff = () => {
                   {/* Next of Kin Tab */}
                   <TabsContent value="next-of-kin" className="space-y-4 mt-4">
                     <div className="space-y-2">
-                      <Label>Next of Kin Name *</Label>
+                      <Label>Next of kin name *</Label>
                       <Input value={form.next_of_kin_name} onChange={(e) => setForm({ ...form, next_of_kin_name: e.target.value })} />
                     </div>
                     <div className="space-y-2">
-                      <Label>Next of Kin Phone *</Label>
+                      <Label>Next of kin phone *</Label>
                       <Input value={form.next_of_kin_phone} onChange={(e) => setForm({ ...form, next_of_kin_phone: e.target.value })} />
                     </div>
                     <div className="space-y-2">
@@ -817,10 +824,12 @@ const AdminStaff = () => {
                     </div>
 
                     {/* Secondary Next of Kin (optional) */}
-                    <div className="rounded-lg border border-border p-4 space-y-4">
-                      <div className="flex items-center gap-2">
-                        <Heart className="w-4 h-4 text-muted-foreground" />
-                        <Label className="text-sm font-semibold">Secondary Next of Kin</Label>
+                    <div className="rounded-2xl bg-secondary/40 p-4 space-y-4">
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                          <Heart className="w-4 h-4" />
+                        </div>
+                        <Label className="text-sm font-semibold">Secondary next of kin</Label>
                         <span className="text-xs text-muted-foreground">(optional)</span>
                       </div>
                       <div className="space-y-2">
@@ -850,22 +859,32 @@ const AdminStaff = () => {
 
                   {/* Work Tab */}
                   <TabsContent value="work" className="space-y-4 mt-4">
-                    <div className="flex items-center justify-between rounded-lg border border-border p-4">
-                      <div>
-                        <Label className="text-sm font-medium">Drives</Label>
-                        <p className="text-xs text-muted-foreground">Can this staff member drive to venues?</p>
+                    <div className="flex items-center justify-between gap-4 rounded-2xl bg-secondary/40 p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                          <Car className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium">Drives</Label>
+                          <p className="text-xs text-muted-foreground">Can this staff member drive to venues?</p>
+                        </div>
                       </div>
                       <Switch checked={form.drives} onCheckedChange={(v) => setForm({ ...form, drives: v })} />
                     </div>
-                    <div className="flex items-center justify-between rounded-lg border border-border p-4">
-                      <div>
-                        <Label className="text-sm font-medium">Self-Employed</Label>
-                        <p className="text-xs text-muted-foreground">Paid via invoice rather than payroll</p>
+                    <div className="flex items-center justify-between gap-4 rounded-2xl bg-secondary/40 p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                          <Briefcase className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <Label className="text-sm font-medium">Self-employed</Label>
+                          <p className="text-xs text-muted-foreground">Paid via invoice rather than payroll</p>
+                        </div>
                       </div>
                       <Switch checked={form.self_employed} onCheckedChange={(v) => setForm({ ...form, self_employed: v })} />
                     </div>
                     <div className="space-y-2">
-                      <Label>Pay Per Hour (£)</Label>
+                      <Label>Pay per hour (£)</Label>
                       <Input type="number" step="0.01" min="0" value={form.pay_per_hour} onChange={(e) => setForm({ ...form, pay_per_hour: e.target.value })} placeholder="e.g. 15.00" />
                     </div>
                     <div className="space-y-2">
@@ -875,12 +894,14 @@ const AdminStaff = () => {
                     </div>
 
                     {/* DBS Update Service callout */}
-                    <div className="rounded-lg border-2 border-primary/40 bg-primary/5 p-4 space-y-4">
-                      <div className="flex items-center gap-2">
-                        <Shield className="w-4 h-4 text-primary" />
-                        <Label className="text-sm font-semibold">DBS Certificate</Label>
+                    <div className="rounded-2xl bg-primary/5 p-4 space-y-4">
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                          <Shield className="w-4 h-4" />
+                        </div>
+                        <Label className="text-sm font-semibold">DBS certificate</Label>
                       </div>
-                      <label className="flex items-start gap-3 rounded-lg border border-primary/30 bg-background p-3 cursor-pointer">
+                      <label className="flex items-start gap-3 rounded-xl bg-card shadow-soft p-3 cursor-pointer">
                         <Checkbox
                           className="mt-0.5"
                           checked={form.dbs_update_service}
@@ -893,22 +914,22 @@ const AdminStaff = () => {
                       </label>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label className="text-xs">DBS Number</Label>
+                          <Label className="text-xs">DBS number</Label>
                           <Input value={form.dbs_number} onChange={(e) => setForm({ ...form, dbs_number: e.target.value })} placeholder="e.g. 001234567890" />
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-xs">Issue Date</Label>
+                          <Label className="text-xs">Issue date</Label>
                           <Input type="date" value={form.dbs_issue_date} onChange={(e) => setForm({ ...form, dbs_issue_date: e.target.value })} />
                         </div>
                       </div>
                       {!form.dbs_update_service && (
                         <div className="space-y-2">
-                          <Label className="text-xs">Expiry Date</Label>
+                          <Label className="text-xs">Expiry date</Label>
                           <Input type="date" value={form.dbs_expiry_date} onChange={(e) => setForm({ ...form, dbs_expiry_date: e.target.value })} />
                           {(() => {
                             const st = expiryStatus(form.dbs_expiry_date);
                             if (st === "expired") return <p className="text-xs text-destructive font-medium flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> DBS has expired</p>;
-                            if (st === "expiring") return <p className="text-xs text-amber-600 font-medium flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> DBS expires within 30 days</p>;
+                            if (st === "expiring") return <p className="text-xs text-warning font-medium flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> DBS expires within 30 days</p>;
                             return null;
                           })()}
                         </div>
@@ -917,7 +938,7 @@ const AdminStaff = () => {
                         <div className="space-y-2">
                           <Label className="text-xs">Front</Label>
                           {form.dbs_certificate_front ? (
-                            <div className="flex items-center gap-2 rounded border border-border p-2 text-xs">
+                            <div className="flex items-center gap-2 rounded-xl bg-card shadow-soft p-2 text-xs">
                               <FileText className="w-4 h-4 text-primary shrink-0" />
                               <span className="truncate flex-1">{form.dbs_certificate_front.split("/").pop()}</span>
                               <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setForm({ ...form, dbs_certificate_front: "" })}>
@@ -925,7 +946,7 @@ const AdminStaff = () => {
                               </Button>
                             </div>
                           ) : (
-                            <label className="flex items-center gap-2 rounded border border-dashed border-border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
+                            <label className="flex items-center gap-2 rounded-xl border border-dashed border-border p-3 cursor-pointer hover:bg-secondary/60 transition-colors">
                               <Upload className="w-4 h-4 text-muted-foreground" />
                               <span className="text-xs text-muted-foreground">Upload front</span>
                               <input type="file" accept="image/*,.pdf" className="hidden" onChange={async (e) => {
@@ -943,7 +964,7 @@ const AdminStaff = () => {
                         <div className="space-y-2">
                           <Label className="text-xs">Back</Label>
                           {form.dbs_certificate_back ? (
-                            <div className="flex items-center gap-2 rounded border border-border p-2 text-xs">
+                            <div className="flex items-center gap-2 rounded-xl bg-card shadow-soft p-2 text-xs">
                               <FileText className="w-4 h-4 text-primary shrink-0" />
                               <span className="truncate flex-1">{form.dbs_certificate_back.split("/").pop()}</span>
                               <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setForm({ ...form, dbs_certificate_back: "" })}>
@@ -951,7 +972,7 @@ const AdminStaff = () => {
                               </Button>
                             </div>
                           ) : (
-                            <label className="flex items-center gap-2 rounded border border-dashed border-border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
+                            <label className="flex items-center gap-2 rounded-xl border border-dashed border-border p-3 cursor-pointer hover:bg-secondary/60 transition-colors">
                               <Upload className="w-4 h-4 text-muted-foreground" />
                               <span className="text-xs text-muted-foreground">Upload back</span>
                               <input type="file" accept="image/*,.pdf" className="hidden" onChange={async (e) => {
@@ -970,15 +991,17 @@ const AdminStaff = () => {
                     </div>
 
                     {/* Public Liability Insurance Section */}
-                    <div className="rounded-lg border border-border p-4 space-y-4">
-                      <div className="flex items-center gap-2">
-                        <Shield className="w-4 h-4 text-accent" />
-                        <Label className="text-sm font-semibold">Public Liability Insurance</Label>
+                    <div className="rounded-2xl bg-secondary/40 p-4 space-y-4">
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
+                          <Shield className="w-4 h-4" />
+                        </div>
+                        <Label className="text-sm font-semibold">Public liability insurance</Label>
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-xs">Certificate (PDF or Image)</Label>
+                        <Label className="text-xs">Certificate (PDF or image)</Label>
                         {form.pli_certificate ? (
-                          <div className="flex items-center gap-2 rounded border border-border p-2 text-xs">
+                          <div className="flex items-center gap-2 rounded-xl bg-card shadow-soft p-2 text-xs">
                             <FileText className="w-4 h-4 text-accent shrink-0" />
                             <span className="truncate flex-1">{form.pli_certificate.split("/").pop()}</span>
                             <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setForm({ ...form, pli_certificate: "" })}>
@@ -986,7 +1009,7 @@ const AdminStaff = () => {
                             </Button>
                           </div>
                         ) : (
-                          <label className="flex items-center gap-2 rounded border border-dashed border-border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
+                          <label className="flex items-center gap-2 rounded-xl border border-dashed border-border p-3 cursor-pointer hover:bg-secondary/60 transition-colors">
                             <Upload className="w-4 h-4 text-muted-foreground" />
                             <span className="text-xs text-muted-foreground">Upload certificate</span>
                             <input type="file" accept="image/*,.pdf" className="hidden" onChange={async (e) => {
@@ -1002,14 +1025,14 @@ const AdminStaff = () => {
                         )}
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-xs">Cover Level</Label>
+                        <Label className="text-xs">Cover level</Label>
                         <div className="flex gap-3">
                           {[
-                            { value: "1m", label: "£1 Million" },
-                            { value: "5m", label: "£5 Million" },
-                            { value: "10m", label: "£10 Million" },
+                            { value: "1m", label: "£1 million" },
+                            { value: "5m", label: "£5 million" },
+                            { value: "10m", label: "£10 million" },
                           ].map((level) => (
-                            <label key={level.value} className={`flex items-center gap-2 rounded-lg border p-3 cursor-pointer transition-colors flex-1 ${form.pli_cover_level === level.value ? "border-accent bg-accent/10" : "border-border hover:bg-muted/50"}`}>
+                            <label key={level.value} className={`flex items-center gap-2 rounded-xl p-3 cursor-pointer transition-colors flex-1 ${form.pli_cover_level === level.value ? "bg-accent/10 text-accent font-medium" : "bg-card shadow-soft hover:bg-secondary/60"}`}>
                               <Checkbox
                                 checked={form.pli_cover_level === level.value}
                                 onCheckedChange={(checked) => setForm({ ...form, pli_cover_level: checked ? level.value : "" })}
@@ -1020,12 +1043,12 @@ const AdminStaff = () => {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-xs">PLI Expiry Date</Label>
+                        <Label className="text-xs">PLI expiry date</Label>
                         <Input type="date" value={form.pli_expiry_date} onChange={(e) => setForm({ ...form, pli_expiry_date: e.target.value })} />
                         {(() => {
                           const st = expiryStatus(form.pli_expiry_date);
                           if (st === "expired") return <p className="text-xs text-destructive font-medium flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> PLI has expired</p>;
-                          if (st === "expiring") return <p className="text-xs text-amber-600 font-medium flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> PLI expires within 30 days</p>;
+                          if (st === "expiring") return <p className="text-xs text-warning font-medium flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> PLI expires within 30 days</p>;
                           return null;
                         })()}
                       </div>
@@ -1035,30 +1058,34 @@ const AdminStaff = () => {
                   {/* Documents Tab */}
                   <TabsContent value="documents" className="space-y-4 mt-4">
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Heart className="w-4 h-4 text-primary" />
-                        <h4 className="text-sm font-semibold">First Aid</h4>
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                          <Heart className="w-4 h-4" />
+                        </div>
+                        <h4 className="text-sm font-semibold">First aid</h4>
                       </div>
                       <p className="text-xs text-muted-foreground">Upload first aid certificates. Each file can have its own expiry date.</p>
                     </div>
-                    {renderDocSection("paediatric_first_aid", "Paediatric First Aid")}
-                    {renderDocSection("other_first_aid", "Other First Aid")}
+                    {renderDocSection("paediatric_first_aid", "Paediatric first aid")}
+                    {renderDocSection("other_first_aid", "Other first aid")}
 
                     <div className="pt-2">
-                      {renderDocSection("pli", "Public Liability Insurance", "Upload PLI certificates with their expiry dates.")}
+                      {renderDocSection("pli", "Public liability insurance", "Upload PLI certificates with their expiry dates.")}
                     </div>
                   </TabsContent>
 
                   {/* Safeguarding Tab */}
                   <TabsContent value="safeguarding" className="space-y-4 mt-4">
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Shield className="w-4 h-4 text-primary" />
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                          <Shield className="w-4 h-4" />
+                        </div>
                         <h4 className="text-sm font-semibold">Safeguarding</h4>
                       </div>
                       <p className="text-xs text-muted-foreground">Upload safeguarding training certificates. Each file can have its own expiry date.</p>
                     </div>
-                    {renderDocSection("safeguarding", "Safeguarding Certificates")}
+                    {renderDocSection("safeguarding", "Safeguarding certificates")}
                   </TabsContent>
 
                   {/* Dance Skills Tab */}
@@ -1066,7 +1093,7 @@ const AdminStaff = () => {
                     <p className="text-sm text-muted-foreground">Select all dance styles this staff member can instruct:</p>
                     <div className="grid grid-cols-2 gap-3">
                       {DANCE_STYLES.map((style) => (
-                        <label key={style} className="flex items-center gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-accent/50 transition-colors">
+                        <label key={style} className="flex items-center gap-3 rounded-xl bg-secondary/40 p-3 cursor-pointer hover:bg-secondary/70 transition-colors">
                           <Checkbox
                             checked={form.dance_skills.includes(style)}
                             onCheckedChange={() => toggleSkill(style)}
@@ -1093,73 +1120,84 @@ const AdminStaff = () => {
                 </Tabs>
               </form>
             </div>
-            <div className="flex shrink-0 gap-3 justify-end pt-4 pb-2 border-t border-border bg-background">
+            <div className="flex shrink-0 gap-3 justify-end pt-4 pb-2 border-t border-border/50 bg-card/95 backdrop-blur">
               <Button type="button" variant="outline" onClick={() => { setOpen(false); resetForm(); }}>Cancel</Button>
-              <Button type="submit" form="staff-form">{editing ? "Update" : "Add Staff Member"}</Button>
+              <Button type="submit" form="staff-form">{editing ? "Update" : "Add staff member"}</Button>
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+        </div>
+      </FadeRise>
 
-      {loading ? <div className="text-muted-foreground">Loading...</div> : staff.length === 0 ? (
-        <Card><CardContent className="py-12 text-center text-muted-foreground">No staff members yet.</CardContent></Card>
+      {loading ? <div className="p-8 text-center text-muted-foreground animate-pulse">Loading...</div> : staff.length === 0 ? (
+        <FadeRise>
+          <Card><CardContent className="py-12 text-center text-muted-foreground">No staff members yet.</CardContent></Card>
+        </FadeRise>
       ) : (
-        <div className="space-y-3">
+        <Stagger className="space-y-4">
           {staff.map((s) => {
             const sAge = calculateAge(s.date_of_birth);
             const addressParts = [s.address_line1, s.address_line2, s.city, s.county, s.postcode].filter(Boolean);
             return (
             <Collapsible key={s.id}>
-              <Card className="animate-fade-in">
+              <Card className="transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg">
                 <CollapsibleTrigger asChild>
-                  <CardContent className="flex items-center justify-between py-4 cursor-pointer hover:bg-accent/30 transition-colors">
+                  <CardContent className="flex items-center justify-between py-4 cursor-pointer">
                     <div className="flex items-center gap-4">
-                      <Avatar className="w-12 h-12 border border-border">
+                      <Avatar className="w-12 h-12 shadow-soft">
                         <AvatarImage src={s.profile_photo ? getPhotoUrl(s.profile_photo) : undefined} />
-                        <AvatarFallback className="bg-muted text-muted-foreground">
+                        <AvatarFallback className="bg-secondary text-muted-foreground">
                           <User className="w-5 h-5" />
                         </AvatarFallback>
                       </Avatar>
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold">{s.full_name}</h3>
-                          <Badge variant="outline" className="capitalize">{formatRole(s.role)}</Badge>
+                          <h3 className="font-display font-semibold">{s.full_name}</h3>
+                          <Badge variant="outline">{formatRole(s.role)}</Badge>
                           <YearsAtTdeBadge startDate={s.start_date} />
                           {!s.is_active && <Badge variant="secondary">Inactive</Badge>}
                           {(xpMap[s.id] || 0) > 0 && (
-                            <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 hover:bg-amber-500/20">
-                              <Star className="w-3 h-3 mr-1 fill-amber-500 text-amber-500" />
+                            <Badge variant="warning">
+                              <Star className="w-3 h-3 mr-1 fill-current" />
                               {xpMap[s.id]} XP
                             </Badge>
                           )}
-                          {(s as any).dbs_certificate_front ? (
-                            <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/20">
-                              <CheckCircle className="w-3 h-3 mr-1" /> DBS
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-destructive/15 text-destructive border-destructive/30 hover:bg-destructive/20">
-                              <X className="w-3 h-3 mr-1" /> DBS
-                            </Badge>
-                          )}
-                          {(s as any).pli_certificate ? (
-                            <Badge className="bg-sky-500/15 text-sky-500 border-sky-500/30 hover:bg-sky-500/20">
-                              <CheckCircle className="w-3 h-3 mr-1" /> PLI
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-destructive/15 text-destructive border-destructive/30 hover:bg-destructive/20">
-                              <X className="w-3 h-3 mr-1" /> PLI
-                            </Badge>
-                          )}
+                          {(() => {
+                            if (!s.dbs_certificate_front) {
+                              return <Badge variant="destructive"><X className="w-3 h-3 mr-1" /> DBS</Badge>;
+                            }
+                            const dbsStatus = s.dbs_update_service ? "ok" : expiryStatus(s.dbs_expiry_date);
+                            if (dbsStatus === "expired") {
+                              return <Badge variant="destructive"><AlertTriangle className="w-3 h-3 mr-1" /> DBS expired</Badge>;
+                            }
+                            if (dbsStatus === "expiring") {
+                              return <Badge variant="warning"><AlertTriangle className="w-3 h-3 mr-1" /> DBS expiring</Badge>;
+                            }
+                            return <Badge variant="success"><CheckCircle className="w-3 h-3 mr-1" /> DBS</Badge>;
+                          })()}
+                          {(() => {
+                            if (!s.pli_certificate) {
+                              return <Badge variant="destructive"><X className="w-3 h-3 mr-1" /> PLI</Badge>;
+                            }
+                            const pliStatus = expiryStatus(s.pli_expiry_date);
+                            if (pliStatus === "expired") {
+                              return <Badge variant="destructive"><AlertTriangle className="w-3 h-3 mr-1" /> PLI expired</Badge>;
+                            }
+                            if (pliStatus === "expiring") {
+                              return <Badge variant="warning"><AlertTriangle className="w-3 h-3 mr-1" /> PLI expiring</Badge>;
+                            }
+                            return <Badge><CheckCircle className="w-3 h-3 mr-1" /> PLI</Badge>;
+                          })()}
                           {s.user_id ? (
-                            <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/20">
+                            <Badge variant="success">
                               <MailCheck className="w-3 h-3 mr-1" /> Account
                             </Badge>
                           ) : s.invited_at ? (
-                            <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30">
+                            <Badge variant="warning">
                               <Send className="w-3 h-3 mr-1" /> Invited
                             </Badge>
                           ) : (
-                            <Badge variant="outline" className="text-muted-foreground">No account</Badge>
+                            <Badge variant="outline">No account</Badge>
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground">
@@ -1185,7 +1223,7 @@ const AdminStaff = () => {
                   </CardContent>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <div className="border-t border-border px-6 py-5 space-y-4">
+                  <div className="border-t border-border/60 px-6 py-5 space-y-4">
                     {/* Skills */}
                     {s.dance_skills?.length > 0 && (
                       <div className="flex gap-1.5 flex-wrap">
@@ -1198,7 +1236,7 @@ const AdminStaff = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {/* Contact */}
                       <div className="space-y-2">
-                        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contact</h4>
+                        <h4 className="eyebrow">Contact</h4>
                         {s.email && (
                           <div className="flex items-center gap-2 text-sm">
                             <Mail className="w-3.5 h-3.5 text-muted-foreground" />
@@ -1221,7 +1259,7 @@ const AdminStaff = () => {
 
                       {/* Location */}
                       <div className="space-y-2">
-                        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Location</h4>
+                        <h4 className="eyebrow">Location</h4>
                         {addressParts.length > 0 ? (
                           <div className="flex items-start gap-2 text-sm">
                             <MapPin className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
@@ -1238,10 +1276,10 @@ const AdminStaff = () => {
 
                       {/* Work */}
                       <div className="space-y-2">
-                        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Work</h4>
+                        <h4 className="eyebrow">Work</h4>
                         <div className="flex items-center gap-2 text-sm">
                           <Briefcase className="w-3.5 h-3.5 text-muted-foreground" />
-                          <span>{s.self_employed ? 'Self-Employed' : 'Payroll'}</span>
+                          <span>{s.self_employed ? 'Self-employed' : 'Payroll'}</span>
                         </div>
                         {s.pay_per_hour && (
                           <p className="text-sm">£{Number(s.pay_per_hour).toFixed(2)} / hour</p>
@@ -1252,7 +1290,7 @@ const AdminStaff = () => {
                     {/* Next of Kin */}
                     {(s.next_of_kin_name || s.next_of_kin_phone) && (
                       <div className="space-y-2">
-                        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Next of Kin</h4>
+                        <h4 className="eyebrow">Next of kin</h4>
                         <div className="flex items-center gap-2 text-sm">
                           <Heart className="w-3.5 h-3.5 text-muted-foreground" />
                           <span>
@@ -1267,7 +1305,7 @@ const AdminStaff = () => {
                     {/* Bio */}
                     {s.description && (
                       <div className="space-y-2">
-                        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Bio</h4>
+                        <h4 className="eyebrow">Bio</h4>
                         <p className="text-sm text-muted-foreground leading-relaxed">{s.description}</p>
                       </div>
                     )}
@@ -1277,9 +1315,8 @@ const AdminStaff = () => {
             </Collapsible>
             );
           })}
-        </div>
+        </Stagger>
       )}
-      </div>
     </div>
   );
 };

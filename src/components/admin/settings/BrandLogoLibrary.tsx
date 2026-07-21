@@ -112,23 +112,27 @@ export const BrandLogoLibrary = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <ImagePlus className="h-5 w-5" />
-          Logo Library
-        </CardTitle>
-        <CardDescription>
-          Upload multiple logo variations with titles for use across the app.
-        </CardDescription>
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent/10 text-accent">
+            <ImagePlus className="h-5 w-5" />
+          </div>
+          <div>
+            <CardTitle>Logo library</CardTitle>
+            <CardDescription>
+              Upload multiple logo variations with titles for use across the app.
+            </CardDescription>
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3 p-4 border rounded-lg border-dashed">
+        <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3 p-4 rounded-2xl border border-dashed border-border/70 bg-secondary/30">
           <div className="flex-1 space-y-1.5 w-full">
-            <Label htmlFor="logoTitle">Logo Title</Label>
+            <Label htmlFor="logoTitle">Logo title</Label>
             <Input
               id="logoTitle"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
-              placeholder='e.g. "Full Colour", "White on Dark", "Icon Only"'
+              placeholder='e.g. "Full colour", "White on dark", "Icon only"'
             />
           </div>
           <Button variant="outline" className="relative shrink-0" disabled={uploading}>
@@ -137,7 +141,7 @@ export const BrandLogoLibrary = () => {
             ) : (
               <ImagePlus className="mr-2 h-4 w-4" />
             )}
-            Upload Logo
+            Upload logo
             <input
               type="file"
               accept="image/*"
@@ -161,9 +165,9 @@ export const BrandLogoLibrary = () => {
             {logos.map((logo) => (
               <div
                 key={logo.id}
-                className="group relative border rounded-lg p-3 space-y-2 bg-muted/30"
+                className="group relative rounded-2xl bg-secondary/50 p-3 space-y-2 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-soft-lg"
               >
-                <div className="aspect-square rounded-md border bg-background flex items-center justify-center overflow-hidden">
+                <div className="aspect-square rounded-xl bg-card flex items-center justify-center overflow-hidden">
                   <img
                     src={logo.image_url}
                     alt={logo.title}
@@ -175,7 +179,7 @@ export const BrandLogoLibrary = () => {
                     <Input
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
-                      className="h-7 text-xs"
+                      className="h-8 text-xs"
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === "Enter") updateTitleMutation.mutate({ id: logo.id, title: editTitle });

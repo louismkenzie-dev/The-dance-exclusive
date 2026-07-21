@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Plus, Pencil, Trash2, Search, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Loader2, TicketPercent } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,16 +26,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { FadeRise } from "@/components/motion";
 import { CouponFormDialog, type CouponRow } from "@/components/admin/coupons/CouponFormDialog";
 
 type CouponWithUsage = CouponRow & { redemption_count: number };
 
-function getStatus(c: CouponRow): { label: string; variant: "default" | "secondary" | "destructive" | "outline" } {
+function getStatus(c: CouponRow): { label: string; variant: "success" | "warning" | "destructive" | "outline" } {
   if (!c.is_active) return { label: "Disabled", variant: "outline" };
   const now = new Date();
   if (c.valid_until && new Date(c.valid_until) < now) return { label: "Expired", variant: "destructive" };
-  if (c.valid_from && new Date(c.valid_from) > now) return { label: "Scheduled", variant: "secondary" };
-  return { label: "Active", variant: "default" };
+  if (c.valid_from && new Date(c.valid_from) > now) return { label: "Scheduled", variant: "warning" };
+  return { label: "Active", variant: "success" };
 }
 
 const AdminCoupons = () => {
@@ -102,101 +103,110 @@ const AdminCoupons = () => {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="mb-8 flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-display font-bold">Coupons</h1>
-          <p className="text-muted-foreground mt-1">
-            Create and manage discount codes for bookings.
-          </p>
-        </div>
-        <Button onClick={handleNew}>
-          <Plus className="h-4 w-4 mr-1.5" /> New coupon
-        </Button>
-      </div>
-
-      <Card>
-        <CardContent className="p-4">
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by code or description"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
+      <FadeRise>
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-display font-bold tracking-tight">Coupons</h1>
+            <p className="text-muted-foreground mt-1">
+              Create and manage discount codes for bookings.
+            </p>
           </div>
+          <Button onClick={handleNew}>
+            <Plus className="h-4 w-4 mr-1.5" /> New coupon
+          </Button>
+        </div>
+      </FadeRise>
 
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading…
+      <FadeRise delay={90}>
+        <Card>
+          <CardContent className="p-4 md:p-6">
+            <div className="relative mb-4">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by code or description"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10"
+              />
             </div>
-          ) : filtered.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              {coupons.length === 0 ? "No coupons yet. Create your first one." : "No matches."}
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Discount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Usage</TableHead>
-                  <TableHead>Valid window</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((c) => {
-                  const status = getStatus(c);
-                  const limit = c.usage_limit_total != null ? `/ ${c.usage_limit_total}` : "";
-                  return (
-                    <TableRow key={c.id}>
-                      <TableCell>
-                        <div className="font-mono font-bold">{c.code}</div>
-                        {c.description && (
-                          <div className="text-xs text-muted-foreground mt-0.5">{c.description}</div>
-                        )}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {c.discount_type === "percent"
-                          ? `${c.discount_value}%`
-                          : `£${Number(c.discount_value).toFixed(2)}`}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={status.variant}>{status.label}</Badge>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {c.redemption_count} {limit}
-                        {c.usage_limit_per_user != null && (
-                          <div className="text-xs text-muted-foreground">
-                            Max {c.usage_limit_per_user} per user
+
+            {isLoading ? (
+              <div className="flex items-center justify-center py-14 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading…
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 py-14 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+                  <TicketPercent className="h-6 w-6" />
+                </div>
+                <p className="text-muted-foreground">
+                  {coupons.length === 0 ? "No coupons yet. Create your first one." : "No matches."}
+                </p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-border/50 hover:bg-transparent">
+                    <TableHead className="text-xs font-semibold text-muted-foreground">Code</TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">Discount</TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">Status</TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">Usage</TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">Valid window</TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((c) => {
+                    const status = getStatus(c);
+                    const limit = c.usage_limit_total != null ? `/ ${c.usage_limit_total}` : "";
+                    return (
+                      <TableRow key={c.id} className="border-border/50">
+                        <TableCell>
+                          <div className="font-mono font-bold">{c.code}</div>
+                          {c.description && (
+                            <div className="text-xs text-muted-foreground mt-0.5">{c.description}</div>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-display font-semibold tabular-nums">
+                          {c.discount_type === "percent"
+                            ? `${c.discount_value}%`
+                            : `£${Number(c.discount_value).toFixed(2)}`}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={status.variant}>{status.label}</Badge>
+                        </TableCell>
+                        <TableCell className="text-sm tabular-nums">
+                          {c.redemption_count} {limit}
+                          {c.usage_limit_per_user != null && (
+                            <div className="text-xs text-muted-foreground">
+                              Max {c.usage_limit_per_user} per user
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {c.valid_from ? format(new Date(c.valid_from), "d MMM yyyy") : "Anytime"}
+                          {" → "}
+                          {c.valid_until ? format(new Date(c.valid_until), "d MMM yyyy") : "No expiry"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => handleEdit(c)} aria-label="Edit coupon">
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => setDeleting(c)} aria-label="Delete coupon">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {c.valid_from ? format(new Date(c.valid_from), "d MMM yyyy") : "Anytime"}
-                        {" → "}
-                        {c.valid_until ? format(new Date(c.valid_until), "d MMM yyyy") : "No expiry"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => handleEdit(c)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => setDeleting(c)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </FadeRise>
 
       <CouponFormDialog
         open={formOpen}

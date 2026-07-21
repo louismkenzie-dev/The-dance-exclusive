@@ -96,7 +96,12 @@ export const AssignStaffDialog = ({ open, onOpenChange, classId, className, staf
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><Users className="w-4 h-4" /> Assign Staff</DialogTitle>
+          <DialogTitle className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/8 text-primary">
+              <Users className="w-5 h-5" />
+            </span>
+            Assign staff
+          </DialogTitle>
           <DialogDescription>{className}</DialogDescription>
         </DialogHeader>
 
@@ -114,8 +119,8 @@ export const AssignStaffDialog = ({ open, onOpenChange, classId, className, staf
               return (
                 <div
                   key={s.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                    isSelected ? "border-primary/50 bg-primary/5" : "border-border"
+                  className={`flex items-center gap-3 p-3 rounded-2xl transition-colors ${
+                    isSelected ? "bg-primary/5 ring-1 ring-primary/30" : "bg-secondary/40 hover:bg-secondary/60"
                   }`}
                 >
                   <Checkbox checked={isSelected} onCheckedChange={() => toggle(s.id)} />

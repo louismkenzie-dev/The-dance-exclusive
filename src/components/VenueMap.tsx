@@ -117,9 +117,9 @@ const VenueMap = ({ venues, onVenueClick }: VenueMapProps) => {
           closeButton: false,
           className: "venue-mapbox-popup",
         }).setHTML(`
-          <div style="font-family: var(--font-body, sans-serif); padding: 4px 0;">
-            <p style="font-weight: 600; font-size: 13px; margin: 0 0 2px; color: #e91e8c;">🏠 Business Home</p>
-            ${addressLines.map((l: string) => `<p style="font-size: 11px; margin: 0; color: #94a3b8;">${l}</p>`).join("")}
+          <div class="py-1">
+            <p class="mb-0.5 text-[13px] font-semibold text-accent">🏠 Business home</p>
+            ${addressLines.map((l: string) => `<p class="text-[11px] text-muted-foreground">${l}</p>`).join("")}
           </div>
         `);
 
@@ -190,7 +190,7 @@ const VenueMap = ({ venues, onVenueClick }: VenueMapProps) => {
               Math.sin(dLon / 2);
           const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
           const distance = R * c;
-          distanceText = `<p style="font-size: 11px; margin: 4px 0 0; color: #e91e8c;">📍 ${distance.toFixed(1)} miles from HQ</p>`;
+          distanceText = `<p class="mt-1 text-[11px] text-accent">📍 ${distance.toFixed(1)} miles from HQ</p>`;
         }
 
         const popup = new mapboxgl.Popup({
@@ -198,12 +198,12 @@ const VenueMap = ({ venues, onVenueClick }: VenueMapProps) => {
           closeButton: false,
           className: "venue-mapbox-popup",
         }).setHTML(`
-          <div style="font-family: var(--font-body, sans-serif); padding: 4px 0;">
-            <p style="font-weight: 600; font-size: 13px; margin: 0 0 2px; color: #5ab3e8;">${v.name}</p>
-            <p style="font-size: 11px; margin: 0; color: #94a3b8;">${v.address_line1}</p>
-            <p style="font-size: 11px; margin: 0; color: #94a3b8;">${v.city}, ${v.postcode}</p>
+          <div class="py-1">
+            <p class="mb-0.5 text-[13px] font-semibold text-primary">${v.name}</p>
+            <p class="text-[11px] text-muted-foreground">${v.address_line1}</p>
+            <p class="text-[11px] text-muted-foreground">${v.city}, ${v.postcode}</p>
             ${distanceText}
-            ${onVenueClick ? `<button onclick="window.__venueClick__('${v.id}')" style="margin-top: 4px; font-size: 11px; color: #5ab3e8; background: none; border: none; cursor: pointer; padding: 0; text-decoration: underline;">Edit venue</button>` : ""}
+            ${onVenueClick ? `<button onclick="window.__venueClick__('${v.id}')" class="mt-1 cursor-pointer border-0 bg-transparent p-0 text-[11px] text-primary underline underline-offset-2">Edit venue</button>` : ""}
           </div>
         `);
 
@@ -232,7 +232,7 @@ const VenueMap = ({ venues, onVenueClick }: VenueMapProps) => {
 
   if (mappableVenues.length === 0 && !homeCoords) {
     return (
-      <div className="h-[400px] rounded-lg border border-border bg-muted/30 flex items-center justify-center text-muted-foreground text-sm">
+      <div className="flex h-[400px] items-center justify-center rounded-3xl border border-dashed border-border bg-secondary/40 text-sm text-muted-foreground">
         No venues with coordinates to display on the map.
       </div>
     );
@@ -242,14 +242,20 @@ const VenueMap = ({ venues, onVenueClick }: VenueMapProps) => {
     <>
       <style>{`
         .venue-mapbox-popup .mapboxgl-popup-content {
-          background: hsl(220, 20%, 8%);
-          border: 1px solid hsl(220, 15%, 16%);
-          border-radius: 8px;
-          padding: 10px 14px;
-          box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+          font-family: var(--font-body, sans-serif);
+          background: hsl(var(--card));
+          color: hsl(var(--card-foreground));
+          border: none;
+          border-radius: 16px;
+          padding: 10px 16px;
+          box-shadow: 0 4px 8px hsl(220 40% 20% / 0.08), 0 16px 40px hsl(220 40% 20% / 0.16);
         }
         .venue-mapbox-popup .mapboxgl-popup-tip {
-          border-top-color: hsl(220, 20%, 8%);
+          border-top-color: hsl(var(--card));
+        }
+        .venue-mapbox-popup.mapboxgl-popup-anchor-top .mapboxgl-popup-tip {
+          border-top-color: transparent;
+          border-bottom-color: hsl(var(--card));
         }
         .venue-mapbox-marker, .home-mapbox-marker {
           transition: transform 0.15s ease;
@@ -258,7 +264,7 @@ const VenueMap = ({ venues, onVenueClick }: VenueMapProps) => {
           transform: scale(1.15);
         }
       `}</style>
-      <div ref={mapContainer} className="h-[400px] rounded-lg overflow-hidden border border-border" />
+      <div ref={mapContainer} className="h-[400px] overflow-hidden rounded-3xl shadow-soft dark:border dark:border-border/60" />
     </>
   );
 };

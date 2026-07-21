@@ -6,6 +6,7 @@ import { getOrCreateBookingQrToken, buildQrPayload } from "@/lib/qrTokens";
 import { format } from "date-fns";
 import { Loader2, ShieldCheck, Calendar as CalendarIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { FadeRise } from "@/components/motion";
 
 interface Props {
   open: boolean;
@@ -109,28 +110,28 @@ const BookingQrDialog = ({ open, onOpenChange, booking }: Props) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 sm:max-w-md w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] max-h-[calc(100dvh-2rem)] overflow-y-auto p-4 sm:p-6"
-      >
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-primary" /> Sign-in QR Code
-          </DialogTitle>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
+        <DialogHeader className="space-y-2">
+          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/8 text-primary sm:mx-0">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+          <DialogTitle>Sign-in QR code</DialogTitle>
           <DialogDescription>
             Show this QR code at drop-off and pick-up. Anyone collecting your child must present this code for safeguarding.
           </DialogDescription>
         </DialogHeader>
 
         {loading ? (
-          <div className="py-12 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+          <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
         ) : !token ? (
-          <p className="text-sm text-muted-foreground py-8 text-center">Couldn't generate a QR code for this booking.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">Couldn't generate a QR code for this booking.</p>
         ) : (
-          <div className="space-y-4">
-            <Card className="p-4 sm:p-6 flex flex-col items-center gap-4 bg-white w-full">
+          <FadeRise className="space-y-4">
+            {/* QR card is deliberately always white for scannability, in both themes. */}
+            <Card className="flex w-full flex-col items-center gap-4 bg-white p-4 sm:p-6">
               <div
                 ref={qrWrapRef}
-                className="w-full max-w-[240px] aspect-square flex items-center justify-center"
+                className="flex aspect-square w-full max-w-[240px] items-center justify-center"
               >
                 <QRCodeSVG
                   value={buildQrPayload(token.token)}
@@ -139,9 +140,9 @@ const BookingQrDialog = ({ open, onOpenChange, booking }: Props) => {
                   includeMargin
                 />
               </div>
-              <div className="text-center space-y-1">
+              <div className="space-y-1 text-center">
                 {/* Card is always white — force dark text so it's readable in dark mode too. */}
-                <p className="font-semibold text-black">
+                <p className="font-display font-semibold text-black">
                   {covered.length > 1 ? covered.join(" · ") : studentName}
                 </p>
                 {className && <p className="text-xs text-gray-600">{className}</p>}
@@ -151,33 +152,31 @@ const BookingQrDialog = ({ open, onOpenChange, booking }: Props) => {
                   </p>
                 )}
                 {nextSession && (
-                  <p className="text-xs text-gray-600 flex items-center justify-center gap-1 pt-1">
-                    <CalendarIcon className="w-3 h-3" />
+                  <p className="flex items-center justify-center gap-1 pt-1 text-xs text-gray-600">
+                    <CalendarIcon className="h-3 w-3" />
                     Next: {format(new Date(nextSession.session_date), "EEE d MMM")} · {nextSession.start_time?.slice(0, 5)}
                   </p>
                 )}
               </div>
             </Card>
 
-            <p className="text-[11px] text-muted-foreground text-center px-2">
+            <p className="px-2 text-center text-[11px] text-muted-foreground">
               One QR code covers everyone you've booked on this class — use the same code at every
               drop-off and pick-up. Save it to your phone or take a screenshot.
             </p>
 
             {familyPin && (
-              <div className="rounded-lg border border-border bg-muted/40 p-3 text-center">
-                <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
-                  No phone or QR? Your Family PIN
-                </p>
-                <p className="font-mono font-bold text-xl tracking-[0.35em] mt-0.5">{familyPin}</p>
-                <p className="text-[11px] text-muted-foreground mt-1">
+              <div className="rounded-2xl bg-primary/8 p-4 text-center">
+                <p className="eyebrow">No phone or QR? Your family PIN</p>
+                <p className="mt-1.5 font-mono text-2xl font-bold tabular-nums tracking-[0.35em]">{familyPin}</p>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
                   Quote this 4-digit PIN to a member of staff and they can sign
                   {covered.length > 1 ? " everyone" : ""} in without the code. Keep it private —
                   anyone collecting on your behalf will need it.
                 </p>
               </div>
             )}
-          </div>
+          </FadeRise>
         )}
       </DialogContent>
     </Dialog>

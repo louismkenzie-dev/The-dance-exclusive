@@ -104,6 +104,20 @@ serve(async (req) => {
     );
   }
 
+  // Authorization: templates containing caller-controlled links or booking
+  // data can only be sent by our own backend (service-role bearer). Only the
+  // fixed-content "welcome" template may be triggered from the browser —
+  // otherwise this endpoint is an open branded-phishing relay.
+  const bearer = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+  const isServiceCall =
+    bearer.length > 0 && bearer === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!isServiceCall && payload.template !== "welcome") {
+    return new Response(JSON.stringify({ error: "Not authorized to send this template" }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   let subject: string;
   let html: string;
   try {

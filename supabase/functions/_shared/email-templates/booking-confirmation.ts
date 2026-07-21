@@ -1,4 +1,15 @@
-import { BRAND, ctaButton, divider, escapeHtml, renderLayout } from "./layout.ts";
+import {
+  BRAND,
+  ctaButton,
+  detailRow,
+  divider,
+  escapeHtml,
+  FONT_BODY,
+  heading,
+  panel,
+  paragraph,
+  renderLayout,
+} from "./layout.ts";
 
 export interface BookingItem {
   className: string;
@@ -30,17 +41,21 @@ const planLabel: Record<string, string> = {
 
 export function renderBookingConfirmation(data: BookingConfirmationData) {
   const greetingName = data.parentName?.split(" ")[0] || "there";
-  const totalLine =
+
+  const totalPanel =
     data.totalAmount != null
-      ? `<div style="font-size:14px;color:${BRAND.textMuted};">Total paid</div>
-         <div style="font-size:32px;font-weight:800;color:${BRAND.text};margin-top:4px;">£${Number(data.totalAmount).toFixed(2)}</div>`
+      ? panel(
+          `<div style="font-family:${FONT_BODY};font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${BRAND.inkMuted};text-align:center;">Total paid</div>
+           <div style="font-family:${FONT_BODY};font-size:32px;line-height:40px;font-weight:800;color:${BRAND.ink};text-align:center;margin-top:4px;">&pound;${Number(data.totalAmount).toFixed(2)}</div>
+           ${data.reference ? `<div style="font-family:monospace;font-size:11px;letter-spacing:1.5px;color:${BRAND.inkMuted};text-align:center;margin-top:8px;">REF: ${escapeHtml(data.reference.slice(-12).toUpperCase())}</div>` : ""}`,
+        )
       : "";
 
   const bookingsHtml = data.bookings
     .map((b) => {
       const time =
         b.startTime && b.endTime
-          ? `${b.startTime.slice(0, 5)} – ${b.endTime.slice(0, 5)}`
+          ? `${b.startTime.slice(0, 5)} &ndash; ${b.endTime.slice(0, 5)}`
           : "";
       const venue = b.venueName
         ? `${b.venueName}${b.venueCity ? `, ${b.venueCity}` : ""}`
@@ -48,63 +63,48 @@ export function renderBookingConfirmation(data: BookingConfirmationData) {
       const day = b.dayOfWeek
         ? b.dayOfWeek.charAt(0).toUpperCase() + b.dayOfWeek.slice(1) + "s"
         : "";
-      const planTag = b.bookingType
-        ? `<span style="display:inline-block;padding:4px 10px;border-radius:999px;background:${BRAND.primary}22;color:${BRAND.primary};font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">${escapeHtml(planLabel[b.bookingType] || b.bookingType)}</span>`
-        : "";
 
-      return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#0d1117;border:1px solid ${BRAND.border};border-radius:10px;margin-bottom:12px;">
-        <tr>
-          <td style="padding:20px;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-              <tr>
-                <td style="vertical-align:top;">
-                  <div style="font-size:18px;font-weight:700;color:${BRAND.text};line-height:24px;">${escapeHtml(b.className)}</div>
-                  ${b.studentName ? `<div style="font-size:13px;color:${BRAND.textMuted};margin-top:4px;">For ${escapeHtml(b.studentName)}</div>` : ""}
-                </td>
-                <td align="right" style="vertical-align:top;">${planTag}</td>
-              </tr>
-            </table>
-            ${day || time || venue ? `<div style="margin-top:14px;padding-top:14px;border-top:1px solid ${BRAND.border};font-size:13px;color:${BRAND.textMuted};line-height:22px;">
-              ${day ? `<div>📅 ${escapeHtml(day)}</div>` : ""}
-              ${time ? `<div>⏰ ${escapeHtml(time)}</div>` : ""}
-              ${venue ? `<div>📍 ${escapeHtml(venue)}</div>` : ""}
-            </div>` : ""}
-            ${b.amount != null ? `<div style="margin-top:14px;padding-top:14px;border-top:1px solid ${BRAND.border};font-size:13px;color:${BRAND.textMuted};">
-              Amount <span style="float:right;font-weight:700;color:${BRAND.text};">£${Number(b.amount).toFixed(2)}</span>
-            </div>` : ""}
-          </td>
-        </tr>
-      </table>`;
+      const rows = [
+        b.studentName ? detailRow("For", escapeHtml(b.studentName)) : "",
+        day ? detailRow("Day", escapeHtml(day)) : "",
+        time ? detailRow("Time", time) : "",
+        venue ? detailRow("Venue", escapeHtml(venue)) : "",
+        b.bookingType
+          ? detailRow("Plan", escapeHtml(planLabel[b.bookingType] || b.bookingType))
+          : "",
+        b.amount != null
+          ? detailRow("Amount", `&pound;${Number(b.amount).toFixed(2)}`)
+          : "",
+      ].join("");
+
+      return panel(
+        `<div style="font-family:${FONT_BODY};font-size:17px;line-height:24px;font-weight:700;color:${BRAND.ink};margin-bottom:6px;">${escapeHtml(b.className)}</div>
+         ${rows}`,
+        { accent: "blue" },
+      );
     })
     .join("");
 
   const body = `
-    <div style="text-align:center;margin-bottom:8px;">
-      <div style="display:inline-block;width:64px;height:64px;border-radius:50%;background:${BRAND.success}22;line-height:64px;font-size:32px;color:${BRAND.success};">✓</div>
-    </div>
-    <h1 style="margin:8px 0 8px 0;font-family:'Oswald','Segoe UI',sans-serif;font-size:30px;line-height:36px;font-weight:700;color:${BRAND.text};text-align:center;letter-spacing:0.5px;">
-      You're all booked in!
-    </h1>
-    <p style="margin:0 0 24px 0;font-size:15px;line-height:22px;color:${BRAND.textMuted};text-align:center;">
-      Hi ${escapeHtml(greetingName)}, thanks for booking with The Dance Exclusive. Here's your confirmation.
-    </p>
+    ${heading("You&#39;re booked in!", { align: "center" })}
+    ${paragraph(
+      `Hi ${escapeHtml(greetingName)}, thanks for booking with <strong>The Dance Exclusive</strong>. Here&#39;s your confirmation.`,
+      { muted: true, align: "center" },
+    )}
 
-    ${totalLine ? `<div style="text-align:center;padding:20px;background:#0d1117;border:1px solid ${BRAND.border};border-radius:10px;margin-bottom:24px;">${totalLine}${data.reference ? `<div style="font-size:11px;color:${BRAND.textMuted};margin-top:8px;font-family:monospace;letter-spacing:1px;">REF: ${escapeHtml(data.reference.slice(-12).toUpperCase())}</div>` : ""}</div>` : ""}
+    ${totalPanel}
 
-    <div style="font-size:11px;font-weight:700;color:${BRAND.textMuted};letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;">
-      Your Bookings (${data.bookings.length})
-    </div>
+    ${heading(`Your bookings (${data.bookings.length})`, { level: 2 })}
     ${bookingsHtml}
 
     ${divider()}
 
-    <div style="text-align:center;">
-      ${ctaButton("View My Bookings", `${BRAND.appUrl}/account/bookings`)}
-    </div>
+    ${ctaButton("View My Bookings", `${BRAND.appUrl}/account/bookings`)}
 
-    <p style="margin:24px 0 0 0;font-size:13px;line-height:20px;color:${BRAND.textMuted};text-align:center;">
-      Need to make a change? Reply to this email or contact us — we're here to help.
-    </p>
+    ${paragraph(
+      "Need to make a change? Reply to this email or contact us &mdash; we&#39;re here to help.",
+      { muted: true, small: true, align: "center" },
+    )}
   `;
 
   return {

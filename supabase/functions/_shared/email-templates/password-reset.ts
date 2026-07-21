@@ -1,4 +1,13 @@
-import { BRAND, ctaButton, escapeHtml, renderLayout } from "./layout.ts";
+import {
+  BRAND,
+  ctaButton,
+  escapeHtml,
+  FONT_BODY,
+  heading,
+  panel,
+  paragraph,
+  renderLayout,
+} from "./layout.ts";
 
 export interface PasswordResetData {
   email: string;
@@ -10,28 +19,24 @@ export function renderPasswordReset(data: PasswordResetData) {
   const firstName = data.fullName?.split(" ")[0] || "there";
 
   const body = `
-    <h1 style="margin:0 0 16px 0;font-family:'Oswald','Segoe UI',sans-serif;font-size:28px;line-height:34px;font-weight:700;color:${BRAND.text};letter-spacing:0.5px;">
-      Reset your password
-    </h1>
-    <p style="margin:0 0 12px 0;font-size:15px;line-height:24px;color:${BRAND.text};">
-      Hi ${escapeHtml(firstName)},
-    </p>
-    <p style="margin:0 0 24px 0;font-size:15px;line-height:24px;color:${BRAND.textMuted};">
-      We received a request to reset the password for <strong style="color:${BRAND.text};">${escapeHtml(data.email)}</strong>. Click the button below to choose a new one. The link will expire in 1 hour.
-    </p>
+    ${heading("Reset your password")}
+    ${paragraph(`Hi ${escapeHtml(firstName)},`)}
+    ${paragraph(
+      `We received a request to reset the password for <strong>${escapeHtml(data.email)}</strong>. Click the button below to choose a new one. The link will expire in 1 hour.`,
+      { muted: true },
+    )}
 
     ${ctaButton("Reset Password", data.resetUrl)}
 
-    <p style="margin:24px 0 0 0;font-size:13px;line-height:20px;color:${BRAND.textMuted};">
-      Or copy and paste this link into your browser:<br/>
-      <a href="${escapeHtml(data.resetUrl)}" style="color:${BRAND.primary};word-break:break-all;">${escapeHtml(data.resetUrl)}</a>
-    </p>
+    ${paragraph(
+      `Or copy and paste this link into your browser:<br /><a href="${escapeHtml(data.resetUrl)}" style="color:${BRAND.blueDeep};word-break:break-all;">${escapeHtml(data.resetUrl)}</a>`,
+      { muted: true, small: true },
+    )}
 
-    <div style="margin-top:32px;padding:16px;background:#0d1117;border:1px solid ${BRAND.border};border-radius:10px;">
-      <p style="margin:0;font-size:13px;line-height:20px;color:${BRAND.textMuted};">
-        🔒 <strong style="color:${BRAND.text};">Didn't request this?</strong> You can safely ignore this email — your password won't change unless you click the link above.
-      </p>
-    </div>
+    ${panel(
+      `<p style="margin:0;font-family:${FONT_BODY};font-size:13px;line-height:20px;color:${BRAND.inkMuted};"><strong style="color:${BRAND.ink};">Didn&#39;t request this?</strong> You can safely ignore this email &mdash; your password won&#39;t change unless you click the link above.</p>`,
+      { accent: "blue" },
+    )}
   `;
 
   return {

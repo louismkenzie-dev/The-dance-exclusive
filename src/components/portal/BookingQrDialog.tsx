@@ -16,6 +16,8 @@ interface Props {
 const BookingQrDialog = ({ open, onOpenChange, booking }: Props) => {
   const [upcomingSessions, setUpcomingSessions] = useState<any[]>([]);
   const [token, setToken] = useState<{ token: string; validUntil: string } | null>(null);
+  const [covered, setCovered] = useState<string[]>([]);
+  const [familyPin, setFamilyPin] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const qrWrapRef = useRef<HTMLDivElement | null>(null);
   const [qrSize, setQrSize] = useState(220);
@@ -50,25 +52,52 @@ const BookingQrDialog = ({ open, onOpenChange, booking }: Props) => {
     setLoading(true);
     setToken(null);
     setUpcomingSessions([]);
+    setCovered([]);
+    setFamilyPin(null);
+
+    const { data: auth } = await supabase.auth.getUser();
+    const userId = auth?.user?.id;
 
     const todayIso = new Date().toISOString().split("T")[0];
-    const [{ data: sessionsData }, t] = await Promise.all([
+    const [{ data: sessionsData }, t, { data: siblings }, { data: me }] = await Promise.all([
       supabase
-      .from("class_sessions")
-      .select("id, session_date, start_time, end_time, status")
-      .eq("class_id", booking.class_id)
-      .gte("session_date", todayIso)
-      .neq("status", "cancelled")
-      .order("session_date")
+        .from("class_sessions")
+        .select("id, session_date, start_time, end_time, status")
+        .eq("class_id", booking.class_id)
+        .gte("session_date", todayIso)
+        .neq("status", "cancelled")
+        .order("session_date")
         .limit(20),
       getOrCreateBookingQrToken({
         bookingId: booking.id,
         studentId: booking.student_id ?? null,
       }),
+      // One scan covers EVERYONE this parent booked on the class.
+      userId
+        ? supabase
+            .from("bookings")
+            .select("id, students:student_id ( first_name, last_name, is_self )")
+            .eq("class_id", booking.class_id)
+            .eq("parent_id", userId)
+            .eq("status", "confirmed")
+        : Promise.resolve({ data: null }),
+      userId
+        ? supabase.from("profiles").select("pickup_pin").eq("user_id", userId).maybeSingle()
+        : Promise.resolve({ data: null }),
     ]);
 
     setUpcomingSessions(sessionsData ?? []);
     setToken(t);
+    setCovered(
+      ((siblings as any[]) ?? [])
+        .map((b: any) =>
+          b.students
+            ? `${b.students.first_name} ${b.students.last_name}${b.students.is_self ? " (you)" : ""}`
+            : null,
+        )
+        .filter(Boolean) as string[],
+    );
+    setFamilyPin((me as any)?.pickup_pin ?? null);
     setLoading(false);
   };
 
@@ -111,10 +140,18 @@ const BookingQrDialog = ({ open, onOpenChange, booking }: Props) => {
                 />
               </div>
               <div className="text-center space-y-1">
-                <p className="font-semibold text-foreground">{studentName}</p>
-                {className && <p className="text-xs text-muted-foreground">{className}</p>}
+                {/* Card is always white — force dark text so it's readable in dark mode too. */}
+                <p className="font-semibold text-black">
+                  {covered.length > 1 ? covered.join(" · ") : studentName}
+                </p>
+                {className && <p className="text-xs text-gray-600">{className}</p>}
+                {covered.length > 1 && (
+                  <p className="text-[11px] text-gray-600">
+                    One scan covers all {covered.length} — staff mark each person in individually.
+                  </p>
+                )}
                 {nextSession && (
-                  <p className="text-xs text-muted-foreground flex items-center justify-center gap-1 pt-1">
+                  <p className="text-xs text-gray-600 flex items-center justify-center gap-1 pt-1">
                     <CalendarIcon className="w-3 h-3" />
                     Next: {format(new Date(nextSession.session_date), "EEE d MMM")} · {nextSession.start_time?.slice(0, 5)}
                   </p>
@@ -123,8 +160,23 @@ const BookingQrDialog = ({ open, onOpenChange, booking }: Props) => {
             </Card>
 
             <p className="text-[11px] text-muted-foreground text-center px-2">
-              One QR code for the entire booking — use the same code at every drop-off and pick-up. Save it to your phone or take a screenshot.
+              One QR code covers everyone you've booked on this class — use the same code at every
+              drop-off and pick-up. Save it to your phone or take a screenshot.
             </p>
+
+            {familyPin && (
+              <div className="rounded-lg border border-border bg-muted/40 p-3 text-center">
+                <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+                  No phone or QR? Your Family PIN
+                </p>
+                <p className="font-mono font-bold text-xl tracking-[0.35em] mt-0.5">{familyPin}</p>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Quote this 4-digit PIN to a member of staff and they can sign
+                  {covered.length > 1 ? " everyone" : ""} in without the code. Keep it private —
+                  anyone collecting on your behalf will need it.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </DialogContent>

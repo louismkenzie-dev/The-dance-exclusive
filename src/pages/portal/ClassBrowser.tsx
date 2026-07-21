@@ -25,11 +25,14 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   CalendarDays, Clock, MapPin, Users, Sparkles, Heart, Camera, Car, Navigation,
-  ChevronDown, ChevronUp, Search, X, Info, ShoppingCart, Tag, Ticket, Star, Music
+  ChevronDown, ChevronUp, Search, X, Info, ShoppingCart, Tag, Ticket, Star, Music, UserPlus
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { audienceText, isClassBookable } from "@/lib/classAudience";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { QuickBookDialog } from "@/components/portal/QuickBookDialog";
+import { ChildFormDialog } from "@/components/portal/ChildFormDialog";
+import { isAttendeeProfileComplete } from "@/lib/attendeeProfile";
 
 interface VenueData {
   name: string;
@@ -80,6 +83,14 @@ interface ClassItem {
   term_end: string | null;
   allow_trial: boolean;
   school_term_id: string | null;
+  is_active: boolean;
+  school_year_min: number | null;
+  school_year_max: number | null;
+  audience_label: string | null;
+  invite_only: boolean;
+  booking_enabled: boolean;
+  status: string;
+  publicly_visible: boolean;
   venues: VenueData | null;
   staff: StaffData | null;
   workshops: { cover_image: string | null; name: string; description: string | null } | null;
@@ -138,7 +149,11 @@ const ClassBrowser = () => {
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedPlans, setSelectedPlans] = useState<Record<string, PricingPlan>>({});
-  const [children, setChildren] = useState<{ id: string; first_name: string; last_name: string; preferred_name: string | null; date_of_birth: string }[]>([]);
+  const [children, setChildren] = useState<{ id: string; first_name: string; last_name: string; preferred_name: string | null; date_of_birth: string; expected_arrival_time: string | null; expected_departure_time: string | null }[]>([]);
+  const [selfStudent, setSelfStudent] = useState<any>(null);
+  const [selfDialogOpen, setSelfDialogOpen] = useState(false);
+  const [profileNudge, setProfileNudge] = useState<any>(null);
+  const [addChildOpen, setAddChildOpen] = useState(false);
   const [selectedChildren, setSelectedChildren] = useState<Record<string, string[]>>({});
   const [sessionCounts, setSessionCounts] = useState<Record<string, number>>({});
   const [classSessions, setClassSessions] = useState<Record<string, { id: string; session_date: string; start_time: string; end_time: string }[]>>({});
@@ -158,13 +173,21 @@ const ClassBrowser = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState("");
 
-  // Fetch children for logged-in users
-  useEffect(() => {
-    if (user && classType === "children") {
-      supabase.from("students").select("id, first_name, last_name, preferred_name, date_of_birth").eq("parent_id", user.id)
-        .then(({ data }) => { if (data) setChildren(data); });
-    }
-  }, [user, classType]);
+  // Fetch attendee profiles for logged-in users: children for children's
+  // classes, plus the adult's own self profile (required to book adult classes).
+  const fetchAttendees = () => {
+    if (!user) return;
+    // Full records so editing a profile mid-booking never blanks medical fields.
+    supabase.from("students")
+      .select("*")
+      .eq("parent_id", user.id)
+      .then(({ data }) => {
+        if (!data) return;
+        setChildren(data.filter((s: any) => !s.is_self));
+        setSelfStudent(data.find((s: any) => s.is_self) ?? null);
+      });
+  };
+  useEffect(fetchAttendees, [user]);
 
   // Auto-geocode parent's home postcode for proximity sorting
   useEffect(() => {
@@ -201,27 +224,46 @@ const ClassBrowser = () => {
           staff(full_name, profile_photo, description, dance_skills), 
           workshops(cover_image, name, description)`)
         .eq("is_active", true)
+        .eq("publicly_visible", true)
+        .eq("status", "confirmed")
         .eq("class_type", classType as any)
+        .order("sort_order")
         .order("day_of_week")
         .order("start_time");
       if (data) {
-        // Fetch session counts and session details for each class
+        // Fetch all scheduled sessions for the listed classes in one query,
+        // splitting upcoming from past client-side.
         const counts: Record<string, number> = {};
+        const totalCounts: Record<string, number> = {};
         const sessions: Record<string, { id: string; session_date: string; start_time: string; end_time: string }[]> = {};
         const today = new Date().toISOString().split("T")[0];
-        for (const cls of data) {
+        const ids = data.map((cls: any) => cls.id);
+        if (ids.length > 0) {
           const { data: sessionData } = await supabase
             .from("class_sessions")
-            .select("id, session_date, start_time, end_time")
-            .eq("class_id", cls.id)
+            .select("id, class_id, session_date, start_time, end_time")
+            .in("class_id", ids)
             .eq("status", "scheduled")
-            .gte("session_date", today)
             .order("session_date");
-          sessions[cls.id] = sessionData || [];
-          counts[cls.id] = sessionData?.length || 0;
+          for (const s of sessionData || []) {
+            totalCounts[s.class_id] = (totalCounts[s.class_id] || 0) + 1;
+            if (s.session_date >= today) {
+              if (!sessions[s.class_id]) sessions[s.class_id] = [];
+              sessions[s.class_id].push(s);
+              counts[s.class_id] = (counts[s.class_id] || 0) + 1;
+            }
+          }
         }
-        // Only show classes that have upcoming sessions
-        const activeClasses = data.filter((cls: any) => (counts[cls.id] || 0) > 0);
+        // Show classes with upcoming sessions, plus new classes whose session
+        // dates haven't been generated yet (no sessions at all and no term end
+        // in the past). Hide only genuinely finished classes — ones whose
+        // sessions have all elapsed or whose term has ended.
+        const activeClasses = data.filter((cls: any) => {
+          if ((counts[cls.id] || 0) > 0) return true;
+          const hasAnySessions = (totalCounts[cls.id] || 0) > 0;
+          const termEnded = cls.term_end && cls.term_end < today;
+          return !hasAnySessions && !termEnded;
+        });
         setClasses(activeClasses as any);
         setClassSessions(sessions);
         setSessionCounts(counts);
@@ -689,9 +731,14 @@ const ClassBrowser = () => {
                             </Badge>
                           );
                         })()}
+                        {c.invite_only && (
+                          <Badge className="text-[10px] uppercase tracking-wider border bg-amber-500/15 text-amber-500 border-amber-500/30">
+                            Invite Only
+                          </Badge>
+                        )}
                       </div>
-                      {c.age_min != null && c.age_max != null && (
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">Ages {c.age_min}–{c.age_max}</span>
+                      {audienceText(c) && (
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">{audienceText(c)}</span>
                       )}
                     </div>
                     <CardTitle className="text-xl group-hover:text-primary transition-colors">{c.name}</CardTitle>
@@ -721,25 +768,44 @@ const ClassBrowser = () => {
                       )}
                     </div>
 
+                    {/* Invite-only sessions are visible but never open-enrolment bookable */}
+                    {c.invite_only && (
+                      <div className="flex items-start gap-2 mb-3 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/25 text-xs text-amber-600" style={{ textTransform: 'none', letterSpacing: 'normal', fontFamily: 'var(--font-body)' }}>
+                        <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                        <span>This is an invite-only session. Places are offered directly by The Dance Exclusive team — please contact us if you think this crew is for you.</span>
+                      </div>
+                    )}
+
                     {/* Action buttons: Book Now (primary) + More Info (secondary) */}
                     <div className="flex items-stretch gap-2 mb-4">
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          if (!user) { navigate("/auth"); return; }
-                          setQuickBookClassId(c.id);
-                        }}
-                        className="flex-1 uppercase tracking-wider text-xs font-bold gap-1.5 text-white hover:text-white hover:opacity-90"
-                        style={{
-                          background: isAdult ? "hsl(330, 90%, 55%)" : "hsl(201, 70%, 65%)",
-                          boxShadow: isAdult
-                            ? "0 4px 14px hsl(330, 90%, 55%, 0.25)"
-                            : "0 4px 14px hsl(201, 70%, 65%, 0.25)",
-                        }}
-                      >
-                        <ShoppingCart className="w-3.5 h-3.5" />
-                        Book Now
-                      </Button>
+                      {isClassBookable(c) ? (
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            if (!user) { navigate("/auth"); return; }
+                            setQuickBookClassId(c.id);
+                          }}
+                          className="flex-1 uppercase tracking-wider text-xs font-bold gap-1.5 text-white hover:text-white hover:opacity-90"
+                          style={{
+                            background: isAdult ? "hsl(330, 90%, 55%)" : "hsl(201, 70%, 65%)",
+                            boxShadow: isAdult
+                              ? "0 4px 14px hsl(330, 90%, 55%, 0.25)"
+                              : "0 4px 14px hsl(201, 70%, 65%, 0.25)",
+                          }}
+                        >
+                          <ShoppingCart className="w-3.5 h-3.5" />
+                          Book Now
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          disabled
+                          className="flex-1 uppercase tracking-wider text-xs font-bold gap-1.5"
+                          variant="secondary"
+                        >
+                          {c.invite_only ? "Invite Only" : "Booking Opening Soon"}
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"
@@ -1081,6 +1147,20 @@ const ClassBrowser = () => {
                                 );
                               })()}
 
+                              {/* No children yet — prompt to add one */}
+                              {c.class_type === "children" && user && children.length === 0 && (
+                                <div className="pt-2 border-t border-border/30">
+                                  <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/5 text-sm space-y-2">
+                                    <p style={{ textTransform: 'none', letterSpacing: 'normal', fontFamily: 'var(--font-body)' }}>
+                                      Add your child's details to book them into this class.
+                                    </p>
+                                    <Button size="sm" onClick={() => setAddChildOpen(true)} className="gap-1.5">
+                                      <UserPlus className="w-3.5 h-3.5" /> Add a Child
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+
                               {/* Add to basket inside the plan area */}
                               {(() => {
                                 const sessionsSelected = selSessions.length;
@@ -1090,7 +1170,8 @@ const ClassBrowser = () => {
                                 const selectedKids = selectedChildren[c.id] || [];
                                 const allSelectedInCart = c.class_type === "children" && selectedKids.length > 0
                                   && selectedKids.every(sid => cartItems.some(ci => ci.classId === c.id && ci.studentId === sid));
-                                const noKidsSelected = c.class_type === "children" && children.length > 0 && selectedKids.length === 0;
+                                // Must pick at least one attendee for a children's class.
+                                const noKidsSelected = c.class_type === "children" && selectedKids.length === 0;
                                 const noSessionsSelected = plan === "session" && sessionsSelected === 0;
 
                                 const totalForDropIn = plan === "session" && c.price_per_session ? c.price_per_session * sessionsSelected : price;
@@ -1103,9 +1184,26 @@ const ClassBrowser = () => {
                                 });
 
                                 const handleAddToCart = () => {
+                                  if (!isClassBookable(c)) return;
                                   if (!user) { navigate("/auth"); return; }
                                   if (noKidsSelected) return;
                                   if (noSessionsSelected) return;
+
+                                  // Every booking needs a complete attendee profile for the register.
+                                  if (c.class_type === "adult") {
+                                    if (!isAttendeeProfileComplete(selfStudent)) {
+                                      setSelfDialogOpen(true);
+                                      return;
+                                    }
+                                  } else {
+                                    const incomplete = selectedKids
+                                      .map(kid => children.find(ch => ch.id === kid))
+                                      .find(ch => ch && !isAttendeeProfileComplete(ch as any));
+                                    if (incomplete) {
+                                      setProfileNudge(incomplete);
+                                      return;
+                                    }
+                                  }
 
                                   const buildItem = (childId: string | null, childName: string | null) => ({
                                     id: `${c.id}-${childId || 'self'}-${Date.now()}-${Math.random()}`,
@@ -1137,7 +1235,8 @@ const ClassBrowser = () => {
                                     }
                                     setSelectedChildren(p => ({ ...p, [c.id]: [] }));
                                   } else {
-                                    addItem(buildItem(null, null));
+                                    // Adult self-booking always carries the self attendee profile.
+                                    addItem(buildItem(selfStudent.id, `${selfStudent.first_name} ${selfStudent.last_name}`));
                                   }
                                 };
 
@@ -1160,7 +1259,7 @@ const ClassBrowser = () => {
                                     </div>
                                     <Button
                                       size="sm"
-                                      disabled={allSelectedInCart || noKidsSelected || noSessionsSelected}
+                                      disabled={!isClassBookable(c) || allSelectedInCart || noKidsSelected || noSessionsSelected}
                                       onClick={handleAddToCart}
                                       className="uppercase tracking-wider text-xs font-semibold gap-1.5"
                                       style={{
@@ -1381,6 +1480,33 @@ const ClassBrowser = () => {
         children={children}
         hasExistingBookings={hasExistingBookings}
         isAdult={isAdult}
+        selfStudent={selfStudent}
+        onChildrenChanged={fetchAttendees}
+      />
+
+      {/* Adult self attendee profile — required before booking for yourself */}
+      <ChildFormDialog
+        open={selfDialogOpen}
+        onOpenChange={setSelfDialogOpen}
+        onSaved={fetchAttendees}
+        editing={selfStudent}
+        selfMode
+      />
+
+      {/* Complete a child's profile mid-booking */}
+      <ChildFormDialog
+        open={!!profileNudge}
+        onOpenChange={(o) => { if (!o) setProfileNudge(null); }}
+        onSaved={fetchAttendees}
+        editing={profileNudge}
+      />
+
+      {/* Add a new child mid-booking */}
+      <ChildFormDialog
+        open={addChildOpen}
+        onOpenChange={setAddChildOpen}
+        onSaved={fetchAttendees}
+        editing={null}
       />
     </div>
   );

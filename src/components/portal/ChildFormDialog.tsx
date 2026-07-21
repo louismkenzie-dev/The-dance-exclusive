@@ -14,10 +14,12 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AlertTriangle, Camera, Heart, Info, Loader2, Save, Sparkles } from "lucide-react";
+import { AlertTriangle, Camera, Heart, Info, Loader2, Save, Sparkles, Wand2 } from "lucide-react";
 import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 import getCroppedImg from "@/lib/cropImage";
+import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
+import tdeLogo from "@/assets/logo-avatar-512.png";
 
 const GENDER_OPTIONS = ["Female", "Male", "Non-Binary", "Prefer Not to Say"];
 
@@ -53,9 +55,15 @@ interface ChildFormDialogProps {
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
   editing?: any;
+  /**
+   * Adult attendee profile mode: the account holder fills this in about
+   * THEMSELVES so registers and QR check-in have their age and medical info.
+   * Hides the child-specific sections and saves with is_self = true.
+   */
+  selfMode?: boolean;
 }
 
-export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildFormDialogProps) => {
+export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode = false }: ChildFormDialogProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
@@ -67,6 +75,57 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
   const [croppedArea, setCroppedArea] = useState<Area | null>(null);
   const [showCropper, setShowCropper] = useState(false);
   const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState<string | null>(null);
+
+  // Dance Exclusive Avatar Studio
+  const [avatarLoading, setAvatarLoading] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  const handleGenerateAvatar = async () => {
+    if (!editing?.id) return;
+    setAvatarLoading(true);
+    try {
+      // The avatar is generated from the SAVED profile photo — persist the
+      // currently selected photo first so the studio uses what's on screen.
+      if (uploadedPhotoUrl && uploadedPhotoUrl !== editing.profile_photo) {
+        await supabase.from("students").update({ profile_photo: uploadedPhotoUrl }).eq("id", editing.id);
+      }
+      // Ship the official TDE logo along so the generated t-shirt carries the
+      // real brand mark rather than an invented one.
+      const logoDataUrl = await fetch(tdeLogo)
+        .then((r) => r.blob())
+        .then(
+          (blob) =>
+            new Promise<string>((resolve, reject) => {
+              const fr = new FileReader();
+              fr.onload = () => resolve(fr.result as string);
+              fr.onerror = reject;
+              fr.readAsDataURL(blob);
+            }),
+        )
+        .catch(() => null);
+      const { data, error } = await supabase.functions.invoke("generate-avatar", {
+        body: { studentId: editing.id, logoDataUrl },
+      });
+      let message = data?.error || error?.message;
+      const ctx = (error as { context?: Response } | null)?.context;
+      if (ctx && typeof ctx.json === "function") {
+        try {
+          const body = await ctx.json();
+          if (body?.error) message = body.error;
+        } catch { /* keep original */ }
+      }
+      if (error || !data?.avatarUrl) {
+        toast({ title: "Avatar Studio", description: message || "Couldn't create the avatar — please try again.", variant: "destructive" });
+      } else {
+        setAvatarUrl(data.avatarUrl);
+        toast({ title: "✨ Avatar created!", description: "Saved! It now appears right next to the real photo." });
+      }
+    } catch (e: any) {
+      toast({ title: "Avatar Studio", description: e?.message || "Something went wrong.", variant: "destructive" });
+    } finally {
+      setAvatarLoading(false);
+    }
+  };
 
   const [form, setForm] = useState<any>({
     first_name: "", last_name: "", preferred_name: "", date_of_birth: "", gender: "",
@@ -119,6 +178,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
         has_allergies: (editing.allergies_list?.length > 0 || editing.allergies),
       });
       setUploadedPhotoUrl(editing.profile_photo || null);
+      setAvatarUrl(editing.avatar_url || null);
     } else {
       setForm({
         first_name: "", last_name: "", preferred_name: "", date_of_birth: "", gender: "",
@@ -132,6 +192,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
         has_medical_conditions: false, has_allergies: false,
       });
       setUploadedPhotoUrl(null);
+      setAvatarUrl(null);
       setPhotoSrc(null);
       setShowCropper(false);
     }
@@ -237,6 +298,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
       child_hook: form.child_hook || null,
       photo_consent: form.photo_consent,
       social_media_consent: form.social_media_consent,
+      is_self: selfMode,
     };
 
     let error;
@@ -267,7 +329,15 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-2">
-          <DialogTitle>{editing ? "Edit" : "Add"} Child</DialogTitle>
+          <DialogTitle>
+            {selfMode ? (editing ? "Edit Your Attendee Profile" : "Create Your Attendee Profile") : `${editing ? "Edit" : "Add"} Child`}
+          </DialogTitle>
+          {selfMode && (
+            <p className="text-sm text-muted-foreground" style={{ fontFamily: 'var(--font-body)', textTransform: 'none', letterSpacing: 'normal' }}>
+              Booking a class for yourself? We need your details for the class register —
+              age, medical information and when you expect to arrive and leave.
+            </p>
+          )}
         </DialogHeader>
 
         <div className="flex-1 min-h-0 overflow-y-auto px-6">
@@ -313,6 +383,52 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
                   </div>
                   <input id="photo-input" type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
                   <p className="text-xs text-muted-foreground">Click to upload a photo</p>
+
+                  {/* ═══ DANCE EXCLUSIVE AVATAR STUDIO ═══ */}
+                  {uploadedPhotoUrl && editing && (
+                    <div className="w-full max-w-sm space-y-3">
+                      {!avatarUrl && (
+                        <>
+                          <Button
+                            type="button"
+                            onClick={handleGenerateAvatar}
+                            disabled={avatarLoading}
+                            className="w-full gap-2 bg-gradient-to-r from-primary via-purple-500 to-accent text-white font-semibold uppercase tracking-wider hover:opacity-90 shadow-lg"
+                          >
+                            {avatarLoading ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" /> Creating your avatar… (~1 min)
+                              </>
+                            ) : (
+                              <>
+                                <Wand2 className="w-4 h-4" /> Create Dance Exclusive Avatar
+                              </>
+                            )}
+                          </Button>
+                          {!avatarLoading && (
+                            <p className="text-[11px] text-muted-foreground text-center" style={{ textTransform: "none", letterSpacing: "normal" }}>
+                              {selfMode
+                                ? "Turn this photo into an on-brand studio portrait — you in Dance Exclusive merch under the signature pink lights. ✨"
+                                : "Turn this photo into an on-brand cartoon — your child in Dance Exclusive merch, dancing on stage under the lights. ✨"}
+                            </p>
+                          )}
+                        </>
+                      )}
+                      {avatarUrl && (
+                        <div className="flex flex-col items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+                          <PhotoAvatarDuo photoUrl={uploadedPhotoUrl} avatarUrl={avatarUrl} size="lg" showLabels />
+                          <p className="text-[11px] text-muted-foreground text-center" style={{ textTransform: "none", letterSpacing: "normal" }}>
+                            Both are saved — parents and staff always see the real photo and the avatar together.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {uploadedPhotoUrl && !editing && (
+                    <p className="text-[11px] text-muted-foreground text-center" style={{ textTransform: "none", letterSpacing: "normal" }}>
+                      ✨ Save the profile first to unlock the Dance Exclusive Avatar Studio.
+                    </p>
+                  )}
                 </>
               )}
             </div>
@@ -360,7 +476,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
                 <AccordionTrigger className="text-sm font-semibold">Medical Information</AccordionTrigger>
                 <AccordionContent className="space-y-4 pt-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm">Does your child have any medical conditions?</Label>
+                    <Label className="text-sm">{selfMode ? "Do you have any medical conditions?" : "Does your child have any medical conditions?"}</Label>
                     <Switch checked={form.has_medical_conditions} onCheckedChange={(c) => update("has_medical_conditions", c)} />
                   </div>
 
@@ -391,11 +507,11 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
                           <Checkbox id="has-inhaler" checked={form.has_inhaler} onCheckedChange={(c) => update("has_inhaler", !!c)} />
-                          <Label htmlFor="has-inhaler" className="text-sm cursor-pointer font-normal">Child carries an inhaler</Label>
+                          <Label htmlFor="has-inhaler" className="text-sm cursor-pointer font-normal">{selfMode ? "I carry an inhaler" : "Child carries an inhaler"}</Label>
                         </div>
                         <div className="flex items-center gap-2">
                           <Checkbox id="has-epipen" checked={form.has_epipen} onCheckedChange={(c) => update("has_epipen", !!c)} />
-                          <Label htmlFor="has-epipen" className="text-sm cursor-pointer font-normal">Child carries an EpiPen</Label>
+                          <Label htmlFor="has-epipen" className="text-sm cursor-pointer font-normal">{selfMode ? "I carry an EpiPen" : "Child carries an EpiPen"}</Label>
                         </div>
                         {form.has_epipen && (
                           <Alert className="border-red-500/30 bg-red-500/10">
@@ -421,7 +537,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
                 <AccordionTrigger className="text-sm font-semibold">Allergies</AccordionTrigger>
                 <AccordionContent className="space-y-4 pt-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm">Does your child have any allergies?</Label>
+                    <Label className="text-sm">{selfMode ? "Do you have any allergies?" : "Does your child have any allergies?"}</Label>
                     <Switch checked={form.has_allergies} onCheckedChange={(c) => update("has_allergies", c)} />
                   </div>
 
@@ -450,7 +566,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
                 <AccordionTrigger className="text-sm font-semibold">SEND (Special Educational Needs)</AccordionTrigger>
                 <AccordionContent className="space-y-4 pt-2">
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm">Does your child have any special educational needs?</Label>
+                    <Label className="text-sm">{selfMode ? "Do you have any additional needs we should know about?" : "Does your child have any special educational needs?"}</Label>
                     <Switch checked={form.has_send} onCheckedChange={(c) => update("has_send", c)} />
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -517,7 +633,8 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
                 </AccordionContent>
               </AccordionItem>
 
-              {/* ═══ TOILETING ═══ */}
+              {/* ═══ TOILETING (children only) ═══ */}
+              {!selfMode && (
               <AccordionItem value="toileting" className="border rounded-lg px-4">
                 <AccordionTrigger className="text-sm font-semibold">Toileting</AccordionTrigger>
                 <AccordionContent className="space-y-4 pt-2">
@@ -543,8 +660,10 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
                   )}
                 </AccordionContent>
               </AccordionItem>
+              )}
 
-              {/* ═══ DANCE & ABOUT ═══ */}
+              {/* ═══ DANCE & ABOUT (children only) ═══ */}
+              {!selfMode && (
               <AccordionItem value="dance" className="border rounded-lg px-4">
                 <AccordionTrigger className="text-sm font-semibold">
                   <span className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> Dance & About Your Child</span>
@@ -604,6 +723,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
                   </div>
                 </AccordionContent>
               </AccordionItem>
+              )}
 
               {/* ═══ CONSENT ═══ */}
               <AccordionItem value="consent" className="border rounded-lg px-4">
@@ -611,7 +731,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
                 <AccordionContent className="space-y-4 pt-2">
                   <div className="flex items-center gap-2">
                     <Checkbox id="photo-consent" checked={form.photo_consent} onCheckedChange={(c) => update("photo_consent", !!c)} />
-                    <Label htmlFor="photo-consent" className="text-sm cursor-pointer">I consent to photos being taken of my child during classes</Label>
+                    <Label htmlFor="photo-consent" className="text-sm cursor-pointer">I consent to photos being taken {selfMode ? "of me" : "of my child"} during classes</Label>
                   </div>
                   <div className="flex items-center gap-2">
                     <Checkbox id="social-consent" checked={form.social_media_consent} onCheckedChange={(c) => update("social_media_consent", !!c)} />
@@ -625,10 +745,13 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing }: ChildF
 
         <DialogFooter className="px-6 py-4 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving || !form.first_name || !form.last_name || !form.date_of_birth}>
+          <Button
+            onClick={handleSave}
+            disabled={saving || !form.first_name || !form.last_name || !form.date_of_birth}
+          >
             {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             <Save className="h-4 w-4 mr-2" />
-            {editing ? "Update" : "Add"} Child
+            {selfMode ? (editing ? "Update Profile" : "Save Profile") : `${editing ? "Update" : "Add"} Child`}
           </Button>
         </DialogFooter>
       </DialogContent>

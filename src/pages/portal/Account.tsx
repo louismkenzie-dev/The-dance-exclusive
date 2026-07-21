@@ -15,6 +15,7 @@ import { Plus, User, Users, MapPin, ShieldCheck, Pencil, Trash2, Camera, Sparkle
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { ChildFormDialog } from "@/components/portal/ChildFormDialog";
+import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
 import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 import getCroppedImg from "@/lib/cropImage";
@@ -124,6 +125,8 @@ const Account = () => {
   const { toast } = useToast();
 
   const [editingChild, setEditingChild] = useState<any>(null);
+  const [selfProfile, setSelfProfile] = useState<any>(null);
+  const [selfDialogOpen, setSelfDialogOpen] = useState(false);
   const [editingCollector, setEditingCollector] = useState<Collector | null>(null);
   const [childBookingCounts, setChildBookingCounts] = useState<Record<string, number>>({});
 
@@ -167,7 +170,12 @@ const Account = () => {
   const fetchChildren = async () => {
     if (!user) return;
     const { data } = await supabase.from("students").select("*").eq("parent_id", user.id).order("first_name");
-    if (data) setChildren(data);
+    if (data) {
+      // The adult's own attendee profile (is_self) lives in the same table
+      // but is managed separately — keep it out of the Children list.
+      setChildren(data.filter((s: any) => !s.is_self));
+      setSelfProfile(data.find((s: any) => s.is_self) ?? null);
+    }
   };
 
   const fetchCollectors = async () => {
@@ -675,7 +683,7 @@ const Account = () => {
                 <div className="space-y-3">
                   <div className="space-y-2"><Label>Address Line 1</Label><Input value={profileForm.address_line1 || ""} onChange={(e) => setProfileForm({ ...profileForm, address_line1: e.target.value })} /></div>
                   <div className="space-y-2"><Label>Address Line 2</Label><Input value={profileForm.address_line2 || ""} onChange={(e) => setProfileForm({ ...profileForm, address_line2: e.target.value })} /></div>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="space-y-2"><Label>City / Town</Label><Input value={profileForm.city || ""} onChange={(e) => setProfileForm({ ...profileForm, city: e.target.value })} /></div>
                     <div className="space-y-2"><Label>County</Label><Input value={profileForm.county || ""} onChange={(e) => setProfileForm({ ...profileForm, county: e.target.value })} /></div>
                     <div className="space-y-2"><Label>Postcode</Label><Input value={profileForm.postcode || ""} onChange={(e) => setProfileForm({ ...profileForm, postcode: e.target.value })} /></div>
@@ -726,6 +734,52 @@ const Account = () => {
         </CardContent>
       </Card>
 
+      {/* Adult attendee profile — required before booking classes for yourself */}
+      {showAdultDance && (
+        <Card className="mb-8">
+          <CardContent className="py-5">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-lg font-display font-semibold flex items-center gap-2 mb-1">
+                  <Users className="w-5 h-5" /> My Attendee Profile
+                </h2>
+                {selfProfile ? (
+                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <PhotoAvatarDuo
+                      photoUrl={selfProfile.profile_photo}
+                      avatarUrl={selfProfile.avatar_url}
+                      initials={`${selfProfile.first_name?.[0] ?? ""}${selfProfile.last_name?.[0] ?? ""}`}
+                      size="sm"
+                    />
+                    <p>
+                      <span className="text-foreground font-medium">{selfProfile.first_name} {selfProfile.last_name}</span>
+                      {" · "}Age {getAge(selfProfile.date_of_birth)}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Booking classes for yourself? Create your attendee profile (age and medical
+                    info) — it's required before you can book, and it's what our instructors see
+                    on the class register.
+                  </p>
+                )}
+              </div>
+              <Button size="sm" variant={selfProfile ? "outline" : "default"} onClick={() => setSelfDialogOpen(true)}>
+                {selfProfile ? "Edit Profile" : "Create Profile"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <ChildFormDialog
+        open={selfDialogOpen}
+        onOpenChange={setSelfDialogOpen}
+        onSaved={fetchChildren}
+        editing={selfProfile}
+        selfMode
+      />
+
       {/* Children Section — only if parent_only or both */}
       {showChildren && (
         <>
@@ -754,13 +808,12 @@ const Account = () => {
                   <CardContent className="py-4">
                     <div className="flex items-start gap-4">
                       <div className="cursor-pointer flex-1 flex items-start gap-4" onClick={() => { setEditingChild(c); setChildDialogOpen(true); }}>
-                        {c.profile_photo ? (
-                          <img src={c.profile_photo} alt={c.first_name} className="w-14 h-14 rounded-full object-cover border-2 border-border" />
-                        ) : (
-                          <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center text-lg font-bold text-muted-foreground">
-                            {c.first_name?.[0]}{c.last_name?.[0]}
-                          </div>
-                        )}
+                        <PhotoAvatarDuo
+                          photoUrl={c.profile_photo}
+                          avatarUrl={c.avatar_url}
+                          initials={`${c.first_name?.[0] ?? ""}${c.last_name?.[0] ?? ""}`}
+                          size="md"
+                        />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <h3 className="font-semibold">{c.first_name} {c.last_name}</h3>

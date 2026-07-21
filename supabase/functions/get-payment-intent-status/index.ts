@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { type StripeEnv, createStripeClient } from "../_shared/stripe.ts";
+import { type StripeEnv, connectRequestOptions, createStripeClient } from "../_shared/stripe.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,7 +25,7 @@ serve(async (req) => {
     const env = (environment || "sandbox") as StripeEnv;
     const stripe = createStripeClient(env);
 
-    const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+    const pi = await stripe.paymentIntents.retrieve(paymentIntentId, {}, connectRequestOptions(env));
 
     // Fallback: if the webhook hasn't fired (or isn't configured), make sure
     // bookings exist in the DB whenever the PaymentIntent has succeeded.

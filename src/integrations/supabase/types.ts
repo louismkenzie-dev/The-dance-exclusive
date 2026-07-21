@@ -714,6 +714,14 @@ export type Database = {
           age_max: number | null
           age_min: number | null
           allow_trial: boolean
+          audience_label: string | null
+          booking_enabled: boolean
+          invite_only: boolean
+          publicly_visible: boolean
+          school_year_max: number | null
+          school_year_min: number | null
+          sort_order: number
+          status: string
           capacity: number
           class_type: Database["public"]["Enums"]["class_type"]
           created_at: string
@@ -749,6 +757,14 @@ export type Database = {
           age_max?: number | null
           age_min?: number | null
           allow_trial?: boolean
+          audience_label?: string | null
+          booking_enabled?: boolean
+          invite_only?: boolean
+          publicly_visible?: boolean
+          school_year_max?: number | null
+          school_year_min?: number | null
+          sort_order?: number
+          status?: string
           capacity?: number
           class_type?: Database["public"]["Enums"]["class_type"]
           created_at?: string
@@ -784,6 +800,14 @@ export type Database = {
           age_max?: number | null
           age_min?: number | null
           allow_trial?: boolean
+          audience_label?: string | null
+          booking_enabled?: boolean
+          invite_only?: boolean
+          publicly_visible?: boolean
+          school_year_max?: number | null
+          school_year_min?: number | null
+          sort_order?: number
+          status?: string
           capacity?: number
           class_type?: Database["public"]["Enums"]["class_type"]
           created_at?: string
@@ -1394,6 +1418,8 @@ export type Database = {
           postcode: string | null
           preferred_name: string | null
           profile_photo: string | null
+          pickup_pin: string | null
+          avatar_url: string | null
           secondary_phone: string | null
           updated_at: string
           user_id: string
@@ -1422,6 +1448,8 @@ export type Database = {
           postcode?: string | null
           preferred_name?: string | null
           profile_photo?: string | null
+          pickup_pin?: string | null
+          avatar_url?: string | null
           secondary_phone?: string | null
           updated_at?: string
           user_id: string
@@ -1450,6 +1478,8 @@ export type Database = {
           postcode?: string | null
           preferred_name?: string | null
           profile_photo?: string | null
+          pickup_pin?: string | null
+          avatar_url?: string | null
           secondary_phone?: string | null
           updated_at?: string
           user_id?: string
@@ -1884,6 +1914,9 @@ export type Database = {
           has_send: boolean
           has_stage_experience: boolean
           id: string
+          is_self: boolean
+          expected_arrival_time: string | null
+          expected_departure_time: string | null
           is_toilet_trained: boolean
           last_name: string
           medical_conditions_list: string[]
@@ -1894,6 +1927,7 @@ export type Database = {
           photo_consent: boolean
           preferred_name: string | null
           profile_photo: string | null
+          avatar_url: string | null
           prone_to_accidents: boolean
           send_conditions_list: string[]
           send_details: string | null
@@ -1921,6 +1955,9 @@ export type Database = {
           has_send?: boolean
           has_stage_experience?: boolean
           id?: string
+          is_self?: boolean
+          expected_arrival_time?: string | null
+          expected_departure_time?: string | null
           is_toilet_trained?: boolean
           last_name: string
           medical_conditions_list?: string[]
@@ -1931,6 +1968,7 @@ export type Database = {
           photo_consent?: boolean
           preferred_name?: string | null
           profile_photo?: string | null
+          avatar_url?: string | null
           prone_to_accidents?: boolean
           send_conditions_list?: string[]
           send_details?: string | null
@@ -1958,6 +1996,9 @@ export type Database = {
           has_send?: boolean
           has_stage_experience?: boolean
           id?: string
+          is_self?: boolean
+          expected_arrival_time?: string | null
+          expected_departure_time?: string | null
           is_toilet_trained?: boolean
           last_name?: string
           medical_conditions_list?: string[]
@@ -1968,6 +2009,7 @@ export type Database = {
           photo_consent?: boolean
           preferred_name?: string | null
           profile_photo?: string | null
+          avatar_url?: string | null
           prone_to_accidents?: boolean
           send_conditions_list?: string[]
           send_details?: string | null
@@ -2109,8 +2151,15 @@ export type Database = {
         Row: {
           access_code: string | null
           accessibility_info: string | null
-          address_line1: string
+          address_line1: string | null
           address_line2: string | null
+          featured_order: number | null
+          hero_image: string | null
+          is_featured: boolean
+          publicly_visible: boolean
+          short_description: string | null
+          slug: string | null
+          status: string
           capacity: number | null
           city: string
           contact_email: string | null
@@ -2145,7 +2194,7 @@ export type Database = {
           photo_indoor: string | null
           photo_outside: string | null
           photo_parking: string | null
-          postcode: string
+          postcode: string | null
           updated_at: string
           website_url: string | null
           what3words: string | null
@@ -2155,8 +2204,15 @@ export type Database = {
         Insert: {
           access_code?: string | null
           accessibility_info?: string | null
-          address_line1: string
+          address_line1?: string | null
           address_line2?: string | null
+          featured_order?: number | null
+          hero_image?: string | null
+          is_featured?: boolean
+          publicly_visible?: boolean
+          short_description?: string | null
+          slug?: string | null
+          status?: string
           capacity?: number | null
           city?: string
           contact_email?: string | null
@@ -2191,7 +2247,7 @@ export type Database = {
           photo_indoor?: string | null
           photo_outside?: string | null
           photo_parking?: string | null
-          postcode: string
+          postcode?: string | null
           updated_at?: string
           website_url?: string | null
           what3words?: string | null
@@ -2201,8 +2257,15 @@ export type Database = {
         Update: {
           access_code?: string | null
           accessibility_info?: string | null
-          address_line1?: string
+          address_line1?: string | null
           address_line2?: string | null
+          featured_order?: number | null
+          hero_image?: string | null
+          is_featured?: boolean
+          publicly_visible?: boolean
+          short_description?: string | null
+          slug?: string | null
+          status?: string
           capacity?: number | null
           city?: string
           contact_email?: string | null
@@ -2237,7 +2300,7 @@ export type Database = {
           photo_indoor?: string | null
           photo_outside?: string | null
           photo_parking?: string | null
-          postcode?: string
+          postcode?: string | null
           updated_at?: string
           website_url?: string | null
           what3words?: string | null

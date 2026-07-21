@@ -174,7 +174,7 @@ const StaffProfile = () => {
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Address</h3>
             <Input placeholder="Address line 1" value={form.address_line1} onChange={(e) => setForm({ ...form, address_line1: e.target.value })} />
             <Input placeholder="Address line 2" value={form.address_line2} onChange={(e) => setForm({ ...form, address_line2: e.target.value })} />
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Input placeholder="City" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
               <Input placeholder="County" value={form.county} onChange={(e) => setForm({ ...form, county: e.target.value })} />
               <Input placeholder="Postcode" value={form.postcode} onChange={(e) => setForm({ ...form, postcode: e.target.value })} />

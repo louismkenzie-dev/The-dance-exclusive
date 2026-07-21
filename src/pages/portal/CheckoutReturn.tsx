@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { getStripeEnvironment } from "@/lib/stripe";
+import { getStripe, getStripeEnvironment } from "@/lib/stripe";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -15,6 +15,7 @@ import {
   Mail,
   Receipt,
   Sparkles,
+  QrCode,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -51,6 +52,7 @@ const planLabel: Record<string, string> = {
 const CheckoutReturn = () => {
   const [searchParams] = useSearchParams();
   const paymentIntentId = searchParams.get("payment_intent");
+  const clientSecret = searchParams.get("payment_intent_client_secret");
   const sessionId = searchParams.get("session_id");
   const [status, setStatus] = useState<Status>("loading");
   const [email, setEmail] = useState<string | null>(null);
@@ -87,28 +89,67 @@ const CheckoutReturn = () => {
       return [];
     };
 
-    const checkStatus = async () => {
-      try {
-        if (paymentIntentId) {
+    // The edge function both reports status AND acts as the webhook fallback
+    // that guarantees bookings + the confirmation email. Retry it a few times
+    // but never let a transient failure decide the outcome on its own.
+    const fetchServerStatus = async (): Promise<{ status: string; amount?: number; receiptEmail?: string | null } | null> => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (cancelled) return null;
+        try {
           const { data, error } = await supabase.functions.invoke(
             "get-payment-intent-status",
             { body: { paymentIntentId, environment: getStripeEnvironment() } },
           );
-          if (cancelled) return;
-          if (error || !data) return setStatus("error");
+          if (!error && data?.status) return data;
+        } catch {
+          // fall through to retry
+        }
+        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+      }
+      return null;
+    };
 
-          if (data.status === "succeeded") {
-            setEmail(data.receiptEmail);
-            setAmount(data.amount ? data.amount / 100 : null);
+    // Client-side source of truth: Stripe itself. Works even when the edge
+    // function is briefly unreachable, for both the inline hand-off and
+    // Stripe's own redirect return (same URL params).
+    const fetchStripeStatus = async (): Promise<string | null> => {
+      if (!clientSecret) return null;
+      try {
+        const stripe = await getStripe();
+        if (!stripe) return null;
+        const { paymentIntent } = await stripe.retrievePaymentIntent(clientSecret);
+        return paymentIntent?.status ?? null;
+      } catch {
+        return null;
+      }
+    };
+
+    const checkStatus = async () => {
+      try {
+        if (paymentIntentId) {
+          const [server, stripeStatus] = await Promise.all([
+            fetchServerStatus(),
+            fetchStripeStatus(),
+          ]);
+          if (cancelled) return;
+
+          const effective = server?.status ?? stripeStatus;
+          if (effective === "succeeded") {
+            setEmail(server?.receiptEmail ?? null);
+            setAmount(server?.amount ? server.amount / 100 : null);
             clearCart();
             const found = await pollForBookings(paymentIntentId);
             if (cancelled) return;
             setBookings(found);
             setStatus("success");
           } else if (
-            data.status === "processing" ||
-            data.status === "requires_action"
+            effective === "processing" ||
+            effective === "requires_action" ||
+            // Both lookups failed but Stripe told us at redirect time that the
+            // payment succeeded — never show a scary error for a paid booking.
+            (effective == null && searchParams.get("redirect_status") === "succeeded")
           ) {
+            if (searchParams.get("redirect_status") === "succeeded") clearCart();
             setStatus("processing");
           } else {
             setStatus("error");
@@ -144,7 +185,7 @@ const CheckoutReturn = () => {
     return () => {
       cancelled = true;
     };
-  }, [paymentIntentId, sessionId, clearCart, user?.id]);
+  }, [paymentIntentId, sessionId, clientSecret, clearCart, user?.id]);
 
   if (status === "loading") {
     return (
@@ -355,6 +396,21 @@ const CheckoutReturn = () => {
             in your account.
           </Card>
         )}
+
+        {/* QR check-in reminder */}
+        <Card className="p-5 border-primary/30 bg-primary/5">
+          <div className="flex items-start gap-3">
+            <QrCode className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-semibold text-foreground">Before your first class — grab your QR code</p>
+              <p className="text-muted-foreground mt-1">
+                Each booking has a QR code in <Link to="/account/bookings" className="text-primary underline font-medium">My Bookings</Link>.
+                Show it to a member of staff when you arrive (and when you leave) so they can scan you in and mark attendance.
+                Save it to your phone or screenshot it for quick access.
+              </p>
+            </div>
+          </div>
+        </Card>
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">

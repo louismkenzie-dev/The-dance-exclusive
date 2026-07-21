@@ -18,6 +18,7 @@ import {
   Users, CheckCircle, XCircle, Car, Accessibility, Music, X, Camera
 } from "lucide-react";
 import { VenuePhotoGallery } from "@/components/VenuePhotoUpload";
+import { slugify, VENUE_STATUSES } from "@/lib/venuePresentation";
 
 interface Venue {
   id: string;
@@ -56,6 +57,12 @@ interface Venue {
   access_code: string | null;
   contract_renewal_date: string | null;
   contract_notify_weeks: number | null;
+  status: string;
+  publicly_visible: boolean;
+  is_featured: boolean;
+  featured_order: number | null;
+  slug: string | null;
+  short_description: string | null;
 }
 
 interface Facility {
@@ -83,6 +90,8 @@ const emptyForm = {
   what3words: "", directions: "", drop_off_info: "",
   hire_cost_per_hour: "", hire_cost_per_day: "", hire_cost_notes: "", is_active: true,
   contract_renewal_date: "", contract_notify_weeks: "",
+  status: "confirmed", publicly_visible: true, is_featured: false, featured_order: "",
+  slug: "", short_description: "",
 };
 
 const AdminVenues = () => {
@@ -137,6 +146,12 @@ const AdminVenues = () => {
       hire_cost_notes: v.hire_cost_notes || "", is_active: v.is_active,
       contract_renewal_date: v.contract_renewal_date || "",
       contract_notify_weeks: v.contract_notify_weeks?.toString() || "",
+      status: v.status || "confirmed",
+      publicly_visible: v.publicly_visible ?? true,
+      is_featured: v.is_featured ?? false,
+      featured_order: v.featured_order?.toString() || "",
+      slug: v.slug || "",
+      short_description: v.short_description || "",
     });
     fetchFacilities(v.id);
     fetchContacts(v.id);
@@ -166,6 +181,13 @@ const AdminVenues = () => {
       hire_cost_notes: form.hire_cost_notes || null, is_active: form.is_active,
       contract_renewal_date: form.contract_renewal_date || null,
       contract_notify_weeks: form.contract_notify_weeks ? parseInt(form.contract_notify_weeks) : null,
+      status: form.status,
+      // Provisional venues default to hidden unless explicitly made public.
+      publicly_visible: form.status === "provisional" && !editing ? false : form.publicly_visible,
+      is_featured: form.is_featured,
+      featured_order: form.featured_order !== "" ? parseInt(form.featured_order) : null,
+      slug: (form.slug || slugify(form.name)) || null,
+      short_description: form.short_description || null,
     };
     let error;
     if (editing) ({ error } = await supabase.from("venues").update(payload).eq("id", editing.id));
@@ -298,9 +320,22 @@ const AdminVenues = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={v.is_active ? "default" : "secondary"}>
-                        {v.is_active ? "Active" : "Inactive"}
-                      </Badge>
+                      <div className="flex flex-wrap gap-1">
+                        <Badge variant={v.is_active ? "default" : "secondary"}>
+                          {v.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                        {v.status === "provisional" && (
+                          <Badge variant="outline" className="border-amber-500/40 text-amber-500">Provisional</Badge>
+                        )}
+                        {!v.publicly_visible && (
+                          <Badge variant="outline" className="text-muted-foreground">Hidden</Badge>
+                        )}
+                        {v.is_featured && (
+                          <Badge variant="outline" className="border-primary/40 text-primary">
+                            ★ {v.featured_order ?? "—"}
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
@@ -325,7 +360,7 @@ const AdminVenues = () => {
 
           <form onSubmit={handleSubmit}>
             <Tabs defaultValue="details" className="mt-2">
-              <TabsList className="grid w-full grid-cols-6 h-auto">
+              <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 h-auto">
                 <TabsTrigger value="details" className="text-xs gap-1"><Building2 className="w-3 h-3" /> Details</TabsTrigger>
                 <TabsTrigger value="contact" className="text-xs gap-1"><Phone className="w-3 h-3" /> Contact</TabsTrigger>
                 <TabsTrigger value="features" className="text-xs gap-1"><Music className="w-3 h-3" /> Features</TabsTrigger>
@@ -358,7 +393,7 @@ const AdminVenues = () => {
                   <Label>Address Line 2</Label>
                   <Input value={form.address_line2} onChange={(e) => setForm({ ...form, address_line2: e.target.value })} />
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>City *</Label>
                     <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} required />
@@ -380,6 +415,65 @@ const AdminVenues = () => {
                   <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
                   <Label>Venue is active</Label>
                 </div>
+
+                <Card className="border-border/50">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Publishing & Featuring</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Confirmation Status</Label>
+                        <Select
+                          value={form.status}
+                          onValueChange={(v) => setForm({
+                            ...form,
+                            status: v,
+                            // Provisional venues default to hidden — an admin must explicitly re-enable.
+                            publicly_visible: v === "provisional" ? false : form.publicly_visible,
+                          })}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {VENUE_STATUSES.map(s => (
+                              <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>URL Slug</Label>
+                        <Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder={slugify(form.name) || "auto-generated from name"} />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Short Description (public card text)</Label>
+                      <Textarea value={form.short_description} onChange={(e) => setForm({ ...form, short_description: e.target.value })} placeholder="One or two sentences shown on the featured venue card" rows={2} />
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Switch checked={form.publicly_visible} onCheckedChange={(v) => setForm({ ...form, publicly_visible: v })} />
+                      <Label>Publicly visible on the booking site</Label>
+                    </div>
+                    {form.status === "provisional" && form.publicly_visible && (
+                      <p className="text-xs text-amber-500" style={{ fontFamily: 'var(--font-body)', textTransform: 'none', letterSpacing: 'normal' }}>
+                        This venue is provisional but set to publicly visible — it will appear on the public site.
+                      </p>
+                    )}
+                    <div className="flex items-center gap-3">
+                      <Switch checked={form.is_featured} onCheckedChange={(v) => setForm({ ...form, is_featured: v })} />
+                      <Label>Feature in homepage carousel</Label>
+                    </div>
+                    {form.is_featured && (
+                      <div className="space-y-2">
+                        <Label>Featured Order</Label>
+                        <Input type="number" min="1" value={form.featured_order} onChange={(e) => setForm({ ...form, featured_order: e.target.value })} placeholder="1 = first" className="w-32" />
+                        <p className="text-xs text-muted-foreground" style={{ fontFamily: 'var(--font-body)', textTransform: 'none', letterSpacing: 'normal' }}>
+                          Lower numbers appear first. Venues without an order come last (alphabetically).
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </TabsContent>
 
               {/* CONTACT TAB */}

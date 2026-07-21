@@ -1,6 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { type StripeEnv, createStripeClient } from "../_shared/stripe.ts";
+import {
+  type StripeEnv,
+  bookingApplicationFee,
+  connectRequestOptions,
+  createStripeClient,
+} from "../_shared/stripe.ts";
 import { validateAndCompute } from "../_shared/coupon.ts";
 
 const corsHeaders = {
@@ -26,13 +31,15 @@ serve(async (req) => {
 
     const env = (environment || "sandbox") as StripeEnv;
     const stripe = createStripeClient(env);
+    // Direct charges on The Dance Exclusive's connected account (when configured).
+    const connectOpts = connectRequestOptions(env);
 
     // Cancel any previous PaymentIntent the client is replacing — prevents
     // an abandoned PI from being confirmed later and creating a duplicate
     // charge for the same cart.
     if (previousPaymentIntentId && typeof previousPaymentIntentId === "string") {
       try {
-        await stripe.paymentIntents.cancel(previousPaymentIntentId);
+        await stripe.paymentIntents.cancel(previousPaymentIntentId, {}, connectOpts);
         console.log("Cancelled previous PaymentIntent:", previousPaymentIntentId);
       } catch (e: any) {
         // Ignore — PI may already be confirmed, cancelled, or expired.
@@ -42,6 +49,43 @@ serve(async (req) => {
           "—",
           e?.message,
         );
+      }
+    }
+
+    // Every booking must reference an attendee profile (children AND adults
+    // booking themselves). Enforced server-side so a tampered client can never
+    // create attendee-less bookings.
+    {
+      const supabaseAdmin = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      const attendeeError = (message: string) =>
+        new Response(JSON.stringify({ error: message, code: "attendee_profile_required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+
+      const studentIds = [...new Set(items.map((i: any) => i?.studentId).filter(Boolean))];
+      if (items.some((i: any) => i?.classId && !i?.studentId)) {
+        return attendeeError(
+          "Every booking needs an attendee. Please choose who the class is for before paying.",
+        );
+      }
+      const { data: students } = await supabaseAdmin
+        .from("students")
+        .select("id, first_name, last_name, date_of_birth, parent_id")
+        .in("id", studentIds);
+      for (const item of items) {
+        const s = (students ?? []).find((st: any) => st.id === item.studentId);
+        if (!s || (userId && s.parent_id !== userId)) {
+          return attendeeError("Attendee profile not found for one of your bookings. Please re-add it to your basket.");
+        }
+        if (!s.date_of_birth) {
+          return attendeeError(
+            `${s.first_name} ${s.last_name}'s profile is incomplete — please add their date of birth in your account before booking.`,
+          );
+        }
       }
     }
 
@@ -133,24 +177,32 @@ serve(async (req) => {
       ? `${items[0].className}${items[0].studentName ? ` — ${items[0].studentName}` : ""}`
       : `${items.length} class bookings`;
 
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: totalAmountInPence,
-      currency: "gbp",
-      automatic_payment_methods: { enabled: true },
-      description,
-      ...(customerEmail && { receipt_email: customerEmail }),
-      metadata: {
-        userId: userId || "",
-        itemCount: String(items.length),
-        checkoutType: "class_booking",
-        ...(couponId && {
-          couponId,
-          couponCode: couponCodeApplied || "",
-          discountAmount: String(discountInPence / 100),
-        }),
-        ...bookingMetadata,
+    // Nullshift platform fee (1% of booking revenue) — only when Connect is
+    // configured; charged on top of Stripe's own processing fees.
+    const applicationFee = bookingApplicationFee(env, totalAmountInPence);
+
+    const paymentIntent = await stripe.paymentIntents.create(
+      {
+        amount: totalAmountInPence,
+        currency: "gbp",
+        automatic_payment_methods: { enabled: true },
+        description,
+        ...(applicationFee != null && { application_fee_amount: applicationFee }),
+        ...(customerEmail && { receipt_email: customerEmail }),
+        metadata: {
+          userId: userId || "",
+          itemCount: String(items.length),
+          checkoutType: "class_booking",
+          ...(couponId && {
+            couponId,
+            couponCode: couponCodeApplied || "",
+            discountAmount: String(discountInPence / 100),
+          }),
+          ...bookingMetadata,
+        },
       },
-    });
+      connectOpts,
+    );
 
     return new Response(
       JSON.stringify({

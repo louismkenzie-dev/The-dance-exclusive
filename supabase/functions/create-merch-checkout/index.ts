@@ -1,6 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { type StripeEnv, createStripeClient } from "../_shared/stripe.ts";
+import {
+  type StripeEnv,
+  bookingApplicationFee,
+  connectRequestOptions,
+  createStripeClient,
+} from "../_shared/stripe.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -68,14 +73,29 @@ serve(async (req) => {
     const stripe = createStripeClient(env);
     const baseUrl = typeof origin === "string" && origin.startsWith("http") ? origin : "";
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      line_items: lineItems,
-      success_url: `${baseUrl}/shop?order=success`,
-      cancel_url: `${baseUrl}/shop?order=cancelled`,
-      ...(customerEmail && { customer_email: customerEmail }),
-      metadata: { checkoutType: "merch", userId: userId || "" },
-    });
+    // Direct charge on the connected account so merch revenue settles with
+    // The Dance Exclusive. The agreed 1% platform fee applies to every
+    // payment, merch included.
+    const merchTotalInPence = lineItems.reduce(
+      (sum: number, li: any) => sum + li.price_data.unit_amount * li.quantity,
+      0,
+    );
+    const applicationFee = bookingApplicationFee(env, merchTotalInPence);
+
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: "payment",
+        line_items: lineItems,
+        success_url: `${baseUrl}/shop?order=success`,
+        cancel_url: `${baseUrl}/shop?order=cancelled`,
+        ...(applicationFee != null && {
+          payment_intent_data: { application_fee_amount: applicationFee },
+        }),
+        ...(customerEmail && { customer_email: customerEmail }),
+        metadata: { checkoutType: "merch", userId: userId || "" },
+      },
+      connectRequestOptions(env),
+    );
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

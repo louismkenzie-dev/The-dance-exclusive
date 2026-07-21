@@ -517,7 +517,7 @@ const AdminCamps = () => {
 
                 <div className="space-y-3">
                   <Label className="text-sm font-semibold">Capacity</Label>
-                  <div className="grid grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">Max Students</Label>
                       <Input type="number" value={capacity} onChange={e => setCapacity(e.target.value)} />

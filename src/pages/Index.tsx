@@ -20,6 +20,7 @@ import { StatCounter } from "@/components/immersive/StatCounter";
 import { useMagnetic } from "@/hooks/useMagnetic";
 import { useParallax } from "@/hooks/useParallax";
 import { ScrollProgress } from "@/components/immersive/ScrollProgress";
+import FeaturedVenueCarousel from "@/components/FeaturedVenueCarousel";
 
 const JOURNEY = [
   { stage: "Tots", age: "Ages 3–5", copy: "First steps, big smiles. Rhythm, confidence and play.", tint: "201 70% 65%" },
@@ -135,6 +136,9 @@ const Index = () => {
           accent="text-accent"
         />
       </div>
+
+      {/* ───────────────── FEATURED VENUES (admin-configurable) ───────────────── */}
+      <FeaturedVenueCarousel />
 
       {/* ───────────────── STAT BAND ───────────────── */}
       <section className="relative py-20 px-4 overflow-hidden">

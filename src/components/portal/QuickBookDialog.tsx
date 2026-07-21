@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
-import { CalendarDays, ShoppingCart, Sparkles, Tag } from "lucide-react";
+import { CalendarDays, ShoppingCart, Sparkles, Tag, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart, type PricingPlan } from "@/contexts/CartContext";
 import { supabase } from "@/integrations/supabase/client";
+import { isAttendeeProfileComplete } from "@/lib/attendeeProfile";
+import { ChildFormDialog } from "@/components/portal/ChildFormDialog";
 
 interface SessionRow {
   id: string;
@@ -23,6 +25,8 @@ interface ChildRow {
   last_name: string;
   preferred_name: string | null;
   date_of_birth: string;
+  expected_arrival_time?: string | null;
+  expected_departure_time?: string | null;
 }
 
 export interface QuickBookClass {
@@ -54,6 +58,10 @@ interface QuickBookDialogProps {
   children: ChildRow[];
   hasExistingBookings: boolean | null;
   isAdult: boolean;
+  /** The account holder's own attendee profile (students.is_self) — required to book adult classes. */
+  selfStudent?: ChildRow | null;
+  /** Refetch the parent's attendee profiles after one is added/edited in this dialog. */
+  onChildrenChanged?: () => void;
 }
 
 const getWorkshopImageUrl = (path: string | null | undefined) => {
@@ -80,6 +88,8 @@ export function QuickBookDialog({
   children,
   hasExistingBookings,
   isAdult,
+  selfStudent = null,
+  onChildrenChanged,
 }: QuickBookDialogProps) {
   const { user } = useAuth();
   const { addItem, items: cartItems } = useCart();
@@ -87,6 +97,8 @@ export function QuickBookDialog({
   const [plan, setPlan] = useState<PricingPlan>("session");
   const [selSessions, setSelSessions] = useState<string[]>([]);
   const [selKids, setSelKids] = useState<string[]>([]);
+  // Add / complete an attendee profile without leaving the booking dialog.
+  const [childDialog, setChildDialog] = useState<{ editing: any | null; selfMode: boolean } | null>(null);
 
   // Reset selections when class changes / dialog opens
   useEffect(() => {
@@ -149,10 +161,11 @@ export function QuickBookDialog({
     return new Set(ids);
   };
 
-  // Adult class: sessions already in basket on items with no studentId
+  // Adult class: sessions already in basket for the account holder (self
+  // profile, or legacy items with no studentId).
   const adultSessionsInBasket = (): Set<string> => {
     const ids = cartItems
-      .filter(ci => ci.classId === c.id && !ci.studentId && (ci.pricingPlan === "session" || ci.pricingPlan === "trial"))
+      .filter(ci => ci.classId === c.id && (!ci.studentId || ci.studentId === selfStudent?.id) && (ci.pricingPlan === "session" || ci.pricingPlan === "trial"))
       .flatMap(ci => ci.selectedSessionIds ?? []);
     return new Set(ids);
   };
@@ -175,16 +188,39 @@ export function QuickBookDialog({
     : plan === "monthly" ? (annualMonthlyCost || c.price_per_month)
     : c.price_per_session;
 
-  const noKidsSelected = c.class_type === "children" && children.length > 0 && selKids.length === 0;
+  const noKidsSelected = c.class_type === "children" && selKids.length === 0;
   const noSessionsSelected = (plan === "session" || plan === "trial") && sessionsSelected === 0;
+  // Booking is blocked until the attendee exists: a child on the account, or the adult self profile.
+  const needsChild = c.class_type === "children" && children.length === 0;
+  const needsSelfProfile = c.class_type === "adult" && !isAttendeeProfileComplete(selfStudent as any);
 
   const totalForDropIn = plan === "session" && c.price_per_session ? c.price_per_session * sessionsSelected : price;
   const kidCount = selKids.length || 1;
   const displayPrice = plan === "session" ? (totalForDropIn || 0) * kidCount : (price || 0) * kidCount;
 
+  const selfProfileReady = isAttendeeProfileComplete(selfStudent as any);
+
   const handleAddToCart = () => {
     if (!user) { navigate("/auth"); return; }
     if (noKidsSelected || noSessionsSelected) return;
+
+    // Every booking needs a complete attendee profile for the register.
+    // Open the profile form in place (prefilled with class times) rather than
+    // dead-ending — the parent completes it and returns to the booking.
+    if (c.class_type === "adult") {
+      if (!selfProfileReady) {
+        setChildDialog({ editing: selfStudent, selfMode: true });
+        return;
+      }
+    } else {
+      const incomplete = selKids
+        .map(kid => children.find(ch => ch.id === kid))
+        .find(ch => ch && !isAttendeeProfileComplete(ch as any));
+      if (incomplete) {
+        setChildDialog({ editing: incomplete, selfMode: false });
+        return;
+      }
+    }
 
     const formatDate = (sid: string) => {
       const s = sessions.find(ss => ss.id === sid);
@@ -256,14 +292,16 @@ export function QuickBookDialog({
         }
       }
     } else {
-      // Adult class
+      // Adult class — booked against the account holder's self attendee profile
+      const selfId = selfStudent!.id;
+      const selfName = `${selfStudent!.first_name} ${selfStudent!.last_name}`;
       if (isPickPlan) {
         const alreadyHas = adultSessionsInBasket();
         const newSessions = selSessions.filter(sid => !alreadyHas.has(sid));
         const skipped = selSessions.filter(sid => alreadyHas.has(sid));
 
         if (newSessions.length > 0) {
-          addItem(buildItem(null, null, newSessions));
+          addItem(buildItem(selfId, selfName, newSessions));
           addedSummary.push({ name: "you", count: newSessions.length });
           didAddAnything = true;
         }
@@ -272,12 +310,12 @@ export function QuickBookDialog({
         }
       } else {
         const hasFull = cartItems.some(ci =>
-          ci.classId === c.id && !ci.studentId && (ci.pricingPlan === "term" || ci.pricingPlan === "monthly")
+          ci.classId === c.id && (!ci.studentId || ci.studentId === selfId) && (ci.pricingPlan === "term" || ci.pricingPlan === "monthly")
         );
         if (hasFull) {
           skippedSummary.push({ name: "you", dates: [] });
         } else {
-          addItem(buildItem(null, null, selSessions));
+          addItem(buildItem(selfId, selfName, selSessions));
           didAddAnything = true;
         }
       }
@@ -312,6 +350,7 @@ export function QuickBookDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50">
@@ -417,7 +456,15 @@ export function QuickBookDialog({
           {/* Children selector — choose WHO before WHEN */}
           {c.class_type === "children" && user && children.length > 0 && (
             <div className="space-y-1.5 pt-2 border-t border-border/30">
-              <p className="text-[11px] text-muted-foreground font-medium">Select children to add:</p>
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] text-muted-foreground font-medium">Select who to book on — add more than one and the price adds up:</p>
+                <button
+                  onClick={() => setChildDialog({ editing: null, selfMode: false })}
+                  className="text-[10px] text-primary hover:underline inline-flex items-center gap-0.5 shrink-0"
+                >
+                  <UserPlus className="w-3 h-3" /> Add a child
+                </button>
+              </div>
               {!hasEligible && (
                 <p className="text-[11px] text-amber-500">
                   None of your children are in the age range{c.age_min != null && c.age_max != null ? ` (ages ${c.age_min}–${c.age_max})` : ""}.
@@ -465,12 +512,11 @@ export function QuickBookDialog({
           )}
 
           {c.class_type === "children" && user && children.length === 0 && (
-            <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/5 text-sm">
-              You haven't added any children yet.{" "}
-              <button onClick={() => { onOpenChange(false); navigate("/account/children"); }} className="text-primary underline">
-                Add a child
-              </button>{" "}
-              first.
+            <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/5 text-sm space-y-2">
+              <p>Add your child's details to book them in — we'll pre-fill their arrival and pickup times from the class.</p>
+              <Button size="sm" onClick={() => setChildDialog({ editing: null, selfMode: false })} className="gap-1.5">
+                <UserPlus className="w-3.5 h-3.5" /> Add a Child
+              </Button>
             </div>
           )}
 
@@ -595,16 +641,22 @@ export function QuickBookDialog({
             ) : null}
           </div>
           <Button
-            disabled={noKidsSelected || noSessionsSelected}
-            onClick={handleAddToCart}
+            disabled={(needsChild || needsSelfProfile) ? false : (noKidsSelected || noSessionsSelected)}
+            onClick={() => {
+              if (needsChild) return setChildDialog({ editing: null, selfMode: false });
+              if (needsSelfProfile) return setChildDialog({ editing: selfStudent, selfMode: true });
+              handleAddToCart();
+            }}
             className="uppercase tracking-wider text-xs font-semibold gap-1.5"
             style={{
               background: plan === "trial" ? "hsl(142, 71%, 45%)" : accent,
               color: "white",
             }}
           >
-            <ShoppingCart className="w-3.5 h-3.5" />
+            {(needsChild || needsSelfProfile) ? <UserPlus className="w-3.5 h-3.5" /> : <ShoppingCart className="w-3.5 h-3.5" />}
             {!user ? "Sign In to Book"
+              : needsChild ? "Add a Child"
+              : needsSelfProfile ? "Set Up Your Profile"
               : noSessionsSelected ? "Select sessions"
               : noKidsSelected ? "Select child"
               : plan === "trial" ? "Book Free Trial"
@@ -614,5 +666,15 @@ export function QuickBookDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Add / complete an attendee profile in place */}
+    <ChildFormDialog
+      open={!!childDialog}
+      onOpenChange={(o) => { if (!o) setChildDialog(null); }}
+      editing={childDialog?.editing ?? null}
+      selfMode={childDialog?.selfMode ?? false}
+      onSaved={() => { onChildrenChanged?.(); setChildDialog(null); }}
+    />
+    </>
   );
 }

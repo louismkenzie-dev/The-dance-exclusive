@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, ShieldCheck, Lock, Loader2, ChevronDown, Tag, X } from "lucide-react";
+import { ArrowLeft, ShieldCheck, Lock, Loader2, ChevronDown, Tag, X, UserPlus } from "lucide-react";
 import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 import {
   Collapsible,
@@ -152,6 +152,7 @@ const PaymentForm = ({
 }) => {
   const stripe = useStripe();
   const elements = useElements();
+  const { clearCart } = useCart();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState<string>(customerEmail || "");
@@ -185,7 +186,13 @@ const PaymentForm = ({
     }
 
     if (paymentIntent) {
-      // Inline success (card / wallet) — Stripe didn't redirect, so we do.
+      // Inline success (card / wallet) — clear the basket at the moment of
+      // known success (the return page also clears, but must not be the only
+      // place: if it fails to load, the paid items would linger and trigger
+      // the duplicate-booking guard on the next checkout).
+      if (paymentIntent.status === "succeeded") {
+        clearCart();
+      }
       window.location.assign(
         `${returnUrl}?payment_intent=${paymentIntent.id}` +
           `&payment_intent_client_secret=${paymentIntent.client_secret}` +
@@ -266,6 +273,8 @@ const CheckoutPage = () => {
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(true);
+  // Attendee-profile errors get an actionable "Add attendee details" button.
+  const needsProfile = !!initError && /attendee profile|arrival\/departure|profile is missing|attendee's profile/i.test(initError);
 
   // Coupon state
   const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
@@ -314,8 +323,21 @@ const CheckoutPage = () => {
         if (cancelled) return;
 
         if (error || !data?.clientSecret) {
-          const message =
-            error?.message || data?.error || "Failed to initialise payment";
+          // supabase-js hides the function's JSON body behind error.context —
+          // surface the server's friendly message (e.g. the duplicate-booking
+          // explanation from the 409 guard) instead of the generic
+          // "Edge Function returned a non-2xx status code".
+          let message =
+            data?.error || error?.message || "Failed to initialise payment";
+          const ctx = (error as { context?: Response } | null)?.context;
+          if (ctx && typeof ctx.json === "function") {
+            try {
+              const body = await ctx.json();
+              if (body?.error) message = body.error;
+            } catch {
+              // keep the generic message
+            }
+          }
           setInitError(message);
         } else {
           setClientSecret(data.clientSecret);
@@ -434,11 +456,16 @@ const CheckoutPage = () => {
               )}
 
               {initError && !initializing && (
-                <div className="p-6">
+                <div className="p-6 space-y-4">
                   <Alert variant="destructive">
-                    <AlertTitle>Checkout unavailable</AlertTitle>
+                    <AlertTitle>{needsProfile ? "Attendee details needed" : "Checkout unavailable"}</AlertTitle>
                     <AlertDescription>{initError}</AlertDescription>
                   </Alert>
+                  {needsProfile && (
+                    <Button onClick={() => navigate("/account")} className="w-full gap-1.5">
+                      <UserPlus className="w-4 h-4" /> Add attendee details
+                    </Button>
+                  )}
                 </div>
               )}
 

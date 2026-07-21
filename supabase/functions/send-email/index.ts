@@ -15,6 +15,14 @@ import {
   renderStaffOnboarding,
   type StaffOnboardingData,
 } from "../_shared/email-templates/staff-onboarding.ts";
+import {
+  renderPartyInquiryReceived,
+  type PartyInquiryReceivedData,
+} from "../_shared/email-templates/party-inquiry-received.ts";
+import {
+  renderContactEnquiryReceived,
+  type ContactEnquiryReceivedData,
+} from "../_shared/email-templates/contact-enquiry-received.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,7 +38,9 @@ type Payload =
   | { template: "booking_confirmation"; to: string; data: BookingConfirmationData }
   | { template: "welcome"; to: string; data: WelcomeData }
   | { template: "password_reset"; to: string; data: PasswordResetData }
-  | { template: "staff_onboarding"; to: string; data: StaffOnboardingData };
+  | { template: "staff_onboarding"; to: string; data: StaffOnboardingData }
+  | { template: "party_inquiry_received"; to: string; data: PartyInquiryReceivedData }
+  | { template: "contact_enquiry_received"; to: string; data: ContactEnquiryReceivedData };
 
 function buildEmail(payload: Payload): { subject: string; html: string } {
   switch (payload.template) {
@@ -42,6 +52,10 @@ function buildEmail(payload: Payload): { subject: string; html: string } {
       return renderPasswordReset(payload.data);
     case "staff_onboarding":
       return renderStaffOnboarding(payload.data);
+    case "party_inquiry_received":
+      return renderPartyInquiryReceived(payload.data);
+    case "contact_enquiry_received":
+      return renderContactEnquiryReceived(payload.data);
     default:
       throw new Error(`Unknown template: ${(payload as any).template}`);
   }

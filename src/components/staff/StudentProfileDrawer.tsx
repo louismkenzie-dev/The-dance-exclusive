@@ -8,6 +8,7 @@ import { Loader2, Phone, AlertTriangle, Heart, Shield, User, Camera, Sparkles, U
 import { format, differenceInYears } from "date-fns";
 import { QRCodeSVG } from "qrcode.react";
 import { getOrCreateBookingQrToken, buildQrPayload } from "@/lib/qrTokens";
+import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
 
 interface Props {
   open: boolean;
@@ -48,7 +49,16 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
   const [qrLoading, setQrLoading] = useState(false);
 
   useEffect(() => {
-    if (!open || !studentId) return;
+    if (!open) return;
+    if (!studentId) {
+      // Legacy adult self-booking with no attendee profile: nothing to load,
+      // but the marking actions must still be available.
+      setLoading(false);
+      setStudent(null);
+      setParent(null);
+      setCollectors([]);
+      return;
+    }
     void load();
   }, [open, studentId]);
 
@@ -67,7 +77,7 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
       const [{ data: p }, { data: c }] = await Promise.all([
         supabase
           .from("profiles")
-          .select("full_name, email, phone, secondary_phone, address_line1, city, postcode")
+          .select("full_name, email, phone, secondary_phone, address_line1, city, postcode, pickup_pin")
           .eq("user_id", s.parent_id)
           .maybeSingle(),
         supabase
@@ -104,21 +114,62 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-        {loading || !student ? (
+        {loading ? (
           <div className="py-20 flex justify-center">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
+        ) : !student ? (
+          // Legacy adult self-booking without an attendee profile — still allow marking.
+          <>
+            <SheetHeader className="text-left">
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center text-lg font-bold">A</div>
+                <div>
+                  <SheetTitle>Adult attendee</SheetTitle>
+                  <SheetDescription>
+                    Booked before attendee profiles were required — no age or medical details on file.
+                  </SheetDescription>
+                </div>
+              </div>
+            </SheetHeader>
+            {booking && (onCheckIn || onCheckOut || onMarkAbsent || onClearAttendance) && (
+              <div className="space-y-2 pt-6 mt-6 border-t border-border">
+                <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Mark as</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {onCheckIn && (
+                    <Button onClick={onCheckIn} disabled={isIn} className="gap-1.5 bg-success text-success-foreground hover:bg-success/90 disabled:opacity-60">
+                      <LogIn className="w-4 h-4" /> Arrived
+                    </Button>
+                  )}
+                  {onCheckOut && (
+                    <Button onClick={onCheckOut} disabled={!isIn} className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-60">
+                      <LogOut className="w-4 h-4" /> Departed
+                    </Button>
+                  )}
+                  {onClearAttendance && (
+                    <Button onClick={onClearAttendance} disabled={isUnaccounted} className="gap-1.5 bg-muted text-foreground hover:bg-muted/80 disabled:opacity-60">
+                      <HelpCircle className="w-4 h-4" /> Unaccounted
+                    </Button>
+                  )}
+                  {onMarkAbsent && (
+                    <Button onClick={onMarkAbsent} disabled={isAbsent} className="gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-60">
+                      <XCircle className="w-4 h-4" /> Absent
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         ) : (
           <>
             <SheetHeader className="text-left">
               <div className="flex items-center gap-3">
-                {student.profile_photo ? (
-                  <img src={student.profile_photo} alt="" className="w-14 h-14 rounded-full object-cover border border-border" />
-                ) : (
-                  <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center text-lg font-bold">
-                    {student.first_name?.[0]}
-                  </div>
-                )}
+                <PhotoAvatarDuo
+                  photoUrl={student.profile_photo}
+                  avatarUrl={student.avatar_url}
+                  initials={student.first_name?.[0]}
+                  size="md"
+                />
                 <div>
                   <SheetTitle>{student.first_name} {student.last_name}</SheetTitle>
                   <SheetDescription>
@@ -146,8 +197,8 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
                 ) : (
                   <>
                     <QRCodeSVG value={buildQrPayload(qrToken.token)} size={180} level="M" includeMargin />
-                    <p className="text-[11px] text-muted-foreground">Valid until {format(new Date(qrToken.validUntil), "d MMM HH:mm")}</p>
-                    <p className="text-[11px] text-muted-foreground text-center">Show to parent — they can photograph it for pickup.</p>
+                    <p className="text-[11px] text-gray-600">Valid until {format(new Date(qrToken.validUntil), "d MMM HH:mm")}</p>
+                    <p className="text-[11px] text-gray-600 text-center">Show to parent — they can photograph it for pickup.</p>
                   </>
                 )}
               </Card>
@@ -230,6 +281,18 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
                   <Row label="Email" value={parent.email} />
                   {parent.address_line1 && (
                     <Row label="Address" value={`${parent.address_line1}, ${parent.city ?? ""} ${parent.postcode ?? ""}`} />
+                  )}
+                  {parent.pickup_pin && (
+                    <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-amber-600">No QR? Family PIN</span>
+                        <span className="font-mono font-bold text-lg tracking-[0.3em]">{parent.pickup_pin}</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        If the collector has no QR code, ask them for this 4-digit Family PIN before
+                        signing in/out, and record their name when prompted.
+                      </p>
+                    </div>
                   )}
                 </Section>
               )}

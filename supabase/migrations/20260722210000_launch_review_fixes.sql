@@ -18,12 +18,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS bookings_unique_active_student_camp
 
 -- 3) Atomic pass-credit refund used by redeem-pass when a booking insert fails
 --    mid-loop — a relative increment avoids clobbering concurrent redemptions.
+--    SECURITY DEFINER with a pinned search_path and execute revoked from
+--    anon/authenticated, so only the service-role edge function can call it.
 CREATE OR REPLACE FUNCTION public.refund_pass_credits(p_pass_id uuid, p_amount int)
 RETURNS void
 LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
 AS $$
   UPDATE public.class_passes
   SET sessions_remaining = sessions_remaining + p_amount,
       updated_at = now()
   WHERE id = p_pass_id;
 $$;
+
+REVOKE EXECUTE ON FUNCTION public.refund_pass_credits(uuid, int) FROM anon, authenticated;

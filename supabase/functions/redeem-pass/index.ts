@@ -77,7 +77,7 @@ serve(async (req) => {
     const today = new Date().toISOString().split("T")[0];
     const { data: sessions } = await supabase
       .from("class_sessions")
-      .select("id, class_id, session_date, status, classes:class_id (id, name, class_type, publicly_visible, booking_enabled)")
+      .select("id, class_id, session_date, status, classes:class_id (id, name, class_type, is_active, status, publicly_visible, booking_enabled, invite_only)")
       .in("id", [...new Set(sessionIds)]);
     if (!sessions || sessions.length !== new Set(sessionIds).size) {
       return jsonResponse({ error: "One of the chosen sessions no longer exists" }, 400);
@@ -86,8 +86,12 @@ serve(async (req) => {
       if (s.status !== "scheduled" || s.session_date < today) {
         return jsonResponse({ error: "One of the chosen sessions is no longer available" }, 400);
       }
-      if (s.classes?.class_type !== "adult") {
+      const cls = s.classes;
+      if (cls?.class_type !== "adult") {
         return jsonResponse({ error: "Passes can only be used for adult classes" }, 400);
+      }
+      if (!cls.is_active || cls.status !== "confirmed" || !cls.publicly_visible || !cls.booking_enabled || cls.invite_only) {
+        return jsonResponse({ error: `${cls.name || "One of these classes"} is not open for booking` }, 400);
       }
     }
 
@@ -178,7 +182,9 @@ serve(async (req) => {
       }
     }
 
-    // Prevent double-booking the same class for the same person.
+    // Prevent double-booking the SAME session (not the same class — a pass is
+    // meant to be used across repeated weeks of the same class). Bookings carry
+    // the session date in their notes, so match on that specific date.
     for (const s of sessions as any[]) {
       const { data: existing } = await supabase
         .from("bookings")
@@ -187,10 +193,11 @@ serve(async (req) => {
         .eq("parent_id", user.id)
         .eq("student_id", selfStudent.id)
         .in("status", ["confirmed", "pending_payment"])
-        .maybeSingle();
-      if (existing) {
+        .ilike("notes", `%session ${s.session_date}%`)
+        .limit(1);
+      if (existing && existing.length > 0) {
         return jsonResponse({
-          error: `You're already booked into ${s.classes?.name || "one of these classes"}`,
+          error: `You're already booked into ${s.classes?.name || "one of these classes"} on that date`,
           code: "duplicate_booking",
         }, 409);
       }
@@ -223,11 +230,12 @@ serve(async (req) => {
       });
       if (error) {
         console.error("Pass booking insert failed:", error);
-        // Give the credit back for the failed insert.
-        await supabase
-          .from("class_passes")
-          .update({ sessions_remaining: pass.sessions_remaining - sessions.length + (sessions.length - booked) })
-          .eq("id", pass.id);
+        // Give back the credits for the sessions that didn't get booked, using
+        // an atomic relative increment so concurrent redemptions aren't clobbered.
+        const toRefund = sessions.length - booked;
+        if (toRefund > 0) {
+          await supabase.rpc("refund_pass_credits", { p_pass_id: pass.id, p_amount: toRefund });
+        }
         return jsonResponse({ error: "Could not complete all bookings — please contact us" }, 500);
       }
       booked++;

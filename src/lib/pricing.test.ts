@@ -101,8 +101,8 @@ describe("adult pricing (Amie's document)", () => {
 describe("priceMonthlyItems", () => {
   it("charges the first class full and additional classes at the lower rate", () => {
     const prices = priceMonthlyItems([
-      { id: "a", studentId: "child1", fullMonthly: 30.6, additionalMonthly: 26.35 },
-      { id: "b", studentId: "child1", fullMonthly: 27.2, additionalMonthly: 22.95 },
+      { id: "a", classId: "cls-a", studentId: "child1", fullMonthly: 30.6, additionalMonthly: 26.35 },
+      { id: "b", classId: "cls-b", studentId: "child1", fullMonthly: 27.2, additionalMonthly: 22.95 },
     ]);
     expect(prices.get("a")).toBe(30.6); // most expensive is full price
     expect(prices.get("b")).toBe(22.95); // 45-min additional rate
@@ -110,8 +110,8 @@ describe("priceMonthlyItems", () => {
 
   it("treats different children independently", () => {
     const prices = priceMonthlyItems([
-      { id: "a", studentId: "child1", fullMonthly: 30.6, additionalMonthly: 26.35 },
-      { id: "b", studentId: "child2", fullMonthly: 30.6, additionalMonthly: 26.35 },
+      { id: "a", classId: "cls-a", studentId: "child1", fullMonthly: 30.6, additionalMonthly: 26.35 },
+      { id: "b", classId: "cls-b", studentId: "child2", fullMonthly: 30.6, additionalMonthly: 26.35 },
     ]);
     expect(prices.get("a")).toBe(30.6);
     expect(prices.get("b")).toBe(30.6);
@@ -120,6 +120,7 @@ describe("priceMonthlyItems", () => {
   it("caps a child's combined monthly total at the £110 Unlimited price", () => {
     const items = ["a", "b", "c", "d", "e"].map((id) => ({
       id,
+      classId: `cls-${id}`,
       studentId: "child1",
       fullMonthly: 30.6,
       additionalMonthly: 26.35,
@@ -128,6 +129,25 @@ describe("priceMonthlyItems", () => {
     const total = [...prices.values()].reduce((sum, p) => sum + p, 0);
     // 30.60 + 26.35×3 = 109.65, then the 5th class only costs the 35p to the cap
     expect(Math.round(total * 100) / 100).toBe(110);
+  });
+
+  it("breaks equal-price ties on classId, not the volatile cart id, so client and server agree", () => {
+    // Two equal-priced 60-min classes for one child. The result must depend
+    // only on classId ordering — the cart `id` (which differs client vs server)
+    // must not change which item is charged full vs additional.
+    const clientOrder = priceMonthlyItems([
+      { id: "cartA-late", classId: "cls-1", studentId: "child1", fullMonthly: 30.6, additionalMonthly: 26.35 },
+      { id: "cartB-early", classId: "cls-2", studentId: "child1", fullMonthly: 30.6, additionalMonthly: 26.35 },
+    ]);
+    const serverOrder = priceMonthlyItems([
+      { id: "0", classId: "cls-1", studentId: "child1", fullMonthly: 30.6, additionalMonthly: 26.35 },
+      { id: "1", classId: "cls-2", studentId: "child1", fullMonthly: 30.6, additionalMonthly: 26.35 },
+    ]);
+    // cls-1 sorts before cls-2, so cls-1 gets full price on both sides.
+    expect(clientOrder.get("cartA-late")).toBe(30.6);
+    expect(clientOrder.get("cartB-early")).toBe(26.35);
+    expect(serverOrder.get("0")).toBe(30.6);
+    expect(serverOrder.get("1")).toBe(26.35);
   });
 });
 

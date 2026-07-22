@@ -345,6 +345,7 @@ const CheckoutPage = () => {
   const navigate = useNavigate();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+  const [serverTotal, setServerTotal] = useState<number | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(true);
   // Attendee-profile errors get an actionable "Add attendee details" button.
@@ -422,6 +423,7 @@ const CheckoutPage = () => {
           const cls = pricingCtx.classes.get(i.classId as string)!;
           return {
             id: i.id,
+            classId: i.classId as string,
             studentId: i.studentId,
             fullMonthly: monthlyPrice(cls),
             additionalMonthly: additionalMonthlyPrice(cls),
@@ -457,10 +459,13 @@ const CheckoutPage = () => {
   }, [items, pricingCtx, totalAmount]);
 
   const hasMonthlyItems = items.some((i) => i.pricingPlan === "monthly");
-  const finalTotal = Math.max(
+  // Client estimate for instant feedback; replaced by the server's authoritative
+  // amount once the PaymentIntent is created.
+  const estimatedTotal = Math.max(
     0,
     round2(adjusted.adjustedSubtotal - adjusted.sibling.total - (coupon?.discountAmount || 0)),
   );
+  const finalTotal = serverTotal ?? estimatedTotal;
 
   useEffect(() => {
     if (!isHydrating && items.length === 0) navigate("/classes/children");
@@ -477,6 +482,7 @@ const CheckoutPage = () => {
       setInitError(null);
       setInitializing(true);
       setClientSecret(null);
+      setServerTotal(null);
       try {
         const { data, error } = await supabase.functions.invoke(
           "create-payment-intent",
@@ -527,6 +533,10 @@ const CheckoutPage = () => {
         } else {
           setClientSecret(data.clientSecret);
           setPaymentIntentId(data.paymentIntentId || null);
+          // The server's amount is authoritative — display it so the "Pay"
+          // button and total always match exactly what Stripe will charge,
+          // even if the client's sibling/coupon estimate drifts slightly.
+          if (typeof data.amount === "number") setServerTotal(data.amount / 100);
         }
       } catch (e: any) {
         if (!cancelled) {

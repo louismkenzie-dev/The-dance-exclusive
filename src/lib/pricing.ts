@@ -160,8 +160,15 @@ export const termlySavingsPercent = () => Math.round(TERMLY_UPFRONT_DISCOUNT * 1
 // ---------------------------------------------------------------------------
 
 export interface MonthlyItemInput {
-  /** Cart item id (any unique key). */
+  /** Cart item id — the key the result Map is keyed by (caller-specific). */
   id: string;
+  /**
+   * Stable per-(student, class) id used ONLY as the sort tie-break so client
+   * and server order equal-priced memberships identically. The volatile cart
+   * `id` must never drive ordering — it differs between the two sides and
+   * would cause a per-item price_mismatch (409) at checkout.
+   */
+  classId: string;
   /** The child this membership is for. */
   studentId: string | null;
   /** Standard monthly price for the class (first-class rate). */
@@ -175,6 +182,12 @@ export interface MonthlyItemInput {
  * most expensive class is charged at the full rate and every further class at
  * the additional-class rate, with the combined total per child capped at the
  * £110 Unlimited price. Items for different children are independent.
+ *
+ * NOTE: this is per-basket. Memberships a child already holds from a previous
+ * checkout are not counted, so a second membership bought separately pays the
+ * full rate rather than the additional-class rate (a known launch limitation —
+ * cross-checkout state sync was deliberately avoided to prevent client/server
+ * divergence hard-blocking checkout).
  */
 export const priceMonthlyItems = (items: MonthlyItemInput[]): Map<string, number> => {
   const result = new Map<string, number>();
@@ -187,9 +200,10 @@ export const priceMonthlyItems = (items: MonthlyItemInput[]): Map<string, number
   }
 
   for (const group of byChild.values()) {
-    // Most expensive class first — that one is full price.
+    // Most expensive class first — that one is full price. Tie-break on the
+    // stable classId so both pricing engines agree on which item is "first".
     const sorted = [...group].sort(
-      (a, b) => b.fullMonthly - a.fullMonthly || a.id.localeCompare(b.id),
+      (a, b) => b.fullMonthly - a.fullMonthly || a.classId.localeCompare(b.classId),
     );
     let total = 0;
     sorted.forEach((item, index) => {

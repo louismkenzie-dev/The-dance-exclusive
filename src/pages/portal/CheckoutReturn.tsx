@@ -38,6 +38,12 @@ interface BookingDetail {
     day_of_week: string;
     venues?: { name: string; city: string | null } | null;
   } | null;
+  camps?: {
+    name: string;
+    start_date: string | null;
+    end_date: string | null;
+    venues?: { name: string; city: string | null } | null;
+  } | null;
   students?: { first_name: string; last_name: string } | null;
 }
 
@@ -83,6 +89,8 @@ const CheckoutReturn = () => {
             `id, status, booking_type, amount, created_at, notes,
              classes:class_id ( name, start_time, end_time, day_of_week,
                                venues:venue_id ( name, city ) ),
+             camps:camp_id ( name, start_date, end_date,
+                             venues:venue_id ( name, city ) ),
              students:student_id ( first_name, last_name )`,
           )
           .ilike("notes", `%${note}%`)
@@ -142,10 +150,13 @@ const CheckoutReturn = () => {
             setEmail(server?.receiptEmail ?? null);
             setAmount(server?.amount ? server.amount / 100 : null);
             clearCart();
-            const found = await pollForBookings(paymentIntentId);
-            if (cancelled) return;
-            setBookings(found);
+            // Show success immediately — payment is confirmed. Booking details
+            // load in the background (and a pass-only purchase has no booking
+            // rows at all, so we must never block the success screen on them).
             setStatus("success");
+            void pollForBookings(paymentIntentId).then((found) => {
+              if (!cancelled) setBookings(found);
+            });
           } else if (
             effective === "processing" ||
             effective === "requires_action" ||
@@ -332,7 +343,7 @@ const CheckoutReturn = () => {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <h3 className="font-bold text-lg text-foreground">
-                      {b.classes?.name || "Class"}
+                      {b.classes?.name || b.camps?.name || "Class"}
                     </h3>
                     {b.students && (
                       <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
@@ -364,13 +375,21 @@ const CheckoutReturn = () => {
                       </span>
                     </div>
                   )}
-                  {b.classes?.venues?.name && (
+                  {b.camps?.start_date && b.camps?.end_date && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Calendar className="w-4 h-4 text-primary" />
+                      <span>
+                        {b.camps.start_date.slice(8, 10)}/{b.camps.start_date.slice(5, 7)} – {b.camps.end_date.slice(8, 10)}/{b.camps.end_date.slice(5, 7)}
+                      </span>
+                    </div>
+                  )}
+                  {(b.classes?.venues?.name || b.camps?.venues?.name) && (
                     <div className="flex items-center gap-2 text-muted-foreground sm:col-span-2">
                       <MapPin className="w-4 h-4 text-primary" />
                       <span>
-                        {b.classes.venues.name}
-                        {b.classes.venues.city &&
-                          `, ${b.classes.venues.city}`}
+                        {(b.classes?.venues?.name || b.camps?.venues?.name)}
+                        {(b.classes?.venues?.city || b.camps?.venues?.city) &&
+                          `, ${b.classes?.venues?.city || b.camps?.venues?.city}`}
                       </span>
                     </div>
                   )}

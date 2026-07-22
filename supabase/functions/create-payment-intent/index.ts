@@ -99,17 +99,24 @@ serve(async (req) => {
     const attendeeError = (message: string) =>
       jsonResponse({ error: message, code: "attendee_profile_required" }, 400);
 
+    // Class and camp bookings need an attendee. Passes are bought against the
+    // account (redeemed against sessions later), so they carry an optional
+    // self-profile id but do not require one at purchase.
+    const needsAttendee = (i: IncomingItem) => kindOf(i) !== "pass";
     const studentIds = [...new Set(cartItems.map((i) => i.studentId).filter(Boolean))] as string[];
-    if (cartItems.some((i) => !i.studentId)) {
+    if (cartItems.some((i) => needsAttendee(i) && !i.studentId)) {
       return attendeeError(
         "Every booking needs an attendee. Please choose who the class is for before paying.",
       );
     }
-    const { data: students } = await supabaseAdmin
-      .from("students")
-      .select("id, first_name, last_name, date_of_birth, parent_id, is_self")
-      .in("id", studentIds);
+    const { data: students } = studentIds.length > 0
+      ? await supabaseAdmin
+        .from("students")
+        .select("id, first_name, last_name, date_of_birth, parent_id, is_self")
+        .in("id", studentIds)
+      : { data: [] as any[] };
     for (const item of cartItems) {
+      if (!needsAttendee(item)) continue;
       const s = (students ?? []).find((st: any) => st.id === item.studentId);
       if (!s || (userId && s.parent_id !== userId)) {
         return attendeeError("Attendee profile not found for one of your bookings. Please re-add it to your basket.");
@@ -131,7 +138,7 @@ serve(async (req) => {
     const { data: classRows } = classIds.length > 0
       ? await supabaseAdmin
         .from("classes")
-        .select("id, name, class_type, start_time, end_time, price_per_session, price_per_term, price_per_month, price_per_year, allow_trial, booking_enabled, sibling_discount_enabled")
+        .select("id, name, class_type, start_time, end_time, price_per_session, price_per_term, price_per_month, price_per_year, allow_trial, is_active, status, publicly_visible, booking_enabled, invite_only, sibling_discount_enabled")
         .in("id", classIds)
       : { data: [] as any[] };
     const { data: campRows } = campIds.length > 0
@@ -162,7 +169,21 @@ serve(async (req) => {
       remainingByClass.set(classId, count ?? 0);
     }
 
+    // Valid upcoming session ids per camp — chosen days must be a real subset,
+    // so a tampered client can't underpay by claiming fewer days than booked.
+    const campScheduledIds = new Map<string, Set<string>>();
+    for (const campId of campIds) {
+      const { data: campSessions } = await supabaseAdmin
+        .from("camp_sessions")
+        .select("id")
+        .eq("camp_id", campId)
+        .gte("session_date", today);
+      campScheduledIds.set(campId, new Set((campSessions ?? []).map((s: any) => s.id)));
+    }
+
     // Monthly items are priced together (additional-class rates + £110 cap).
+    // Keyed by cart-array index so the client (which sends items in the same
+    // order) and this code agree item-for-item.
     const itemKey = (item: IncomingItem, index: number) => `${index}`;
     const monthlyInputs = cartItems
       .map((item, index) => ({ item, index }))
@@ -172,13 +193,14 @@ serve(async (req) => {
         return cls
           ? {
             id: itemKey(item, index),
+            classId: item.classId as string,
             studentId: item.studentId ?? null,
             fullMonthly: monthlyPrice(cls),
             additionalMonthly: additionalMonthlyPrice(cls),
           }
           : null;
       })
-      .filter(Boolean) as { id: string; studentId: string | null; fullMonthly: number; additionalMonthly: number }[];
+      .filter(Boolean) as { id: string; classId: string; studentId: string | null; fullMonthly: number; additionalMonthly: number }[];
     const monthlyPrices = priceMonthlyItems(monthlyInputs);
 
     const expectedPrices: number[] = [];
@@ -197,12 +219,22 @@ serve(async (req) => {
         if (!camp || !camp.is_active) {
           return jsonResponse({ error: `${item.className || "A holiday workshop"} is no longer available. Please remove it from your basket.` }, 400);
         }
-        // Holiday workshops are priced per drop-in day only.
-        const dayCount = Math.max(1, Number(item.sessionsCount || item.selectedSessionIds?.length || 1));
-        const perDay = camp.price_per_day != null ? Number(camp.price_per_day) : null;
-        const expected = perDay != null && perDay > 0
-          ? round2(perDay * dayCount)
-          : Number(camp.price_total || 0);
+        const perDay = camp.price_per_day != null && Number(camp.price_per_day) > 0
+          ? Number(camp.price_per_day)
+          : null;
+        let expected: number;
+        if (perDay != null) {
+          // Per-day workshop: the chosen days must be real upcoming sessions.
+          const scheduled = campScheduledIds.get(item.campId as string) ?? new Set<string>();
+          const chosen = (item.selectedSessionIds ?? []).filter((id) => scheduled.has(id));
+          if (chosen.length === 0) {
+            return jsonResponse({ error: `Please pick which days of ${camp.name} to attend.`, code: "no_days_selected" }, 400);
+          }
+          expected = round2(perDay * chosen.length);
+        } else {
+          // Whole-camp price.
+          expected = Number(camp.price_total || 0);
+        }
         expectedPrices.push(expected);
         continue;
       }
@@ -210,6 +242,14 @@ serve(async (req) => {
       const cls = classById.get(item.classId as string);
       if (!cls) {
         return jsonResponse({ error: `${item.className || "A class"} is no longer available. Please remove it from your basket.` }, 400);
+      }
+      // Mirror the public bookability gate server-side so a crafted request
+      // can't book a hidden, draft, invite-only or booking-disabled class.
+      if (!cls.is_active || cls.status !== "confirmed" || !cls.publicly_visible || !cls.booking_enabled || cls.invite_only) {
+        return jsonResponse({
+          error: `${cls.name} is not open for booking. Please remove it from your basket.`,
+          code: "not_bookable",
+        }, 400);
       }
 
       const plan = item.pricingPlan;

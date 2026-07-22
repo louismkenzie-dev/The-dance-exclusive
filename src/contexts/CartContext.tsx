@@ -2,11 +2,16 @@ import { createContext, useContext, useState, useCallback, useEffect, type React
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
-export type PricingPlan = "trial" | "session" | "monthly" | "term";
+export type PricingPlan = "trial" | "session" | "monthly" | "term" | "yearly" | "pass";
+
+/** What kind of product the basket row is: a class booking, a holiday
+ *  workshop (camp) booking, or an adult multi-class pass. */
+export type CartItemKind = "class" | "camp" | "pass";
 
 export interface CartItem {
   id: string; // unique cart item id
-  classId: string;
+  /** null for camp/pass items */
+  classId: string | null;
   className: string;
   classType: "children" | "adult";
   danceStyle: string | null;
@@ -24,7 +29,14 @@ export interface CartItem {
   workshopImage: string | null;
   selectedSessionIds?: string[]; // for drop-in: which specific session dates
   selectedSessionDates?: string[]; // human-readable dates for display
+  itemKind?: CartItemKind; // defaults to "class" for legacy items
+  campId?: string | null; // for holiday workshop (camp) items
+  /** for pass items: which adult pass is being bought (week_2 | pack_4 | pack_6 | pack_8) */
+  passType?: string | null;
 }
+
+export const cartItemKind = (item: Pick<CartItem, "itemKind">): CartItemKind =>
+  item.itemKind ?? "class";
 
 interface CartContextType {
   items: CartItem[];
@@ -78,8 +90,14 @@ const clearLocalCart = () => {
   }
 };
 
-const getCartUniquenessKey = (item: Pick<CartItem, "classId" | "studentId">) =>
-  `${item.classId}::${item.studentId ?? "self"}`;
+const getCartUniquenessKey = (
+  item: Pick<CartItem, "classId" | "studentId" | "itemKind" | "campId" | "passType">,
+) => {
+  const kind = cartItemKind(item);
+  if (kind === "camp") return `camp:${item.campId}::${item.studentId ?? "self"}`;
+  if (kind === "pass") return `pass:${item.passType}::${item.studentId ?? "self"}`;
+  return `${item.classId}::${item.studentId ?? "self"}`;
+};
 
 const mergeCartItems = (primary: CartItem[], secondary: CartItem[]) => {
   const merged = new Map(primary.map((item) => [getCartUniquenessKey(item), item]));
@@ -93,11 +111,19 @@ const mergeCartItems = (primary: CartItem[], secondary: CartItem[]) => {
 };
 
 const coercePricingPlan = (value: string): PricingPlan => {
-  if (value === "trial" || value === "session" || value === "monthly" || value === "term") {
+  if (
+    value === "trial" || value === "session" || value === "monthly" ||
+    value === "term" || value === "yearly" || value === "pass"
+  ) {
     return value;
   }
 
   return "session";
+};
+
+const coerceItemKind = (value: string | null | undefined): CartItemKind => {
+  if (value === "camp" || value === "pass") return value;
+  return "class";
 };
 
 const mapRowToCartItem = (row: any): CartItem => ({
@@ -120,6 +146,9 @@ const mapRowToCartItem = (row: any): CartItem => ({
   workshopImage: row.workshop_image,
   selectedSessionIds: row.selected_session_ids ?? [],
   selectedSessionDates: row.selected_session_dates ?? [],
+  itemKind: coerceItemKind(row.item_kind),
+  campId: row.camp_id ?? null,
+  passType: row.pass_type ?? null,
 });
 
 const mapCartItemToRow = (userId: string, item: CartItem) => ({
@@ -143,6 +172,9 @@ const mapCartItemToRow = (userId: string, item: CartItem) => ({
   workshop_image: item.workshopImage,
   selected_session_ids: item.selectedSessionIds ?? [],
   selected_session_dates: item.selectedSessionDates ?? [],
+  item_kind: cartItemKind(item),
+  camp_id: item.campId ?? null,
+  pass_type: item.passType ?? null,
 });
 
 const syncRemoteCart = async (userId: string, items: CartItem[]) => {

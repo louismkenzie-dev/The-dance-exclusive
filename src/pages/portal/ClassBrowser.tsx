@@ -22,17 +22,38 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   CalendarDays, Clock, MapPin, Users, Sparkles, Heart, Camera, Car, Navigation,
-  ChevronDown, ChevronUp, Search, X, Info, ShoppingCart, Tag, Ticket, Star, Music, UserPlus
+  ChevronDown, ChevronUp, Search, X, Info, ShoppingCart, Tag, Ticket, Crown, Music, UserPlus
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { audienceText, isClassBookable } from "@/lib/classAudience";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { QuickBookDialog } from "@/components/portal/QuickBookDialog";
 import { ChildFormDialog } from "@/components/portal/ChildFormDialog";
+import { CampBookDialog } from "@/components/portal/CampBookDialog";
+import { AdultPassesCard } from "@/components/portal/AdultPassesCard";
 import { isAttendeeProfileComplete } from "@/lib/attendeeProfile";
+import {
+  MONTHLY_MEMBERSHIP_NOTICE,
+  MONTHLY_PAYMENT_INFO,
+  monthlyPrice,
+  sessionPrice,
+  termPrice,
+  termlySavingsPercent,
+  yearlyPrice,
+  yearlySavingsPercent,
+} from "@/lib/pricing";
 
 interface VenueData {
   name: string;
@@ -62,7 +83,7 @@ interface ClassItem {
   id: string;
   name: string;
   description: string | null;
-  class_type: string;
+  class_type: "children" | "adult";
   dance_style: string | null;
   ability_level: string | null;
   gender: string | null;
@@ -95,23 +116,6 @@ interface ClassItem {
   staff: StaffData | null;
   workshops: { cover_image: string | null; name: string; description: string | null } | null;
 }
-
-// Ability levels ordered from lowest to highest. "All Levels" is treated as
-// the lowest minimum so it always shows regardless of the selected ability.
-const ABILITY_LEVELS = ["All Levels", "Beginner", "Improver", "Intermediate", "Advanced"] as const;
-const abilityRank = (level: string | null | undefined) => {
-  if (!level) return 0;
-  const idx = ABILITY_LEVELS.indexOf(level as (typeof ABILITY_LEVELS)[number]);
-  return idx === -1 ? 0 : idx;
-};
-
-// Normalise a class's gender value to one of the three known options.
-const normaliseGender = (gender: string | null | undefined): "boys" | "girls" | "mixed" => {
-  const g = (gender || "mixed").toLowerCase();
-  if (g === "boys") return "boys";
-  if (g === "girls") return "girls";
-  return "mixed";
-};
 
 const formatDays = (days: string[]) => {
   if (!days || days.length === 0) return null;
@@ -161,10 +165,9 @@ const ClassBrowser = () => {
   const [hasExistingBookings, setHasExistingBookings] = useState<boolean | null>(null);
   const [activeSection, setActiveSection] = useState<"classes" | "camps" | "shows">("classes");
   const [quickBookClassId, setQuickBookClassId] = useState<string | null>(null);
-
-  // Ability + gender filters ("all" = no filter applied)
-  const [abilityFilter, setAbilityFilter] = useState<string>("all");
-  const [genderFilter, setGenderFilter] = useState<string>("all");
+  const [bookCampId, setBookCampId] = useState<string | null>(null);
+  // Monthly membership cancellation-notice acknowledgement (inline plan panel).
+  const [monthlyNotice, setMonthlyNotice] = useState<{ proceed: () => void } | null>(null);
 
   // Postcode search
   const [postcode, setPostcode] = useState("");
@@ -349,26 +352,9 @@ const ClassBrowser = () => {
   // Effective coords: manual search overrides home coords
   const effectiveCoords = searchCoords || homeCoords;
 
-  // Apply ability + gender filters before sorting.
-  // ability_level is a MINIMUM: selecting a level shows classes whose minimum
-  // is that level or lower (e.g. an Intermediate dancer also sees Beginner/Improver).
-  // gender: Mixed always shows; Boys filter shows Boys + Mixed; Girls shows Girls + Mixed.
-  const filteredClasses = useMemo(() => {
-    return classes.filter(c => {
-      if (abilityFilter !== "all") {
-        if (abilityRank(c.ability_level) > abilityRank(abilityFilter)) return false;
-      }
-      if (genderFilter !== "all") {
-        const g = normaliseGender(c.gender);
-        if (g !== "mixed" && g !== genderFilter) return false;
-      }
-      return true;
-    });
-  }, [classes, abilityFilter, genderFilter]);
-
   // Sort: age-matched classes first, then by distance
   const sortedClasses = useMemo(() => {
-    const scored = filteredClasses.map(c => {
+    const scored = classes.map(c => {
       const matched = getMatchingChildren(c);
       const ageScore = matched.length > 0 ? 0 : 1;
       let dist = 9999;
@@ -382,7 +368,7 @@ const ClassBrowser = () => {
     });
     scored.sort((a, b) => a.ageScore - b.ageScore || a.dist - b.dist);
     return scored;
-  }, [filteredClasses, effectiveCoords, children]);
+  }, [classes, effectiveCoords, children]);
 
   const getDistance = (c: ClassItem) => {
     if (!effectiveCoords) return null;
@@ -408,7 +394,7 @@ const ClassBrowser = () => {
           style={{
             background: isAdult
               ? "radial-gradient(ellipse, hsl(330, 90%, 55%), transparent)"
-              : "radial-gradient(ellipse, hsl(201, 70%, 65%), transparent)",
+              : "radial-gradient(ellipse, hsl(193, 100%, 44%), transparent)",
           }}
         />
       </div>
@@ -419,11 +405,11 @@ const ClassBrowser = () => {
           <div
             className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold uppercase tracking-widest mb-6 transition-all duration-500"
             style={{
-              background: isAdult ? "hsl(330, 90%, 55%)" : "hsl(201, 70%, 65%)",
+              background: isAdult ? "hsl(330, 90%, 55%)" : "hsl(193, 100%, 44%)",
               color: "white",
               boxShadow: isAdult
                 ? "0 8px 32px hsl(330, 90%, 55%, 0.3)"
-                : "0 8px 32px hsl(201, 70%, 65%, 0.3)",
+                : "0 8px 32px hsl(193, 100%, 44%, 0.3)",
             }}
           >
             {isAdult ? <Heart className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
@@ -461,8 +447,8 @@ const ClassBrowser = () => {
                           : "border-border bg-background/80 text-foreground hover:bg-secondary hover:text-foreground"
                     }`}
                     style={tabIsActive ? {
-                      background: tabIsAdult ? "hsl(330, 90%, 55%)" : "hsl(201, 70%, 65%)",
-                      boxShadow: tabIsAdult ? "0 4px 20px hsl(330, 90%, 55%, 0.3)" : "0 4px 20px hsl(201, 70%, 65%, 0.3)",
+                      background: tabIsAdult ? "hsl(330, 90%, 55%)" : "hsl(193, 100%, 44%)",
+                      boxShadow: tabIsAdult ? "0 4px 20px hsl(330, 90%, 55%, 0.3)" : "0 4px 20px hsl(193, 100%, 44%, 0.3)",
                     } : {}}
                   >
                     {tabIsAdult ? <Heart className="w-3.5 h-3.5 mr-2" /> : <Sparkles className="w-3.5 h-3.5 mr-2" />}
@@ -498,7 +484,7 @@ const ClassBrowser = () => {
               disabled={searchLoading || !postcode.trim()}
               size="default"
               style={{
-                background: isAdult ? "hsl(330, 90%, 55%)" : "hsl(201, 70%, 65%)",
+                background: "hsl(193, 100%, 44%)",
                 color: "white",
               }}
             >
@@ -518,49 +504,23 @@ const ClassBrowser = () => {
           )}
         </div>
 
-        {/* Ability + gender filters */}
-        {activeSection === "classes" && (
-          <div className="flex flex-wrap gap-3 justify-center items-center mb-10">
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-semibold pl-1">Ability</span>
-              <Select value={abilityFilter} onValueChange={setAbilityFilter}>
-                <SelectTrigger className="w-[180px] bg-card/80 border-border/50 text-foreground text-sm" aria-label="Filter by ability level">
-                  <SelectValue placeholder="All abilities" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All abilities</SelectItem>
-                  <SelectItem value="Beginner">Beginner</SelectItem>
-                  <SelectItem value="Improver">Improver &amp; below</SelectItem>
-                  <SelectItem value="Intermediate">Intermediate &amp; below</SelectItem>
-                  <SelectItem value="Advanced">Advanced &amp; below</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] uppercase tracking-widest text-muted-foreground/70 font-semibold pl-1">For</span>
-              <Select value={genderFilter} onValueChange={setGenderFilter}>
-                <SelectTrigger className="w-[150px] bg-card/80 border-border/50 text-foreground text-sm" aria-label="Filter by who the class is for">
-                  <SelectValue placeholder="Everyone" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Everyone</SelectItem>
-                  <SelectItem value="boys">Boys</SelectItem>
-                  <SelectItem value="girls">Girls</SelectItem>
-                  <SelectItem value="mixed">Mixed only</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {(abilityFilter !== "all" || genderFilter !== "all") && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => { setAbilityFilter("all"); setGenderFilter("all"); }}
-                className="text-xs text-muted-foreground hover:text-foreground gap-1 self-end mb-0.5"
-              >
-                <X className="w-3.5 h-3.5" /> Clear filters
-              </Button>
+        {/* Adult multi-class passes + birthday class */}
+        {isAdult && (
+          <AdultPassesCard
+            sessionOptions={classes.flatMap((c) =>
+              (classSessions[c.id] || []).map((s) => ({
+                id: s.id,
+                classId: c.id,
+                className: c.name,
+                session_date: s.session_date,
+                start_time: s.start_time,
+                end_time: s.end_time,
+                venueName: (c.venues as VenueData | null)?.name || null,
+              }))
             )}
-          </div>
+            selfStudent={selfStudent}
+            onRedeemed={() => setHasExistingBookings(true)}
+          />
         )}
 
         {/* Section navigation tags */}
@@ -598,21 +558,7 @@ const ClassBrowser = () => {
         ) : sortedClasses.length === 0 ? (
           <Card className="border-border/50">
             <CardContent className="py-16 text-center text-muted-foreground">
-              {(abilityFilter !== "all" || genderFilter !== "all") && classes.length > 0 ? (
-                <div className="space-y-3">
-                  <p>No classes match your current filters.</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => { setAbilityFilter("all"); setGenderFilter("all"); }}
-                    className="gap-1"
-                  >
-                    <X className="w-3.5 h-3.5" /> Clear filters
-                  </Button>
-                </div>
-              ) : (
-                <>No {classType} classes available right now. Check back soon!</>
-              )}
+              No {classType} classes available right now. Check back soon!
             </CardContent>
           </Card>
         ) : (
@@ -697,7 +643,7 @@ const ClassBrowser = () => {
                   {childNames.length > 0 && classType === "children" && (
                     <div className="px-4 pt-3 pb-0">
                       <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20">
-                        <Star className="w-4 h-4 text-primary shrink-0" />
+                        <Crown className="w-4 h-4 text-primary shrink-0" />
                         <span className="text-xs font-semibold text-primary">
                           {childNames.length === 1
                             ? `${childNames[0]} might love this!`
@@ -713,24 +659,6 @@ const ClassBrowser = () => {
                         {c.dance_style && (
                           <Badge variant="outline" className="border-primary/30 text-primary text-xs uppercase tracking-wider">{c.dance_style}</Badge>
                         )}
-                        {c.ability_level && (
-                          <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary text-[10px] uppercase tracking-wider">{c.ability_level}</Badge>
-                        )}
-                        {(() => {
-                          const g = normaliseGender(c.gender);
-                          if (g === "mixed") return null;
-                          return (
-                            <Badge
-                              className={`text-[10px] uppercase tracking-wider border ${
-                                g === "boys"
-                                  ? "bg-blue-500/15 text-blue-500 border-blue-500/30"
-                                  : "bg-pink-500/15 text-pink-500 border-pink-500/30"
-                              }`}
-                            >
-                              {g === "boys" ? "Boys" : "Girls"}
-                            </Badge>
-                          );
-                        })()}
                         {c.invite_only && (
                           <Badge className="text-[10px] uppercase tracking-wider border bg-amber-500/15 text-amber-500 border-amber-500/30">
                             Invite Only
@@ -787,10 +715,10 @@ const ClassBrowser = () => {
                           }}
                           className="flex-1 uppercase tracking-wider text-xs font-bold gap-1.5 text-white hover:text-white hover:opacity-90"
                           style={{
-                            background: isAdult ? "hsl(330, 90%, 55%)" : "hsl(201, 70%, 65%)",
+                            background: isAdult ? "hsl(330, 90%, 55%)" : "hsl(193, 100%, 44%)",
                             boxShadow: isAdult
                               ? "0 4px 14px hsl(330, 90%, 55%, 0.25)"
-                              : "0 4px 14px hsl(201, 70%, 65%, 0.25)",
+                              : "0 4px 14px hsl(193, 100%, 44%, 0.25)",
                           }}
                         >
                           <ShoppingCart className="w-3.5 h-3.5" />
@@ -915,16 +843,18 @@ const ClassBrowser = () => {
                         )}
 
                         {/* Pricing plan selector */}
-                        {(c.price_per_session || c.price_per_month || c.price_per_term) && (() => {
+                        {(() => {
                           const remaining = sessionCounts[c.id] || 0;
-                          const plan = selectedPlans[c.id] || "session";
-                          const termSavings = c.price_per_session && c.price_per_term && remaining > 0
-                            ? Math.round((1 - c.price_per_term / (c.price_per_session * remaining)) * 100)
-                            : c.term_discount_percent || 0;
-                          const annualMonthlyCost = c.price_per_year ? c.price_per_year / 12 : null;
-                          const annualSavings = c.price_per_session && c.price_per_year
-                            ? Math.round((1 - (c.price_per_year / 12) / (c.price_per_session * 4)) * 100)
-                            : c.monthly_discount_percent || 0;
+                          const isChildrenClass = c.class_type === "children";
+                          const plan = selectedPlans[c.id] || (isChildrenClass ? "monthly" : "session");
+                          // Prices from the shared pricing engine (admin-set
+                          // values win, otherwise derived from class duration).
+                          const priceSess = sessionPrice(c);
+                          const priceMon = monthlyPrice(c);
+                          const priceYr = yearlyPrice(c);
+                          const priceTrm = termPrice(c, remaining);
+                          const termSavings = termlySavingsPercent();
+                          const yearlySavings = yearlySavingsPercent();
                           const sessions = classSessions[c.id] || [];
                           const selSessions = selectedSessions[c.id] || [];
                           const toggleSession = (sessionId: string) => {
@@ -952,8 +882,8 @@ const ClassBrowser = () => {
                                 </p>
                               )}
                               <div className="grid gap-2">
-                                {/* Drop-in Sessions */}
-                                {c.price_per_session && (
+                                {/* Adults: pay as you go */}
+                                {!isChildrenClass && (
                                   <button
                                     onClick={() => { setSelectedPlans(p => ({ ...p, [c.id]: "session" })); setSelectedSessions(p => ({ ...p, [c.id]: [] })); }}
                                     className={`flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
@@ -963,15 +893,36 @@ const ClassBrowser = () => {
                                     }`}
                                   >
                                     <div>
-                                      <span className="font-semibold text-foreground">Drop-in Sessions</span>
-                                      <span className="block text-[10px] text-muted-foreground">Pick the dates you want to attend</span>
+                                      <span className="font-semibold text-foreground">Pay As You Go</span>
+                                      <span className="block text-[10px] text-muted-foreground">Pick the dates · non-refundable, moveable up to 24h before</span>
                                     </div>
-                                    <span className="font-bold text-foreground">£{c.price_per_session}<span className="text-[10px] font-normal text-muted-foreground">/each</span></span>
+                                    <span className="font-bold text-foreground">£{priceSess}<span className="text-[10px] font-normal text-muted-foreground">/class</span></span>
                                   </button>
                                 )}
 
-                                {/* Full Term */}
-                                {c.price_per_term && remaining > 0 && (
+                                {/* Children: monthly membership */}
+                                {isChildrenClass && (
+                                  <button
+                                    onClick={() => { setSelectedPlans(p => ({ ...p, [c.id]: "monthly" })); setSelectedSessions(p => ({ ...p, [c.id]: sessions.map(s => s.id) })); }}
+                                    className={`flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
+                                      plan === "monthly"
+                                        ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                                        : "border-border/50 bg-background/50 hover:border-border"
+                                    }`}
+                                  >
+                                    <div>
+                                      <span className="font-semibold text-foreground">Monthly Membership</span>
+                                      <span className="block text-[10px] text-muted-foreground">Rolling monthly · paused in August · 1 month's notice</span>
+                                    </div>
+                                    <span className="font-bold text-foreground">
+                                      £{priceMon.toFixed(2)}
+                                      <span className="text-[10px] font-normal text-muted-foreground">/mo</span>
+                                    </span>
+                                  </button>
+                                )}
+
+                                {/* Children: pay termly */}
+                                {isChildrenClass && priceTrm != null && remaining > 0 && (
                                   <button
                                     onClick={() => selectAllSessions()}
                                     className={`flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
@@ -981,47 +932,40 @@ const ClassBrowser = () => {
                                     }`}
                                   >
                                     <div>
-                                      <span className="font-semibold text-foreground">Full Term</span>
-                                      <span className="block text-[10px] text-muted-foreground">All {remaining} sessions · save vs drop-in</span>
+                                      <span className="font-semibold text-foreground">Pay Termly</span>
+                                      <span className="block text-[10px] text-muted-foreground">All {remaining} sessions this term, upfront</span>
                                     </div>
                                     <div className="text-right">
-                                      <span className="font-bold text-foreground">£{c.price_per_term}</span>
-                                      {termSavings > 0 && (
-                                        <Badge className="ml-1.5 bg-green-500/20 text-green-400 border-green-500/30 text-[9px]">
-                                          SAVE {termSavings}%
-                                        </Badge>
-                                      )}
+                                      <span className="font-bold text-foreground">£{priceTrm.toFixed(2)}</span>
+                                      <Badge className="ml-1.5 bg-green-500/20 text-green-400 border-green-500/30 text-[9px]">
+                                        SAVE {termSavings}%
+                                      </Badge>
                                     </div>
                                   </button>
                                 )}
 
-                                {/* Monthly Subscription */}
-                                {(c.price_per_year || c.price_per_month) && (
+                                {/* Children: pay yearly — best deal */}
+                                {isChildrenClass && (
                                   <button
-                                    onClick={() => { setSelectedPlans(p => ({ ...p, [c.id]: "monthly" })); setSelectedSessions(p => ({ ...p, [c.id]: sessions.map(s => s.id) })); }}
+                                    onClick={() => { setSelectedPlans(p => ({ ...p, [c.id]: "yearly" })); setSelectedSessions(p => ({ ...p, [c.id]: sessions.map(s => s.id) })); }}
                                     className={`relative flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
-                                      plan === "monthly"
+                                      plan === "yearly"
                                         ? "border-primary bg-primary/10 ring-1 ring-primary/30"
                                         : "border-border/50 bg-background/50 hover:border-border"
                                     }`}
                                   >
                                     <div className="absolute -top-2 right-2">
-                                      <Badge className="bg-primary text-primary-foreground text-[9px] px-1.5 py-0">BEST VALUE</Badge>
+                                      <Badge className="bg-primary text-primary-foreground text-[9px] px-1.5 py-0">BEST DEAL</Badge>
                                     </div>
                                     <div>
-                                      <span className="font-semibold text-foreground">Monthly Subscription</span>
-                                      <span className="block text-[10px] text-muted-foreground">Commit for the year · cheapest per class</span>
+                                      <span className="font-semibold text-foreground">Pay Yearly</span>
+                                      <span className="block text-[10px] text-muted-foreground">Sept–July upfront · all 38 dance weeks</span>
                                     </div>
                                     <div className="text-right">
-                                      <span className="font-bold text-foreground">
-                                        £{annualMonthlyCost?.toFixed(2) || c.price_per_month}
-                                        <span className="text-[10px] font-normal text-muted-foreground">/mo</span>
-                                      </span>
-                                      {annualSavings > 0 && (
-                                        <Badge className="ml-1.5 bg-green-500/20 text-green-400 border-green-500/30 text-[9px]">
-                                          SAVE {annualSavings}%
-                                        </Badge>
-                                      )}
+                                      <span className="font-bold text-foreground">£{priceYr.toFixed(2)}</span>
+                                      <Badge className="ml-1.5 bg-green-500/20 text-green-400 border-green-500/30 text-[9px]">
+                                        SAVE {yearlySavings}%
+                                      </Badge>
                                     </div>
                                   </button>
                                 )}
@@ -1164,9 +1108,10 @@ const ClassBrowser = () => {
                               {/* Add to basket inside the plan area */}
                               {(() => {
                                 const sessionsSelected = selSessions.length;
-                                const price = plan === "term" ? c.price_per_term
-                                  : plan === "monthly" ? (annualMonthlyCost || c.price_per_month)
-                                  : c.price_per_session;
+                                const price = plan === "term" ? priceTrm
+                                  : plan === "monthly" ? priceMon
+                                  : plan === "yearly" ? priceYr
+                                  : priceSess;
                                 const selectedKids = selectedChildren[c.id] || [];
                                 const allSelectedInCart = c.class_type === "children" && selectedKids.length > 0
                                   && selectedKids.every(sid => cartItems.some(ci => ci.classId === c.id && ci.studentId === sid));
@@ -1174,7 +1119,7 @@ const ClassBrowser = () => {
                                 const noKidsSelected = c.class_type === "children" && selectedKids.length === 0;
                                 const noSessionsSelected = plan === "session" && sessionsSelected === 0;
 
-                                const totalForDropIn = plan === "session" && c.price_per_session ? c.price_per_session * sessionsSelected : price;
+                                const totalForDropIn = plan === "session" ? priceSess * sessionsSelected : price;
                                 const kidCount = selectedKids.length || 1;
                                 const displayPrice = plan === "session" ? (totalForDropIn || 0) * kidCount : (price || 0) * kidCount;
 
@@ -1218,10 +1163,10 @@ const ClassBrowser = () => {
                                     studentId: childId,
                                     studentName: childName,
                                     pricingPlan: plan,
-                                    unitPrice: plan === "session" ? (c.price_per_session || 0) : (price || 0),
-                                    totalPrice: plan === "session" ? (c.price_per_session || 0) * sessionsSelected : (price || 0),
+                                    unitPrice: plan === "session" ? priceSess : (price || 0),
+                                    totalPrice: plan === "session" ? priceSess * sessionsSelected : (price || 0),
                                     sessionsCount: plan === "term" ? remaining : plan === "session" ? sessionsSelected : null,
-                                    termDiscountPercent: plan === "term" ? (c.term_discount_percent || null) : null,
+                                    termDiscountPercent: plan === "term" ? termSavings : null,
                                     workshopImage: getWorkshopImageUrl((c.workshops as any)?.cover_image),
                                     selectedSessionIds: selSessions,
                                     selectedSessionDates: sessionDates,
@@ -1242,6 +1187,7 @@ const ClassBrowser = () => {
 
                                 const priceLabel = plan === "term" ? "term"
                                   : plan === "monthly" ? "mo"
+                                  : plan === "yearly" ? "year"
                                   : sessionsSelected > 1 ? `${sessionsSelected} sessions` : "session";
 
                                 return (
@@ -1260,10 +1206,15 @@ const ClassBrowser = () => {
                                     <Button
                                       size="sm"
                                       disabled={!isClassBookable(c) || allSelectedInCart || noKidsSelected || noSessionsSelected}
-                                      onClick={handleAddToCart}
+                                      onClick={() => {
+                                        // Monthly membership requires an explicit
+                                        // cancellation-notice acknowledgement first.
+                                        if (plan === "monthly") setMonthlyNotice({ proceed: handleAddToCart });
+                                        else handleAddToCart();
+                                      }}
                                       className="uppercase tracking-wider text-xs font-semibold gap-1.5"
                                       style={{
-                                        background: allSelectedInCart ? undefined : isAdult ? "hsl(330, 90%, 55%)" : "hsl(201, 70%, 65%)",
+                                        background: allSelectedInCart ? undefined : isAdult ? "hsl(330, 90%, 55%)" : "hsl(193, 100%, 44%)",
                                         color: allSelectedInCart ? undefined : "white",
                                       }}
                                     >
@@ -1327,7 +1278,7 @@ const ClassBrowser = () => {
                     {campChildNames.length > 0 && (
                       <div className="px-4 pt-3 pb-0">
                         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                          <Star className="w-4 h-4 text-amber-500 shrink-0" />
+                          <Crown className="w-4 h-4 text-amber-500 shrink-0" />
                           <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
                             {campChildNames.length === 1
                               ? `Perfect for ${campChildNames[0]}!`
@@ -1373,9 +1324,12 @@ const ClassBrowser = () => {
                         <Button
                           size="sm"
                           className="uppercase tracking-wider text-xs font-semibold gap-1.5 bg-amber-500 hover:bg-amber-600 text-white"
-                          onClick={() => { if (!user) navigate("/auth"); }}
+                          onClick={() => {
+                            if (!user) { navigate("/auth"); return; }
+                            setBookCampId(camp.id);
+                          }}
                         >
-                          <ShoppingCart className="w-3.5 h-3.5" /> Book Camp
+                          <ShoppingCart className="w-3.5 h-3.5" /> Book Now
                         </Button>
                       </div>
                     </CardContent>
@@ -1410,7 +1364,7 @@ const ClassBrowser = () => {
                     <CardHeader className="pb-3">
                       <div className="flex items-center gap-2 mb-1">
                         <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-[10px]">
-                          <Star className="w-3 h-3 mr-0.5" /> SHOW
+                          <Crown className="w-3 h-3 mr-0.5" /> SHOW
                         </Badge>
                         {show.dance_style && (
                           <Badge variant="outline" className="border-primary/30 text-primary text-xs">{show.dance_style}</Badge>
@@ -1508,6 +1462,43 @@ const ClassBrowser = () => {
         onSaved={fetchAttendees}
         editing={null}
       />
+
+      {/* Book a holiday workshop (camp) — priced per drop-in day */}
+      <CampBookDialog
+        open={!!bookCampId}
+        onOpenChange={(o) => { if (!o) setBookCampId(null); }}
+        camp={bookCampId ? (camps.find((cp: any) => cp.id === bookCampId) as any) : null}
+        children={children}
+        onNeedChild={(child) => {
+          if (child) setProfileNudge(child);
+          else setAddChildOpen(true);
+        }}
+      />
+
+      {/* Monthly membership cancellation notice — acknowledged before basket add */}
+      <AlertDialog open={!!monthlyNotice} onOpenChange={(o) => { if (!o) setMonthlyNotice(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Monthly Membership</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <span className="block">{MONTHLY_MEMBERSHIP_NOTICE}</span>
+              <span className="block text-xs">{MONTHLY_PAYMENT_INFO}</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Go back</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const proceed = monthlyNotice?.proceed;
+                setMonthlyNotice(null);
+                proceed?.();
+              }}
+            >
+              I agree — add to basket
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

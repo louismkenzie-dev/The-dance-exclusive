@@ -29,7 +29,7 @@ const VALUES = [
   {
     Icon: Flame,
     title: "Energy",
-    tint: "201 70% 65%",
+    tint: "193 100% 44%",
     copy: "The music hits and the room changes. We train hard, sweat harder and chase that electric feeling that only the dance floor gives you. No half-measures, ever.",
   },
   {
@@ -48,31 +48,31 @@ const VALUES = [
 
 const TIMELINE = [
   {
-    year: "2014",
+    year: "2019",
     title: "One Class, One Room",
-    tint: "201 70% 65%",
+    tint: "193 100% 44%",
     copy: "It started with a single hired hall, a borrowed speaker and a handful of kids who just wanted to move. The energy was undeniable from week one.",
   },
   {
-    year: "2016",
+    year: "2020",
     title: "First Competition Titles",
     tint: "220 72% 64%",
     copy: "Our first crews stepped onto the competition stage — and came home with trophies. Word spread fast across Essex.",
   },
   {
-    year: "2018",
+    year: "2022",
     title: "A Second Home",
     tint: "260 75% 62%",
     copy: "Demand outgrew one venue. We opened our second location and welcomed our first dedicated adult classes — heels and commercial included.",
   },
   {
-    year: "2021",
+    year: "2024",
     title: "Award-Winning Status",
     tint: "300 80% 58%",
     copy: "Recognised as one of the region's standout street and commercial schools, with showcase pedigree and a growing wall of silverware.",
   },
   {
-    year: "2024",
+    year: "2026",
     title: "Five Venues, One Family",
     tint: "330 90% 55%",
     copy: "Now across five Essex venues with hundreds of dancers every week — and still run with the same family spirit it started with.",
@@ -80,7 +80,7 @@ const TIMELINE = [
 ];
 
 const STATS = [
-  { value: 10, suffix: "+", label: "Award-Winning Years" },
+  { value: 7, suffix: "+", label: "Award-Winning Years" },
   { value: 500, suffix: "+", label: "Dancers & Counting" },
   { value: 5, suffix: "", label: "Essex Venues" },
   { value: 25, suffix: "+", label: "Titles & Awards" },
@@ -111,7 +111,7 @@ export default function About() {
           </p>
           <h1 className="font-display font-bold leading-[0.92] tracking-tight text-[16vw] sm:text-7xl md:text-8xl">
             <span className="block">Our</span>
-            <span className="block text-primary drop-shadow-[0_0_40px_hsl(201_70%_65%/0.35)]">
+            <span className="block text-primary drop-shadow-[0_0_40px_hsl(193_100%_44%/0.35)]">
               Story
             </span>
           </h1>
@@ -174,7 +174,7 @@ export default function About() {
                 aria-hidden
                 className="pointer-events-none absolute -bottom-4 left-4 font-display font-bold text-[7rem] leading-none text-stroke-faint"
               >
-                2014
+                2019
               </span>
             </div>
           </Reveal>
@@ -202,7 +202,7 @@ export default function About() {
                 getting better.
               </p>
               <p className="text-foreground/90">
-                A decade on, we're an award-winning school across five Essex venues, teaching
+                Seven years on, we're an award-winning school across five Essex venues, teaching
                 hundreds of dancers every week — and still run with the exact heart it started with.
               </p>
             </div>
@@ -222,7 +222,7 @@ export default function About() {
           className="absolute inset-0 opacity-90"
           style={{
             background:
-              "linear-gradient(180deg, hsl(220 20% 4%), hsl(220 22% 6%)), radial-gradient(70% 50% at 0% 0%, hsl(201 70% 55% / 0.10), transparent 60%), radial-gradient(70% 50% at 100% 100%, hsl(330 90% 55% / 0.10), transparent 60%)",
+              "linear-gradient(180deg, hsl(220 20% 4%), hsl(220 22% 6%)), radial-gradient(70% 50% at 0% 0%, hsl(193 100% 40% / 0.10), transparent 60%), radial-gradient(70% 50% at 100% 100%, hsl(330 90% 55% / 0.10), transparent 60%)",
           }}
         />
         <GrainOverlay />
@@ -278,7 +278,7 @@ export default function About() {
           className="absolute inset-0 opacity-95"
           style={{
             background:
-              "linear-gradient(180deg, hsl(220 22% 5%), hsl(220 22% 6%)), radial-gradient(60% 80% at 50% 0%, hsl(201 70% 55% / 0.10), transparent 55%), radial-gradient(60% 80% at 50% 100%, hsl(330 90% 55% / 0.14), transparent 55%)",
+              "linear-gradient(180deg, hsl(220 22% 5%), hsl(220 22% 6%)), radial-gradient(60% 80% at 50% 0%, hsl(193 100% 40% / 0.10), transparent 55%), radial-gradient(60% 80% at 50% 100%, hsl(330 90% 55% / 0.14), transparent 55%)",
           }}
         />
         <GrainOverlay />
@@ -289,7 +289,7 @@ export default function About() {
             </p>
             <h2 className="font-display font-bold text-4xl md:text-6xl">From Hall to Headline</h2>
             <p className="mt-4 text-muted-foreground" style={sentence}>
-              Ten years, five venues and hundreds of dancers — the lights shift from blue to magenta
+              Seven years, five venues and hundreds of dancers — the lights shift from blue to magenta
               as the story grows.
             </p>
           </Reveal>
@@ -300,7 +300,7 @@ export default function About() {
               className="absolute left-[1.15rem] sm:left-1/2 top-2 bottom-2 w-px -translate-x-1/2"
               style={{
                 background:
-                  "linear-gradient(180deg, hsl(201 70% 65% / 0.6), hsl(280 78% 62% / 0.6), hsl(330 90% 55% / 0.7))",
+                  "linear-gradient(180deg, hsl(193 100% 44% / 0.6), hsl(280 78% 62% / 0.6), hsl(330 90% 55% / 0.7))",
               }}
             />
 

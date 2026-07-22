@@ -30,10 +30,12 @@ const CartDrawer = () => {
   };
 
   const planLabel: Record<PricingPlan, string> = {
-    trial: "Free Trial",
+    trial: "Trial",
     session: "Per Session",
-    monthly: "Monthly",
+    monthly: "Monthly Membership",
     term: "Full Term",
+    yearly: "Full Year",
+    pass: "Class Pass",
   };
 
   const toggleDates = (id: string) => setOpenDates(prev => ({ ...prev, [id]: !prev[id] }));

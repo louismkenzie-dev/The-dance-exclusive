@@ -46,10 +46,8 @@ export interface CouponRow {
   applies_to_class_types: string[];
   applies_to_pricing_plans: string[];
   applies_to_class_ids: string[];
+  applies_to_camp_ids: string[] | null;
 }
-
-const ALL_CLASS_TYPES = ["children", "adult"] as const;
-const ALL_PLANS = ["session", "monthly", "term", "trial"] as const;
 
 function generateCode(len = 8) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I, O, 0, 1
@@ -82,19 +80,17 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
   const [usageLimitTotal, setUsageLimitTotal] = useState("");
   const [usageLimitPerUser, setUsageLimitPerUser] = useState("");
   const [isActive, setIsActive] = useState(true);
-  const [classTypes, setClassTypes] = useState<string[]>([]);
-  const [plans, setPlans] = useState<string[]>([]);
-  const [classIds, setClassIds] = useState<string[]>([]);
-  const [classOptions, setClassOptions] = useState<{ id: string; name: string }[]>([]);
+  const [campIds, setCampIds] = useState<string[]>([]);
+  const [campOptions, setCampOptions] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     if (!open) return;
     supabase
-      .from("classes")
+      .from("camps")
       .select("id, name")
       .eq("is_active", true)
-      .order("name")
-      .then(({ data }) => setClassOptions((data as any) || []));
+      .order("start_date", { ascending: false })
+      .then(({ data }) => setCampOptions((data as any) || []));
   }, [open]);
 
   useEffect(() => {
@@ -108,9 +104,7 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
       setUsageLimitTotal(coupon.usage_limit_total?.toString() || "");
       setUsageLimitPerUser(coupon.usage_limit_per_user?.toString() || "");
       setIsActive(coupon.is_active);
-      setClassTypes(coupon.applies_to_class_types || []);
-      setPlans(coupon.applies_to_pricing_plans || []);
-      setClassIds(coupon.applies_to_class_ids || []);
+      setCampIds(coupon.applies_to_camp_ids || []);
     } else {
       setCode("");
       setDescription("");
@@ -121,9 +115,7 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
       setUsageLimitTotal("");
       setUsageLimitPerUser("");
       setIsActive(true);
-      setClassTypes([]);
-      setPlans([]);
-      setClassIds([]);
+      setCampIds([]);
     }
   }, [coupon, open]);
 
@@ -174,9 +166,12 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
       usage_limit_total: usageLimitTotal ? Number(usageLimitTotal) : null,
       usage_limit_per_user: usageLimitPerUser ? Number(usageLimitPerUser) : null,
       is_active: isActive,
-      applies_to_class_types: classTypes,
-      applies_to_pricing_plans: plans,
-      applies_to_class_ids: classIds,
+      // Coupons only apply to holiday workshops now — clear the legacy class
+      // targeting fields on every save so stale scoping can't linger.
+      applies_to_class_types: [],
+      applies_to_pricing_plans: [],
+      applies_to_class_ids: [],
+      applies_to_camp_ids: campIds,
     };
 
     const { error } = coupon
@@ -331,41 +326,23 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
           </div>
 
           <div className="space-y-3 rounded-lg border border-border p-4">
-            <p className="text-sm font-semibold">Targeting <span className="text-muted-foreground font-normal">(leave empty to apply to everything)</span></p>
+            <p className="text-sm font-semibold">Targeting</p>
+
+            <p className="text-xs text-muted-foreground rounded-md border border-border bg-muted/40 p-3">
+              Coupons apply to holiday workshops only — they cannot discount regular class bookings.
+            </p>
 
             <div className="grid gap-2">
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Class types</Label>
-              <div className="flex flex-wrap gap-3">
-                {ALL_CLASS_TYPES.map((t) => (
-                  <label key={t} className="flex items-center gap-2 cursor-pointer">
-                    <Checkbox checked={classTypes.includes(t)} onCheckedChange={() => toggle(classTypes, t, setClassTypes)} />
-                    <span className="text-sm capitalize">{t}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Pricing plans</Label>
-              <div className="flex flex-wrap gap-3">
-                {ALL_PLANS.map((p) => (
-                  <label key={p} className="flex items-center gap-2 cursor-pointer">
-                    <Checkbox checked={plans.includes(p)} onCheckedChange={() => toggle(plans, p, setPlans)} />
-                    <span className="text-sm capitalize">{p}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Specific classes (optional)</Label>
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Limit to specific holiday workshops <span className="normal-case">(leave empty to apply to all)</span>
+              </Label>
               <div className="max-h-40 overflow-y-auto border border-border rounded-md p-2 space-y-1">
-                {classOptions.length === 0 && (
-                  <p className="text-xs text-muted-foreground p-2">No classes available</p>
+                {campOptions.length === 0 && (
+                  <p className="text-xs text-muted-foreground p-2">No holiday workshops available</p>
                 )}
-                {classOptions.map((c) => (
+                {campOptions.map((c) => (
                   <label key={c.id} className="flex items-center gap-2 cursor-pointer hover:bg-muted/40 rounded px-2 py-1">
-                    <Checkbox checked={classIds.includes(c.id)} onCheckedChange={() => toggle(classIds, c.id, setClassIds)} />
+                    <Checkbox checked={campIds.includes(c.id)} onCheckedChange={() => toggle(campIds, c.id, setCampIds)} />
                     <span className="text-sm">{c.name}</span>
                   </label>
                 ))}

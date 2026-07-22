@@ -10,26 +10,44 @@ import {
 import type { Appearance, StripeElementsOptions } from "@stripe/stripe-js";
 import { getStripe, getStripeEnvironment } from "@/lib/stripe";
 import { supabase } from "@/integrations/supabase/client";
-import { useCart, type PricingPlan } from "@/contexts/CartContext";
+import { useCart, cartItemKind, type CartItem, type PricingPlan } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, ShieldCheck, Lock, Loader2, ChevronDown, Tag, X, UserPlus } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowLeft, ShieldCheck, Lock, Loader2, ChevronDown, Tag, X, UserPlus, Users } from "lucide-react";
 import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { TERMS_AND_CONDITIONS } from "@/lib/terms";
+import {
+  MONTHLY_PAYMENT_INFO,
+  additionalMonthlyPrice,
+  computeSiblingDiscount,
+  monthlyPrice,
+  priceMonthlyItems,
+  round2,
+} from "@/lib/pricing";
 
 const planLabel: Record<PricingPlan, string> = {
-  trial: "Free Trial",
+  trial: "Trial",
   session: "Per Session",
-  monthly: "Monthly",
+  monthly: "Monthly Membership",
   term: "Full Term",
+  yearly: "Full Year",
+  pass: "Class Pass",
 };
 
 /**
@@ -49,7 +67,7 @@ function buildAppearance(): Appearance {
   const fg = cssVar("--foreground") || "hsl(0 0% 98%)";
   const muted = cssVar("--muted-foreground") || "hsl(220 10% 55%)";
   const border = cssVar("--border") || "hsl(220 15% 16%)";
-  const primary = cssVar("--primary") || "hsl(201 70% 65%)";
+  const primary = cssVar("--primary") || "hsl(193 100% 44%)";
   const destructive = cssVar("--destructive") || "hsl(0 72% 51%)";
 
   return {
@@ -156,10 +174,17 @@ const PaymentForm = ({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState<string>(customerEmail || "");
+  // Mandatory Terms & Conditions acceptance before payment.
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stripe || !elements) return;
+    if (!termsAccepted) {
+      setError("Please confirm you have read and accepted the Terms & Conditions.");
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
@@ -167,9 +192,9 @@ const PaymentForm = ({
     const origin = window.location.origin;
     const returnUrl = `${origin}/checkout/return`;
 
-    // `redirect: "if_required"` lets card payments complete inline without
-    // a redirect (so we navigate manually) while still allowing Klarna /
-    // Revolut / Amazon Pay etc. to redirect away when they need to.
+    // `redirect: "if_required"` lets card payments complete inline without a
+    // redirect (so we navigate manually). Payment methods are card + wallets
+    // only — Klarna and other BNPL methods are disabled server-side.
     const { error: submitError, paymentIntent } = await stripe.confirmPayment({
       elements,
       confirmParams: {
@@ -232,10 +257,34 @@ const PaymentForm = ({
         </Alert>
       )}
 
+      {/* Mandatory T&C acceptance */}
+      <div className="flex items-start gap-2.5 p-3 rounded-lg border border-border bg-background/50">
+        <Checkbox
+          id="accept-terms"
+          checked={termsAccepted}
+          onCheckedChange={(v) => {
+            setTermsAccepted(v === true);
+            if (v === true) setError(null);
+          }}
+          className="mt-0.5"
+        />
+        <label htmlFor="accept-terms" className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
+          I confirm I have read and accept The Dance Exclusive's{" "}
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); setTermsOpen(true); }}
+            className="text-primary underline underline-offset-2 hover:no-underline"
+          >
+            Terms &amp; Conditions
+          </button>
+          .
+        </label>
+      </div>
+
       <Button
         type="submit"
         size="lg"
-        disabled={!stripe || !elements || submitting}
+        disabled={!stripe || !elements || submitting || !termsAccepted}
         className="w-full font-bold uppercase tracking-wider"
       >
         {submitting ? (
@@ -246,6 +295,31 @@ const PaymentForm = ({
           <>Pay £{totalAmount.toFixed(2)}</>
         )}
       </Button>
+
+      {/* Full T&C text */}
+      <Dialog open={termsOpen} onOpenChange={setTermsOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Terms and Conditions — The Dance Exclusive</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            By enrolling in any class, workshop, or program with The Dance Exclusive,
+            you agree to the following terms and conditions:
+          </p>
+          <div className="space-y-4">
+            {TERMS_AND_CONDITIONS.map((section) => (
+              <div key={section.title}>
+                <h3 className="text-sm font-bold text-foreground mb-1.5">{section.title}</h3>
+                <ul className="list-disc pl-5 space-y-1">
+                  {section.points.map((point, i) => (
+                    <li key={i} className="text-xs text-muted-foreground leading-relaxed">{point}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex items-center justify-center gap-4 pt-1 text-xs text-muted-foreground uppercase tracking-wider">
         <span className="flex items-center gap-1.5">
@@ -282,15 +356,121 @@ const CheckoutPage = () => {
   const [couponError, setCouponError] = useState<string | null>(null);
   const [couponSubmitting, setCouponSubmitting] = useState(false);
 
-  const finalTotal = Math.max(0, totalAmount - (coupon?.discountAmount || 0));
+  // Pricing context needed to mirror the server's checkout maths: class rows
+  // (durations + sibling flags), camp sibling flags, which attendees are the
+  // account holder vs children, and whether another child already has a booking.
+  interface PricingContext {
+    classes: Map<string, { class_type: "children" | "adult"; start_time: string | null; end_time: string | null; price_per_session: number | null; price_per_term: number | null; price_per_month: number | null; price_per_year: number | null; sibling_discount_enabled: boolean }>;
+    camps: Map<string, { sibling_discount_enabled: boolean }>;
+    selfIds: Set<string>;
+    priorBookedChildIds: string[];
+  }
+  const [pricingCtx, setPricingCtx] = useState<PricingContext | null>(null);
+
+  const itemsKey = useMemo(
+    () => items.map((i) => `${i.id}:${i.pricingPlan}:${i.totalPrice}`).join("|"),
+    [items],
+  );
+
+  useEffect(() => {
+    if (isHydrating || items.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const classIds = [...new Set(items.filter((i) => cartItemKind(i) === "class" && i.classId).map((i) => i.classId as string))];
+      const campIds = [...new Set(items.filter((i) => cartItemKind(i) === "camp" && i.campId).map((i) => i.campId as string))];
+      const [classRes, campRes, studentsRes, bookingsRes] = await Promise.all([
+        classIds.length
+          ? supabase.from("classes").select("id, class_type, start_time, end_time, price_per_session, price_per_term, price_per_month, price_per_year, sibling_discount_enabled").in("id", classIds)
+          : Promise.resolve({ data: [] as any[] }),
+        campIds.length
+          ? supabase.from("camps").select("id, sibling_discount_enabled").in("id", campIds)
+          : Promise.resolve({ data: [] as any[] }),
+        user?.id
+          ? supabase.from("students").select("id, is_self").eq("parent_id", user.id)
+          : Promise.resolve({ data: [] as any[] }),
+        user?.id
+          ? supabase.from("bookings").select("student_id").eq("parent_id", user.id).eq("status", "confirmed").not("student_id", "is", null)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+      if (cancelled) return;
+      const selfIds = new Set(((studentsRes.data as any[]) ?? []).filter((s) => s.is_self).map((s) => s.id as string));
+      const priorBookedChildIds = [...new Set(
+        (((bookingsRes.data as any[]) ?? [])
+          .map((b) => b.student_id as string)
+          .filter((id) => id && !selfIds.has(id))),
+      )];
+      setPricingCtx({
+        classes: new Map(((classRes.data as any[]) ?? []).map((c) => [c.id, c])),
+        camps: new Map(((campRes.data as any[]) ?? []).map((c) => [c.id, c])),
+        selfIds,
+        priorBookedChildIds,
+      });
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHydrating, itemsKey, user?.id]);
+
+  // Adjusted per-item charges: monthly memberships beyond a child's first
+  // class drop to the additional-class rate (capped at the £110 Unlimited
+  // price), mirroring the server's authoritative computation.
+  const adjusted = useMemo(() => {
+    const charges = new Map<string, number>(items.map((i) => [i.id, round2(i.totalPrice)]));
+    if (pricingCtx) {
+      const monthlyInputs = items
+        .filter((i) => cartItemKind(i) === "class" && i.pricingPlan === "monthly" && i.classId && pricingCtx.classes.has(i.classId))
+        .map((i) => {
+          const cls = pricingCtx.classes.get(i.classId as string)!;
+          return {
+            id: i.id,
+            studentId: i.studentId,
+            fullMonthly: monthlyPrice(cls),
+            additionalMonthly: additionalMonthlyPrice(cls),
+          };
+        });
+      const monthlyCharges = priceMonthlyItems(monthlyInputs);
+      for (const [id, amount] of monthlyCharges) charges.set(id, amount);
+    }
+    const adjustedSubtotal = round2([...charges.values()].reduce((s, v) => s + v, 0));
+    const multiClassDiscount = round2(totalAmount - adjustedSubtotal);
+
+    const sibling = pricingCtx
+      ? computeSiblingDiscount(
+        items.map((i) => {
+          const kind = cartItemKind(i);
+          const product = kind === "camp"
+            ? pricingCtx.camps.get(i.campId ?? "")
+            : pricingCtx.classes.get(i.classId ?? "");
+          return {
+            id: i.id,
+            studentId: i.studentId,
+            isSelfStudent: i.studentId ? pricingCtx.selfIds.has(i.studentId) : false,
+            classType: kind === "pass" ? "adult" as const : i.classType,
+            siblingDiscountEnabled: (product as any)?.sibling_discount_enabled ?? true,
+            totalPrice: charges.get(i.id) ?? 0,
+          };
+        }),
+        pricingCtx.priorBookedChildIds,
+      )
+      : { total: 0, perItem: new Map<string, number>(), discountedChildIds: [] as string[] };
+
+    return { charges, adjustedSubtotal, multiClassDiscount, sibling };
+  }, [items, pricingCtx, totalAmount]);
+
+  const hasMonthlyItems = items.some((i) => i.pricingPlan === "monthly");
+  const finalTotal = Math.max(
+    0,
+    round2(adjusted.adjustedSubtotal - adjusted.sibling.total - (coupon?.discountAmount || 0)),
+  );
 
   useEffect(() => {
     if (!isHydrating && items.length === 0) navigate("/classes/children");
   }, [isHydrating, items.length, navigate]);
 
-  // Recreate the PaymentIntent whenever the cart or applied coupon changes.
+  // Recreate the PaymentIntent whenever the cart, pricing context or applied
+  // coupon changes. Waits for the pricing context so the amounts sent match
+  // what the server will re-compute.
   useEffect(() => {
-    if (isHydrating || items.length === 0) return;
+    if (isHydrating || items.length === 0 || !pricingCtx) return;
     let cancelled = false;
 
     (async () => {
@@ -303,13 +483,18 @@ const CheckoutPage = () => {
           {
             body: {
               items: items.map((item) => ({
+                itemKind: cartItemKind(item),
                 classId: item.classId,
+                campId: item.campId ?? null,
+                passType: item.passType ?? null,
                 className: item.className,
                 classType: item.classType,
                 studentId: item.studentId,
                 studentName: item.studentName,
                 pricingPlan: item.pricingPlan,
-                totalPrice: item.totalPrice,
+                totalPrice: adjusted.charges.get(item.id) ?? item.totalPrice,
+                sessionsCount: item.sessionsCount,
+                selectedSessionIds: item.selectedSessionIds ?? [],
               })),
               customerEmail: user?.email || profile?.email,
               userId: user?.id,
@@ -355,7 +540,8 @@ const CheckoutPage = () => {
     return () => {
       cancelled = true;
     };
-  }, [isHydrating, items, user, profile, coupon]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHydrating, itemsKey, pricingCtx, user, profile, coupon]);
 
   const handleApplyCoupon = async () => {
     const code = couponInput.trim();
@@ -371,7 +557,9 @@ const CheckoutPage = () => {
             classId: item.classId,
             classType: item.classType,
             pricingPlan: item.pricingPlan,
-            totalPrice: item.totalPrice,
+            totalPrice: adjusted.charges.get(item.id) ?? item.totalPrice,
+            itemKind: cartItemKind(item),
+            campId: item.campId ?? null,
           })),
         },
       });
@@ -567,7 +755,7 @@ const CheckoutPage = () => {
                                     </Badge>
                                   </div>
                                   <span className="font-bold text-sm text-foreground whitespace-nowrap">
-                                    £{item.totalPrice.toFixed(2)}
+                                    £{(adjusted.charges.get(item.id) ?? item.totalPrice).toFixed(2)}
                                   </span>
                                 </div>
                               </div>
@@ -581,6 +769,22 @@ const CheckoutPage = () => {
                           <span>Subtotal</span>
                           <span>£{totalAmount.toFixed(2)}</span>
                         </div>
+                        {adjusted.multiClassDiscount > 0.005 && (
+                          <div className="flex items-center justify-between text-sm text-primary">
+                            <span className="flex items-center gap-1.5">
+                              <Tag className="w-3.5 h-3.5" /> Additional-class rate
+                            </span>
+                            <span>-£{adjusted.multiClassDiscount.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {adjusted.sibling.total > 0 && (
+                          <div className="flex items-center justify-between text-sm text-primary">
+                            <span className="flex items-center gap-1.5">
+                              <Users className="w-3.5 h-3.5" /> Sibling discount (10%)
+                            </span>
+                            <span>-£{adjusted.sibling.total.toFixed(2)}</span>
+                          </div>
+                        )}
                         {coupon && (
                           <div className="flex items-center justify-between text-sm text-primary">
                             <span className="flex items-center gap-1.5">
@@ -597,6 +801,12 @@ const CheckoutPage = () => {
                             £{finalTotal.toFixed(2)}
                           </span>
                         </div>
+                        {hasMonthlyItems && (
+                          <p className="text-[11px] text-muted-foreground leading-relaxed pt-1">
+                            {MONTHLY_PAYMENT_INFO} Cancelling requires one month's written
+                            notice to hello@thedanceexclusive.co.uk.
+                          </p>
+                        )}
                       </div>
                     </div>
                   );

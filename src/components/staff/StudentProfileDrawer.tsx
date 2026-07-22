@@ -164,11 +164,13 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
           <>
             <SheetHeader className="text-left">
               <div className="flex items-center gap-3">
+                {/* Safeguarding view — the real photo must stay the primary circle */}
                 <PhotoAvatarDuo
                   photoUrl={student.profile_photo}
                   avatarUrl={student.avatar_url}
                   initials={student.first_name?.[0]}
                   size="md"
+                  photoPrimary
                 />
                 <div>
                   <SheetTitle>{student.first_name} {student.last_name}</SheetTitle>
@@ -321,8 +323,7 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
 
               {/* Consent */}
               <Section title="Consent" icon={Camera}>
-                <Row label="Photo consent" value={student.photo_consent ? "✓ Yes" : "✗ No"} />
-                <Row label="Social media" value={student.social_media_consent ? "✓ Yes" : "✗ No"} />
+                <Row label="Photo & media consent" value={student.photo_consent ? "✓ Yes" : "✗ No"} />
               </Section>
 
               {/* Notes */}

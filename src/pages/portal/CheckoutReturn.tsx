@@ -42,11 +42,15 @@ interface BookingDetail {
 }
 
 const planLabel: Record<string, string> = {
-  trial: "Free Trial",
+  trial: "Trial",
   session: "Per Session",
-  monthly: "Monthly",
+  monthly: "Monthly Membership",
   term: "Full Term",
   year: "Full Year",
+  yearly: "Full Year",
+  pass: "Class Pass",
+  camp: "Holiday Workshop",
+  birthday: "Birthday Class",
 };
 
 const CheckoutReturn = () => {

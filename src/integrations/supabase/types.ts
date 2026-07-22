@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       app_settings: {
@@ -228,7 +203,8 @@ export type Database = {
           amount: number | null
           booked_at: string
           booking_type: string
-          class_id: string
+          camp_id: string | null
+          class_id: string | null
           created_at: string
           id: string
           notes: string | null
@@ -241,7 +217,8 @@ export type Database = {
           amount?: number | null
           booked_at?: string
           booking_type?: string
-          class_id: string
+          camp_id?: string | null
+          class_id?: string | null
           created_at?: string
           id?: string
           notes?: string | null
@@ -254,7 +231,8 @@ export type Database = {
           amount?: number | null
           booked_at?: string
           booking_type?: string
-          class_id?: string
+          camp_id?: string | null
+          class_id?: string | null
           created_at?: string
           id?: string
           notes?: string | null
@@ -264,6 +242,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "bookings_camp_id_fkey"
+            columns: ["camp_id"]
+            isOneToOne: false
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "bookings_class_id_fkey"
             columns: ["class_id"]
@@ -451,6 +436,7 @@ export type Database = {
           name: string
           price_per_day: number | null
           price_total: number | null
+          sibling_discount_enabled: boolean
           start_date: string | null
           start_time: string
           updated_at: string
@@ -472,6 +458,7 @@ export type Database = {
           name: string
           price_per_day?: number | null
           price_total?: number | null
+          sibling_discount_enabled?: boolean
           start_date?: string | null
           start_time?: string
           updated_at?: string
@@ -493,6 +480,7 @@ export type Database = {
           name?: string
           price_per_day?: number | null
           price_total?: number | null
+          sibling_discount_enabled?: boolean
           start_date?: string | null
           start_time?: string
           updated_at?: string
@@ -518,8 +506,9 @@ export type Database = {
       }
       cart_items: {
         Row: {
+          camp_id: string | null
           cart_item_id: string
-          class_id: string
+          class_id: string | null
           class_name: string
           class_type: Database["public"]["Enums"]["class_type"]
           created_at: string
@@ -527,6 +516,7 @@ export type Database = {
           day_of_week: Database["public"]["Enums"]["day_of_week"]
           end_time: string
           id: string
+          item_kind: string
           pricing_plan: string
           selected_session_dates: string[]
           selected_session_ids: string[]
@@ -543,8 +533,9 @@ export type Database = {
           workshop_image: string | null
         }
         Insert: {
+          camp_id?: string | null
           cart_item_id: string
-          class_id: string
+          class_id?: string | null
           class_name: string
           class_type: Database["public"]["Enums"]["class_type"]
           created_at?: string
@@ -552,6 +543,7 @@ export type Database = {
           day_of_week: Database["public"]["Enums"]["day_of_week"]
           end_time: string
           id?: string
+          item_kind?: string
           pricing_plan: string
           selected_session_dates?: string[]
           selected_session_ids?: string[]
@@ -568,8 +560,9 @@ export type Database = {
           workshop_image?: string | null
         }
         Update: {
+          camp_id?: string | null
           cart_item_id?: string
-          class_id?: string
+          class_id?: string | null
           class_name?: string
           class_type?: Database["public"]["Enums"]["class_type"]
           created_at?: string
@@ -577,6 +570,7 @@ export type Database = {
           day_of_week?: Database["public"]["Enums"]["day_of_week"]
           end_time?: string
           id?: string
+          item_kind?: string
           pricing_plan?: string
           selected_session_dates?: string[]
           selected_session_ids?: string[]
@@ -593,6 +587,13 @@ export type Database = {
           workshop_image?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "cart_items_camp_id_fkey"
+            columns: ["camp_id"]
+            isOneToOne: false
+            referencedRelation: "camps"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "cart_items_class_id_fkey"
             columns: ["class_id"]
@@ -647,6 +648,62 @@ export type Database = {
             columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      class_passes: {
+        Row: {
+          amount_paid: number
+          cart_item_ref: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          pass_type: string
+          payment_intent_id: string | null
+          purchased_at: string
+          sessions_remaining: number
+          sessions_total: number
+          student_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_paid?: number
+          cart_item_ref?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          pass_type: string
+          payment_intent_id?: string | null
+          purchased_at?: string
+          sessions_remaining: number
+          sessions_total: number
+          student_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_paid?: number
+          cart_item_ref?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          pass_type?: string
+          payment_intent_id?: string | null
+          purchased_at?: string
+          sessions_remaining?: number
+          sessions_total?: number
+          student_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_passes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
             referencedColumns: ["id"]
           },
         ]
@@ -716,12 +773,6 @@ export type Database = {
           allow_trial: boolean
           audience_label: string | null
           booking_enabled: boolean
-          invite_only: boolean
-          publicly_visible: boolean
-          school_year_max: number | null
-          school_year_min: number | null
-          sort_order: number
-          status: string
           capacity: number
           class_type: Database["public"]["Enums"]["class_type"]
           created_at: string
@@ -733,6 +784,7 @@ export type Database = {
           gender: string | null
           id: string
           instructor_id: string | null
+          invite_only: boolean
           is_active: boolean
           monthly_discount_percent: number | null
           name: string
@@ -740,14 +792,21 @@ export type Database = {
           price_per_session: number | null
           price_per_term: number | null
           price_per_year: number | null
+          publicly_visible: boolean
           school_term_id: string | null
+          school_year_max: number | null
+          school_year_min: number | null
+          sibling_discount_enabled: boolean
+          sort_order: number
           start_time: string
+          status: string
           term_discount_amount: number | null
           term_discount_percent: number | null
           term_end: string | null
           term_start: string | null
           updated_at: string
           venue_id: string | null
+          whatsapp_group_url: string | null
           workshop_id: string | null
           year_discount_amount: number | null
           year_discount_percent: number | null
@@ -759,12 +818,6 @@ export type Database = {
           allow_trial?: boolean
           audience_label?: string | null
           booking_enabled?: boolean
-          invite_only?: boolean
-          publicly_visible?: boolean
-          school_year_max?: number | null
-          school_year_min?: number | null
-          sort_order?: number
-          status?: string
           capacity?: number
           class_type?: Database["public"]["Enums"]["class_type"]
           created_at?: string
@@ -776,6 +829,7 @@ export type Database = {
           gender?: string | null
           id?: string
           instructor_id?: string | null
+          invite_only?: boolean
           is_active?: boolean
           monthly_discount_percent?: number | null
           name: string
@@ -783,14 +837,21 @@ export type Database = {
           price_per_session?: number | null
           price_per_term?: number | null
           price_per_year?: number | null
+          publicly_visible?: boolean
           school_term_id?: string | null
+          school_year_max?: number | null
+          school_year_min?: number | null
+          sibling_discount_enabled?: boolean
+          sort_order?: number
           start_time: string
+          status?: string
           term_discount_amount?: number | null
           term_discount_percent?: number | null
           term_end?: string | null
           term_start?: string | null
           updated_at?: string
           venue_id?: string | null
+          whatsapp_group_url?: string | null
           workshop_id?: string | null
           year_discount_amount?: number | null
           year_discount_percent?: number | null
@@ -802,12 +863,6 @@ export type Database = {
           allow_trial?: boolean
           audience_label?: string | null
           booking_enabled?: boolean
-          invite_only?: boolean
-          publicly_visible?: boolean
-          school_year_max?: number | null
-          school_year_min?: number | null
-          sort_order?: number
-          status?: string
           capacity?: number
           class_type?: Database["public"]["Enums"]["class_type"]
           created_at?: string
@@ -819,6 +874,7 @@ export type Database = {
           gender?: string | null
           id?: string
           instructor_id?: string | null
+          invite_only?: boolean
           is_active?: boolean
           monthly_discount_percent?: number | null
           name?: string
@@ -826,14 +882,21 @@ export type Database = {
           price_per_session?: number | null
           price_per_term?: number | null
           price_per_year?: number | null
+          publicly_visible?: boolean
           school_term_id?: string | null
+          school_year_max?: number | null
+          school_year_min?: number | null
+          sibling_discount_enabled?: boolean
+          sort_order?: number
           start_time?: string
+          status?: string
           term_discount_amount?: number | null
           term_discount_percent?: number | null
           term_end?: string | null
           term_start?: string | null
           updated_at?: string
           venue_id?: string | null
+          whatsapp_group_url?: string | null
           workshop_id?: string | null
           year_discount_amount?: number | null
           year_discount_percent?: number | null
@@ -906,6 +969,7 @@ export type Database = {
       }
       coupons: {
         Row: {
+          applies_to_camp_ids: string[] | null
           applies_to_class_ids: string[]
           applies_to_class_types: string[]
           applies_to_pricing_plans: string[]
@@ -924,6 +988,7 @@ export type Database = {
           valid_until: string | null
         }
         Insert: {
+          applies_to_camp_ids?: string[] | null
           applies_to_class_ids?: string[]
           applies_to_class_types?: string[]
           applies_to_pricing_plans?: string[]
@@ -942,6 +1007,7 @@ export type Database = {
           valid_until?: string | null
         }
         Update: {
+          applies_to_camp_ids?: string[] | null
           applies_to_class_ids?: string[]
           applies_to_class_types?: string[]
           applies_to_pricing_plans?: string[]
@@ -1399,6 +1465,7 @@ export type Database = {
           address_line1: string | null
           address_line2: string | null
           allergies_list: string[] | null
+          avatar_url: string | null
           city: string | null
           county: string | null
           created_at: string
@@ -1415,11 +1482,10 @@ export type Database = {
           medical_conditions_list: string[] | null
           medical_info: string | null
           phone: string | null
+          pickup_pin: string | null
           postcode: string | null
           preferred_name: string | null
           profile_photo: string | null
-          pickup_pin: string | null
-          avatar_url: string | null
           secondary_phone: string | null
           updated_at: string
           user_id: string
@@ -1429,6 +1495,7 @@ export type Database = {
           address_line1?: string | null
           address_line2?: string | null
           allergies_list?: string[] | null
+          avatar_url?: string | null
           city?: string | null
           county?: string | null
           created_at?: string
@@ -1445,11 +1512,10 @@ export type Database = {
           medical_conditions_list?: string[] | null
           medical_info?: string | null
           phone?: string | null
+          pickup_pin?: string | null
           postcode?: string | null
           preferred_name?: string | null
           profile_photo?: string | null
-          pickup_pin?: string | null
-          avatar_url?: string | null
           secondary_phone?: string | null
           updated_at?: string
           user_id: string
@@ -1459,6 +1525,7 @@ export type Database = {
           address_line1?: string | null
           address_line2?: string | null
           allergies_list?: string[] | null
+          avatar_url?: string | null
           city?: string | null
           county?: string | null
           created_at?: string
@@ -1475,11 +1542,10 @@ export type Database = {
           medical_conditions_list?: string[] | null
           medical_info?: string | null
           phone?: string | null
+          pickup_pin?: string | null
           postcode?: string | null
           preferred_name?: string | null
           profile_photo?: string | null
-          pickup_pin?: string | null
-          avatar_url?: string | null
           secondary_phone?: string | null
           updated_at?: string
           user_id?: string
@@ -1900,6 +1966,7 @@ export type Database = {
           ability_level: string | null
           allergies: string | null
           allergies_list: string[]
+          avatar_url: string | null
           child_hook: string | null
           created_at: string
           dance_style_preference: string | null
@@ -1907,6 +1974,8 @@ export type Database = {
           ehcp_in_place: boolean
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
+          expected_arrival_time: string | null
+          expected_departure_time: string | null
           first_name: string
           gender: string | null
           has_epipen: boolean
@@ -1915,8 +1984,6 @@ export type Database = {
           has_stage_experience: boolean
           id: string
           is_self: boolean
-          expected_arrival_time: string | null
-          expected_departure_time: string | null
           is_toilet_trained: boolean
           last_name: string
           medical_conditions_list: string[]
@@ -1927,7 +1994,6 @@ export type Database = {
           photo_consent: boolean
           preferred_name: string | null
           profile_photo: string | null
-          avatar_url: string | null
           prone_to_accidents: boolean
           send_conditions_list: string[]
           send_details: string | null
@@ -1941,6 +2007,7 @@ export type Database = {
           ability_level?: string | null
           allergies?: string | null
           allergies_list?: string[]
+          avatar_url?: string | null
           child_hook?: string | null
           created_at?: string
           dance_style_preference?: string | null
@@ -1948,6 +2015,8 @@ export type Database = {
           ehcp_in_place?: boolean
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
+          expected_arrival_time?: string | null
+          expected_departure_time?: string | null
           first_name: string
           gender?: string | null
           has_epipen?: boolean
@@ -1956,8 +2025,6 @@ export type Database = {
           has_stage_experience?: boolean
           id?: string
           is_self?: boolean
-          expected_arrival_time?: string | null
-          expected_departure_time?: string | null
           is_toilet_trained?: boolean
           last_name: string
           medical_conditions_list?: string[]
@@ -1968,7 +2035,6 @@ export type Database = {
           photo_consent?: boolean
           preferred_name?: string | null
           profile_photo?: string | null
-          avatar_url?: string | null
           prone_to_accidents?: boolean
           send_conditions_list?: string[]
           send_details?: string | null
@@ -1982,6 +2048,7 @@ export type Database = {
           ability_level?: string | null
           allergies?: string | null
           allergies_list?: string[]
+          avatar_url?: string | null
           child_hook?: string | null
           created_at?: string
           dance_style_preference?: string | null
@@ -1989,6 +2056,8 @@ export type Database = {
           ehcp_in_place?: boolean
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
+          expected_arrival_time?: string | null
+          expected_departure_time?: string | null
           first_name?: string
           gender?: string | null
           has_epipen?: boolean
@@ -1997,8 +2066,6 @@ export type Database = {
           has_stage_experience?: boolean
           id?: string
           is_self?: boolean
-          expected_arrival_time?: string | null
-          expected_departure_time?: string | null
           is_toilet_trained?: boolean
           last_name?: string
           medical_conditions_list?: string[]
@@ -2009,7 +2076,6 @@ export type Database = {
           photo_consent?: boolean
           preferred_name?: string | null
           profile_photo?: string | null
-          avatar_url?: string | null
           prone_to_accidents?: boolean
           send_conditions_list?: string[]
           send_details?: string | null
@@ -2153,13 +2219,6 @@ export type Database = {
           accessibility_info: string | null
           address_line1: string | null
           address_line2: string | null
-          featured_order: number | null
-          hero_image: string | null
-          is_featured: boolean
-          publicly_visible: boolean
-          short_description: string | null
-          slug: string | null
-          status: string
           capacity: number | null
           city: string
           contact_email: string | null
@@ -2173,17 +2232,20 @@ export type Database = {
           directions: string | null
           drop_off_info: string | null
           email: string | null
+          featured_order: number | null
           floor_type: string | null
           has_changing_rooms: boolean | null
           has_mirrors: boolean | null
           has_parking: boolean | null
           has_sound_system: boolean | null
           has_waiting_area: boolean
+          hero_image: string | null
           hire_cost_notes: string | null
           hire_cost_per_day: number | null
           hire_cost_per_hour: number | null
           id: string
           is_active: boolean
+          is_featured: boolean
           latitude: number | null
           longitude: number | null
           map_embed_url: string | null
@@ -2195,6 +2257,10 @@ export type Database = {
           photo_outside: string | null
           photo_parking: string | null
           postcode: string | null
+          publicly_visible: boolean
+          short_description: string | null
+          slug: string | null
+          status: string
           updated_at: string
           website_url: string | null
           what3words: string | null
@@ -2206,13 +2272,6 @@ export type Database = {
           accessibility_info?: string | null
           address_line1?: string | null
           address_line2?: string | null
-          featured_order?: number | null
-          hero_image?: string | null
-          is_featured?: boolean
-          publicly_visible?: boolean
-          short_description?: string | null
-          slug?: string | null
-          status?: string
           capacity?: number | null
           city?: string
           contact_email?: string | null
@@ -2226,17 +2285,20 @@ export type Database = {
           directions?: string | null
           drop_off_info?: string | null
           email?: string | null
+          featured_order?: number | null
           floor_type?: string | null
           has_changing_rooms?: boolean | null
           has_mirrors?: boolean | null
           has_parking?: boolean | null
           has_sound_system?: boolean | null
           has_waiting_area?: boolean
+          hero_image?: string | null
           hire_cost_notes?: string | null
           hire_cost_per_day?: number | null
           hire_cost_per_hour?: number | null
           id?: string
           is_active?: boolean
+          is_featured?: boolean
           latitude?: number | null
           longitude?: number | null
           map_embed_url?: string | null
@@ -2248,6 +2310,10 @@ export type Database = {
           photo_outside?: string | null
           photo_parking?: string | null
           postcode?: string | null
+          publicly_visible?: boolean
+          short_description?: string | null
+          slug?: string | null
+          status?: string
           updated_at?: string
           website_url?: string | null
           what3words?: string | null
@@ -2259,13 +2325,6 @@ export type Database = {
           accessibility_info?: string | null
           address_line1?: string | null
           address_line2?: string | null
-          featured_order?: number | null
-          hero_image?: string | null
-          is_featured?: boolean
-          publicly_visible?: boolean
-          short_description?: string | null
-          slug?: string | null
-          status?: string
           capacity?: number | null
           city?: string
           contact_email?: string | null
@@ -2279,17 +2338,20 @@ export type Database = {
           directions?: string | null
           drop_off_info?: string | null
           email?: string | null
+          featured_order?: number | null
           floor_type?: string | null
           has_changing_rooms?: boolean | null
           has_mirrors?: boolean | null
           has_parking?: boolean | null
           has_sound_system?: boolean | null
           has_waiting_area?: boolean
+          hero_image?: string | null
           hire_cost_notes?: string | null
           hire_cost_per_day?: number | null
           hire_cost_per_hour?: number | null
           id?: string
           is_active?: boolean
+          is_featured?: boolean
           latitude?: number | null
           longitude?: number | null
           map_embed_url?: string | null
@@ -2301,6 +2363,10 @@ export type Database = {
           photo_outside?: string | null
           photo_parking?: string | null
           postcode?: string | null
+          publicly_visible?: boolean
+          short_description?: string | null
+          slug?: string | null
+          status?: string
           updated_at?: string
           website_url?: string | null
           what3words?: string | null
@@ -2420,6 +2486,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      internal_get_secret: { Args: { secret_name: string }; Returns: string }
       staff_teaches_class: {
         Args: { _class_id: string; _staff_id: string }
         Returns: boolean
@@ -2566,9 +2633,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       app_role: ["admin", "parent", "staff"],

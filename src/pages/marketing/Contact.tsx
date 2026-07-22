@@ -530,7 +530,7 @@ const Contact = () => {
                     size="lg"
                     className="px-9 py-6 text-base font-semibold uppercase tracking-wider animate-glow-pulse"
                   >
-                    <Link to="/classes">
+                    <Link to="/classes/children">
                       Explore classes
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>

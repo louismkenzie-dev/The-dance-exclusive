@@ -16,7 +16,7 @@ import {
   Clock,
   HeartHandshake,
   Compass,
-  Star,
+  Crown,
   Navigation,
 } from "lucide-react";
 import GrainOverlay from "@/components/immersive/GrainOverlay";
@@ -48,7 +48,7 @@ interface PublicVenue {
 }
 
 /** Brand tint rotation — blue → violet → pink → magenta, matching the journey grade. */
-const TINTS = ["201 70% 65%", "260 75% 62%", "300 80% 58%", "330 90% 55%"];
+const TINTS = ["193 100% 44%", "260 75% 62%", "300 80% 58%", "330 90% 55%"];
 
 /** Real facility chips — rendered only when the venue record actually has them. */
 const facilityChips = (v: PublicVenue): { label: string; icon: typeof MapPin }[] => {
@@ -82,7 +82,7 @@ const bodyType = {
 const EXPECT = [
   {
     icon: HeartHandshake,
-    tint: "201 70% 65%",
+    tint: "193 100% 44%",
     title: "A Warm Welcome",
     copy: "Arrive five minutes early and a member of our team will greet you by name, show you the studio and settle any first-day nerves — yours or your dancer's.",
   },
@@ -160,7 +160,7 @@ const Venues = () => {
           </p>
           <h1 className="font-display font-bold leading-[0.92] tracking-tight text-foreground text-[16vw] sm:text-7xl md:text-8xl">
             <span className="block">Find Your</span>
-            <span className="block text-primary drop-shadow-[0_0_40px_hsl(201_70%_65%/0.35)]">
+            <span className="block text-primary drop-shadow-[0_0_40px_hsl(193_100%_44%/0.35)]">
               Studio
             </span>
           </h1>
@@ -240,7 +240,7 @@ const Venues = () => {
           className="absolute inset-0 opacity-90"
           style={{
             background:
-              "linear-gradient(180deg, hsl(220 20% 4%), hsl(220 22% 6%)), radial-gradient(80% 60% at 0% 0%, hsl(201 70% 55% / 0.10), transparent 60%), radial-gradient(80% 60% at 100% 100%, hsl(330 90% 55% / 0.12), transparent 60%)",
+              "linear-gradient(180deg, hsl(220 20% 4%), hsl(220 22% 6%)), radial-gradient(80% 60% at 0% 0%, hsl(193 100% 40% / 0.10), transparent 60%), radial-gradient(80% 60% at 100% 100%, hsl(330 90% 55% / 0.12), transparent 60%)",
           }}
         />
         <GrainOverlay />
@@ -339,7 +339,7 @@ const Venues = () => {
                           </>
                         )}
                         <div className="absolute top-3 left-3 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-background/70 backdrop-blur-sm border border-border text-[10px] uppercase tracking-[0.18em] text-foreground/80">
-                          <Star className="w-3 h-3 text-accent" fill="currentColor" />
+                          <Crown className="w-3 h-3 text-accent" fill="currentColor" />
                           {v.is_featured ? "New for September" : "Award-winning"}
                         </div>
                       </div>
@@ -383,21 +383,30 @@ const Venues = () => {
                           </ul>
                         )}
 
-                        <div className="mt-6 pt-5 border-t border-border/60 flex items-center justify-between gap-3">
-                          <Button
-                            asChild
-                            className="font-semibold uppercase tracking-wider"
-                            style={{ background: `hsl(${tint})`, color: "hsl(220 20% 6%)" }}
-                          >
-                            <Link to="/classes/children">
-                              View Classes <ArrowRight className="w-4 h-4 ml-2" />
-                            </Link>
-                          </Button>
+                        <div className="mt-6 pt-5 border-t border-border/60">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              asChild
+                              size="sm"
+                              className="flex-1 font-semibold uppercase tracking-wider text-xs"
+                              style={{ background: `hsl(${tint})`, color: "hsl(220 20% 6%)" }}
+                            >
+                              <Link to="/classes/children">Children's Classes</Link>
+                            </Button>
+                            <Button
+                              asChild
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 font-semibold uppercase tracking-wider text-xs border-accent/40 text-foreground hover:bg-accent/10"
+                            >
+                              <Link to="/classes/adult">Adult Classes</Link>
+                            </Button>
+                          </div>
                           <a
                             href={directionsUrl(v)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.15em] text-muted-foreground/70 transition-colors hover:text-foreground"
+                            className="mt-3 inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.15em] text-muted-foreground/70 transition-colors hover:text-foreground"
                           >
                             <Navigation className="w-3.5 h-3.5" /> Directions
                           </a>
@@ -421,15 +430,24 @@ const Venues = () => {
                       Pop your postcode into the class browser and we'll sort every class by
                       distance from your front door.
                     </p>
-                    <Button
-                      asChild
-                      variant="outline"
-                      className="mt-5 font-semibold uppercase tracking-wider border-primary/40 text-foreground hover:bg-primary/10"
-                    >
-                      <Link to="/classes/children">
-                        Browse Every Class <ArrowRight className="w-4 h-4 ml-2" />
-                      </Link>
-                    </Button>
+                    <div className="mt-5 flex items-center justify-center gap-2">
+                      <Button
+                        asChild
+                        size="sm"
+                        variant="outline"
+                        className="font-semibold uppercase tracking-wider text-xs border-primary/40 text-foreground hover:bg-primary/10"
+                      >
+                        <Link to="/classes/children">Children's Classes</Link>
+                      </Button>
+                      <Button
+                        asChild
+                        size="sm"
+                        variant="outline"
+                        className="font-semibold uppercase tracking-wider text-xs border-accent/40 text-foreground hover:bg-accent/10"
+                      >
+                        <Link to="/classes/adult">Adult Classes</Link>
+                      </Button>
+                    </div>
                   </div>
                 </article>
               </Reveal>

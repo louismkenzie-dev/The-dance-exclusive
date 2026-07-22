@@ -185,6 +185,8 @@ const AdminClasses = () => {
   const [classStatus, setClassStatus] = useState("confirmed");
   const [publiclyVisible, setPubliclyVisible] = useState(true);
   const [bookingEnabled, setBookingEnabled] = useState(true);
+  const [siblingDiscountEnabled, setSiblingDiscountEnabled] = useState(true);
+  const [whatsappGroupUrl, setWhatsappGroupUrl] = useState("");
 
   const filteredWorkshops = useMemo(() => 
     workshops.filter(w => w.class_type === classType).sort((a, b) => a.name.localeCompare(b.name)),
@@ -292,6 +294,8 @@ const AdminClasses = () => {
     setClassStatus("confirmed");
     setPubliclyVisible(true);
     setBookingEnabled(true);
+    setSiblingDiscountEnabled(true);
+    setWhatsappGroupUrl("");
     setEditing(null);
     setStep(1);
   };
@@ -482,6 +486,8 @@ const AdminClasses = () => {
     setClassStatus((c as any).status || "confirmed");
     setPubliclyVisible((c as any).publicly_visible ?? true);
     setBookingEnabled((c as any).booking_enabled ?? true);
+    setSiblingDiscountEnabled((c as any).sibling_discount_enabled ?? true);
+    setWhatsappGroupUrl((c as any).whatsapp_group_url || "");
     setStep(1);
     setOpen(true);
   };
@@ -529,6 +535,8 @@ const AdminClasses = () => {
       publicly_visible: publiclyVisible,
       // Invite-only sessions must never behave like open-enrolment classes.
       booking_enabled: inviteOnly ? false : bookingEnabled,
+      sibling_discount_enabled: siblingDiscountEnabled,
+      whatsapp_group_url: whatsappGroupUrl.trim() || null,
     };
 
     if (payload.school_year_min != null && payload.school_year_max != null && payload.school_year_min > payload.school_year_max) {
@@ -628,6 +636,20 @@ const AdminClasses = () => {
   const canProceedStep3 = sessions.length > 0;
   // Pricing step has no hard requirement; you can always continue to staffing
   const canProceedStep4 = true;
+
+  // Pricing rule suggestions derived from the per-session price:
+  // monthly = session × 3.4 (38 dance weeks Sept–July ÷ months), yearly = session × 38 × 0.90, term = session × sessions-in-term × 0.95.
+  const sessionPriceNum = parseFloat(pricePerSession);
+  const hasSessionPrice = !Number.isNaN(sessionPriceNum) && sessionPriceNum > 0;
+  const monthlySuggestion = hasSessionPrice ? (sessionPriceNum * 3.4).toFixed(2) : "";
+  const yearlySuggestion = hasSessionPrice ? (sessionPriceNum * 38 * 0.9).toFixed(2) : "";
+  // Sessions per term from the wizard's generated sessions (averaged when several terms are selected)
+  const sessionsPerTerm = sessions.length > 0
+    ? Math.round(sessions.length / Math.max(selectedTermIds.length, 1))
+    : 0;
+  const termSuggestion = hasSessionPrice && sessionsPerTerm > 0
+    ? (sessionPriceNum * sessionsPerTerm * 0.95).toFixed(2)
+    : "";
 
   return (
     <div className="p-4 md:p-8">
@@ -752,6 +774,19 @@ const AdminClasses = () => {
                   </Card>
                 )}
 
+                <div className="space-y-2">
+                  <Label>WhatsApp group link</Label>
+                  <Input
+                    type="url"
+                    value={whatsappGroupUrl}
+                    onChange={e => setWhatsappGroupUrl(e.target.value)}
+                    placeholder="https://chat.whatsapp.com/..."
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Optional. Parents with a confirmed booking see a "Join the class WhatsApp group" link in their portal.
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Ability Level (minimum) *</Label>
@@ -825,9 +860,9 @@ const AdminClasses = () => {
                       className="mt-0.5"
                     />
                     <div className="space-y-1">
-                      <span className="text-sm font-medium text-foreground">Allow first-time trial session</span>
+                      <span className="text-sm font-medium text-foreground">Allow trial sessions</span>
                       <p className="text-xs text-muted-foreground">
-                        New students can try their first session for free before committing. Card details are still required but the first session won't be charged. They can cancel anytime before the second session.
+                        New students can book a one-off trial charged at the single-session price.
                       </p>
                     </div>
                   </label>
@@ -1146,18 +1181,47 @@ const AdminClasses = () => {
                     <div className="space-y-2">
                       <Label className="text-xs">Per Session (£)</Label>
                       <Input type="number" step="0.01" value={pricePerSession} onChange={e => setPricePerSession(e.target.value)} placeholder="e.g. 9" />
+                      {classType === "children" && (
+                        <p className="text-[11px] text-muted-foreground">
+                          Children's classes can't be booked as drop-ins — this price is used for the paid trial and to derive plan prices.
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs">Monthly Subscription (£)</Label>
                       <Input type="number" step="0.01" value={pricePerMonth} onChange={e => setPricePerMonth(e.target.value)} placeholder="e.g. 30" />
+                      <p className="text-[11px] text-muted-foreground">
+                        Monthly = session price × 3.4 (38 dance weeks Sept–July ÷ months, e.g. £9 → £30.60).
+                      </p>
+                      {!pricePerMonth && monthlySuggestion && (
+                        <Button type="button" variant="outline" size="sm" className="h-6 px-2 text-xs" onClick={() => setPricePerMonth(monthlySuggestion)}>
+                          Use £{monthlySuggestion}
+                        </Button>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs">Per Term (£)</Label>
                       <Input type="number" step="0.01" value={pricePerTerm} onChange={e => setPricePerTerm(e.target.value)} placeholder="e.g. 60" />
+                      <p className="text-[11px] text-muted-foreground">
+                        Term = session price × sessions in the term × 0.95 (5% off).
+                      </p>
+                      {!pricePerTerm && termSuggestion && (
+                        <Button type="button" variant="outline" size="sm" className="h-6 px-2 text-xs" onClick={() => setPricePerTerm(termSuggestion)}>
+                          Use £{termSuggestion}
+                        </Button>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs">Per Year (£)</Label>
                       <Input type="number" step="0.01" value={pricePerYear} onChange={e => setPricePerYear(e.target.value)} placeholder="e.g. 150" />
+                      <p className="text-[11px] text-muted-foreground">
+                        Yearly = session price × 38 × 0.90 (10% off — best deal).
+                      </p>
+                      {!pricePerYear && yearlySuggestion && (
+                        <Button type="button" variant="outline" size="sm" className="h-6 px-2 text-xs" onClick={() => setPricePerYear(yearlySuggestion)}>
+                          Use £{yearlySuggestion}
+                        </Button>
+                      )}
                     </div>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -1177,6 +1241,13 @@ const AdminClasses = () => {
                       <Label className="text-xs text-muted-foreground">Year Discount (£)</Label>
                       <Input type="number" step="0.01" value={yearDiscountAmount} onChange={e => setYearDiscountAmount(e.target.value)} placeholder="e.g. 10" />
                     </div>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Sibling discount applies (10% off for second child onwards)</p>
+                      <p className="text-xs text-muted-foreground">Applied automatically at checkout to children's items when booking for more than one child.</p>
+                    </div>
+                    <Switch checked={siblingDiscountEnabled} onCheckedChange={setSiblingDiscountEnabled} />
                   </div>
                 </div>
 

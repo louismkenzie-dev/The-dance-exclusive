@@ -32,7 +32,7 @@ import { useMagnetic } from "@/hooks/useMagnetic";
 type Tone = "blue" | "mag" | "violet";
 
 const TONE: Record<Tone, { hsl: string; light: string; chip: string }> = {
-  blue: { hsl: "201 70% 65%", light: "stage-light-blue", chip: "text-primary" },
+  blue: { hsl: "193 100% 44%", light: "stage-light-blue", chip: "text-primary" },
   mag: { hsl: "330 90% 55%", light: "stage-light-mag", chip: "text-accent" },
   violet: { hsl: "270 75% 62%", light: "stage-light-duo", chip: "text-primary" },
 };
@@ -186,7 +186,7 @@ const Gallery = () => {
           className="absolute inset-0 opacity-90"
           style={{
             background:
-              "linear-gradient(180deg, hsl(220 20% 4%), hsl(220 22% 6%)), radial-gradient(80% 60% at 0% 0%, hsl(201 70% 55% / 0.10), transparent 60%), radial-gradient(80% 60% at 100% 100%, hsl(330 90% 55% / 0.12), transparent 60%)",
+              "linear-gradient(180deg, hsl(220 20% 4%), hsl(220 22% 6%)), radial-gradient(80% 60% at 0% 0%, hsl(193 100% 40% / 0.10), transparent 60%), radial-gradient(80% 60% at 100% 100%, hsl(330 90% 55% / 0.12), transparent 60%)",
           }}
         />
         <GrainOverlay />
@@ -216,7 +216,7 @@ const Gallery = () => {
                     onClick={() => setActive(f.id)}
                     className={`px-5 py-2 rounded-full text-xs font-semibold uppercase tracking-[0.18em] border transition-all duration-300 ${
                       on
-                        ? "bg-accent/15 border-accent/50 text-accent shadow-[0_0_24px_hsl(330_90%_55%/0.25)]"
+                        ? "bg-primary/15 border-primary/50 text-primary shadow-[0_0_24px_hsl(193_100%_44%/0.25)]"
                         : "bg-card/50 border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
                     }`}
                   >
@@ -341,7 +341,7 @@ const Gallery = () => {
                   className="absolute inset-0 transition-transform duration-700 group-hover:scale-[1.03]"
                   style={{
                     background:
-                      "radial-gradient(80% 70% at 50% 25%, hsl(330 90% 55% / 0.3), transparent 60%), radial-gradient(70% 60% at 20% 90%, hsl(201 70% 65% / 0.25), transparent 60%)",
+                      "radial-gradient(80% 70% at 50% 25%, hsl(330 90% 55% / 0.3), transparent 60%), radial-gradient(70% 60% at 20% 90%, hsl(193 100% 44% / 0.25), transparent 60%)",
                   }}
                 />
                 <GrainOverlay />

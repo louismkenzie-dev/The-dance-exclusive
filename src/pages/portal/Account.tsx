@@ -15,6 +15,7 @@ import { Plus, User, Users, MapPin, ShieldCheck, Pencil, Trash2, Camera, Sparkle
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { ChildFormDialog } from "@/components/portal/ChildFormDialog";
+import DateOfBirthPicker from "@/components/portal/DateOfBirthPicker";
 import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
 import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
@@ -416,11 +417,12 @@ const Account = () => {
         <h3 className="text-sm font-semibold flex items-center gap-1.5 mb-3"><User className="w-4 h-4" /> Personal Details</h3>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Date of Birth</Label>
-            <Input
-              type="date"
+            <Label htmlFor="adult-dob-day">Date of Birth</Label>
+            <DateOfBirthPicker
+              id="adult-dob-day"
               value={profileForm.date_of_birth || ""}
-              onChange={(e) => setProfileForm({ ...profileForm, date_of_birth: e.target.value })}
+              onChange={(v) => setProfileForm({ ...profileForm, date_of_birth: v || null })}
+              popoverClassName="theme-adult"
             />
             {profileForm.date_of_birth && (
               <p className="text-xs text-muted-foreground">Age: {getAge(profileForm.date_of_birth)}</p>
@@ -430,7 +432,8 @@ const Account = () => {
             <Label>Gender</Label>
             <Select value={profileForm.gender || ""} onValueChange={(v) => setProfileForm({ ...profileForm, gender: v })}>
               <SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger>
-              <SelectContent>
+              {/* Adult section is PINK-themed; popover portals to body so it needs the class itself */}
+              <SelectContent className="theme-adult">
                 {GENDER_OPTIONS.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -446,7 +449,7 @@ const Account = () => {
             <Label>Current Level</Label>
             <Select value={profileForm.ability_level || ""} onValueChange={(v) => setProfileForm({ ...profileForm, ability_level: v })}>
               <SelectTrigger><SelectValue placeholder="Select your level" /></SelectTrigger>
-              <SelectContent>
+              <SelectContent className="theme-adult">
                 {ABILITY_LEVELS.map((l) => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -455,7 +458,7 @@ const Account = () => {
             <Label>What dance styles interest you?</Label>
             <Select value={profileForm.dance_style_preference || ""} onValueChange={(v) => setProfileForm({ ...profileForm, dance_style_preference: v })}>
               <SelectTrigger><SelectValue placeholder="Select preferred style" /></SelectTrigger>
-              <SelectContent>
+              <SelectContent className="theme-adult">
                 {DANCE_STYLES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -750,6 +753,8 @@ const Account = () => {
                       avatarUrl={selfProfile.avatar_url}
                       initials={`${selfProfile.first_name?.[0] ?? ""}${selfProfile.last_name?.[0] ?? ""}`}
                       size="sm"
+                      photoPrimary={false}
+                      expandable
                     />
                     <p>
                       <span className="text-foreground font-medium">{selfProfile.first_name} {selfProfile.last_name}</span>
@@ -813,6 +818,8 @@ const Account = () => {
                           avatarUrl={c.avatar_url}
                           initials={`${c.first_name?.[0] ?? ""}${c.last_name?.[0] ?? ""}`}
                           size="md"
+                          photoPrimary={false}
+                          expandable
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">

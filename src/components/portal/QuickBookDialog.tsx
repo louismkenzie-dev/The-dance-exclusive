@@ -4,6 +4,16 @@ import { format, parseISO } from "date-fns";
 import { CalendarDays, ShoppingCart, Sparkles, Tag, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,6 +21,17 @@ import { useCart, type PricingPlan } from "@/contexts/CartContext";
 import { supabase } from "@/integrations/supabase/client";
 import { isAttendeeProfileComplete } from "@/lib/attendeeProfile";
 import { ChildFormDialog } from "@/components/portal/ChildFormDialog";
+import {
+  MONTHLY_MEMBERSHIP_NOTICE,
+  MONTHLY_PAYMENT_INFO,
+  monthlyPrice,
+  sessionPrice,
+  termPrice,
+  termlySavingsPercent,
+  trialPrice,
+  yearlyPrice,
+  yearlySavingsPercent,
+} from "@/lib/pricing";
 
 interface SessionRow {
   id: string;
@@ -97,30 +118,31 @@ export function QuickBookDialog({
   const [plan, setPlan] = useState<PricingPlan>("session");
   const [selSessions, setSelSessions] = useState<string[]>([]);
   const [selKids, setSelKids] = useState<string[]>([]);
+  // Monthly memberships require an explicit cancellation-notice acknowledgement.
+  const [monthlyNoticeOpen, setMonthlyNoticeOpen] = useState(false);
   // Add / complete an attendee profile without leaving the booking dialog.
   const [childDialog, setChildDialog] = useState<{ editing: any | null; selfMode: boolean } | null>(null);
 
-  // Reset selections when class changes / dialog opens
+  // Reset selections when class changes / dialog opens.
+  // Children: trial → monthly membership (no drop-ins). Adults: pay as you go.
   useEffect(() => {
     if (open && classData) {
       setSelSessions([]);
       setSelKids([]);
-      if (classData.allow_trial && hasExistingBookings === false) {
-        setPlan("trial");
-      } else if (classData.price_per_session) {
+      if (classData.class_type === "adult") {
         setPlan("session");
-      } else if (classData.price_per_term) {
-        setPlan("term");
-      } else if (classData.price_per_month || classData.price_per_year) {
+      } else if (classData.allow_trial && hasExistingBookings === false) {
+        setPlan("trial");
+      } else {
         setPlan("monthly");
       }
     }
   }, [open, classData, hasExistingBookings]);
 
-  // Auto-select sessions for term/monthly plans (must run before any early return)
+  // Auto-select sessions for whole-plan purchases (must run before any early return)
   useEffect(() => {
     if (!open || !classData) return;
-    if (plan === "term" || plan === "monthly") {
+    if (plan === "term" || plan === "monthly" || plan === "yearly") {
       setSelSessions(sessions.map(s => s.id));
     } else if (plan === "session" || plan === "trial") {
       setSelSessions([]);
@@ -132,16 +154,19 @@ export function QuickBookDialog({
   const c = classData;
 
   const remaining = sessions.length;
+  const isChildren = c.class_type === "children";
   const isTrialEligible = c.allow_trial && hasExistingBookings === false;
-  const annualMonthlyCost = c.price_per_year ? c.price_per_year / 12 : null;
-  const termSavings = c.price_per_session && c.price_per_term && remaining > 0
-    ? Math.round((1 - c.price_per_term / (c.price_per_session * remaining)) * 100)
-    : c.term_discount_percent || 0;
-  const annualSavings = c.price_per_session && c.price_per_year
-    ? Math.round((1 - (c.price_per_year / 12) / (c.price_per_session * 4)) * 100)
-    : c.monthly_discount_percent || 0;
+  // Prices from the shared pricing engine (admin-set values win, otherwise
+  // derived from the class duration per the published price list).
+  const priceSession = sessionPrice(c);
+  const priceTrial = trialPrice(c);
+  const priceMonthly = monthlyPrice(c);
+  const priceYearly = yearlyPrice(c);
+  const priceTerm = termPrice(c, remaining);
+  const termSavings = termlySavingsPercent();
+  const yearlySavings = yearlySavingsPercent();
 
-  const accent = isAdult ? "hsl(330, 90%, 55%)" : "hsl(201, 70%, 65%)";
+  const accent = isAdult ? "hsl(330, 90%, 55%)" : "hsl(193, 100%, 44%)";
 
   const toggleSession = (id: string) => {
     setSelSessions(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
@@ -176,17 +201,18 @@ export function QuickBookDialog({
     const tooOld = c.age_max != null && age > c.age_max;
     // Has any cart item for non-pick plans (term/monthly) — used as a soft hint, NOT a disable
     const hasFullPlanItem = cartItems.some(ci =>
-      ci.classId === c.id && ci.studentId === ch.id && (ci.pricingPlan === "term" || ci.pricingPlan === "monthly")
+      ci.classId === c.id && ci.studentId === ch.id && (ci.pricingPlan === "term" || ci.pricingPlan === "monthly" || ci.pricingPlan === "yearly")
     );
     return { ...ch, age, eligible: !tooYoung && !tooOld, hasFullPlanItem };
   });
   const hasEligible = eligibleChildren.some(ch => ch.eligible);
 
   const sessionsSelected = selSessions.length;
-  const price = plan === "trial" ? 0
-    : plan === "term" ? c.price_per_term
-    : plan === "monthly" ? (annualMonthlyCost || c.price_per_month)
-    : c.price_per_session;
+  const price = plan === "trial" ? priceTrial
+    : plan === "term" ? priceTerm
+    : plan === "monthly" ? priceMonthly
+    : plan === "yearly" ? priceYearly
+    : priceSession;
 
   const noKidsSelected = c.class_type === "children" && selKids.length === 0;
   const noSessionsSelected = (plan === "session" || plan === "trial") && sessionsSelected === 0;
@@ -194,7 +220,7 @@ export function QuickBookDialog({
   const needsChild = c.class_type === "children" && children.length === 0;
   const needsSelfProfile = c.class_type === "adult" && !isAttendeeProfileComplete(selfStudent as any);
 
-  const totalForDropIn = plan === "session" && c.price_per_session ? c.price_per_session * sessionsSelected : price;
+  const totalForDropIn = plan === "session" ? priceSession * sessionsSelected : price;
   const kidCount = selKids.length || 1;
   const displayPrice = plan === "session" ? (totalForDropIn || 0) * kidCount : (price || 0) * kidCount;
 
@@ -244,10 +270,13 @@ export function QuickBookDialog({
       studentId: childId,
       studentName: childName,
       pricingPlan: plan,
-      unitPrice: plan === "session" ? (c.price_per_session || 0) : (price || 0),
-      totalPrice: plan === "session" ? (c.price_per_session || 0) * sessionIds.length : (price || 0),
-      sessionsCount: plan === "term" ? remaining : plan === "session" ? sessionIds.length : null,
-      termDiscountPercent: plan === "term" ? (c.term_discount_percent || null) : null,
+      unitPrice: plan === "session" ? priceSession : (price || 0),
+      totalPrice: plan === "session" ? priceSession * sessionIds.length : (price || 0),
+      sessionsCount: plan === "term" ? remaining
+        : plan === "session" ? sessionIds.length
+        : plan === "trial" ? 1
+        : null,
+      termDiscountPercent: plan === "term" ? termSavings : null,
       workshopImage: getWorkshopImageUrl(c.workshops?.cover_image),
       selectedSessionIds: sessionIds,
       selectedSessionDates: sessionIds.map(formatDate),
@@ -280,7 +309,7 @@ export function QuickBookDialog({
         } else {
           // term / monthly — one item per child; skip if they already have a full-plan item
           const hasFull = cartItems.some(ci =>
-            ci.classId === c.id && ci.studentId === childId && (ci.pricingPlan === "term" || ci.pricingPlan === "monthly")
+            ci.classId === c.id && ci.studentId === childId && (ci.pricingPlan === "term" || ci.pricingPlan === "monthly" || ci.pricingPlan === "yearly")
           );
           if (hasFull) {
             skippedSummary.push({ name: childName, dates: [] });
@@ -310,7 +339,7 @@ export function QuickBookDialog({
         }
       } else {
         const hasFull = cartItems.some(ci =>
-          ci.classId === c.id && (!ci.studentId || ci.studentId === selfId) && (ci.pricingPlan === "term" || ci.pricingPlan === "monthly")
+          ci.classId === c.id && (!ci.studentId || ci.studentId === selfId) && (ci.pricingPlan === "term" || ci.pricingPlan === "monthly" || ci.pricingPlan === "yearly")
         );
         if (hasFull) {
           skippedSummary.push({ name: "you", dates: [] });
@@ -368,7 +397,7 @@ export function QuickBookDialog({
               <Tag className="w-3 h-3" /> Choose Your Plan
             </p>
             <div className="grid gap-2">
-              {isTrialEligible && (
+              {isChildren && isTrialEligible && (
                 <button
                   onClick={() => setPlan("trial")}
                   className={`flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
@@ -379,14 +408,14 @@ export function QuickBookDialog({
                 >
                   <div>
                     <span className="font-semibold text-foreground flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-green-400" /> Free Trial Session
+                      <Sparkles className="w-3.5 h-3.5 text-green-400" /> Trial Session
                     </span>
-                    <span className="block text-[10px] text-muted-foreground">No commitment — come have fun!</span>
+                    <span className="block text-[10px] text-muted-foreground">The price of one class — come have fun!</span>
                   </div>
-                  <span className="font-bold text-green-400">FREE</span>
+                  <span className="font-bold text-green-400">£{priceTrial.toFixed(2).replace(/\.00$/, "")}</span>
                 </button>
               )}
-              {c.price_per_session && (
+              {!isChildren && (
                 <button
                   onClick={() => setPlan("session")}
                   className={`flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
@@ -396,13 +425,32 @@ export function QuickBookDialog({
                   }`}
                 >
                   <div>
-                    <span className="font-semibold text-foreground">Drop-in Sessions</span>
-                    <span className="block text-[10px] text-muted-foreground">Pick the dates you want to attend</span>
+                    <span className="font-semibold text-foreground">Pay As You Go</span>
+                    <span className="block text-[10px] text-muted-foreground">Pick the dates you want to attend · non-refundable, moveable up to 24h before</span>
                   </div>
-                  <span className="font-bold text-foreground">£{c.price_per_session}<span className="text-[10px] font-normal text-muted-foreground">/each</span></span>
+                  <span className="font-bold text-foreground">£{priceSession}<span className="text-[10px] font-normal text-muted-foreground">/class</span></span>
                 </button>
               )}
-              {c.price_per_term && remaining > 0 && (
+              {isChildren && (
+                <button
+                  onClick={() => setPlan("monthly")}
+                  className={`flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
+                    plan === "monthly"
+                      ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                      : "border-border/50 bg-background/50 hover:border-border"
+                  }`}
+                >
+                  <div>
+                    <span className="font-semibold text-foreground">Monthly Membership</span>
+                    <span className="block text-[10px] text-muted-foreground">Rolling monthly · paused in August · 1 month's notice to cancel</span>
+                  </div>
+                  <span className="font-bold text-foreground">
+                    £{priceMonthly.toFixed(2)}
+                    <span className="text-[10px] font-normal text-muted-foreground">/mo</span>
+                  </span>
+                </button>
+              )}
+              {isChildren && priceTerm != null && remaining > 0 && (
                 <button
                   onClick={() => setPlan("term")}
                   className={`flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
@@ -412,45 +460,41 @@ export function QuickBookDialog({
                   }`}
                 >
                   <div>
-                    <span className="font-semibold text-foreground">Full Term</span>
-                    <span className="block text-[10px] text-muted-foreground">All {remaining} sessions · save vs drop-in</span>
+                    <span className="font-semibold text-foreground">Pay Termly</span>
+                    <span className="block text-[10px] text-muted-foreground">All {remaining} sessions this term, upfront</span>
                   </div>
                   <div className="text-right">
-                    <span className="font-bold text-foreground">£{c.price_per_term}</span>
-                    {termSavings > 0 && (
-                      <Badge className="ml-1.5 bg-green-500/20 text-green-400 border-green-500/30 text-[9px]">SAVE {termSavings}%</Badge>
-                    )}
+                    <span className="font-bold text-foreground">£{priceTerm.toFixed(2)}</span>
+                    <Badge className="ml-1.5 bg-green-500/20 text-green-400 border-green-500/30 text-[9px]">SAVE {termSavings}%</Badge>
                   </div>
                 </button>
               )}
-              {(c.price_per_year || c.price_per_month) && (
+              {isChildren && (
                 <button
-                  onClick={() => setPlan("monthly")}
+                  onClick={() => setPlan("yearly")}
                   className={`relative flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
-                    plan === "monthly"
+                    plan === "yearly"
                       ? "border-primary bg-primary/10 ring-1 ring-primary/30"
                       : "border-border/50 bg-background/50 hover:border-border"
                   }`}
                 >
                   <div className="absolute -top-2 right-2">
-                    <Badge className="bg-primary text-primary-foreground text-[9px] px-1.5 py-0">BEST VALUE</Badge>
+                    <Badge className="bg-primary text-primary-foreground text-[9px] px-1.5 py-0">BEST DEAL</Badge>
                   </div>
                   <div>
-                    <span className="font-semibold text-foreground">Monthly Subscription</span>
-                    <span className="block text-[10px] text-muted-foreground">Commit for the year · cheapest per class</span>
+                    <span className="font-semibold text-foreground">Pay Yearly</span>
+                    <span className="block text-[10px] text-muted-foreground">Sept–July upfront · all 38 dance weeks</span>
                   </div>
                   <div className="text-right">
-                    <span className="font-bold text-foreground">
-                      £{annualMonthlyCost?.toFixed(2) || c.price_per_month}
-                      <span className="text-[10px] font-normal text-muted-foreground">/mo</span>
-                    </span>
-                    {annualSavings > 0 && (
-                      <Badge className="ml-1.5 bg-green-500/20 text-green-400 border-green-500/30 text-[9px]">SAVE {annualSavings}%</Badge>
-                    )}
+                    <span className="font-bold text-foreground">£{priceYearly.toFixed(2)}</span>
+                    <Badge className="ml-1.5 bg-green-500/20 text-green-400 border-green-500/30 text-[9px]">SAVE {yearlySavings}%</Badge>
                   </div>
                 </button>
               )}
             </div>
+            {plan === "monthly" && (
+              <p className="text-[10px] text-muted-foreground leading-relaxed">{MONTHLY_PAYMENT_INFO}</p>
+            )}
           </div>
 
           {/* Children selector — choose WHO before WHEN */}
@@ -626,13 +670,11 @@ export function QuickBookDialog({
         {/* Sticky footer */}
         <div className="border-t border-border/50 px-6 py-4 flex items-center justify-between gap-3">
           <div style={{ fontFamily: "var(--font-body)" }}>
-            {plan === "trial" ? (
-              <span className="text-lg font-bold text-green-400">FREE</span>
-            ) : displayPrice ? (
-              <span className="text-lg font-bold text-foreground">
+            {displayPrice ? (
+              <span className={`text-lg font-bold ${plan === "trial" ? "text-green-400" : "text-foreground"}`}>
                 £{displayPrice.toFixed(2).replace(/\.00$/, "")}
                 <span className="text-xs font-normal text-muted-foreground ml-0.5">
-                  /{plan === "term" ? "term" : plan === "monthly" ? "mo" : sessionsSelected > 1 ? `${sessionsSelected} sessions` : "session"}
+                  /{plan === "term" ? "term" : plan === "monthly" ? "mo" : plan === "yearly" ? "year" : plan === "trial" ? "trial" : sessionsSelected > 1 ? `${sessionsSelected} sessions` : "session"}
                 </span>
                 {selKids.length > 1 && (
                   <span className="text-xs font-normal text-muted-foreground ml-1">× {selKids.length} children</span>
@@ -645,6 +687,8 @@ export function QuickBookDialog({
             onClick={() => {
               if (needsChild) return setChildDialog({ editing: null, selfMode: false });
               if (needsSelfProfile) return setChildDialog({ editing: selfStudent, selfMode: true });
+              // Monthly membership: explicit cancellation-notice acknowledgement first.
+              if (plan === "monthly") return setMonthlyNoticeOpen(true);
               handleAddToCart();
             }}
             className="uppercase tracking-wider text-xs font-semibold gap-1.5"
@@ -659,13 +703,32 @@ export function QuickBookDialog({
               : needsSelfProfile ? "Set Up Your Profile"
               : noSessionsSelected ? "Select sessions"
               : noKidsSelected ? "Select child"
-              : plan === "trial" ? "Book Free Trial"
+              : plan === "trial" ? "Book Trial"
               : selKids.length > 1 ? `Add ${selKids.length} to Basket`
               : "Add to Basket"}
           </Button>
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Monthly membership cancellation notice — must be acknowledged before basket add */}
+    <AlertDialog open={monthlyNoticeOpen} onOpenChange={setMonthlyNoticeOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Monthly Membership</AlertDialogTitle>
+          <AlertDialogDescription className="space-y-3">
+            <span className="block">{MONTHLY_MEMBERSHIP_NOTICE}</span>
+            <span className="block text-xs">{MONTHLY_PAYMENT_INFO}</span>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Go back</AlertDialogCancel>
+          <AlertDialogAction onClick={() => { setMonthlyNoticeOpen(false); handleAddToCart(); }}>
+            I agree — add to basket
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
 
     {/* Add / complete an attendee profile in place */}
     <ChildFormDialog

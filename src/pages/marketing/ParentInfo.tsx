@@ -1,4 +1,7 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { format, parseISO } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   Accordion,
@@ -55,8 +58,8 @@ const QUICK_LINKS = [
 
 const FAQS: { q: string; a: string }[] = [
   {
-    q: "How do free trials work?",
-    a: "Every new dancer is welcome to a no-pressure trial class before committing to a term. Just book a trial slot online for the class that matches your child's age, turn up in comfy kit, and dance. If it's a fit, you can enrol on the spot — if it isn't, there's absolutely nothing to pay and no hard feelings.",
+    q: "How do trials work?",
+    a: "Every new dancer starts with a no-pressure trial class before committing to a term. Try your first class for just the price of a single session — £8 for 45-minute classes, £9 for 60-minute classes. Book a trial slot online for the class that matches your child's age, turn up in comfy kit, and dance. If it's a fit, you can enrol on the spot — if it isn't, there's nothing more to pay and no hard feelings.",
   },
   {
     q: "What's included in the price, and how does payment work?",
@@ -68,7 +71,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "What are the ages and levels?",
-    a: "We run age-banded classes from age 3 right through to adults: Tots (3–5), Juniors (6–10), Seniors (11–16) and Adults (16+). Within each band, dancers are grouped by experience, not just age, so a confident eight-year-old and a nervous beginner both land somewhere they'll thrive. Not sure where your child fits? Tell us their age and experience and we'll place them perfectly.",
+    a: "We run age-banded classes from age 3 right through to adults: Tots (3–5), Juniors (6–10), Seniors (11–17) and Adults (19+). Within each band, dancers are grouped by experience, not just age, so a confident eight-year-old and a nervous beginner both land somewhere they'll thrive. Not sure where your child fits? Tell us their age and experience and we'll place them perfectly.",
   },
   {
     q: "What are the term dates?",
@@ -92,7 +95,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "I'm completely new to this — where do I start?",
-    a: "Start with a trial. Honestly, that's it. Pick the class that matches your child's age, book a free trial, and come and feel the energy for yourself. There's no audition, no experience needed, and no commitment until you're ready. If you'd rather chat it through with a human first, our contact page is at the bottom of this page.",
+    a: "Start with a trial. Honestly, that's it. Pick the class that matches your child's age, book a trial, and come and feel the energy for yourself. There's no audition, no experience needed, and no commitment until you're ready. If you'd rather chat it through with a human first, our contact page is at the bottom of this page.",
   },
   {
     q: "Do you offer classes for adults too?",
@@ -127,12 +130,14 @@ const UNIFORM = [
   },
 ];
 
+/* Hardcoded 2025/26 dates — used only as a fallback when the live
+   school_terms fetch returns nothing. */
 const TERMS = [
   {
     term: "Autumn Term",
     dates: "Mon 1 Sep – Fri 19 Dec 2025",
     half: "Half-term break: 27–31 Oct",
-    tint: "201 70% 65%",
+    tint: "193 100% 44%",
   },
   {
     term: "Spring Term",
@@ -147,6 +152,17 @@ const TERMS = [
     tint: "330 90% 55%",
   },
 ];
+
+interface SchoolTerm {
+  name: string;
+  term_type: string;
+  academic_year: string;
+  start_date: string;
+  end_date: string;
+}
+
+/** Brand tint rotation for term cards — matches the hardcoded TERMS palette. */
+const TERM_TINTS = ["193 100% 44%", "260 75% 62%", "330 90% 55%"];
 
 const SAFEGUARDING = [
   {
@@ -192,6 +208,40 @@ const STATS = [
 
 const ParentInfo = () => {
   const magCta = useMagnetic<HTMLDivElement>(0.22);
+  const [schoolTerms, setSchoolTerms] = useState<SchoolTerm[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("school_terms")
+        .select("name, term_type, academic_year, start_date, end_date")
+        .order("start_date", { ascending: true });
+      if (!cancelled && !error && data) setSchoolTerms(data as SchoolTerm[]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /* Live terms from Supabase when available; hardcoded TERMS otherwise. */
+  const termCards =
+    schoolTerms.length > 0
+      ? schoolTerms.map((t, i) => ({
+          term: t.name,
+          dates: `${format(parseISO(t.start_date), "EEE d MMM yyyy")} – ${format(
+            parseISO(t.end_date),
+            "EEE d MMM yyyy",
+          )}`,
+          half: `Academic year ${t.academic_year}`,
+          tint: TERM_TINTS[i % TERM_TINTS.length],
+          provisional: t.name.toLowerCase().includes("provisional"),
+        }))
+      : TERMS.map((t) => ({ ...t, provisional: false }));
+
+  const academicYears = [...new Set(schoolTerms.map((t) => t.academic_year))];
+  const termYearLabel =
+    academicYears.length > 0 ? academicYears.join(" · ") : "2025/26";
 
   return (
     <div className="bg-background text-foreground overflow-x-clip">
@@ -246,7 +296,7 @@ const ParentInfo = () => {
       <div className="border-b border-border bg-card/40 py-4 text-foreground/90">
         <Marquee
           items={[
-            "Free First Trial",
+            "Paid Trials — Just One Class",
             "DBS-Checked Coaches",
             "Fully Insured",
             "First-Aid Trained",
@@ -393,7 +443,7 @@ const ParentInfo = () => {
               Plan the Year Ahead
             </p>
             <h2 className="font-display font-bold text-4xl md:text-6xl">
-              Term Dates 2025/26
+              Term Dates {termYearLabel}
             </h2>
             <p className="mt-4 text-muted-foreground" style={body}>
               We follow the standard Essex school-term pattern, with breaks for
@@ -403,8 +453,8 @@ const ParentInfo = () => {
           </Reveal>
 
           <div className="grid md:grid-cols-3 gap-5">
-            {TERMS.map((t, i) => (
-              <Reveal key={t.term} delay={i * 100}>
+            {termCards.map((t, i) => (
+              <Reveal key={`${t.term}-${i}`} delay={i * 100}>
                 <div
                   className="group relative h-full rounded-2xl border p-7 bg-card/60 backdrop-blur-sm transition-all duration-500 hover:-translate-y-1.5 overflow-hidden"
                   style={{ borderColor: `hsl(${t.tint} / 0.35)` }}
@@ -431,6 +481,13 @@ const ParentInfo = () => {
                     >
                       {t.half}
                     </p>
+                    {t.provisional && (
+                      <span
+                        className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-accent"
+                      >
+                        Dates to be confirmed
+                      </span>
+                    )}
                   </div>
                 </div>
               </Reveal>
@@ -544,8 +601,8 @@ const ParentInfo = () => {
               {
                 Icon: Sparkles,
                 step: "02",
-                title: "Book a free trial",
-                copy: "Reserve a no-commitment trial in a few taps. Instant confirmation by email — nothing to pay until you're sure.",
+                title: "Book a trial",
+                copy: "Try your first class for just the price of a single session — £8 for 45-minute classes, £9 for 60-minute classes. Reserve in a few taps, with instant confirmation by email.",
               },
               {
                 Icon: Users,

@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
-import { CalendarDays, MapPin, User, Users, Clock, Tag, Plus, QrCode } from "lucide-react";
+import { CalendarDays, MapPin, User, Users, Clock, Tag, Plus, QrCode, MessageCircle } from "lucide-react";
 import BookingQrDialog from "@/components/portal/BookingQrDialog";
 
 const statusColors: Record<string, "default" | "secondary" | "destructive"> = {
@@ -35,11 +35,15 @@ const MyBookings = () => {
     const fetchBookings = async () => {
       const { data } = await supabase
         .from("bookings")
-        .select(`*, 
-          classes(name, day_of_week, start_time, end_time, class_type, dance_style, price_per_session, price_per_term, price_per_month, price_per_year,
+        .select(`*,
+          classes(name, day_of_week, start_time, end_time, class_type, dance_style, price_per_session, price_per_term, price_per_month, price_per_year, whatsapp_group_url,
             venues(name, address_line1, city, postcode),
             workshops(name, cover_image)
-          ), 
+          ),
+          camps(name, start_date, end_date, start_time, end_time, class_type,
+            venues(name, address_line1, city, postcode),
+            workshops(name, cover_image)
+          ),
           students(first_name, last_name, preferred_name, profile_photo)`)
         .eq("parent_id", user.id)
         .order("booked_at", { ascending: false });
@@ -82,7 +86,20 @@ const MyBookings = () => {
       ) : (
         <div className="space-y-3">
           {bookings.map((b) => {
-            const cls = b.classes;
+            const camp = b.camps;
+            // Camp (holiday workshop) bookings have no class row — surface the
+            // camp's details through the same card shape.
+            const cls = b.classes ?? (camp ? {
+              name: camp.name,
+              day_of_week: null,
+              start_time: camp.start_time,
+              end_time: camp.end_time,
+              class_type: camp.class_type,
+              dance_style: null,
+              whatsapp_group_url: null,
+              venues: camp.venues,
+              workshops: camp.workshops,
+            } : null);
             const student = b.students;
             const venue = cls?.venues;
             const isAdult = cls?.class_type === "adult";
@@ -117,7 +134,11 @@ const MyBookings = () => {
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <CalendarDays className="w-3.5 h-3.5" />
-                              {cls?.day_of_week?.charAt(0).toUpperCase() + cls?.day_of_week?.slice(1)}
+                              {cls?.day_of_week
+                                ? cls.day_of_week.charAt(0).toUpperCase() + cls.day_of_week.slice(1)
+                                : camp?.start_date && camp?.end_date
+                                  ? `${camp.start_date.slice(8, 10)}/${camp.start_date.slice(5, 7)} – ${camp.end_date.slice(8, 10)}/${camp.end_date.slice(5, 7)}`
+                                  : "—"}
                             </span>
                             <span className="flex items-center gap-1">
                               <Clock className="w-3.5 h-3.5" />
@@ -164,6 +185,18 @@ const MyBookings = () => {
                             )}
                             <span>Booked: {format(new Date(b.booked_at), "d MMM yyyy")}</span>
                           </div>
+
+                          {/* WhatsApp group link (confirmed bookings only) */}
+                          {b.status === "confirmed" && cls?.whatsapp_group_url && (
+                            <a
+                              href={cls.whatsapp_group_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex w-fit items-center gap-1.5 rounded-md bg-[#25D366] px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#1DA851] mt-1"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" /> Join the class WhatsApp group
+                            </a>
+                          )}
                         </div>
 
                         {/* Price + QR */}

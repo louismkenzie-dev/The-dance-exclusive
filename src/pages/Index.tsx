@@ -10,9 +10,9 @@ import {
   ShieldCheck,
   MapPin,
   Star,
-  Quote,
 } from "lucide-react";
 import logo from "@/assets/logo-dark.png";
+import GoogleReviews from "@/components/GoogleReviews";
 import GrainOverlay from "@/components/immersive/GrainOverlay";
 import { Reveal } from "@/components/immersive/Reveal";
 import { Marquee } from "@/components/immersive/Marquee";
@@ -23,14 +23,14 @@ import { ScrollProgress } from "@/components/immersive/ScrollProgress";
 import FeaturedVenueCarousel from "@/components/FeaturedVenueCarousel";
 
 const JOURNEY = [
-  { stage: "Tots", age: "Ages 3–5", copy: "First steps, big smiles. Rhythm, confidence and play.", tint: "201 70% 65%" },
+  { stage: "Tots", age: "Ages 3–5", copy: "First steps, big smiles. Rhythm, confidence and play.", tint: "193 100% 44%" },
   { stage: "Juniors", age: "Ages 6–10", copy: "Street & commercial foundations. Crews, routines, showcases.", tint: "260 75% 62%" },
-  { stage: "Seniors", age: "Ages 11–16", copy: "Competition-level technique. Stage craft and serious skills.", tint: "300 80% 58%" },
-  { stage: "Adults", age: "16+", copy: "Heels, commercial & street. Train hard, feel unstoppable.", tint: "330 90% 55%" },
+  { stage: "Seniors", age: "Ages 11–17", copy: "Competition-level technique. Stage craft and serious skills.", tint: "300 80% 58%" },
+  { stage: "Adults", age: "19+", copy: "Heels, commercial & street. Train hard, feel unstoppable.", tint: "330 90% 55%" },
 ];
 
 const STATS = [
-  { value: 10, suffix: "+", label: "Award-Winning Years" },
+  { value: 7, suffix: "+", label: "Award-Winning Years" },
   { value: 500, suffix: "+", label: "Dancers & Counting" },
   { value: 12, suffix: "", label: "Classes Every Week" },
   { value: 5, suffix: "", label: "Essex Venues" },
@@ -79,7 +79,7 @@ const Index = () => {
 
           <h1 className="font-display font-bold leading-[0.92] tracking-tight text-foreground text-[18vw] sm:text-8xl md:text-[8.5rem] drop-shadow-[0_4px_30px_rgba(0,0,0,0.7)]">
             <span className="block">Move</span>
-            <span className="block text-primary drop-shadow-[0_0_40px_hsl(201_70%_65%/0.45)]">Different</span>
+            <span className="block text-primary drop-shadow-[0_0_40px_hsl(193_100%_44%/0.45)]">Different</span>
           </h1>
 
           <p
@@ -163,7 +163,7 @@ const Index = () => {
           className="absolute inset-0 opacity-90"
           style={{
             background:
-              "linear-gradient(180deg, hsl(220 20% 4%), hsl(220 22% 6%)), radial-gradient(80% 60% at 0% 0%, hsl(201 70% 55% / 0.10), transparent 60%), radial-gradient(80% 60% at 100% 100%, hsl(330 90% 55% / 0.12), transparent 60%)",
+              "linear-gradient(180deg, hsl(220 20% 4%), hsl(220 22% 6%)), radial-gradient(80% 60% at 0% 0%, hsl(193 100% 40% / 0.10), transparent 60%), radial-gradient(80% 60% at 100% 100%, hsl(330 90% 55% / 0.12), transparent 60%)",
           }}
         />
         <GrainOverlay />
@@ -209,8 +209,8 @@ const Index = () => {
       {/* ───────────────── TWO-TRACK SPLIT ───────────────── */}
       <section className="grid md:grid-cols-2">
         {[
-          { to: "/classes/children", label: "Children", sub: "Ages 3–16", blurb: "Street, commercial & competition crews", cls: "stage-light-blue", color: "201 70% 65%", Icon: Sparkles, img: "/img/kids-energy.jpg" },
-          { to: "/classes/adult", label: "Adults", sub: "16+", blurb: "Heels, commercial & street technique", cls: "stage-light-mag", color: "330 90% 55%", Icon: Heart, img: "/img/adult-heels.jpg" },
+          { to: "/classes/children", label: "Children", sub: "Ages 3–17", blurb: "Street, commercial & competition crews", cls: "stage-light-blue", color: "193 100% 44%", Icon: Sparkles, img: "/img/kids-energy.jpg" },
+          { to: "/classes/adult", label: "Adults", sub: "19+", blurb: "Heels, commercial & street technique", cls: "stage-light-mag", color: "330 90% 55%", Icon: Heart, img: "/img/adult-heels.jpg" },
         ].map(({ to, label, sub, blurb, cls, color, Icon, img }) => (
           <Link
             key={label}
@@ -288,22 +288,7 @@ const Index = () => {
             </div>
             <h2 className="font-display font-bold text-4xl md:text-6xl">Loved by Essex Families</h2>
           </Reveal>
-          <div className="grid md:grid-cols-3 gap-6">
-            {TESTIMONIALS.map((t, i) => (
-              <Reveal key={t.name} delay={i * 100}>
-                <figure className="h-full rounded-2xl border border-border bg-card/70 backdrop-blur-sm p-8 flex flex-col">
-                  <Quote className="w-8 h-8 text-primary/40 mb-4" />
-                  <blockquote className="flex-1 text-foreground/90" style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}>
-                    “{t.quote}”
-                  </blockquote>
-                  <figcaption className="mt-6 pt-4 border-t border-border">
-                    <span className="font-display uppercase tracking-wider text-sm">{t.name}</span>
-                    <span className="block text-xs text-muted-foreground" style={{ textTransform: "none" }}>{t.role}</span>
-                  </figcaption>
-                </figure>
-              </Reveal>
-            ))}
-          </div>
+          <GoogleReviews fallback={TESTIMONIALS} />
         </div>
       </section>
 

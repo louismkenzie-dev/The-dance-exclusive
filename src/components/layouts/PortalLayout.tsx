@@ -32,6 +32,15 @@ const PortalLayout = () => {
   const isChildrenSection = pathname.startsWith("/classes/children");
   const themeClass = isAdultSection ? "theme-adult" : isChildrenSection ? "theme-children" : "";
 
+  // Radix Select/Dropdown popovers portal to document.body, escaping the
+  // themed wrapper div — mirror the audience theme onto <body> so dropdowns
+  // are blue in the children section and pink in the adult section.
+  useEffect(() => {
+    document.body.classList.remove("theme-adult", "theme-children");
+    if (themeClass) document.body.classList.add(themeClass);
+    return () => document.body.classList.remove("theme-adult", "theme-children");
+  }, [themeClass]);
+
   // Determine nav order and emphasis based on customer preference
   const primaryIsAdult = customerType === "adult_dancer";
   const showBothEqual = !customerType || customerType === "both";
@@ -125,7 +134,7 @@ const PortalLayout = () => {
                     isActive
                       ? isAdult
                         ? "bg-[hsl(330,90%,55%)] text-white shadow-lg shadow-[hsl(330,90%,55%)]/25"
-                        : "bg-[hsl(201,70%,65%)] text-white shadow-lg shadow-[hsl(201,70%,65%)]/25"
+                        : "bg-[hsl(193,100%,44%)] text-white shadow-lg shadow-[hsl(193,100%,44%)]/25"
                       : isSecondary
                         ? "text-muted-foreground/50 hover:text-muted-foreground text-xs"
                         : "text-foreground hover:text-foreground/80"
@@ -235,7 +244,7 @@ const PortalLayout = () => {
             style={{
               background: isAdultSection
                 ? "linear-gradient(90deg, hsl(330, 90%, 55%), hsl(280, 80%, 50%))"
-                : "linear-gradient(90deg, hsl(201, 70%, 65%), hsl(201, 60%, 50%))",
+                : "linear-gradient(90deg, hsl(193, 100%, 44%), hsl(193, 90%, 38%))",
             }}
           />
         )}

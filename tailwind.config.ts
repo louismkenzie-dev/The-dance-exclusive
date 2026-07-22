@@ -93,8 +93,8 @@ export default {
           to: { opacity: "1", transform: "translateY(0)" },
         },
         "glow-pulse": {
-          "0%, 100%": { boxShadow: "0 0 20px hsl(201 70% 65% / 0.18)" },
-          "50%": { boxShadow: "0 0 34px hsl(201 70% 65% / 0.38)" },
+          "0%, 100%": { boxShadow: "0 0 20px hsl(193 100% 44% / 0.18)" },
+          "50%": { boxShadow: "0 0 34px hsl(193 100% 44% / 0.38)" },
         },
         "cart-bump": {
           "0%": { transform: "scale(1)" },

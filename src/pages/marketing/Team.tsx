@@ -20,7 +20,7 @@ import { StatCounter } from "@/components/immersive/StatCounter";
 import { useMagnetic } from "@/hooks/useMagnetic";
 
 /** Alternating stage-light accents — odd cards blue, even cards magenta. */
-const BLUE = "201 70% 65%";
+const BLUE = "193 100% 44%";
 const MAGENTA = "330 90% 55%";
 
 type Instructor = {
@@ -37,7 +37,7 @@ const INSTRUCTORS: Instructor[] = [
     initials: "JO",
     credit: "Artistic Director · Commercial Coach",
     tags: ["Commercial", "Street", "Choreography"],
-    bio: "Founder and driving force of TDE. Ten years building championship crews and the sharpest commercial routines in Essex.",
+    bio: "Founder and driving force of TDE. Seven years building championship crews and the sharpest commercial routines in Essex.",
   },
   {
     name: "Marcus Bonetti",
@@ -306,7 +306,7 @@ const Team = () => {
           className="absolute inset-0 opacity-90"
           style={{
             background:
-              "linear-gradient(180deg, hsl(220 20% 4%), hsl(220 22% 6%)), radial-gradient(80% 60% at 0% 0%, hsl(201 70% 55% / 0.10), transparent 60%), radial-gradient(80% 60% at 100% 100%, hsl(330 90% 55% / 0.12), transparent 60%)",
+              "linear-gradient(180deg, hsl(220 20% 4%), hsl(220 22% 6%)), radial-gradient(80% 60% at 0% 0%, hsl(193 100% 40% / 0.10), transparent 60%), radial-gradient(80% 60% at 100% 100%, hsl(330 90% 55% / 0.12), transparent 60%)",
           }}
         />
         <GrainOverlay />

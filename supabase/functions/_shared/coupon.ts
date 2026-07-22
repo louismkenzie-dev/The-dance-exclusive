@@ -5,6 +5,9 @@ export interface CartItemInput {
   classType?: "children" | "adult";
   pricingPlan: string;
   totalPrice: number;
+  /** "class" | "camp" | "pass" — coupons only ever apply to camp (holiday workshop) items. */
+  itemKind?: string;
+  campId?: string | null;
 }
 
 export async function validateAndCompute(
@@ -63,26 +66,19 @@ export async function validateAndCompute(
     }
   }
 
-  const classTypes: string[] = coupon.applies_to_class_types || [];
-  const plans: string[] = coupon.applies_to_pricing_plans || [];
-  const classIds: string[] = coupon.applies_to_class_ids || [];
+  const campIds: string[] = coupon.applies_to_camp_ids || [];
 
+  // Coupons are only valid for holiday workshops (camps) — never regular
+  // class bookings or passes. Optionally narrowed to specific camps.
   const eligible = items.filter((item) => {
     if (item.pricingPlan === "trial" || Number(item.totalPrice) <= 0) return false;
-    if (classTypes.length > 0 && item.classType && !classTypes.includes(item.classType)) {
-      return false;
-    }
-    if (plans.length > 0 && !plans.includes(item.pricingPlan)) {
-      return false;
-    }
-    if (classIds.length > 0 && !classIds.includes(item.classId)) {
-      return false;
-    }
+    if ((item.itemKind ?? "class") !== "camp" || !item.campId) return false;
+    if (campIds.length > 0 && !campIds.includes(item.campId)) return false;
     return true;
   });
 
   if (eligible.length === 0) {
-    return { error: "This coupon does not apply to any items in your cart" };
+    return { error: "Coupons only apply to holiday workshops — there are none in your basket this code covers" };
   }
 
   const eligibleSubtotal = eligible.reduce(

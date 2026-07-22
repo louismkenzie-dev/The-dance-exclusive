@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit, Trash2, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, X, Copy, MapPin, Calendar, Users, Clock } from "lucide-react";
 import { format, parseISO, eachDayOfInterval, isBefore, isWeekend, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameMonth, isSameDay, getDay } from "date-fns";
@@ -36,6 +37,7 @@ interface CampData {
   capacity: number;
   price_per_day: number | null;
   price_total: number | null;
+  sibling_discount_enabled: boolean;
   venue_id: string | null;
   workshop_id: string | null;
   start_date: string | null;
@@ -84,6 +86,7 @@ const AdminCamps = () => {
   const [capacity, setCapacity] = useState("20");
   const [pricePerDay, setPricePerDay] = useState("");
   const [priceTotal, setPriceTotal] = useState("");
+  const [siblingDiscountEnabled, setSiblingDiscountEnabled] = useState(true);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [sessionStaffing, setSessionStaffing] = useState<Record<number, string[]>>({});
   const [campInstructors, setCampInstructors] = useState<Record<string, string[]>>({});
@@ -174,6 +177,7 @@ const AdminCamps = () => {
     setCapacity("20");
     setPricePerDay("");
     setPriceTotal("");
+    setSiblingDiscountEnabled(true);
     setSessions([]);
     setSessionStaffing({});
     setEditing(null);
@@ -275,6 +279,7 @@ const AdminCamps = () => {
     setCapacity(c.capacity.toString());
     setPricePerDay(c.price_per_day?.toString() || "");
     setPriceTotal(c.price_total?.toString() || "");
+    setSiblingDiscountEnabled(c.sibling_discount_enabled ?? true);
     setEditing(isEdit ? c : null);
     setStep(1);
     setOpen(true);
@@ -303,6 +308,7 @@ const AdminCamps = () => {
       capacity: parseInt(capacity) || 20,
       price_per_day: pricePerDay ? parseFloat(pricePerDay) : null,
       price_total: priceTotal ? parseFloat(priceTotal) : null,
+      sibling_discount_enabled: siblingDiscountEnabled,
     };
 
     let campId: string;
@@ -341,7 +347,13 @@ const AdminCamps = () => {
 
       // Save session-level instructor assignments
       if (insertedSessions) {
-        await supabase.from("camp_session_instructors").delete().neq("session_id", "00000000-0000-0000-0000-000000000000");
+        // Clear any stale instructor rows for THIS camp's sessions only.
+        // (Old sessions for the camp were deleted above, so the freshly inserted
+        // sessions are the camp's full current session set.)
+        const currentSessionIds = insertedSessions.map(s => s.id);
+        if (currentSessionIds.length > 0) {
+          await supabase.from("camp_session_instructors").delete().in("session_id", currentSessionIds);
+        }
         const sessionInstructorRows: { session_id: string; staff_id: string }[] = [];
         insertedSessions.forEach((sess, i) => {
           const staffIds = sessionStaffing[i] && sessionStaffing[i].length > 0 ? sessionStaffing[i] : instructorIds;
@@ -536,6 +548,13 @@ const AdminCamps = () => {
                       <Label className="text-xs">Total / Full Camp (£)</Label>
                       <Input type="number" step="0.01" value={priceTotal} onChange={e => setPriceTotal(e.target.value)} placeholder="e.g. 150" />
                     </div>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Sibling discount applies (10% off for second child onwards)</p>
+                      <p className="text-xs text-muted-foreground">Applied automatically at checkout to children's items when booking for more than one child.</p>
+                    </div>
+                    <Switch checked={siblingDiscountEnabled} onCheckedChange={setSiblingDiscountEnabled} />
                   </div>
                 </div>
 

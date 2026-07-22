@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import {
   Trophy,
   Medal,
-  Star,
   Award,
   Crown,
   Flame,
@@ -45,7 +44,7 @@ const AWARDS: Award[] = [
     body: "Our senior crew took gold in the Under-16 Team division at the United Dance Organisation Euro Championships.",
     badge: "1st Place · Gold",
     year: "2024",
-    tint: "201 70% 65%",
+    tint: "193 100% 44%",
     icon: Trophy,
   },
   {
@@ -77,7 +76,7 @@ const AWARDS: Award[] = [
     body: "Six regional titles across junior, senior and adult divisions in a single competitive season — a school record.",
     badge: "6× Regional Titles",
     year: "2024–25",
-    tint: "201 70% 65%",
+    tint: "193 100% 44%",
     icon: Flame,
   },
 ];
@@ -102,7 +101,7 @@ const BODIES = [
 
 const PODIUM = [
   { place: "1st", title: "UDO Euro Champions", div: "U16 Team", tint: "330 90% 55%" },
-  { place: "1st", title: "British Solo Champion", div: "U14 Commercial", tint: "201 70% 65%" },
+  { place: "1st", title: "British Solo Champion", div: "U14 Commercial", tint: "193 100% 44%" },
   { place: "2nd", title: "Blackpool Winter Gardens", div: "Senior Crew", tint: "300 80% 58%" },
 ];
 
@@ -182,7 +181,7 @@ const Results = () => {
         {/* floating trophy glyphs */}
         <Trophy className="hidden md:block absolute left-[8%] top-[28%] w-10 h-10 text-accent/30 animate-float" />
         <Medal className="hidden md:block absolute right-[10%] top-[34%] w-9 h-9 text-primary/30 animate-float [animation-delay:1.2s]" />
-        <Star className="hidden md:block absolute right-[16%] bottom-[18%] w-7 h-7 text-accent/30 animate-float [animation-delay:2s]" />
+        <Crown className="hidden md:block absolute right-[16%] bottom-[18%] w-7 h-7 text-accent/30 animate-float [animation-delay:2s]" />
       </section>
 
       {/* ───────────────── AWARDS WALL ───────────────── */}
@@ -277,7 +276,7 @@ const Results = () => {
           <Reveal className="text-center mb-16">
             <div className="flex justify-center gap-1.5 mb-5 text-accent">
               {Array.from({ length: 5 }).map((_, i) => (
-                <Star key={i} className="w-5 h-5 fill-current" />
+                <Crown key={i} className="w-5 h-5 fill-current" />
               ))}
             </div>
             <h2 className="font-display font-bold text-4xl md:text-6xl leading-[0.95]">
@@ -287,8 +286,8 @@ const Results = () => {
               className="mt-4 mx-auto max-w-xl text-muted-foreground text-lg"
               style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
             >
-              A decade of competing — and winning — at the highest levels of UK street and commercial
-              dance.
+              Seven years of competing — and winning — at the highest levels of UK street and
+              commercial dance.
             </p>
           </Reveal>
 
@@ -421,7 +420,7 @@ const Results = () => {
             {[
               { icon: Trophy, label: "1st Place · UDO British Finals" },
               { icon: Medal, label: "Top-5 · UKSDC Nationals" },
-              { icon: Star, label: "Distinction · Grade 6 Commercial" },
+              { icon: Crown, label: "Distinction · Grade 6 Commercial" },
             ].map((m, i) => {
               const Icon = m.icon;
               return (
@@ -446,7 +445,7 @@ const Results = () => {
         <Reveal className="relative max-w-3xl mx-auto">
           <div className="flex justify-center gap-1.5 mb-6 text-accent">
             {Array.from({ length: 5 }).map((_, i) => (
-              <Star key={i} className="w-5 h-5 fill-current" />
+              <Crown key={i} className="w-5 h-5 fill-current" />
             ))}
           </div>
           <h2 className="font-display font-bold text-5xl md:text-8xl leading-[0.92]">

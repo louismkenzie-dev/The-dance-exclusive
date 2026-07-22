@@ -19,6 +19,8 @@ import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 import getCroppedImg from "@/lib/cropImage";
 import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
+import DateOfBirthPicker from "@/components/portal/DateOfBirthPicker";
+import { cn } from "@/lib/utils";
 import tdeLogo from "@/assets/logo-avatar-512.png";
 
 const GENDER_OPTIONS = ["Female", "Male", "Non-Binary", "Prefer Not to Say"];
@@ -138,7 +140,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
     ehcp_in_place: false, one_to_one_required: false,
     is_toilet_trained: true, toileting_notes: "", wears_nappies: false, prone_to_accidents: false,
     dance_style_preference: "", ability_level: "", has_stage_experience: false,
-    child_hook: "", photo_consent: true, social_media_consent: false,
+    child_hook: "", photo_consent: true,
     has_medical_conditions: false, has_allergies: false,
   });
 
@@ -172,8 +174,9 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
         ability_level: editing.ability_level || "",
         has_stage_experience: editing.has_stage_experience || false,
         child_hook: editing.child_hook || "",
+        // Single combined consent — photo_consent is the primary column and
+        // drives both DB columns on save.
         photo_consent: editing.photo_consent ?? true,
-        social_media_consent: editing.social_media_consent || false,
         has_medical_conditions: (editing.medical_conditions_list?.length > 0 || editing.has_inhaler || editing.has_epipen || editing.medical_info),
         has_allergies: (editing.allergies_list?.length > 0 || editing.allergies),
       });
@@ -188,7 +191,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
         send_triggers_coping: {}, ehcp_in_place: false, one_to_one_required: false,
         is_toilet_trained: true, toileting_notes: "", wears_nappies: false, prone_to_accidents: false,
         dance_style_preference: "", ability_level: "", has_stage_experience: false,
-        child_hook: "", photo_consent: true, social_media_consent: false,
+        child_hook: "", photo_consent: true,
         has_medical_conditions: false, has_allergies: false,
       });
       setUploadedPhotoUrl(null);
@@ -296,8 +299,9 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
       ability_level: form.ability_level || null,
       has_stage_experience: form.has_stage_experience,
       child_hook: form.child_hook || null,
+      // One combined consent checkbox drives both columns, keeping them in sync.
       photo_consent: form.photo_consent,
-      social_media_consent: form.social_media_consent,
+      social_media_consent: form.photo_consent,
       is_self: selfMode,
     };
 
@@ -320,6 +324,9 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
   };
 
   const age = getAge(form.date_of_birth);
+  // Children are themed BLUE, adults PINK. Radix Select popovers portal to
+  // document.body, so the theme class must also go on every SelectContent.
+  const themeClass = selfMode ? "theme-adult" : "theme-children";
   const medicalConditions = form.medical_conditions_list as string[];
   const allergiesList = form.allergies_list as string[];
   const sendConditions = form.send_conditions_list as string[];
@@ -327,7 +334,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+      <DialogContent className={cn("max-w-2xl max-h-[90vh] flex flex-col p-0", themeClass)}>
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle>
             {selfMode ? (editing ? "Edit Your Attendee Profile" : "Create Your Attendee Profile") : `${editing ? "Edit" : "Add"} Child`}
@@ -416,7 +423,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                       )}
                       {avatarUrl && (
                         <div className="flex flex-col items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
-                          <PhotoAvatarDuo photoUrl={uploadedPhotoUrl} avatarUrl={avatarUrl} size="lg" showLabels />
+                          <PhotoAvatarDuo photoUrl={uploadedPhotoUrl} avatarUrl={avatarUrl} size="lg" showLabels photoPrimary={false} expandable />
                           <p className="text-[11px] text-muted-foreground text-center" style={{ textTransform: "none", letterSpacing: "normal" }}>
                             Both are saved — parents and staff always see the real photo and the avatar together.
                           </p>
@@ -448,8 +455,13 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Date of Birth *</Label>
-                      <Input type="date" value={form.date_of_birth} onChange={(e) => update("date_of_birth", e.target.value)} required />
+                      <Label htmlFor="dob-day">Date of Birth *</Label>
+                      <DateOfBirthPicker
+                        id="dob-day"
+                        value={form.date_of_birth}
+                        onChange={(v) => update("date_of_birth", v)}
+                        popoverClassName={themeClass}
+                      />
                       {age !== null && (
                         <p className="text-sm font-medium text-primary">Age: {age} years old</p>
                       )}
@@ -458,7 +470,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                       <Label>Gender</Label>
                       <Select value={form.gender} onValueChange={(v) => update("gender", v)}>
                         <SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className={themeClass}>
                           {GENDER_OPTIONS.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
                         </SelectContent>
                       </Select>
@@ -695,7 +707,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                     <Label>Ability Level</Label>
                     <Select value={form.ability_level || ""} onValueChange={(v) => update("ability_level", v)}>
                       <SelectTrigger><SelectValue placeholder="Select ability level" /></SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className={themeClass}>
                         {ABILITY_LEVELS.map((a) => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -705,13 +717,13 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                     <Label htmlFor="stage-exp" className="text-sm cursor-pointer font-normal">My child has stage/performance experience</Label>
                   </div>
 
-                  {/* ─── Child's Hook ─── */}
+                  {/* ─── About Your Child ─── */}
                   <div className="rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20 p-4 space-y-2">
                     <p className="text-sm flex items-center gap-1.5 font-medium">
-                      <Heart className="h-4 w-4 text-pink-500" /> What Makes Your Child Tick?
+                      <Heart className="h-4 w-4 text-pink-500" /> Tell Us About Your Child
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      🌟 Help us create an amazing experience! Tell us about your child's passions, favourite things to talk about, their personality, likes and dislikes — anything that helps our instructors build an instant bond.
+                      🌟 Help us create an amazing experience! Share your child's passions, favourite things to talk about, their personality, likes and dislikes — anything that helps our instructors build an instant bond.
                     </p>
                     <Textarea
                       placeholder="e.g. She loves Disney princesses, is always dancing around the house, loves glitter and sparkle, a bit shy at first but warms up quickly..."
@@ -729,13 +741,11 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
               <AccordionItem value="consent" className="border rounded-lg px-4">
                 <AccordionTrigger className="text-sm font-semibold">Consent</AccordionTrigger>
                 <AccordionContent className="space-y-4 pt-2">
-                  <div className="flex items-center gap-2">
-                    <Checkbox id="photo-consent" checked={form.photo_consent} onCheckedChange={(c) => update("photo_consent", !!c)} />
-                    <Label htmlFor="photo-consent" className="text-sm cursor-pointer">I consent to photos being taken {selfMode ? "of me" : "of my child"} during classes</Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Checkbox id="social-consent" checked={form.social_media_consent} onCheckedChange={(c) => update("social_media_consent", !!c)} />
-                    <Label htmlFor="social-consent" className="text-sm cursor-pointer">I consent to photos being used on social media</Label>
+                  <div className="flex items-start gap-2">
+                    <Checkbox id="photo-consent" className="mt-0.5" checked={form.photo_consent} onCheckedChange={(c) => update("photo_consent", !!c)} />
+                    <Label htmlFor="photo-consent" className="text-sm cursor-pointer leading-snug">
+                      I consent to photos and videos being taken during classes and used in The Dance Exclusive's marketing, including social media
+                    </Label>
                   </div>
                 </AccordionContent>
               </AccordionItem>

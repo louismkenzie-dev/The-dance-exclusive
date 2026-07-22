@@ -2,6 +2,7 @@
 // Routes by `template` to the matching renderer in _shared/email-templates.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   renderBookingConfirmation,
   type BookingConfirmationData,
@@ -30,9 +31,41 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const FROM_ADDRESS =
-  Deno.env.get("EMAIL_FROM") ||
-  "The Dance Exclusive <onboarding@resend.dev>";
+const DEFAULT_FROM = "The Dance Exclusive <onboarding@resend.dev>";
+
+// Resolve a secret/config value: prefer the platform env var (the standard,
+// dashboard-managed way — if it's ever set there it wins), otherwise fall back
+// to the Vault-stored copy via the service-role-only internal_get_secret RPC.
+// This lets email work before a dashboard env secret is configured, and needs
+// no code change once one is.
+let _admin: ReturnType<typeof createClient> | null = null;
+function admin() {
+  if (!_admin) {
+    _admin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+  }
+  return _admin;
+}
+
+const _secretCache = new Map<string, string | null>();
+async function getSecret(name: string): Promise<string | null> {
+  const env = Deno.env.get(name);
+  if (env) return env;
+  if (_secretCache.has(name)) return _secretCache.get(name)!;
+  let val: string | null = null;
+  try {
+    const { data, error } = await admin().rpc("internal_get_secret", {
+      secret_name: name,
+    });
+    if (!error && typeof data === "string" && data.length > 0) val = data;
+  } catch (e) {
+    console.error("getSecret(", name, ") failed:", e);
+  }
+  _secretCache.set(name, val);
+  return val;
+}
 
 type Payload =
   | { template: "booking_confirmation"; to: string; data: BookingConfirmationData }
@@ -73,7 +106,7 @@ serve(async (req) => {
     });
   }
 
-  const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+  const RESEND_API_KEY = await getSecret("RESEND_API_KEY");
   if (!RESEND_API_KEY) {
     return new Response(
       JSON.stringify({ error: "RESEND_API_KEY is not configured" }),
@@ -83,6 +116,8 @@ serve(async (req) => {
       },
     );
   }
+  const FROM_ADDRESS = (await getSecret("EMAIL_FROM")) || DEFAULT_FROM;
+  const REPLY_TO = await getSecret("EMAIL_REPLY_TO");
 
   let payload: Payload;
   try {
@@ -144,6 +179,7 @@ serve(async (req) => {
         to: [payload.to],
         subject,
         html,
+        ...(REPLY_TO ? { reply_to: REPLY_TO } : {}),
       }),
     });
 

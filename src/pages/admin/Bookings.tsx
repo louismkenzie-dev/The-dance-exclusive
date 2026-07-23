@@ -152,6 +152,143 @@ const ClassPassesTab = () => {
   );
 };
 
+interface AdminMembership {
+  id: string;
+  user_id: string;
+  monthly_amount: number;
+  status: string;
+  started_at: string;
+  current_period_end: string | null;
+  cancel_at: string | null;
+  students: { first_name: string; last_name: string } | null;
+  classes: { name: string; day_of_week: string | null; start_time: string | null } | null;
+  profile: { full_name: string; email: string } | null;
+}
+
+const membershipBadge: Record<string, { label: string; className: string }> = {
+  active: { label: "Active", className: "border-transparent bg-emerald-600 text-white" },
+  past_due: { label: "Payment issue", className: "border-transparent bg-amber-500 text-white" },
+  paused: { label: "Paused", className: "border-transparent bg-secondary text-secondary-foreground" },
+  cancel_scheduled: { label: "Ending", className: "border-amber-500/50 text-amber-600 dark:text-amber-400" },
+  cancelled: { label: "Ended", className: "border-transparent bg-muted text-muted-foreground" },
+  incomplete: { label: "Incomplete", className: "text-muted-foreground" },
+};
+
+/** Admin view of every monthly membership (real Stripe subscriptions). */
+const MembershipsTab = () => {
+  const [memberships, setMemberships] = useState<AdminMembership[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMemberships = async () => {
+      const { data } = await supabase
+        .from("memberships")
+        .select("id, user_id, monthly_amount, status, started_at, current_period_end, cancel_at, students(first_name, last_name), classes(name, day_of_week, start_time)")
+        .order("created_at", { ascending: false });
+      if (data) {
+        // No FK between memberships.user_id and profiles — join client-side.
+        const userIds = [...new Set(data.map((m) => m.user_id))];
+        const { data: profiles } = userIds.length > 0
+          ? await supabase.from("profiles").select("user_id, full_name, email").in("user_id", userIds)
+          : { data: [] };
+        const profileMap = new Map((profiles ?? []).map((p) => [p.user_id, p]));
+        setMemberships(
+          (data as unknown as Omit<AdminMembership, "profile">[]).map((m) => ({
+            ...m,
+            profile: profileMap.get(m.user_id) ?? null,
+          })),
+        );
+      }
+      setLoading(false);
+    };
+    fetchMemberships();
+  }, []);
+
+  // Live memberships first (soonest charge at the top), then past/incomplete ones.
+  const isLive = (s: string) => s === "active" || s === "past_due" || s === "cancel_scheduled";
+  const sorted = [...memberships].sort((a, b) => {
+    const rank = (m: AdminMembership) => (isLive(m.status) ? 0 : 1);
+    const charge = (m: AdminMembership) =>
+      m.current_period_end ? new Date(m.current_period_end).getTime() : Number.MAX_SAFE_INTEGER;
+    return rank(a) - rank(b) || charge(a) - charge(b);
+  });
+
+  const activeCount = memberships.filter((m) => m.status === "active").length;
+  const recurring = memberships
+    .filter((m) => m.status === "active" || m.status === "cancel_scheduled")
+    .reduce((sum, m) => sum + Number(m.monthly_amount), 0);
+
+  if (loading) return <div className="text-muted-foreground">Loading memberships...</div>;
+  if (memberships.length === 0) {
+    return <Card><CardContent className="py-12 text-center text-muted-foreground">No memberships yet.</CardContent></Card>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        {activeCount} active membership{activeCount === 1 ? "" : "s"} · £
+        {recurring.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/month recurring
+      </p>
+      <Card className="animate-fade-in">
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Customer</TableHead>
+                <TableHead>Child</TableHead>
+                <TableHead>Class</TableHead>
+                <TableHead>£/month</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Started</TableHead>
+                <TableHead>Next charge</TableHead>
+                <TableHead>Ends</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sorted.map((m) => {
+                const badge = membershipBadge[m.status] ?? { label: m.status, className: "" };
+                return (
+                  <TableRow key={m.id}>
+                    <TableCell>
+                      <span className="font-medium">{m.profile?.full_name || "Unknown"}</span>
+                      <span className="block text-xs text-muted-foreground">{m.profile?.email || "—"}</span>
+                    </TableCell>
+                    <TableCell>
+                      {m.students ? `${m.students.first_name} ${m.students.last_name}` : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <span>{m.classes?.name || "—"}</span>
+                      {m.classes?.day_of_week && (
+                        <span className="block text-xs text-muted-foreground capitalize">
+                          {m.classes.day_of_week}
+                          {m.classes.start_time && ` ${m.classes.start_time.slice(0, 5)}`}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>£{Number(m.monthly_amount).toFixed(2)}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={badge.className}>{badge.label}</Badge>
+                    </TableCell>
+                    <TableCell>{format(new Date(m.started_at), "d MMM yyyy")}</TableCell>
+                    <TableCell>
+                      {m.status !== "cancelled" && m.current_period_end
+                        ? format(new Date(m.current_period_end), "d MMM yyyy")
+                        : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {m.cancel_at ? format(new Date(m.cancel_at), "d MMM yyyy") : "—"}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
 const AdminBookings = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filter, setFilter] = useState("all");
@@ -209,6 +346,7 @@ const AdminBookings = () => {
         <TabsList className="mb-6">
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
           <TabsTrigger value="passes">Class Passes</TabsTrigger>
+          <TabsTrigger value="memberships">Memberships</TabsTrigger>
         </TabsList>
 
         <TabsContent value="bookings">
@@ -265,6 +403,10 @@ const AdminBookings = () => {
 
         <TabsContent value="passes">
           <ClassPassesTab />
+        </TabsContent>
+
+        <TabsContent value="memberships">
+          <MembershipsTab />
         </TabsContent>
       </Tabs>
     </div>

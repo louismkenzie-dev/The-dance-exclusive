@@ -91,6 +91,9 @@ const PortalLayout = () => {
                     </Link>
                   ))}
                   <div className="my-2 border-t border-border" />
+                  <Link to="/timetable" className="flex items-center gap-2 px-3 py-3 rounded-md hover:bg-accent text-sm font-semibold uppercase tracking-wider">
+                    <CalendarDays className="w-4 h-4" /> Timetable
+                  </Link>
                   {user && (
                     <>
                       <Link to="/account/bookings" className="flex items-center gap-2 px-3 py-3 rounded-md hover:bg-accent text-sm font-semibold uppercase tracking-wider">
@@ -147,6 +150,20 @@ const PortalLayout = () => {
                 </Link>
               );
             })}
+
+            {/* Members' timetable — quiet pill next to the audience tabs */}
+            <Link
+              to="/timetable"
+              className={`relative px-5 py-2 text-sm font-semibold uppercase tracking-wider transition-all duration-300 rounded-full ${
+                pathname === "/timetable"
+                  ? "bg-muted text-foreground"
+                  : "text-foreground hover:bg-muted/60 hover:text-foreground"
+              }`}
+            >
+              <span className="flex items-center gap-1.5">
+                <CalendarDays className="w-3.5 h-3.5" /> Timetable
+              </span>
+            </Link>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -279,6 +296,7 @@ const PortalLayout = () => {
             <div>
               <h4 className="font-display text-sm uppercase tracking-widest mb-4">Your Account</h4>
               <ul className="space-y-2.5 text-sm text-muted-foreground normal-case">
+                <li><Link to={user ? "/timetable" : "/auth"} className="hover:text-primary hover:underline underline-offset-4 transition-colors">Timetable</Link></li>
                 <li><Link to={user ? "/account/bookings" : "/auth"} className="hover:text-primary hover:underline underline-offset-4 transition-colors">My Bookings</Link></li>
                 <li><Link to={user ? "/account" : "/auth"} className="hover:text-primary hover:underline underline-offset-4 transition-colors">My Account</Link></li>
                 <li><Link to="/auth" className="hover:text-primary hover:underline underline-offset-4 transition-colors">Sign In / Register</Link></li>

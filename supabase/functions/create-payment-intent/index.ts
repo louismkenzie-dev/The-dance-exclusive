@@ -5,6 +5,8 @@ import {
   bookingApplicationFee,
   connectRequestOptions,
   createStripeClient,
+  getConnectedAccountId,
+  getPlatformFeePercent,
 } from "../_shared/stripe.ts";
 import { validateAndCompute } from "../_shared/coupon.ts";
 import {
@@ -431,6 +433,174 @@ serve(async (req) => {
     const description = cartItems.length === 1
       ? `${cartItems[0].className}${cartItems[0].studentName ? ` — ${cartItems[0].studentName}` : ""}`
       : `${cartItems.length} bookings`;
+
+    // ------------------------------------------------------------------
+    // Monthly memberships are REAL rolling Stripe subscriptions. When the
+    // basket contains any, we create one subscription for the whole family:
+    // one subscription item per membership (its price already includes the
+    // additional-class rate and sibling discount), with every one-off item
+    // riding the first invoice so a single card payment covers everything.
+    // Renewals then charge automatically on the same day each month.
+    // ------------------------------------------------------------------
+    const monthlyEntries = cartItems
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => kindOf(item) === "class" && item.pricingPlan === "monthly");
+
+    if (monthlyEntries.length > 0) {
+      if (!userId) {
+        return jsonResponse({ error: "Please sign in to start a monthly membership." }, 400);
+      }
+
+      // Find or create the family's Stripe customer on the connected account.
+      const { data: prof } = await supabaseAdmin
+        .from("profiles")
+        .select("stripe_customer_id, full_name, email")
+        .eq("user_id", userId)
+        .maybeSingle();
+      let customerId: string | null = prof?.stripe_customer_id ?? null;
+      if (customerId) {
+        try {
+          const existing = await stripe.customers.retrieve(customerId, connectOpts);
+          if ((existing as any)?.deleted) customerId = null;
+        } catch {
+          customerId = null;
+        }
+      }
+      if (!customerId) {
+        const created = await stripe.customers.create(
+          {
+            email: customerEmail || prof?.email || undefined,
+            name: prof?.full_name || undefined,
+            metadata: { userId },
+          },
+          connectOpts,
+        );
+        customerId = created.id;
+        await supabaseAdmin
+          .from("profiles")
+          .update({ stripe_customer_id: customerId })
+          .eq("user_id", userId);
+      }
+
+      // A recurring price per membership at the exact server-computed amount.
+      const monthlyPriceIds: { index: number; priceId: string }[] = [];
+      for (const { item, index } of monthlyEntries) {
+        const price = await stripe.prices.create(
+          {
+            currency: "gbp",
+            unit_amount: Math.round(chargedPrices[index] * 100),
+            recurring: { interval: "month" },
+            product_data: {
+              name: `${item.className || "Class"} — Monthly Membership${item.studentName ? ` (${item.studentName})` : ""}`,
+            },
+          },
+          connectOpts,
+        );
+        monthlyPriceIds.push({ index, priceId: price.id });
+      }
+
+      // One-off items join the first invoice; the coupon (holiday workshops
+      // only) is allocated against the camp items it applies to.
+      const oneOffEntries = cartItems
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) => !(kindOf(item) === "class" && item.pricingPlan === "monthly"));
+      let couponRemaining = discountInPence;
+      const addInvoiceItems: { price_data: { currency: string; product: string; unit_amount: number }; quantity: number }[] = [];
+      let oneOffProductId: string | null = null;
+      for (const { item, index } of oneOffEntries) {
+        let amount = Math.round(chargedPrices[index] * 100);
+        if (couponRemaining > 0 && kindOf(item) === "camp") {
+          const applied = Math.min(couponRemaining, amount);
+          amount -= applied;
+          couponRemaining -= applied;
+        }
+        if (!oneOffProductId) {
+          const prod = await stripe.products.create(
+            { name: `One-off booking${oneOffEntries.length === 1 ? "" : "s"}` },
+            connectOpts,
+          );
+          oneOffProductId = prod.id;
+        }
+        addInvoiceItems.push({
+          price_data: { currency: "gbp", product: oneOffProductId, unit_amount: amount },
+          quantity: 1,
+        });
+      }
+
+      const feePercent = getConnectedAccountId(env) ? getPlatformFeePercent() : null;
+
+      const subscription = await stripe.subscriptions.create(
+        {
+          customer: customerId,
+          items: monthlyPriceIds.map(({ priceId }) => ({ price: priceId })),
+          payment_behavior: "default_incomplete",
+          payment_settings: {
+            save_default_payment_method: "on_subscription",
+            payment_method_types: ["card"],
+          },
+          ...(addInvoiceItems.length > 0 && { add_invoice_items: addInvoiceItems }),
+          ...(feePercent != null && feePercent > 0 && { application_fee_percent: feePercent }),
+          expand: ["latest_invoice.payment_intent"],
+          metadata: {
+            userId,
+            itemCount: String(cartItems.length),
+            checkoutType: "membership_checkout",
+            ...(siblingDiscountInPence > 0 && {
+              siblingDiscount: String(siblingDiscountInPence / 100),
+            }),
+            ...(couponId && {
+              couponId,
+              couponCode: couponCodeApplied || "",
+              discountAmount: String(discountInPence / 100),
+            }),
+            ...bookingMetadata,
+          },
+        },
+        connectOpts,
+      );
+
+      const invoice = subscription.latest_invoice as any;
+      const pi = invoice?.payment_intent as any;
+      if (!pi?.client_secret) {
+        throw new Error("Could not initialise the membership payment");
+      }
+
+      // Clear stale placeholders from abandoned checkouts, then record each
+      // membership as incomplete until the first invoice is paid.
+      await supabaseAdmin
+        .from("memberships")
+        .delete()
+        .eq("user_id", userId)
+        .eq("status", "incomplete");
+      for (const { index, priceId } of monthlyPriceIds) {
+        const item = cartItems[index];
+        const subItem = subscription.items.data.find((si: any) => si.price?.id === priceId);
+        const { error: memErr } = await supabaseAdmin.from("memberships").insert({
+          user_id: userId,
+          student_id: item.studentId ?? null,
+          class_id: item.classId ?? null,
+          stripe_subscription_id: subscription.id,
+          stripe_subscription_item_id: subItem?.id ?? null,
+          stripe_price_id: priceId,
+          monthly_amount: chargedPrices[index],
+          status: "incomplete",
+          stripe_env: env,
+          current_period_end: subscription.current_period_end
+            ? new Date(subscription.current_period_end * 1000).toISOString()
+            : null,
+        });
+        if (memErr) console.error("Failed to record incomplete membership:", memErr);
+      }
+
+      return jsonResponse({
+        clientSecret: pi.client_secret,
+        paymentIntentId: pi.id,
+        subscriptionId: subscription.id,
+        amount: invoice.amount_due,
+        siblingDiscountAmount: siblingDiscountInPence / 100,
+        discountAmount: discountInPence / 100,
+      });
+    }
 
     // Nullshift platform fee (1% of booking revenue) — only when Connect is
     // configured; charged on top of Stripe's own processing fees.

@@ -57,6 +57,7 @@ import Parties from "./pages/marketing/Parties";
 
 // Portal pages
 import ClassBrowser from "./pages/portal/ClassBrowser";
+import Timetable from "./pages/portal/Timetable";
 import BookClass from "./pages/portal/BookClass";
 import Account from "./pages/portal/Account";
 import MyBookings from "./pages/portal/MyBookings";
@@ -124,6 +125,7 @@ const App = () => (
               <Route path="/contact" element={<Contact />} />
               <Route path="/shop" element={<Shop />} />
               <Route path="/classes/:type" element={<ClassBrowser />} />
+              <Route path="/timetable" element={<ProtectedRoute><Timetable /></ProtectedRoute>} />
               <Route path="/book/:classId" element={<BookClass />} />
               <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
               <Route path="/account/bookings" element={<ProtectedRoute><MyBookings /></ProtectedRoute>} />

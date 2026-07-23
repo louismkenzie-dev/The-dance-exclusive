@@ -517,6 +517,7 @@ export type Database = {
           end_time: string
           id: string
           item_kind: string
+          pass_type: string | null
           pricing_plan: string
           selected_session_dates: string[]
           selected_session_ids: string[]
@@ -544,6 +545,7 @@ export type Database = {
           end_time: string
           id?: string
           item_kind?: string
+          pass_type?: string | null
           pricing_plan: string
           selected_session_dates?: string[]
           selected_session_ids?: string[]
@@ -571,6 +573,7 @@ export type Database = {
           end_time?: string
           id?: string
           item_kind?: string
+          pass_type?: string | null
           pricing_plan?: string
           selected_session_dates?: string[]
           selected_session_ids?: string[]
@@ -1071,6 +1074,84 @@ export type Database = {
           },
         ]
       }
+      memberships: {
+        Row: {
+          cancel_at: string | null
+          cancel_requested_at: string | null
+          cancelled_at: string | null
+          class_id: string | null
+          created_at: string
+          current_period_end: string | null
+          final_payment_date: string | null
+          id: string
+          monthly_amount: number
+          started_at: string
+          status: string
+          stripe_env: string
+          stripe_price_id: string | null
+          stripe_subscription_id: string
+          stripe_subscription_item_id: string | null
+          student_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancel_at?: string | null
+          cancel_requested_at?: string | null
+          cancelled_at?: string | null
+          class_id?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          final_payment_date?: string | null
+          id?: string
+          monthly_amount?: number
+          started_at?: string
+          status?: string
+          stripe_env?: string
+          stripe_price_id?: string | null
+          stripe_subscription_id: string
+          stripe_subscription_item_id?: string | null
+          student_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancel_at?: string | null
+          cancel_requested_at?: string | null
+          cancelled_at?: string | null
+          class_id?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          final_payment_date?: string | null
+          id?: string
+          monthly_amount?: number
+          started_at?: string
+          status?: string
+          stripe_env?: string
+          stripe_price_id?: string | null
+          stripe_subscription_id?: string
+          stripe_subscription_item_id?: string | null
+          student_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memberships_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "memberships_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       merchandise_bundle_items: {
         Row: {
           bundle_id: string
@@ -1462,9 +1543,9 @@ export type Database = {
       profiles: {
         Row: {
           ability_level: string | null
-          admin_tour_completed_at: string | null
           address_line1: string | null
           address_line2: string | null
+          admin_tour_completed_at: string | null
           allergies_list: string[] | null
           avatar_url: string | null
           city: string | null
@@ -1488,14 +1569,15 @@ export type Database = {
           preferred_name: string | null
           profile_photo: string | null
           secondary_phone: string | null
+          stripe_customer_id: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           ability_level?: string | null
-          admin_tour_completed_at?: string | null
           address_line1?: string | null
           address_line2?: string | null
+          admin_tour_completed_at?: string | null
           allergies_list?: string[] | null
           avatar_url?: string | null
           city?: string | null
@@ -1519,14 +1601,15 @@ export type Database = {
           preferred_name?: string | null
           profile_photo?: string | null
           secondary_phone?: string | null
+          stripe_customer_id?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           ability_level?: string | null
-          admin_tour_completed_at?: string | null
           address_line1?: string | null
           address_line2?: string | null
+          admin_tour_completed_at?: string | null
           allergies_list?: string[] | null
           avatar_url?: string | null
           city?: string | null
@@ -1550,6 +1633,7 @@ export type Database = {
           preferred_name?: string | null
           profile_photo?: string | null
           secondary_phone?: string | null
+          stripe_customer_id?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -2490,6 +2574,10 @@ export type Database = {
         Returns: boolean
       }
       internal_get_secret: { Args: { secret_name: string }; Returns: string }
+      refund_pass_credits: {
+        Args: { p_amount: number; p_pass_id: string }
+        Returns: undefined
+      }
       staff_teaches_class: {
         Args: { _class_id: string; _staff_id: string }
         Returns: boolean

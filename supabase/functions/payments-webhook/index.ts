@@ -1,7 +1,13 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { type StripeEnv, verifyWebhook } from "../_shared/stripe.ts";
 import {
+  type StripeEnv,
+  connectRequestOptions,
+  createStripeClient,
+  verifyWebhook,
+} from "../_shared/stripe.ts";
+import {
+  fulfillInvoicePaymentIntent,
   fulfillItems,
   parsePaymentIntentItems,
   recordCouponRedemption,
@@ -30,7 +36,7 @@ serve(async (req) => {
         await handleCheckoutCompleted(event.data.object);
         break;
       case "payment_intent.succeeded":
-        await handlePaymentIntentSucceeded(event.data.object);
+        await handlePaymentIntentSucceeded(event.data.object, env);
         break;
       default:
         console.log("Unhandled event:", event.type);
@@ -71,8 +77,20 @@ async function handleCheckoutCompleted(session: any) {
   await sendBookingConfirmationEmail(supabase, userId, session.id, totalAmount || null);
 }
 
-async function handlePaymentIntentSucceeded(pi: any) {
+async function handlePaymentIntentSucceeded(pi: any, env: StripeEnv) {
   console.log("PaymentIntent succeeded:", pi.id);
+
+  // Subscription checkouts and renewals pay via an INVOICE PaymentIntent —
+  // the cart metadata lives on the subscription, not the PI.
+  if (pi.invoice) {
+    try {
+      const stripe = createStripeClient(env);
+      await fulfillInvoicePaymentIntent(supabase, stripe, connectRequestOptions(env), pi);
+    } catch (e) {
+      console.error("Invoice PI fulfilment failed:", e);
+    }
+    return;
+  }
 
   const userId = pi.metadata?.userId;
   if (!userId) {

@@ -12,6 +12,8 @@ import {
 } from "./layout.ts";
 
 export interface BookingItem {
+  /** bookings.id — when present, the entrance QR code CTA is rendered. */
+  id?: string | null;
   className: string;
   studentName?: string | null;
   dayOfWeek?: string | null;
@@ -77,9 +79,19 @@ export function renderBookingConfirmation(data: BookingConfirmationData) {
           : "",
       ].join("");
 
+      // Per-booking entrance QR: deep-links straight to this booking's QR
+      // code on the My Bookings page (?qr= handled portal-side).
+      const qrCta = b.id
+        ? ctaButton(
+            "View entrance QR code",
+            `https://the-dance-exclusive.vercel.app/account/bookings?qr=${encodeURIComponent(b.id)}`,
+          )
+        : "";
+
       return panel(
         `<div style="font-family:${FONT_BODY};font-size:17px;line-height:24px;font-weight:700;color:${BRAND.ink};margin-bottom:6px;">${escapeHtml(b.className)}</div>
-         ${rows}`,
+         ${rows}
+         ${qrCta}`,
         { accent: "blue" },
       );
     })

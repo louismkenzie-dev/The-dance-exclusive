@@ -5,11 +5,23 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
-import { Link } from "react-router-dom";
-import { CalendarDays, MapPin, User, Users, Clock, Tag, Plus, QrCode, MessageCircle, Ticket } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
+import { CalendarDays, MapPin, User, Users, Clock, Tag, Plus, QrCode, MessageCircle, Ticket, Repeat } from "lucide-react";
 import BookingQrDialog from "@/components/portal/BookingQrDialog";
 import { ClassPassesPanel } from "@/components/portal/ClassPassesPanel";
+import { getStripeEnvironment } from "@/lib/stripe";
 
 const statusColors: Record<string, "default" | "secondary" | "destructive"> = {
   confirmed: "default",
@@ -23,6 +35,28 @@ const statusLabels: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
+interface Membership {
+  id: string;
+  status: string;
+  monthly_amount: number;
+  started_at: string;
+  current_period_end: string | null;
+  final_payment_date: string | null;
+  cancel_at: string | null;
+  cancelled_at: string | null;
+  students: { first_name: string; last_name: string } | null;
+  classes: { name: string; day_of_week: string | null; start_time: string | null } | null;
+}
+
+// 'incomplete' rows are filtered out of the query entirely, so no entry here.
+const membershipBadges: Record<string, { label: string; className: string }> = {
+  active: { label: "Active", className: "border-transparent bg-emerald-600 text-white" },
+  past_due: { label: "Payment issue", className: "border-transparent bg-amber-500 text-white" },
+  paused: { label: "Paused", className: "border-transparent bg-secondary text-secondary-foreground" },
+  cancel_scheduled: { label: "Ending", className: "border-amber-500/50 text-amber-600 dark:text-amber-400" },
+  cancelled: { label: "Ended", className: "border-transparent bg-muted text-muted-foreground" },
+};
+
 const MyBookings = () => {
   const { user, profile } = useAuth();
   const [bookings, setBookings] = useState<any[]>([]);
@@ -31,6 +65,12 @@ const MyBookings = () => {
   const [activeTab, setActiveTab] = useState("bookings");
   // Total classes still bookable across the user's active passes (for the prompt banner).
   const [passCredits, setPassCredits] = useState(0);
+  const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [membershipsLoading, setMembershipsLoading] = useState(true);
+  // Membership pending cancellation confirmation (controls the AlertDialog).
+  const [cancelTarget, setCancelTarget] = useState<Membership | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const customerType = profile?.customer_type as string | null;
   const primaryIsAdult = customerType === "adult_dancer";
@@ -70,12 +110,70 @@ const MyBookings = () => {
   }, [user]);
   useEffect(() => { fetchPassCredits(); }, [fetchPassCredits]);
 
+  const fetchMemberships = useCallback(async () => {
+    if (!user) { setMemberships([]); return; }
+    const { data } = await supabase
+      .from("memberships")
+      .select("id, status, monthly_amount, started_at, current_period_end, final_payment_date, cancel_at, cancelled_at, students(first_name, last_name), classes(name, day_of_week, start_time)")
+      .eq("user_id", user.id)
+      .neq("status", "incomplete") // never surface half-created subscriptions
+      .order("created_at", { ascending: false });
+    setMemberships((data as unknown as Membership[]) ?? []);
+    setMembershipsLoading(false);
+  }, [user]);
+  useEffect(() => { fetchMemberships(); }, [fetchMemberships]);
+
+  // Email deep-link: /account/bookings?qr=<bookingId> auto-opens the sign-in QR
+  // dialog for that booking once, then clears the param so it can't re-trigger.
+  useEffect(() => {
+    const qrId = searchParams.get("qr");
+    if (!qrId || loading) return;
+    const target = bookings.find((b) => b.id === qrId);
+    if (target) setQrBooking(target);
+    const next = new URLSearchParams(searchParams);
+    next.delete("qr");
+    setSearchParams(next, { replace: true });
+  }, [bookings, loading, searchParams, setSearchParams]);
+
+  const confirmCancelMembership = async () => {
+    if (!cancelTarget) return;
+    setCancelling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("manage-membership", {
+        body: { action: "cancel", membershipId: cancelTarget.id, environment: getStripeEnvironment() },
+      });
+      // supabase-js hides the function's JSON body behind error.context —
+      // surface the server's friendly message instead of the generic one.
+      let message = data?.error || error?.message;
+      const ctx = (error as { context?: Response } | null)?.context;
+      if (ctx && typeof ctx.json === "function") {
+        try {
+          const body = await ctx.json();
+          if (body?.error) message = body.error;
+        } catch { /* keep generic */ }
+      }
+      if (error || data?.error) {
+        toast.error("Could not cancel membership", { description: message || "Please try again" });
+      } else {
+        toast.success("Cancellation notice received", {
+          description: `Final payment on ${format(new Date(data.finalPaymentDate), "d MMM yyyy")} — membership ends ${format(new Date(data.endDate), "d MMM yyyy")}`,
+        });
+        setCancelTarget(null);
+        fetchMemberships();
+      }
+    } catch (e: any) {
+      toast.error("Could not cancel membership", { description: e?.message });
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   const bookNowPath = primaryIsAdult ? "/classes/adult" : "/classes/children";
 
   return (
     <div className="container py-12 max-w-3xl">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-display font-bold">My Bookings</h1>
+        <h1 className="text-3xl font-display font-bold">My Bookings &amp; Memberships</h1>
         <Button asChild>
           <Link to={bookNowPath}>
             <Plus className="w-4 h-4 mr-2" /> Book a Class
@@ -102,6 +200,9 @@ const MyBookings = () => {
           </TabsTrigger>
           <TabsTrigger value="passes" className="gap-1.5">
             <Ticket className="w-3.5 h-3.5" /> Class Passes
+          </TabsTrigger>
+          <TabsTrigger value="memberships" className="gap-1.5">
+            <Repeat className="w-3.5 h-3.5" /> Memberships
           </TabsTrigger>
         </TabsList>
 
@@ -269,6 +370,141 @@ const MyBookings = () => {
         <TabsContent value="passes">
           <ClassPassesPanel onPassesChanged={fetchPassCredits} />
         </TabsContent>
+
+        <TabsContent value="memberships">
+          {membershipsLoading ? (
+            <div className="text-muted-foreground">Loading...</div>
+          ) : memberships.length === 0 ? (
+            <Card className="card-elevated">
+              <CardContent className="py-16 text-center space-y-4">
+                <Repeat className="w-12 h-12 mx-auto text-muted-foreground/40" />
+                <div>
+                  <p className="text-lg font-semibold">No memberships yet</p>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                    Choose Monthly Membership on any children&#39;s class and it becomes a rolling
+                    monthly subscription — your child&#39;s place is saved every week, paid automatically each month.
+                  </p>
+                </div>
+                <Button asChild size="lg">
+                  <Link to="/classes/children">
+                    <CalendarDays className="w-4 h-4 mr-2" /> Browse Children&#39;s Classes
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {memberships.map((m) => {
+                const badge = membershipBadges[m.status] ?? { label: m.status, className: "" };
+                const cls = m.classes;
+                const day = cls?.day_of_week
+                  ? cls.day_of_week.charAt(0).toUpperCase() + cls.day_of_week.slice(1)
+                  : null;
+                return (
+                  <Card key={m.id} className="card-elevated animate-fade-in">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-semibold text-base">{cls?.name ?? "Class membership"}</h3>
+                            <Badge variant="outline" className={`text-[10px] ${badge.className}`}>
+                              {badge.label}
+                            </Badge>
+                          </div>
+
+                          {(day || cls?.start_time) && (
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              {day && (
+                                <span className="flex items-center gap-1">
+                                  <CalendarDays className="w-3.5 h-3.5" /> {day}s
+                                </span>
+                              )}
+                              {cls?.start_time && (
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3.5 h-3.5" /> {cls.start_time.slice(0, 5)}
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {m.students && (
+                            <p className="text-sm flex items-center gap-1.5">
+                              <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                              {m.students.first_name} {m.students.last_name}
+                            </p>
+                          )}
+
+                          {m.status === "active" && m.current_period_end && (
+                            <div className="pt-1 space-y-0.5">
+                              <p className="text-sm">
+                                Valid until <span className="font-medium">{format(new Date(m.current_period_end), "d MMM yyyy")}</span>
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Next payment: {format(new Date(m.current_period_end), "d MMM yyyy")}
+                              </p>
+                              <p className="text-xs text-muted-foreground">Payments pause in August</p>
+                            </div>
+                          )}
+
+                          {m.status === "past_due" && (
+                            <p className="text-sm text-amber-600 dark:text-amber-400 pt-1">
+                              We couldn&#39;t take your last payment — it will be retried automatically.
+                              Please check your card details.
+                            </p>
+                          )}
+
+                          {m.status === "paused" && (
+                            <p className="text-sm text-muted-foreground pt-1">
+                              Payments are paused for August — they restart automatically in September.
+                            </p>
+                          )}
+
+                          {m.status === "cancel_scheduled" && (
+                            <div className="pt-1 space-y-0.5">
+                              {m.final_payment_date && (
+                                <p className="text-sm">
+                                  Final payment: <span className="font-medium">{format(new Date(m.final_payment_date), "d MMM yyyy")}</span>
+                                </p>
+                              )}
+                              {m.cancel_at && (
+                                <p className="text-sm">
+                                  Membership ends: <span className="font-medium">{format(new Date(m.cancel_at), "d MMM yyyy")}</span>
+                                </p>
+                              )}
+                            </div>
+                          )}
+
+                          {m.status === "cancelled" && (
+                            <p className="text-sm text-muted-foreground pt-1">
+                              Ended{(m.cancelled_at || m.cancel_at) && ` ${format(new Date((m.cancelled_at || m.cancel_at)!), "d MMM yyyy")}`}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                          <span className="text-xl font-bold">
+                            £{Number(m.monthly_amount).toFixed(2)}
+                            <span className="text-sm font-normal text-muted-foreground">/month</span>
+                          </span>
+                          {m.status === "active" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => setCancelTarget(m)}
+                            >
+                              Cancel membership
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
 
       <BookingQrDialog
@@ -276,6 +512,45 @@ const MyBookings = () => {
         onOpenChange={(o) => !o && setQrBooking(null)}
         booking={qrBooking}
       />
+
+      <AlertDialog open={!!cancelTarget} onOpenChange={(o) => { if (!o && !cancelling) setCancelTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this membership?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  Monthly memberships require <strong>one month&#39;s written notice</strong> —
+                  confirming below counts as your notice for{" "}
+                  <strong>{cancelTarget?.classes?.name ?? "this class"}</strong>
+                  {cancelTarget?.students && ` (${cancelTarget.students.first_name})`}.
+                </p>
+                <p>
+                  Your final payment of <strong>£{Number(cancelTarget?.monthly_amount ?? 0).toFixed(2)}</strong> will
+                  still be taken
+                  {cancelTarget?.current_period_end
+                    ? <> on <strong>{format(new Date(cancelTarget.current_period_end), "d MMM yyyy")}</strong></>
+                    : " on your next charge date"}.
+                </p>
+                <p>
+                  The membership stays active until one month after that payment, then ends
+                  automatically — classes continue as normal until then.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelling}>Keep membership</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={cancelling}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => { e.preventDefault(); confirmCancelMembership(); }}
+            >
+              {cancelling ? "Cancelling..." : "Confirm cancellation"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

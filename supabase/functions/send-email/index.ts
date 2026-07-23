@@ -24,6 +24,18 @@ import {
   renderContactEnquiryReceived,
   type ContactEnquiryReceivedData,
 } from "../_shared/email-templates/contact-enquiry-received.ts";
+import {
+  renderMembershipCancelRequested,
+  type MembershipCancelRequestedData,
+} from "../_shared/email-templates/membership-cancel-requested.ts";
+import {
+  renderMembershipEnded,
+  type MembershipEndedData,
+} from "../_shared/email-templates/membership-ended.ts";
+import {
+  renderMembershipPaymentFailed,
+  type MembershipPaymentFailedData,
+} from "../_shared/email-templates/membership-payment-failed.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -73,7 +85,10 @@ type Payload =
   | { template: "password_reset"; to: string; data: PasswordResetData }
   | { template: "staff_onboarding"; to: string; data: StaffOnboardingData }
   | { template: "party_inquiry_received"; to: string; data: PartyInquiryReceivedData }
-  | { template: "contact_enquiry_received"; to: string; data: ContactEnquiryReceivedData };
+  | { template: "contact_enquiry_received"; to: string; data: ContactEnquiryReceivedData }
+  | { template: "membership_cancel_requested"; to: string; data: MembershipCancelRequestedData }
+  | { template: "membership_ended"; to: string; data: MembershipEndedData }
+  | { template: "membership_payment_failed"; to: string; data: MembershipPaymentFailedData };
 
 function buildEmail(payload: Payload): { subject: string; html: string } {
   switch (payload.template) {
@@ -89,6 +104,12 @@ function buildEmail(payload: Payload): { subject: string; html: string } {
       return renderPartyInquiryReceived(payload.data);
     case "contact_enquiry_received":
       return renderContactEnquiryReceived(payload.data);
+    case "membership_cancel_requested":
+      return renderMembershipCancelRequested(payload.data);
+    case "membership_ended":
+      return renderMembershipEnded(payload.data);
+    case "membership_payment_failed":
+      return renderMembershipPaymentFailed(payload.data);
     default:
       throw new Error(`Unknown template: ${(payload as any).template}`);
   }

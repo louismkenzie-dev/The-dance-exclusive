@@ -5,8 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Search, ChevronDown, ChevronRight, Mail, Phone, Baby, ExternalLink, MapPin, Calendar, ShoppingBag, ShieldCheck, Pencil } from "lucide-react";
+import { Users, Search, ChevronDown, ChevronRight, Mail, Phone, Baby, ExternalLink, MapPin, Calendar, ShoppingBag, ShieldCheck, Pencil, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import CustomerEditDialog from "@/components/admin/CustomerEditDialog";
 import { ChildFormDialog } from "@/components/portal/ChildFormDialog";
@@ -26,8 +27,11 @@ interface Profile {
   created_at: string;
 }
 
+type SortMode = "name" | "paid_desc" | "newest" | "oldest";
+
 const AdminCustomers = () => {
   const [search, setSearch] = useState("");
+  const [sortMode, setSortMode] = useState<SortMode>("name");
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<any | null>(null);
   const [editingChild, setEditingChild] = useState<any | null>(null);
@@ -62,7 +66,16 @@ const AdminCustomers = () => {
   const { data: bookings } = useQuery({
     queryKey: ["admin-customers-bookings"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("bookings").select("id, parent_id, status");
+      const { data, error } = await supabase.from("bookings").select("id, parent_id, status, amount, booked_at");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const { data: passes } = useQuery({
+    queryKey: ["admin-customers-passes"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("class_passes").select("user_id, amount_paid, created_at");
       if (error) throw error;
       return data as any[];
     },
@@ -95,14 +108,41 @@ const AdminCustomers = () => {
     return acc;
   }, {});
 
-  const filtered = (profiles || []).filter((p) => {
-    const q = search.toLowerCase();
-    return (
-      p.full_name.toLowerCase().includes(q) ||
-      p.email.toLowerCase().includes(q) ||
-      (p.phone && p.phone.includes(q))
-    );
-  });
+  // Total actually paid this calendar year: confirmed bookings + class passes.
+  const currentYear = new Date().getFullYear();
+  const paidThisYearByParent: Record<string, number> = {};
+  for (const b of bookings || []) {
+    if (b.status !== "confirmed" || !b.parent_id) continue;
+    if (b.booked_at && new Date(b.booked_at).getFullYear() !== currentYear) continue;
+    paidThisYearByParent[b.parent_id] = (paidThisYearByParent[b.parent_id] || 0) + Number(b.amount || 0);
+  }
+  for (const p of passes || []) {
+    if (!p.user_id) continue;
+    if (p.created_at && new Date(p.created_at).getFullYear() !== currentYear) continue;
+    paidThisYearByParent[p.user_id] = (paidThisYearByParent[p.user_id] || 0) + Number(p.amount_paid || 0);
+  }
+
+  const filtered = (profiles || [])
+    .filter((p) => {
+      const q = search.toLowerCase();
+      return (
+        p.full_name.toLowerCase().includes(q) ||
+        p.email.toLowerCase().includes(q) ||
+        (p.phone && p.phone.includes(q))
+      );
+    })
+    .sort((a, b) => {
+      switch (sortMode) {
+        case "paid_desc":
+          return (paidThisYearByParent[b.user_id] || 0) - (paidThisYearByParent[a.user_id] || 0);
+        case "newest":
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case "oldest":
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        default:
+          return a.full_name.localeCompare(b.full_name);
+      }
+    });
 
   const calcAge = (dob: string) => {
     const diff = Date.now() - new Date(dob).getTime();
@@ -136,9 +176,23 @@ const AdminCustomers = () => {
         </div>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Search by name, email or phone..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative max-w-sm flex-1 min-w-[220px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Search by name, email or phone..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        </div>
+        <Select value={sortMode} onValueChange={(v) => setSortMode(v as SortMode)}>
+          <SelectTrigger className="w-56">
+            <ArrowUpDown className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="name">Name (A–Z)</SelectItem>
+            <SelectItem value="paid_desc">Total paid this year (high → low)</SelectItem>
+            <SelectItem value="newest">Newest customers first</SelectItem>
+            <SelectItem value="oldest">Oldest customers first</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <Card>
@@ -157,6 +211,7 @@ const AdminCustomers = () => {
                   <TableHead>Phone</TableHead>
                   <TableHead className="text-center">Children</TableHead>
                   <TableHead className="text-center">Bookings</TableHead>
+                  <TableHead className="text-right">Paid ({currentYear})</TableHead>
                   <TableHead>Joined</TableHead>
                 </TableRow>
               </TableHeader>
@@ -204,6 +259,11 @@ const AdminCustomers = () => {
                             {custBookings.length}
                           </Badge>
                         </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {(paidThisYearByParent[customer.user_id] || 0) > 0
+                            ? `£${(paidThisYearByParent[customer.user_id] || 0).toFixed(2)}`
+                            : <span className="text-muted-foreground font-normal">—</span>}
+                        </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {format(new Date(customer.created_at), "dd MMM yyyy")}
                         </TableCell>
@@ -212,7 +272,7 @@ const AdminCustomers = () => {
                       {isExpanded && (
                         <TableRow key={`${customer.id}-detail`} className="bg-muted/20 hover:bg-muted/20">
                           <TableCell></TableCell>
-                          <TableCell colSpan={6} className="py-4">
+                          <TableCell colSpan={7} className="py-4">
                             <div className="space-y-5">
                               {/* Contact & Address */}
                               <div className="grid grid-cols-2 gap-6">

@@ -20,6 +20,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 import getCroppedImg from "@/lib/cropImage";
+import StaffInviteLinks from "@/components/admin/StaffInviteLinks";
 
 type DocType = "paediatric_first_aid" | "other_first_aid" | "safeguarding" | "pli";
 
@@ -621,7 +622,8 @@ const AdminStaff = () => {
       </div>
 
       <div>
-      <div className="flex items-center justify-end mb-6">
+      <div className="flex items-center justify-end gap-2 mb-6">
+        <StaffInviteLinks onStaffAdded={fetchStaff} />
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
           <DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-2" /> Add Staff</Button></DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">

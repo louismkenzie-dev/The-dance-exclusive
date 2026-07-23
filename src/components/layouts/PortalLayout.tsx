@@ -184,21 +184,11 @@ const PortalLayout = () => {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {(() => {
-              let bookNowTarget = "/";
-              if (isAdultSection) bookNowTarget = "/classes/adult";
-              else if (isChildrenSection) bookNowTarget = "/classes/children";
-              else if (customerType === "adult_dancer") bookNowTarget = "/classes/adult";
-              else if (customerType === "parent_only") bookNowTarget = "/classes/children";
-              const finalTarget = user ? bookNowTarget : `/auth?redirect=${encodeURIComponent(bookNowTarget)}`;
-              return (
-                <Button asChild size="sm" className="ml-3 font-semibold uppercase tracking-wider text-xs">
-                  <Link to={finalTarget}>
-                    <CalendarDays className="w-3.5 h-3.5 mr-1.5" /> Book a Trial
-                  </Link>
-                </Button>
-              );
-            })()}
+            <Button asChild size="sm" className="ml-3 font-semibold uppercase tracking-wider text-xs">
+              <Link to="/classes/children">
+                <CalendarDays className="w-3.5 h-3.5 mr-1.5" /> View Classes
+              </Link>
+            </Button>
           </nav>
 
           <div className="flex items-center gap-2">

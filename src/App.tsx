@@ -15,6 +15,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
+import StaffOnboarding from "./pages/StaffOnboarding";
 
 // Admin pages
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -78,6 +79,7 @@ const App = () => (
             {/* Auth */}
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/staff-onboarding/:token" element={<StaffOnboarding />} />
 
             {/* Admin routes */}
             <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminLayout /></ProtectedRoute>}>

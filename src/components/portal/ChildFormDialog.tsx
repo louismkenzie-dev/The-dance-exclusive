@@ -327,6 +327,16 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
   // Children are themed BLUE, adults PINK. Radix Select popovers portal to
   // document.body, so the theme class must also go on every SelectContent.
   const themeClass = selfMode ? "theme-adult" : "theme-children";
+  // Child profiles MUST have an emergency contact with a plausible phone
+  // number — mirrored by a database CHECK constraint, so this is the friendly
+  // half of a rule the server enforces regardless.
+  const emergencyDigits = (form.emergency_contact_phone || "").replace(/\D/g, "");
+  const emergencyContactOk =
+    selfMode ||
+    (Boolean((form.emergency_contact_name || "").trim()) &&
+      /^\+?[0-9 ()-]{7,20}$/.test((form.emergency_contact_phone || "").trim()) &&
+      emergencyDigits.length >= 10 &&
+      emergencyDigits.length <= 13);
   const medicalConditions = form.medical_conditions_list as string[];
   const allergiesList = form.allergies_list as string[];
   const sendConditions = form.send_conditions_list as string[];
@@ -477,9 +487,21 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label>Emergency Contact Name</Label><Input value={form.emergency_contact_name} onChange={(e) => update("emergency_contact_name", e.target.value)} /></div>
-                    <div className="space-y-2"><Label>Emergency Contact Phone</Label><Input value={form.emergency_contact_phone} onChange={(e) => update("emergency_contact_phone", e.target.value)} /></div>
+                    <div className="space-y-2">
+                      <Label>Emergency Contact Name{!selfMode && " *"}</Label>
+                      <Input value={form.emergency_contact_name} onChange={(e) => update("emergency_contact_name", e.target.value)} required={!selfMode} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Emergency Contact Phone{!selfMode && " *"}</Label>
+                      <Input type="tel" value={form.emergency_contact_phone} onChange={(e) => update("emergency_contact_phone", e.target.value)} required={!selfMode} placeholder="e.g. 07700 900123" />
+                    </div>
                   </div>
+                  {!selfMode && !emergencyContactOk && (
+                    <p className="text-xs text-destructive">
+                      An emergency contact name and a real phone number (10–13 digits) are required
+                      before a child profile can be saved.
+                    </p>
+                  )}
                 </AccordionContent>
               </AccordionItem>
 
@@ -757,7 +779,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button
             onClick={handleSave}
-            disabled={saving || !form.first_name || !form.last_name || !form.date_of_birth}
+            disabled={saving || !form.first_name || !form.last_name || !form.date_of_birth || !emergencyContactOk}
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             <Save className="h-4 w-4 mr-2" />

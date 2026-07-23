@@ -40,6 +40,10 @@ import {
   renderMembershipClassChanged,
   type MembershipClassChangedData,
 } from "../_shared/email-templates/membership-class-changed.ts";
+import {
+  renderStaffClassAssigned,
+  type StaffClassAssignedData,
+} from "../_shared/email-templates/staff-class-assigned.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -93,7 +97,8 @@ type Payload =
   | { template: "membership_cancel_requested"; to: string; data: MembershipCancelRequestedData }
   | { template: "membership_ended"; to: string; data: MembershipEndedData }
   | { template: "membership_payment_failed"; to: string; data: MembershipPaymentFailedData }
-  | { template: "membership_class_changed"; to: string; data: MembershipClassChangedData };
+  | { template: "membership_class_changed"; to: string; data: MembershipClassChangedData }
+  | { template: "staff_class_assigned"; to: string; data: StaffClassAssignedData };
 
 function buildEmail(payload: Payload): { subject: string; html: string } {
   switch (payload.template) {
@@ -117,6 +122,8 @@ function buildEmail(payload: Payload): { subject: string; html: string } {
       return renderMembershipPaymentFailed(payload.data);
     case "membership_class_changed":
       return renderMembershipClassChanged(payload.data);
+    case "staff_class_assigned":
+      return renderStaffClassAssigned(payload.data);
     default:
       throw new Error(`Unknown template: ${(payload as any).template}`);
   }

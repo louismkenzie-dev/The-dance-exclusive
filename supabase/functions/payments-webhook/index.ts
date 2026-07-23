@@ -81,11 +81,24 @@ async function handlePaymentIntentSucceeded(pi: any, env: StripeEnv) {
   console.log("PaymentIntent succeeded:", pi.id);
 
   // Subscription checkouts and renewals pay via an INVOICE PaymentIntent —
-  // the cart metadata lives on the subscription, not the PI.
-  if (pi.invoice) {
+  // the cart metadata lives on the subscription, not the PI. Webhook events
+  // built with Stripe's 2025 "Basil" API omit `pi.invoice`, so when it's
+  // missing AND the PI carries no cart metadata, re-retrieve it under our
+  // pinned pre-Basil version to recover the invoice link.
+  let invoicePi = pi.invoice ? pi : null;
+  if (!invoicePi && !pi.metadata?.userId) {
     try {
       const stripe = createStripeClient(env);
-      await fulfillInvoicePaymentIntent(supabase, stripe, connectRequestOptions(env), pi);
+      const retrieved = await stripe.paymentIntents.retrieve(pi.id, {}, connectRequestOptions(env));
+      if ((retrieved as any).invoice) invoicePi = retrieved;
+    } catch (e) {
+      console.error("PI re-retrieve failed:", e);
+    }
+  }
+  if (invoicePi) {
+    try {
+      const stripe = createStripeClient(env);
+      await fulfillInvoicePaymentIntent(supabase, stripe, connectRequestOptions(env), invoicePi);
     } catch (e) {
       console.error("Invoice PI fulfilment failed:", e);
     }

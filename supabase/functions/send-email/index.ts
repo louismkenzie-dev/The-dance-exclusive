@@ -36,6 +36,10 @@ import {
   renderMembershipPaymentFailed,
   type MembershipPaymentFailedData,
 } from "../_shared/email-templates/membership-payment-failed.ts";
+import {
+  renderMembershipClassChanged,
+  type MembershipClassChangedData,
+} from "../_shared/email-templates/membership-class-changed.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -88,7 +92,8 @@ type Payload =
   | { template: "contact_enquiry_received"; to: string; data: ContactEnquiryReceivedData }
   | { template: "membership_cancel_requested"; to: string; data: MembershipCancelRequestedData }
   | { template: "membership_ended"; to: string; data: MembershipEndedData }
-  | { template: "membership_payment_failed"; to: string; data: MembershipPaymentFailedData };
+  | { template: "membership_payment_failed"; to: string; data: MembershipPaymentFailedData }
+  | { template: "membership_class_changed"; to: string; data: MembershipClassChangedData };
 
 function buildEmail(payload: Payload): { subject: string; html: string } {
   switch (payload.template) {
@@ -110,6 +115,8 @@ function buildEmail(payload: Payload): { subject: string; html: string } {
       return renderMembershipEnded(payload.data);
     case "membership_payment_failed":
       return renderMembershipPaymentFailed(payload.data);
+    case "membership_class_changed":
+      return renderMembershipClassChanged(payload.data);
     default:
       throw new Error(`Unknown template: ${(payload as any).template}`);
   }

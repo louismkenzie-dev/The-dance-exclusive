@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { CalendarDays, MapPin, User, Users, Clock, Tag, Plus, QrCode, MessageCircle, Ticket, Repeat } from "lucide-react";
 import BookingQrDialog from "@/components/portal/BookingQrDialog";
 import { ClassPassesPanel } from "@/components/portal/ClassPassesPanel";
+import ChangeClassDialog from "@/components/portal/ChangeClassDialog";
 import { getStripeEnvironment } from "@/lib/stripe";
 
 const statusColors: Record<string, "default" | "secondary" | "destructive"> = {
@@ -38,13 +39,14 @@ const statusLabels: Record<string, string> = {
 interface Membership {
   id: string;
   status: string;
+  class_id: string | null;
   monthly_amount: number;
   started_at: string;
   current_period_end: string | null;
   final_payment_date: string | null;
   cancel_at: string | null;
   cancelled_at: string | null;
-  students: { first_name: string; last_name: string } | null;
+  students: { first_name: string; last_name: string; date_of_birth: string | null } | null;
   classes: { name: string; day_of_week: string | null; start_time: string | null } | null;
 }
 
@@ -70,33 +72,33 @@ const MyBookings = () => {
   // Membership pending cancellation confirmation (controls the AlertDialog).
   const [cancelTarget, setCancelTarget] = useState<Membership | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  // Membership whose class is being changed (controls the ChangeClassDialog).
+  const [changeTarget, setChangeTarget] = useState<Membership | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const customerType = profile?.customer_type as string | null;
   const primaryIsAdult = customerType === "adult_dancer";
 
-  useEffect(() => {
+  const fetchBookings = useCallback(async () => {
     if (!user) return;
-    const fetchBookings = async () => {
-      const { data } = await supabase
-        .from("bookings")
-        .select(`*,
-          classes(name, day_of_week, start_time, end_time, class_type, dance_style, price_per_session, price_per_term, price_per_month, price_per_year, whatsapp_group_url,
-            venues(name, address_line1, city, postcode),
-            workshops(name, cover_image)
-          ),
-          camps(name, start_date, end_date, start_time, end_time, class_type,
-            venues(name, address_line1, city, postcode),
-            workshops(name, cover_image)
-          ),
-          students(first_name, last_name, preferred_name, profile_photo)`)
-        .eq("parent_id", user.id)
-        .order("booked_at", { ascending: false });
-      if (data) setBookings(data);
-      setLoading(false);
-    };
-    fetchBookings();
+    const { data } = await supabase
+      .from("bookings")
+      .select(`*,
+        classes(name, day_of_week, start_time, end_time, class_type, dance_style, price_per_session, price_per_term, price_per_month, price_per_year, whatsapp_group_url,
+          venues(name, address_line1, city, postcode),
+          workshops(name, cover_image)
+        ),
+        camps(name, start_date, end_date, start_time, end_time, class_type,
+          venues(name, address_line1, city, postcode),
+          workshops(name, cover_image)
+        ),
+        students(first_name, last_name, preferred_name, profile_photo)`)
+      .eq("parent_id", user.id)
+      .order("booked_at", { ascending: false });
+    if (data) setBookings(data);
+    setLoading(false);
   }, [user]);
+  useEffect(() => { fetchBookings(); }, [fetchBookings]);
 
   const fetchPassCredits = useCallback(async () => {
     if (!user) { setPassCredits(0); return; }
@@ -114,7 +116,7 @@ const MyBookings = () => {
     if (!user) { setMemberships([]); return; }
     const { data } = await supabase
       .from("memberships")
-      .select("id, status, monthly_amount, started_at, current_period_end, final_payment_date, cancel_at, cancelled_at, students(first_name, last_name), classes(name, day_of_week, start_time)")
+      .select("id, status, class_id, monthly_amount, started_at, current_period_end, final_payment_date, cancel_at, cancelled_at, students(first_name, last_name, date_of_birth), classes(name, day_of_week, start_time)")
       .eq("user_id", user.id)
       .neq("status", "incomplete") // never surface half-created subscriptions
       .order("created_at", { ascending: false });
@@ -486,6 +488,11 @@ const MyBookings = () => {
                             £{Number(m.monthly_amount).toFixed(2)}
                             <span className="text-sm font-normal text-muted-foreground">/month</span>
                           </span>
+                          {(m.status === "active" || m.status === "paused") && (
+                            <Button size="sm" variant="outline" onClick={() => setChangeTarget(m)}>
+                              <Repeat className="w-3.5 h-3.5 mr-1.5" /> Change class
+                            </Button>
+                          )}
                           {m.status === "active" && (
                             <Button
                               size="sm"
@@ -511,6 +518,20 @@ const MyBookings = () => {
         open={!!qrBooking}
         onOpenChange={(o) => !o && setQrBooking(null)}
         booking={qrBooking}
+      />
+
+      <ChangeClassDialog
+        open={!!changeTarget}
+        onOpenChange={(o) => { if (!o) setChangeTarget(null); }}
+        membership={changeTarget ? {
+          id: changeTarget.id,
+          class_id: changeTarget.class_id,
+          className: changeTarget.classes?.name ?? "your class",
+          studentName: changeTarget.students ? `${changeTarget.students.first_name} ${changeTarget.students.last_name}` : null,
+          studentDob: changeTarget.students?.date_of_birth ?? null,
+          monthly_amount: Number(changeTarget.monthly_amount),
+        } : null}
+        onSwitched={() => { fetchMemberships(); fetchBookings(); }}
       />
 
       <AlertDialog open={!!cancelTarget} onOpenChange={(o) => { if (!o && !cancelling) setCancelTarget(null); }}>

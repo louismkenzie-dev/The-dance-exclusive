@@ -13,9 +13,17 @@ function getStripeSecretKey(env: StripeEnv): string {
 }
 
 // Direct Stripe API (api.stripe.com) — no third-party gateway.
+// PINNED API VERSION: stripe-node v18 defaults to the 2025 "Basil" API, which
+// removed `invoice.payment_intent`, `payment_intent.invoice` and subscription-
+// level `current_period_end` — shapes this codebase's subscription flow relies
+// on (expand latest_invoice.payment_intent, invoice-PI routing, period dates).
+// Pin the last pre-Basil version so every request/response matches the code.
+export const STRIPE_API_VERSION = "2025-02-24.acacia";
+
 export function createStripeClient(env: StripeEnv): Stripe {
   return new Stripe(getStripeSecretKey(env), {
     httpClient: Stripe.createFetchHttpClient(),
+    apiVersion: STRIPE_API_VERSION as any,
   });
 }
 

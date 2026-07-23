@@ -370,7 +370,7 @@ const Gallery = () => {
                     <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-accent">
                       Official Showreel · 2025
                     </span>
-                    <h3 className="font-display text-2xl md:text-4xl mt-1">Move Different — The Film</h3>
+                    <h3 className="font-display text-2xl md:text-4xl mt-1">Step In, Stand Out — The Film</h3>
                   </div>
                   <span className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
                     <Clapperboard className="w-4 h-4" /> 01:32

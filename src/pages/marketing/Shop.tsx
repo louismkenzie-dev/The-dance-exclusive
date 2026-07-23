@@ -168,7 +168,7 @@ const Shop = () => {
             <span className="block text-accent drop-shadow-[0_0_40px_hsl(330_90%_55%/0.4)]">Splat</span>
           </h1>
           <p className="mt-6 text-base md:text-xl text-muted-foreground max-w-lg mx-auto" style={{ fontFamily: "var(--font-body)", textTransform: "none", letterSpacing: "normal" }}>
-            Studio-ready streetwear in the colours of the crew. Hoodies, tees, crops and more — built to move different.
+            Studio-ready streetwear in the colours of the crew. Hoodies, tees, crops and more — built to make you stand out.
           </p>
         </div>
       </section>

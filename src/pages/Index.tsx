@@ -78,8 +78,8 @@ const Index = () => {
           </div>
 
           <h1 className="font-display font-bold leading-[0.92] tracking-tight text-foreground text-[18vw] sm:text-8xl md:text-[8.5rem] drop-shadow-[0_4px_30px_rgba(0,0,0,0.7)]">
-            <span className="block">Move</span>
-            <span className="block text-primary drop-shadow-[0_0_40px_hsl(193_100%_44%/0.45)]">Different</span>
+            <span className="block">Step In</span>
+            <span className="block text-primary drop-shadow-[0_0_40px_hsl(193_100%_44%/0.45)]">Stand Out</span>
           </h1>
 
           <p

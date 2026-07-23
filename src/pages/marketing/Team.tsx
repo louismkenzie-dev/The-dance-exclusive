@@ -147,7 +147,7 @@ const Team = () => {
           >
             Award-winning choreographers, battle-tested coaches and the warmest
             faces in Essex dance. Every one of them DBS-checked, insured and
-            here for one reason — to help you move different.
+            here for one reason — to help you step in and stand out.
           </p>
         </div>
       </section>

@@ -11,7 +11,7 @@
 
 export const BRAND = {
   name: "The Dance Exclusive",
-  tagline: "MOVE DIFFERENT",
+  tagline: "STEP IN, STAND OUT",
 
   // ── Club-look palette ────────────────────────────────────────────
   bg: "#0B0F16", // outer page background — near-black navy
@@ -118,7 +118,7 @@ export function renderLayout({ title, preheader, body }: LayoutOpts): string {
             <tr>
               <td align="center" bgcolor="${BRAND.band}" class="band" style="background:${BRAND.band};border-radius:0 0 14px 14px;padding:28px 32px;">
                 <div style="font-family:${FONT_DISPLAY};font-weight:700;font-size:11px;line-height:16px;letter-spacing:5px;color:${BRAND.blue};text-transform:uppercase;margin-bottom:14px;">
-                  MOVE DIFFERENT
+                  STEP IN, STAND OUT
                 </div>
                 <div style="font-family:${FONT_BODY};font-size:12px;line-height:19px;color:${BRAND.footerText};margin-bottom:10px;">
                   ${BRAND.name} &middot; Essex, United Kingdom<br />

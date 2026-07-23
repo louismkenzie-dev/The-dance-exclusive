@@ -264,7 +264,7 @@ const PortalLayout = () => {
               <img src={logoDark} alt="The Dance Exclusive" className="w-28 object-contain mb-4" />
               <p className="text-sm text-muted-foreground normal-case leading-relaxed">
                 Essex's award-winning commercial &amp; street dance school for children and adults.
-                Move different.
+                Step in, stand out.
               </p>
             </div>
             <div>
@@ -304,7 +304,7 @@ const PortalLayout = () => {
             <p className="text-xs text-muted-foreground uppercase tracking-widest">
               © {new Date().getFullYear()} The Dance Exclusive • Essex, UK
             </p>
-            <p className="text-xs text-muted-foreground/60 uppercase tracking-widest">Move Different</p>
+            <p className="text-xs text-muted-foreground/60 uppercase tracking-widest">Step In, Stand Out</p>
           </div>
         </div>
       </footer>

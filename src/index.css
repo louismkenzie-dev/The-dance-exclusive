@@ -60,6 +60,12 @@
 
   /* Children's portal — lighter variant with same brand identity */
   .theme-children {
+    /* Anchor the text colour to the local foreground. Overlays (dialogs,
+       popovers) that carry this class portal to <body>, so without this they
+       inherit the body's computed colour (white at :root) and render invisible
+       on the light background. Explicit text-* utilities still override this. */
+    color: hsl(220 20% 10%);
+
     --background: 200 20% 97%;
     --foreground: 220 20% 10%;
 
@@ -88,6 +94,9 @@
 
   /* Adult portal — full dark */
   .theme-adult {
+    /* See .theme-children — keep overlay text colour anchored to this theme. */
+    color: hsl(0 0% 98%);
+
     --background: 220 20% 4%;
     --foreground: 0 0% 98%;
 

@@ -536,7 +536,7 @@ const ClassBrowser = () => {
                 setActiveSection(key);
                 document.getElementById(`section-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
               }}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${
+              className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 ${
                 activeSection === key
                   ? "bg-primary text-primary-foreground shadow-lg"
                   : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -556,8 +556,9 @@ const ClassBrowser = () => {
         {loading ? (
           <div className="text-center text-muted-foreground py-12">Loading classes...</div>
         ) : sortedClasses.length === 0 ? (
-          <Card className="border-border/50">
+          <Card className="card-elevated border-border/50">
             <CardContent className="py-16 text-center text-muted-foreground">
+              <CalendarDays className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
               No {classType} classes available right now. Check back soon!
             </CardContent>
           </Card>
@@ -583,7 +584,7 @@ const ClassBrowser = () => {
               return (
                 <Card
                   key={c.id}
-                  className="animate-fade-in border-border/50 bg-card/80 hover:border-primary/30 transition-all duration-300 group overflow-hidden"
+                  className="card-elevated animate-fade-in rounded-xl overflow-hidden border-border/50 bg-card/80 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-300 group"
                   style={{ animationDelay: `${i * 0.05}s` }}
                 >
                   {/* Workshop/venue photo header */}
@@ -666,10 +667,10 @@ const ClassBrowser = () => {
                         )}
                       </div>
                       {audienceText(c) && (
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">{audienceText(c)}</span>
+                        <span className="text-[11px] text-muted-foreground/80 whitespace-nowrap">{audienceText(c)}</span>
                       )}
                     </div>
-                    <CardTitle className="text-xl group-hover:text-primary transition-colors">{c.name}</CardTitle>
+                    <CardTitle className="text-xl font-bold tracking-wide group-hover:text-primary transition-colors">{c.name}</CardTitle>
                     {c.description && <p className="text-sm text-muted-foreground mt-2 line-clamp-2" style={{ textTransform: 'none', letterSpacing: 'normal', fontFamily: 'var(--font-body)' }}>{c.description}</p>}
                   </CardHeader>
                   <CardContent>
@@ -886,9 +887,9 @@ const ClassBrowser = () => {
                                 {!isChildrenClass && (
                                   <button
                                     onClick={() => { setSelectedPlans(p => ({ ...p, [c.id]: "session" })); setSelectedSessions(p => ({ ...p, [c.id]: [] })); }}
-                                    className={`flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
+                                    className={`flex items-center justify-between p-3 rounded-lg border text-left text-sm transition-all ${
                                       plan === "session"
-                                        ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                                        ? "border-primary bg-primary/10 ring-1 ring-primary/40 shadow-sm"
                                         : "border-border/50 bg-background/50 hover:border-border"
                                     }`}
                                   >
@@ -904,9 +905,9 @@ const ClassBrowser = () => {
                                 {isChildrenClass && (
                                   <button
                                     onClick={() => { setSelectedPlans(p => ({ ...p, [c.id]: "monthly" })); setSelectedSessions(p => ({ ...p, [c.id]: sessions.map(s => s.id) })); }}
-                                    className={`flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
+                                    className={`flex items-center justify-between p-3 rounded-lg border text-left text-sm transition-all ${
                                       plan === "monthly"
-                                        ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                                        ? "border-primary bg-primary/10 ring-1 ring-primary/40 shadow-sm"
                                         : "border-border/50 bg-background/50 hover:border-border"
                                     }`}
                                   >
@@ -925,9 +926,9 @@ const ClassBrowser = () => {
                                 {isChildrenClass && priceTrm != null && remaining > 0 && (
                                   <button
                                     onClick={() => selectAllSessions()}
-                                    className={`flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
+                                    className={`flex items-center justify-between p-3 rounded-lg border text-left text-sm transition-all ${
                                       plan === "term"
-                                        ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                                        ? "border-primary bg-primary/10 ring-1 ring-primary/40 shadow-sm"
                                         : "border-border/50 bg-background/50 hover:border-border"
                                     }`}
                                   >
@@ -948,9 +949,9 @@ const ClassBrowser = () => {
                                 {isChildrenClass && (
                                   <button
                                     onClick={() => { setSelectedPlans(p => ({ ...p, [c.id]: "yearly" })); setSelectedSessions(p => ({ ...p, [c.id]: sessions.map(s => s.id) })); }}
-                                    className={`relative flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
+                                    className={`relative flex items-center justify-between p-3 rounded-lg border text-left text-sm transition-all ${
                                       plan === "yearly"
-                                        ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                                        ? "border-primary bg-primary/10 ring-1 ring-primary/40 shadow-sm"
                                         : "border-border/50 bg-background/50 hover:border-border"
                                     }`}
                                   >
@@ -994,7 +995,7 @@ const ClassBrowser = () => {
                                           key={s.id}
                                           className={`flex items-center gap-2.5 p-2 rounded-lg border text-sm cursor-pointer transition-all ${
                                             isSelected
-                                              ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                                              ? "border-primary bg-primary/10 ring-1 ring-primary/40 shadow-sm"
                                               : "border-border/50 bg-background/50 hover:border-border"
                                           }`}
                                         >
@@ -1068,7 +1069,7 @@ const ClassBrowser = () => {
                                             : ch.alreadyAdded
                                               ? "opacity-60 cursor-not-allowed border-green-500/30 bg-green-500/5"
                                               : selected.includes(ch.id)
-                                                ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                                                ? "border-primary bg-primary/10 ring-1 ring-primary/40 shadow-sm"
                                                 : "border-border/50 bg-background/50 hover:border-border"
                                         }`}
                                       >
@@ -1243,7 +1244,7 @@ const ClassBrowser = () => {
         {/* CAMPS SECTION — children only */}
         {!isAdult && <div id="section-camps" className={activeSection !== "camps" ? "hidden" : ""}>
           {camps.length === 0 ? (
-            <Card className="border-border/50">
+            <Card className="card-elevated border-border/50">
               <CardContent className="py-16 text-center text-muted-foreground">
                 <Music className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
                 No upcoming camps right now. Check back soon!
@@ -1265,7 +1266,7 @@ const ClassBrowser = () => {
                 const campMatchedChildren = getMatchingChildren(camp);
                 const campChildNames = campMatchedChildren.map((ch: any) => ch.preferred_name || ch.first_name);
                 return (
-                  <Card key={camp.id} className="border-border/50 bg-card/80 hover:border-primary/30 transition-all duration-300 overflow-hidden">
+                  <Card key={camp.id} className="card-elevated rounded-xl overflow-hidden border-border/50 bg-card/80 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-300">
                     {workshopImage && (
                       <div className="relative h-44 overflow-hidden">
                         <img src={workshopImage} alt={camp.name} className="w-full h-full object-cover" />
@@ -1288,7 +1289,7 @@ const ClassBrowser = () => {
                       </div>
                     )}
                     <CardHeader className="pb-3">
-                      <CardTitle className="text-xl">{camp.name}</CardTitle>
+                      <CardTitle className="text-xl font-bold tracking-wide">{camp.name}</CardTitle>
                       {camp.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2" style={{ textTransform: 'none', letterSpacing: 'normal', fontFamily: 'var(--font-body)' }}>{camp.description}</p>}
                     </CardHeader>
                     <CardContent>
@@ -1343,7 +1344,7 @@ const ClassBrowser = () => {
         {/* SHOWS SECTION */}
         <div id="section-shows" className={activeSection !== "shows" ? "hidden" : ""}>
           {shows.length === 0 ? (
-            <Card className="border-border/50">
+            <Card className="card-elevated border-border/50">
               <CardContent className="py-16 text-center text-muted-foreground">
                 <Ticket className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
                 No upcoming shows right now. Check back soon!
@@ -1354,7 +1355,7 @@ const ClassBrowser = () => {
               {shows.map((show: any) => {
                 const venue = show.venues;
                 return (
-                  <Card key={show.id} className="border-border/50 bg-card/80 hover:border-primary/30 transition-all duration-300 overflow-hidden">
+                  <Card key={show.id} className="card-elevated rounded-xl overflow-hidden border-border/50 bg-card/80 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-300">
                     {show.cover_image && (
                       <div className="relative h-44 overflow-hidden">
                         <img src={show.cover_image} alt={show.name} className="w-full h-full object-cover" />
@@ -1370,7 +1371,7 @@ const ClassBrowser = () => {
                           <Badge variant="outline" className="border-primary/30 text-primary text-xs">{show.dance_style}</Badge>
                         )}
                       </div>
-                      <CardTitle className="text-xl">{show.name}</CardTitle>
+                      <CardTitle className="text-xl font-bold tracking-wide">{show.name}</CardTitle>
                       {show.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2" style={{ textTransform: 'none', letterSpacing: 'normal', fontFamily: 'var(--font-body)' }}>{show.description}</p>}
                     </CardHeader>
                     <CardContent>

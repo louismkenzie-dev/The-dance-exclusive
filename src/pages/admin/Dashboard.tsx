@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CalendarDays, Users, BookOpen, MapPin, TrendingUp, UserCheck, UserCog, Sparkles, Clock, Baby, PersonStanding, AlertTriangle } from "lucide-react";
+import { CalendarDays, Users, BookOpen, MapPin, TrendingUp, UserCheck, UserCog, Sparkles, Clock, Baby, PersonStanding, AlertTriangle, GraduationCap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { openAdminTour } from "@/components/admin/AdminOnboardingTour";
 import { format, addDays, isAfter, isBefore, parseISO, differenceInCalendarDays } from "date-fns";
 
 interface Stats {
@@ -220,11 +222,22 @@ const AdminDashboard = () => {
   return (
     <div className="p-4 md:p-8 space-y-10">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-display font-bold text-foreground tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground mt-1 text-sm" style={{ textTransform: 'none', letterSpacing: 'normal', fontFamily: 'var(--font-body)' }}>
-          Overview of The Dance Exclusive
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-display font-bold text-foreground tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground mt-1 text-sm" style={{ textTransform: 'none', letterSpacing: 'normal', fontFamily: 'var(--font-body)' }}>
+            Overview of The Dance Exclusive
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={openAdminTour}
+          className="border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"
+          style={{ fontFamily: 'var(--font-body)', textTransform: 'none', letterSpacing: 'normal' }}
+        >
+          <GraduationCap className="w-4 h-4" /> Getting started
+        </Button>
       </div>
 
       {/* Attention Needed */}

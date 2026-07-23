@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useNavConfig } from "@/hooks/useNavConfig";
 import type { NavItem } from "@/config/adminNavConfig";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import AdminOnboardingTour from "@/components/admin/AdminOnboardingTour";
 
 const LucideIcon = ({ name, className }: { name: string; className?: string }) => {
   const Icon = (icons as any)[name];
@@ -167,6 +168,9 @@ const AdminLayout = () => {
           <Outlet />
         </main>
       </div>
+
+      {/* First-login onboarding tour — auto-opens once, re-launchable from the Dashboard */}
+      <AdminOnboardingTour />
     </div>
   );
 };

@@ -55,7 +55,8 @@ const CartDrawer = () => {
           </SheetHeader>
 
           {items.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center text-muted-foreground text-sm">
+              <ShoppingCart className="w-10 h-10 text-muted-foreground/40" />
               Your basket is empty
             </div>
           ) : (
@@ -67,7 +68,7 @@ const CartDrawer = () => {
                   const showDatesUI = item.pricingPlan === "session" || item.pricingPlan === "trial";
                   const canEdit = item.pricingPlan === "session" || item.pricingPlan === "trial";
                   return (
-                    <div key={item.id} className="bg-muted/30 rounded-lg p-3 space-y-2">
+                    <div key={item.id} className="rounded-xl border border-border/50 bg-muted/30 p-3.5 space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="font-semibold text-sm text-foreground truncate">
@@ -145,7 +146,7 @@ const CartDrawer = () => {
                   <span className="text-sm font-medium text-muted-foreground">Total</span>
                   <span className="text-xl font-bold text-foreground">£{totalAmount.toFixed(2)}</span>
                 </div>
-                <Button onClick={handleCheckout} className="w-full gap-2" size="lg">
+                <Button onClick={handleCheckout} className="w-full gap-2 font-bold uppercase tracking-wider" size="lg">
                   <CreditCard className="w-4 h-4" />
                   Proceed to Checkout
                 </Button>

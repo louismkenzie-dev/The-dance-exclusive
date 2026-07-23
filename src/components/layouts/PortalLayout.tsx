@@ -137,7 +137,7 @@ const PortalLayout = () => {
                         : "bg-[hsl(193,100%,44%)] text-white shadow-lg shadow-[hsl(193,100%,44%)]/25"
                       : isSecondary
                         ? "text-muted-foreground/50 hover:text-muted-foreground text-xs"
-                        : "text-foreground hover:text-foreground/80"
+                        : "text-foreground hover:bg-muted/60 hover:text-foreground"
                   }`}
                 >
                   <span className="flex items-center gap-1.5">
@@ -258,8 +258,8 @@ const PortalLayout = () => {
 
       <footer className="relative border-t border-border mt-20 overflow-hidden transition-colors duration-500">
         <div className="absolute inset-0 stage-light-duo opacity-25 pointer-events-none" />
-        <div className="relative container py-14">
-          <div className="grid gap-10 md:grid-cols-4">
+        <div className="relative container py-16">
+          <div className="grid gap-12 md:grid-cols-4">
             <div>
               <img src={logoDark} alt="The Dance Exclusive" className="w-28 object-contain mb-4" />
               <p className="text-sm text-muted-foreground normal-case leading-relaxed">
@@ -270,18 +270,18 @@ const PortalLayout = () => {
             <div>
               <h4 className="font-display text-sm uppercase tracking-widest mb-4">Classes</h4>
               <ul className="space-y-2.5 text-sm text-muted-foreground normal-case">
-                <li><Link to="/classes/children" className="hover:text-primary transition-colors">Children's Classes</Link></li>
-                <li><Link to="/classes/adult" className="hover:text-primary transition-colors">Adult Classes</Link></li>
-                <li><Link to="/classes/children" className="hover:text-primary transition-colors">Holiday Camps</Link></li>
-                <li><Link to="/classes/adult" className="hover:text-primary transition-colors">Workshops</Link></li>
+                <li><Link to="/classes/children" className="hover:text-primary hover:underline underline-offset-4 transition-colors">Children's Classes</Link></li>
+                <li><Link to="/classes/adult" className="hover:text-primary hover:underline underline-offset-4 transition-colors">Adult Classes</Link></li>
+                <li><Link to="/classes/children" className="hover:text-primary hover:underline underline-offset-4 transition-colors">Holiday Camps</Link></li>
+                <li><Link to="/classes/adult" className="hover:text-primary hover:underline underline-offset-4 transition-colors">Workshops</Link></li>
               </ul>
             </div>
             <div>
               <h4 className="font-display text-sm uppercase tracking-widest mb-4">Your Account</h4>
               <ul className="space-y-2.5 text-sm text-muted-foreground normal-case">
-                <li><Link to={user ? "/account/bookings" : "/auth"} className="hover:text-primary transition-colors">My Bookings</Link></li>
-                <li><Link to={user ? "/account" : "/auth"} className="hover:text-primary transition-colors">My Account</Link></li>
-                <li><Link to="/auth" className="hover:text-primary transition-colors">Sign In / Register</Link></li>
+                <li><Link to={user ? "/account/bookings" : "/auth"} className="hover:text-primary hover:underline underline-offset-4 transition-colors">My Bookings</Link></li>
+                <li><Link to={user ? "/account" : "/auth"} className="hover:text-primary hover:underline underline-offset-4 transition-colors">My Account</Link></li>
+                <li><Link to="/auth" className="hover:text-primary hover:underline underline-offset-4 transition-colors">Sign In / Register</Link></li>
               </ul>
             </div>
             <div>
@@ -300,7 +300,7 @@ const PortalLayout = () => {
               <p className="text-sm text-muted-foreground normal-case">Essex, United Kingdom</p>
             </div>
           </div>
-          <div className="mt-12 pt-6 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-3">
+          <div className="mt-14 pt-8 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-3">
             <p className="text-xs text-muted-foreground uppercase tracking-widest">
               © {new Date().getFullYear()} The Dance Exclusive • Essex, UK
             </p>

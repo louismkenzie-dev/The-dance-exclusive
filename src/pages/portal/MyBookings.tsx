@@ -69,7 +69,7 @@ const MyBookings = () => {
       {loading ? (
         <div className="text-muted-foreground">Loading...</div>
       ) : bookings.length === 0 ? (
-        <Card>
+        <Card className="card-elevated">
           <CardContent className="py-16 text-center space-y-4">
             <CalendarDays className="w-12 h-12 mx-auto text-muted-foreground/40" />
             <div>
@@ -84,7 +84,7 @@ const MyBookings = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {bookings.map((b) => {
             const camp = b.camps;
             // Camp (holiday workshop) bookings have no class row — surface the
@@ -106,7 +106,7 @@ const MyBookings = () => {
             const coverImage = cls?.workshops?.cover_image;
 
             return (
-              <Card key={b.id} className="animate-fade-in overflow-hidden">
+              <Card key={b.id} className="card-elevated animate-fade-in overflow-hidden hover:border-primary/40 transition-colors">
                 <CardContent className="py-0 px-0">
                   <div className="flex">
                     {/* Cover image strip */}

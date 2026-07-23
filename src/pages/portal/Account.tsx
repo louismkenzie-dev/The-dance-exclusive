@@ -376,7 +376,7 @@ const Account = () => {
 
   // --- Customer Type Selector (shown if not yet chosen or if editing) ---
   const renderCustomerTypeSelector = () => (
-    <Card className="mb-8 overflow-hidden">
+    <Card className="card-elevated mb-8 overflow-hidden">
       <CardContent className="p-0">
         <div className="p-6 pb-4 text-center">
           <h2 className="text-2xl font-display font-bold mb-1">Welcome! Tell us about you ✨</h2>
@@ -601,7 +601,7 @@ const Account = () => {
       {renderCustomerTypeSelector()}
 
       {/* Profile Section */}
-      <Card className="mb-8">
+      <Card className="card-elevated mb-8">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2"><User className="w-5 h-5" /> Profile</CardTitle>
           <Button variant="ghost" size="sm" onClick={() => setEditingProfile(!editingProfile)}>
@@ -739,7 +739,7 @@ const Account = () => {
 
       {/* Adult attendee profile — required before booking classes for yourself */}
       {showAdultDance && (
-        <Card className="mb-8">
+        <Card className="card-elevated mb-8">
           <CardContent className="py-5">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div className="flex-1 min-w-0">
@@ -805,11 +805,11 @@ const Account = () => {
           />
 
           {children.length === 0 ? (
-            <Card><CardContent className="py-8 text-center text-muted-foreground">No children added yet. Add your child's details to start booking classes.</CardContent></Card>
+            <Card className="card-elevated"><CardContent className="py-12 text-center text-muted-foreground"><Users className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />No children added yet. Add your child's details to start booking classes.</CardContent></Card>
           ) : (
             <div className="space-y-3 mb-8">
               {children.map((c) => (
-                <Card key={c.id} className="hover:border-primary/50 transition-colors">
+                <Card key={c.id} className="card-elevated hover:border-primary/50 transition-colors">
                   <CardContent className="py-4">
                     <div className="flex items-start gap-4">
                       <div className="cursor-pointer flex-1 flex items-start gap-4" onClick={() => { setEditingChild(c); setChildDialogOpen(true); }}>
@@ -941,9 +941,9 @@ const Account = () => {
           </div>
 
           {children.length === 0 ? (
-            <Card><CardContent className="py-6 text-center text-muted-foreground text-sm">Add a child first before adding authorised collectors.</CardContent></Card>
+            <Card className="card-elevated"><CardContent className="py-10 text-center text-muted-foreground text-sm"><ShieldCheck className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />Add a child first before adding authorised collectors.</CardContent></Card>
           ) : collectors.length === 0 ? (
-            <Card><CardContent className="py-6 text-center text-muted-foreground text-sm">No authorised collectors added yet. Add people who are permitted to collect your children.</CardContent></Card>
+            <Card className="card-elevated"><CardContent className="py-10 text-center text-muted-foreground text-sm"><ShieldCheck className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />No authorised collectors added yet. Add people who are permitted to collect your children.</CardContent></Card>
           ) : (
           <div className="space-y-3">
               {(() => {
@@ -964,7 +964,7 @@ const Account = () => {
                     fetchCollectors();
                   };
                   return (
-                    <Card key={group.map(g => g.id).join("-")}>
+                    <Card key={group.map(g => g.id).join("-")} className="card-elevated">
                       <CardContent className="py-4 flex items-start justify-between">
                         <div>
                           <h3 className="font-semibold">{c.name}</h3>

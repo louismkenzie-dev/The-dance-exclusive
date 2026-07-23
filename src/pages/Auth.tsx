@@ -121,14 +121,14 @@ const Auth = () => {
             <h1 className="text-3xl font-display font-bold text-foreground tracking-wide">Reset Password</h1>
             <p className="text-muted-foreground mt-2 text-sm">Enter your email and we'll send you a reset link</p>
           </div>
-          <Card className="border-border/50 bg-card/80 backdrop-blur">
-            <CardContent className="pt-6">
+          <Card className="card-elevated border-border/50 bg-card/80 backdrop-blur">
+            <CardContent className="pt-6 sm:p-8">
               <form onSubmit={handleForgotPassword} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="forgot-email">Email</Label>
-                  <Input id="forgot-email" type="email" value={forgotPasswordEmail} onChange={(e) => setForgotPasswordEmail(e.target.value)} required placeholder="you@example.com" />
+                  <Input id="forgot-email" type="email" value={forgotPasswordEmail} onChange={(e) => setForgotPasswordEmail(e.target.value)} required placeholder="you@example.com" className="h-11" />
                 </div>
-                <Button type="submit" className="w-full font-semibold" disabled={loading}>
+                <Button type="submit" className="w-full h-11 font-bold uppercase tracking-wider" disabled={loading}>
                   {loading ? "Sending..." : "Send Reset Link"}
                 </Button>
                 <Button type="button" variant="ghost" className="w-full text-muted-foreground" onClick={() => setShowForgotPassword(false)}>
@@ -146,25 +146,26 @@ const Auth = () => {
     <div className="min-h-screen flex items-center justify-center bg-background px-4 relative">
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-primary/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-accent/5 rounded-full blur-3xl" />
       </div>
 
       <div className="w-full max-w-md animate-fade-in relative z-10">
         <div className="text-center mb-8">
-          <img src={logo} alt="The Dance Exclusive" className="w-48 h-48 object-contain mx-auto mb-4 rounded-lg" />
-            <h1 className="text-3xl font-display font-bold text-foreground tracking-wide">Sign in to The Dance Exclusive</h1>
-          <p className="text-muted-foreground text-sm" style={{ textTransform: 'none', letterSpacing: 'normal', fontFamily: 'var(--font-body)' }}>
+          <img src={logo} alt="The Dance Exclusive" className="w-36 h-36 md:w-40 md:h-40 object-contain mx-auto mb-5 rounded-xl" />
+          <h1 className="text-3xl font-display font-bold text-foreground tracking-wide">Sign in to The Dance Exclusive</h1>
+          <p className="text-muted-foreground text-sm mt-2" style={{ textTransform: 'none', letterSpacing: 'normal', fontFamily: 'var(--font-body)' }}>
             Sign in to book your dance classes
           </p>
         </div>
 
-        <Card className="border-border/50 bg-card/80 backdrop-blur">
-          <CardContent className="pt-6">
+        <Card className="card-elevated border-border/50 bg-card/80 backdrop-blur">
+          <CardContent className="pt-6 sm:p-8">
             {/* Social sign-in */}
             <div className="space-y-3 mb-4">
               <Button
                 type="button"
                 variant="outline"
-                className="w-full font-semibold flex items-center gap-3"
+                className="w-full h-11 font-semibold flex items-center gap-3"
                 onClick={() => handleOAuth("google")}
                 disabled={loading}
               >
@@ -178,7 +179,7 @@ const Auth = () => {
               </Button>
               <Button
                 type="button"
-                className="w-full font-semibold flex items-center gap-3 bg-white text-black hover:bg-white/90 border border-border"
+                className="w-full h-11 font-semibold flex items-center gap-3 bg-white text-black hover:bg-white/90 border border-border"
                 onClick={() => handleOAuth("apple")}
                 disabled={loading}
               >
@@ -208,12 +209,12 @@ const Auth = () => {
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="login-email">Email</Label>
-                    <Input id="login-email" type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} required placeholder="you@example.com" />
+                    <Input id="login-email" type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} required placeholder="you@example.com" className="h-11" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="login-password">Password</Label>
                     <div className="relative">
-                      <Input id="login-password" type={showLoginPassword ? "text" : "password"} value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required placeholder="••••••••" className="pr-10" />
+                      <Input id="login-password" type={showLoginPassword ? "text" : "password"} value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required placeholder="••••••••" className="h-11 pr-10" />
                       <button type="button" aria-label={showLoginPassword ? "Hide password" : "Show password"} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors" onClick={() => setShowLoginPassword(!showLoginPassword)}>
                         {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
@@ -228,7 +229,7 @@ const Auth = () => {
                       Forgotten password?
                     </button>
                   </div>
-                  <Button type="submit" className="w-full font-semibold" disabled={loading}>
+                  <Button type="submit" className="w-full h-11 font-bold uppercase tracking-wider" disabled={loading}>
                     {loading ? "Signing in..." : "Sign In"}
                   </Button>
                 </form>
@@ -238,22 +239,22 @@ const Auth = () => {
                 <form onSubmit={handleSignup} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signup-name">Full Name</Label>
-                    <Input id="signup-name" value={signupName} onChange={(e) => setSignupName(e.target.value)} required placeholder="Your full name" />
+                    <Input id="signup-name" value={signupName} onChange={(e) => setSignupName(e.target.value)} required placeholder="Your full name" className="h-11" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">Email</Label>
-                    <Input id="signup-email" type="email" value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)} required placeholder="you@example.com" />
+                    <Input id="signup-email" type="email" value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)} required placeholder="you@example.com" className="h-11" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Password</Label>
                     <div className="relative">
-                      <Input id="signup-password" type={showSignupPassword ? "text" : "password"} value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} required minLength={6} placeholder="Min 6 characters" className="pr-10" />
+                      <Input id="signup-password" type={showSignupPassword ? "text" : "password"} value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} required minLength={6} placeholder="Min 6 characters" className="h-11 pr-10" />
                       <button type="button" aria-label={showSignupPassword ? "Hide password" : "Show password"} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors" onClick={() => setShowSignupPassword(!showSignupPassword)}>
                         {showSignupPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
                   </div>
-                  <Button type="submit" className="w-full font-semibold" disabled={loading}>
+                  <Button type="submit" className="w-full h-11 font-bold uppercase tracking-wider" disabled={loading}>
                     {loading ? "Creating account..." : "Create Account"}
                   </Button>
                 </form>

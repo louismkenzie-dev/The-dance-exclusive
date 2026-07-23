@@ -1462,6 +1462,7 @@ export type Database = {
       profiles: {
         Row: {
           ability_level: string | null
+          admin_tour_completed_at: string | null
           address_line1: string | null
           address_line2: string | null
           allergies_list: string[] | null
@@ -1492,6 +1493,7 @@ export type Database = {
         }
         Insert: {
           ability_level?: string | null
+          admin_tour_completed_at?: string | null
           address_line1?: string | null
           address_line2?: string | null
           allergies_list?: string[] | null
@@ -1522,6 +1524,7 @@ export type Database = {
         }
         Update: {
           ability_level?: string | null
+          admin_tour_completed_at?: string | null
           address_line1?: string | null
           address_line2?: string | null
           allergies_list?: string[] | null

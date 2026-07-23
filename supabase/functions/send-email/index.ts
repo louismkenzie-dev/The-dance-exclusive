@@ -44,7 +44,7 @@ import {
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-internal-auth",
 };
 
 const DEFAULT_FROM = "The Dance Exclusive <onboarding@resend.dev>";
@@ -168,12 +168,17 @@ serve(async (req) => {
   }
 
   // Authorization: templates containing caller-controlled links or booking
-  // data can only be sent by our own backend (service-role bearer). Only the
+  // data can only be sent by our own backend. Server callers authenticate via
+  // the Authorization bearer OR the explicit x-internal-auth header — the
+  // supabase-js functions.invoke() does not reliably attach the service-role
+  // bearer, which silently 403'd booking/membership/reset emails. Only the
   // fixed-content "welcome" template may be triggered from the browser —
   // otherwise this endpoint is an open branded-phishing relay.
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   const bearer = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+  const internal = req.headers.get("x-internal-auth") || "";
   const isServiceCall =
-    bearer.length > 0 && bearer === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    serviceKey.length > 0 && (bearer === serviceKey || internal === serviceKey);
   if (!isServiceCall && payload.template !== "welcome") {
     return new Response(JSON.stringify({ error: "Not authorized to send this template" }), {
       status: 403,

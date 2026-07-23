@@ -306,6 +306,7 @@ export async function sendBookingConfirmationEmail(
 
   const { error } = await supabase.functions.invoke("send-email", {
     body: emailPayload,
+    headers: { "x-internal-auth": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
   });
   if (error) {
     console.error("Failed to send confirmation email:", error);

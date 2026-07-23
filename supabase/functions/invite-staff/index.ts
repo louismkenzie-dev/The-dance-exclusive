@@ -168,6 +168,7 @@ Deno.serve(async (req) => {
 
     // 3) Send the branded onboarding email
     const emailRes = await admin.functions.invoke("send-email", {
+      headers: { "x-internal-auth": serviceKey },
       body: {
         template: "staff_onboarding",
         to: staff.email,

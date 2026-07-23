@@ -81,6 +81,7 @@ serve(async (req) => {
 
     // Dispatch via send-email
     const { error: sendErr } = await supabase.functions.invoke("send-email", {
+      headers: { "x-internal-auth": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
       body: {
         template: "password_reset",
         to: email,

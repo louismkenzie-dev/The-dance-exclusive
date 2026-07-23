@@ -173,6 +173,7 @@ serve(async (req) => {
         ]);
         if (profile?.email) {
           await supabase.functions.invoke("send-email", {
+            headers: { "x-internal-auth": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
             body: {
               template: "membership_cancel_requested",
               to: profile.email,
@@ -425,6 +426,7 @@ serve(async (req) => {
       const student = membership.student_id ? studentById.get(membership.student_id) : null;
       if (profile?.email) {
         await supabase.functions.invoke("send-email", {
+          headers: { "x-internal-auth": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
           body: {
             template: "membership_class_changed",
             to: profile.email,

@@ -39,6 +39,7 @@ serve(async (_req) => {
         .maybeSingle();
       if (!profile?.email) return;
       await supabase.functions.invoke("send-email", {
+        headers: { "x-internal-auth": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
         body: { template, to: profile.email, data: { parentName: profile.full_name, ...data } },
       });
     } catch (e) {

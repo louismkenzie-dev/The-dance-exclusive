@@ -143,8 +143,28 @@ const Account = () => {
   });
 
   const customerType = (profileForm.customer_type || profile?.customer_type) as CustomerType | null;
-  const showChildren = customerType === "parent_only" || customerType === "both";
   const showAdultDance = customerType === "adult_dancer" || customerType === "both";
+
+  // Adding a child (or a self attendee profile) implies what kind of customer
+  // they are — keep customer_type in sync so the rest of the site (nav tabs,
+  // class browser emphasis) follows suit without them having to set it twice.
+  const ensureCustomerTypeIncludes = async (side: "children" | "adult") => {
+    if (!user) return;
+    const current = (profile?.customer_type ?? null) as CustomerType | null;
+    let next: CustomerType | null = null;
+    if (side === "children") {
+      if (!current) next = "parent_only";
+      else if (current === "adult_dancer") next = "both";
+    } else {
+      if (!current) next = "adult_dancer";
+      else if (current === "parent_only") next = "both";
+    }
+    if (!next) return;
+    await supabase.from("profiles").update({ customer_type: next }).eq("user_id", user.id);
+    setProfileForm(prev => ({ ...prev, customer_type: next }));
+    fetchProfile();
+    void refreshProfile();
+  };
 
   const fetchProfile = async () => {
     if (!user) return;
@@ -737,60 +757,59 @@ const Account = () => {
         </CardContent>
       </Card>
 
-      {/* Adult attendee profile — required before booking classes for yourself */}
-      {showAdultDance && (
-        <Card className="card-elevated mb-8">
-          <CardContent className="py-5">
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-              <div className="flex-1 min-w-0">
-                <h2 className="text-lg font-display font-semibold flex items-center gap-2 mb-1">
-                  <Users className="w-5 h-5" /> My Attendee Profile
-                </h2>
-                {selfProfile ? (
-                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                    <PhotoAvatarDuo
-                      photoUrl={selfProfile.profile_photo}
-                      avatarUrl={selfProfile.avatar_url}
-                      initials={`${selfProfile.first_name?.[0] ?? ""}${selfProfile.last_name?.[0] ?? ""}`}
-                      size="sm"
-                      photoPrimary={false}
-                      expandable
-                    />
-                    <p>
-                      <span className="text-foreground font-medium">{selfProfile.first_name} {selfProfile.last_name}</span>
-                      {" · "}Age {getAge(selfProfile.date_of_birth)}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Booking classes for yourself? Create your attendee profile (age and medical
-                    info) — it's required before you can book, and it's what our instructors see
-                    on the class register.
+      {/* Adult attendee profile — required before booking classes for yourself.
+          Always visible so anyone can set themselves up as a dancer. */}
+      <Card className="card-elevated mb-8">
+        <CardContent className="py-5">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-display font-semibold flex items-center gap-2 mb-1">
+                <User className="w-5 h-5" /> My Attendee Profile
+              </h2>
+              {selfProfile ? (
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <PhotoAvatarDuo
+                    photoUrl={selfProfile.profile_photo}
+                    avatarUrl={selfProfile.avatar_url}
+                    initials={`${selfProfile.first_name?.[0] ?? ""}${selfProfile.last_name?.[0] ?? ""}`}
+                    size="sm"
+                    photoPrimary={false}
+                    expandable
+                  />
+                  <p>
+                    <span className="text-foreground font-medium">{selfProfile.first_name} {selfProfile.last_name}</span>
+                    {" · "}Age {getAge(selfProfile.date_of_birth)}
                   </p>
-                )}
-              </div>
-              <Button size="sm" variant={selfProfile ? "outline" : "default"} onClick={() => setSelfDialogOpen(true)}>
-                {selfProfile ? "Edit Profile" : "Create Profile"}
-              </Button>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Booking classes for yourself? Create your attendee profile (age and medical
+                  info) — it's required before you can book, and it's what our instructors see
+                  on the class register.
+                </p>
+              )}
             </div>
-          </CardContent>
-        </Card>
-      )}
+            <Button size="sm" variant={selfProfile ? "outline" : "default"} onClick={() => setSelfDialogOpen(true)}>
+              {selfProfile ? "Edit Profile" : "Create Profile"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <ChildFormDialog
         open={selfDialogOpen}
         onOpenChange={setSelfDialogOpen}
-        onSaved={fetchChildren}
+        onSaved={() => { fetchChildren(); void ensureCustomerTypeIncludes("adult"); }}
         editing={selfProfile}
         selfMode
       />
 
-      {/* Children Section — only if parent_only or both */}
-      {showChildren && (
-        <>
+      {/* Children Section — always visible so adding a child is never hidden
+          behind the customer-type choice */}
+      <>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-display font-semibold flex items-center gap-2">
-              <Users className="w-5 h-5" /> Children
+              <Users className="w-5 h-5" /> My Children
             </h2>
             <Button size="sm" onClick={() => { setEditingChild(null); setChildDialogOpen(true); }}>
               <Plus className="w-4 h-4 mr-2" /> Add Child
@@ -800,12 +819,12 @@ const Account = () => {
           <ChildFormDialog
             open={childDialogOpen}
             onOpenChange={setChildDialogOpen}
-            onSaved={fetchChildren}
+            onSaved={() => { fetchChildren(); void ensureCustomerTypeIncludes("children"); }}
             editing={editingChild}
           />
 
           {children.length === 0 ? (
-            <Card className="card-elevated"><CardContent className="py-12 text-center text-muted-foreground"><Users className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />No children added yet. Add your child's details to start booking classes.</CardContent></Card>
+            <Card className="card-elevated mb-8"><CardContent className="py-12 text-center text-muted-foreground"><Users className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />No children added yet. Click "Add Child" above to add your child's details and start booking classes.</CardContent></Card>
           ) : (
             <div className="space-y-3 mb-8">
               {children.map((c) => (
@@ -989,8 +1008,7 @@ const Account = () => {
               })()}
             </div>
           )}
-        </>
-      )}
+      </>
 
       <div className="mt-8">
         <Button asChild variant="outline">

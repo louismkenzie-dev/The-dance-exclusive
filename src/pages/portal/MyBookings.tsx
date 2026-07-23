@@ -1,13 +1,15 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
-import { CalendarDays, MapPin, User, Users, Clock, Tag, Plus, QrCode, MessageCircle } from "lucide-react";
+import { CalendarDays, MapPin, User, Users, Clock, Tag, Plus, QrCode, MessageCircle, Ticket } from "lucide-react";
 import BookingQrDialog from "@/components/portal/BookingQrDialog";
+import { ClassPassesPanel } from "@/components/portal/ClassPassesPanel";
 
 const statusColors: Record<string, "default" | "secondary" | "destructive"> = {
   confirmed: "default",
@@ -26,6 +28,9 @@ const MyBookings = () => {
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [qrBooking, setQrBooking] = useState<any | null>(null);
+  const [activeTab, setActiveTab] = useState("bookings");
+  // Total classes still bookable across the user's active passes (for the prompt banner).
+  const [passCredits, setPassCredits] = useState(0);
 
   const customerType = profile?.customer_type as string | null;
   const primaryIsAdult = customerType === "adult_dancer";
@@ -53,6 +58,18 @@ const MyBookings = () => {
     fetchBookings();
   }, [user]);
 
+  const fetchPassCredits = useCallback(async () => {
+    if (!user) { setPassCredits(0); return; }
+    const { data } = await supabase
+      .from("class_passes")
+      .select("sessions_remaining")
+      .eq("user_id", user.id)
+      .gt("sessions_remaining", 0)
+      .gte("expires_at", new Date().toISOString());
+    setPassCredits((data ?? []).reduce((sum, p) => sum + (p.sessions_remaining ?? 0), 0));
+  }, [user]);
+  useEffect(() => { fetchPassCredits(); }, [fetchPassCredits]);
+
   const bookNowPath = primaryIsAdult ? "/classes/adult" : "/classes/children";
 
   return (
@@ -66,6 +83,29 @@ const MyBookings = () => {
         </Button>
       </div>
 
+      {/* Active-pass prompt: visible on both tabs while credits remain */}
+      {passCredits > 0 && (
+        <div className="flex items-center justify-between gap-3 p-3 mb-6 rounded-lg border border-primary/30 bg-primary/10 animate-fade-in">
+          <p className="text-sm text-foreground">
+            🎟️ You have <span className="font-bold">{passCredits}</span> class{passCredits === 1 ? "" : "es"} left to book on your pass — no payment needed
+          </p>
+          <Button size="sm" className="shrink-0" onClick={() => setActiveTab("passes")}>
+            Book now
+          </Button>
+        </div>
+      )}
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="bookings" className="gap-1.5">
+            <CalendarDays className="w-3.5 h-3.5" /> My Bookings
+          </TabsTrigger>
+          <TabsTrigger value="passes" className="gap-1.5">
+            <Ticket className="w-3.5 h-3.5" /> Class Passes
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="bookings">
       {loading ? (
         <div className="text-muted-foreground">Loading...</div>
       ) : bookings.length === 0 ? (
@@ -224,6 +264,12 @@ const MyBookings = () => {
           })}
         </div>
       )}
+        </TabsContent>
+
+        <TabsContent value="passes">
+          <ClassPassesPanel onPassesChanged={fetchPassCredits} />
+        </TabsContent>
+      </Tabs>
 
       <BookingQrDialog
         open={!!qrBooking}

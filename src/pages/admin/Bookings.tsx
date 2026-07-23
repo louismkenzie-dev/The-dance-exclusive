@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
+import { differenceInCalendarDays, format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { ADULT_PASSES, type AdultPassType } from "@/lib/pricing";
 
 interface Booking {
   id: string;
@@ -23,6 +27,129 @@ const statusColors: Record<string, "default" | "secondary" | "destructive"> = {
   confirmed: "default",
   pending_payment: "secondary",
   cancelled: "destructive",
+};
+
+interface ClassPass {
+  id: string;
+  user_id: string;
+  pass_type: string;
+  sessions_total: number;
+  sessions_remaining: number;
+  amount_paid: number;
+  purchased_at: string;
+  expires_at: string;
+  profile: { full_name: string; email: string } | null;
+}
+
+type PassStatus = "active" | "expired" | "used_up";
+
+const passStatus = (p: ClassPass): PassStatus => {
+  if (p.sessions_remaining <= 0) return "used_up";
+  if (new Date(p.expires_at).getTime() < Date.now()) return "expired";
+  return "active";
+};
+
+const passStatusBadge: Record<PassStatus, { label: string; variant: "default" | "secondary" | "outline" }> = {
+  active: { label: "Active", variant: "default" },
+  expired: { label: "Expired", variant: "secondary" },
+  used_up: { label: "Used up", variant: "outline" },
+};
+
+/** Admin view of every customer's multi-class pass: credits left and validity. */
+const ClassPassesTab = () => {
+  const [passes, setPasses] = useState<ClassPass[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPasses = async () => {
+      const { data } = await supabase
+        .from("class_passes")
+        .select("id, user_id, pass_type, sessions_total, sessions_remaining, amount_paid, purchased_at, expires_at")
+        .order("purchased_at", { ascending: false });
+      if (data) {
+        // No FK between class_passes.user_id and profiles — join client-side.
+        const userIds = [...new Set(data.map((p) => p.user_id))];
+        const { data: profiles } = userIds.length > 0
+          ? await supabase.from("profiles").select("user_id, full_name, email").in("user_id", userIds)
+          : { data: [] };
+        const profileMap = new Map((profiles ?? []).map((p) => [p.user_id, p]));
+        setPasses(data.map((p) => ({ ...p, profile: profileMap.get(p.user_id) ?? null })));
+      }
+      setLoading(false);
+    };
+    fetchPasses();
+  }, []);
+
+  // Active passes first (soonest expiry at the top), then past ones.
+  const sorted = [...passes].sort((a, b) => {
+    const rankA = passStatus(a) === "active" ? 0 : 1;
+    const rankB = passStatus(b) === "active" ? 0 : 1;
+    return rankA - rankB || new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime();
+  });
+  const activeCount = passes.filter((p) => passStatus(p) === "active").length;
+
+  if (loading) return <div className="text-muted-foreground">Loading passes...</div>;
+  if (passes.length === 0) {
+    return <Card><CardContent className="py-12 text-center text-muted-foreground">No class passes purchased yet.</CardContent></Card>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        {activeCount} active pass{activeCount === 1 ? "" : "es"} · {passes.length} total
+      </p>
+      <Card className="animate-fade-in">
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Customer</TableHead>
+                <TableHead>Pass</TableHead>
+                <TableHead>Classes left</TableHead>
+                <TableHead>Purchased</TableHead>
+                <TableHead>Expires</TableHead>
+                <TableHead>Amount paid</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sorted.map((p) => {
+                const status = passStatus(p);
+                const badge = passStatusBadge[status];
+                const expiryDate = new Date(p.expires_at);
+                const isExpired = expiryDate.getTime() < Date.now();
+                const daysLeft = differenceInCalendarDays(expiryDate, new Date());
+                return (
+                  <TableRow key={p.id}>
+                    <TableCell>
+                      <span className="font-medium">{p.profile?.full_name || "Unknown"}</span>
+                      <span className="block text-xs text-muted-foreground">{p.profile?.email || "—"}</span>
+                    </TableCell>
+                    <TableCell>{ADULT_PASSES[p.pass_type as AdultPassType]?.label ?? p.pass_type}</TableCell>
+                    <TableCell>
+                      <span className="font-semibold">{p.sessions_remaining}</span>
+                      <span className="text-muted-foreground"> of {p.sessions_total}</span>
+                    </TableCell>
+                    <TableCell>{format(new Date(p.purchased_at), "d MMM yyyy")}</TableCell>
+                    <TableCell>
+                      {format(expiryDate, "d MMM yyyy")}
+                      <span className={`block text-xs ${isExpired ? "text-destructive" : "text-muted-foreground"}`}>
+                        {isExpired ? "Expired" : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`}
+                      </span>
+                    </TableCell>
+                    <TableCell>£{Number(p.amount_paid).toFixed(2)}</TableCell>
+                    <TableCell>
+                      <Badge variant={badge.variant}>{badge.label}</Badge>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
 };
 
 const AdminBookings = () => {
@@ -78,6 +205,13 @@ const AdminBookings = () => {
         <p className="text-muted-foreground mt-1">Manage all bookings</p>
       </div>
 
+      <Tabs defaultValue="bookings">
+        <TabsList className="mb-6">
+          <TabsTrigger value="bookings">Bookings</TabsTrigger>
+          <TabsTrigger value="passes">Class Passes</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="bookings">
       <div className="flex gap-4 mb-6">
         <Input placeholder="Search bookings..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
         <Select value={filter} onValueChange={setFilter}>
@@ -127,6 +261,12 @@ const AdminBookings = () => {
           ))}
         </div>
       )}
+        </TabsContent>
+
+        <TabsContent value="passes">
+          <ClassPassesTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

@@ -9,6 +9,7 @@ import {
   getPlatformFeePercent,
 } from "../_shared/stripe.ts";
 import { validateAndCompute } from "../_shared/coupon.ts";
+import { getActiveStripeEnv } from "../_shared/paymentsMode.ts";
 import {
   ADULT_PASSES,
   type AdultPassType,
@@ -56,14 +57,20 @@ serve(async (req) => {
   }
 
   try {
-    const { items, customerEmail, userId, environment, couponCode, previousPaymentIntentId } = await req.json();
+    const { items, customerEmail, userId, couponCode, previousPaymentIntentId } = await req.json();
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return jsonResponse({ error: "No items provided" }, 400);
     }
     const cartItems = items as IncomingItem[];
 
-    const env = (environment || "sandbox") as StripeEnv;
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    // Server-authoritative: the request no longer chooses sandbox vs live.
+    const env: StripeEnv = await getActiveStripeEnv(supabaseAdmin);
     const stripe = createStripeClient(env);
     // Direct charges on The Dance Exclusive's connected account (when configured).
     const connectOpts = connectRequestOptions(env);
@@ -85,11 +92,6 @@ serve(async (req) => {
         );
       }
     }
-
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
 
     const kindOf = (item: IncomingItem) => item.itemKind ?? "class";
 
@@ -599,6 +601,7 @@ serve(async (req) => {
         amount: invoice.amount_due,
         siblingDiscountAmount: siblingDiscountInPence / 100,
         discountAmount: discountInPence / 100,
+        environment: env,
       });
     }
 
@@ -640,6 +643,7 @@ serve(async (req) => {
       amount: totalAmountInPence,
       siblingDiscountAmount: siblingDiscountInPence / 100,
       discountAmount: discountInPence / 100,
+      environment: env,
     });
   } catch (error: any) {
     console.error("PaymentIntent error:", error);

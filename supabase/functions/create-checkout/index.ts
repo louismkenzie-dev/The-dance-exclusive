@@ -6,6 +6,7 @@ import {
   connectRequestOptions,
   createStripeClient,
 } from "../_shared/stripe.ts";
+import { getActiveStripeEnv } from "../_shared/paymentsMode.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -13,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { items, customerEmail, userId, returnUrl, environment } = await req.json();
+    const { items, customerEmail, userId, returnUrl } = await req.json();
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return new Response(JSON.stringify({ error: "No items provided" }), {
@@ -22,7 +23,8 @@ serve(async (req) => {
       });
     }
 
-    const env = (environment || "sandbox") as StripeEnv;
+    // Server-authoritative: the request no longer chooses sandbox vs live.
+    const env: StripeEnv = await getActiveStripeEnv();
     const stripe = createStripeClient(env);
 
     // Validate return URL — must be absolute https/http URL.

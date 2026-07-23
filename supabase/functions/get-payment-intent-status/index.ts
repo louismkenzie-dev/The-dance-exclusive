@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { type StripeEnv, connectRequestOptions, createStripeClient } from "../_shared/stripe.ts";
+import { getActiveStripeEnv } from "../_shared/paymentsMode.ts";
 import {
   fulfillInvoicePaymentIntent,
   fulfillItems,
@@ -21,7 +22,7 @@ serve(async (req) => {
   }
 
   try {
-    const { paymentIntentId, environment } = await req.json();
+    const { paymentIntentId } = await req.json();
     if (!paymentIntentId || typeof paymentIntentId !== "string") {
       return new Response(JSON.stringify({ error: "Invalid paymentIntentId" }), {
         status: 400,
@@ -29,10 +30,26 @@ serve(async (req) => {
       });
     }
 
-    const env = (environment || "sandbox") as StripeEnv;
-    const stripe = createStripeClient(env);
-
-    const pi = await stripe.paymentIntents.retrieve(paymentIntentId, {}, connectRequestOptions(env));
+    // Server-authoritative env. A PaymentIntent created just before a mode
+    // switch lives in the other environment — both environments are our own
+    // accounts, so retrying the lookup there is safe, and fulfilment then
+    // uses the environment the PI was actually found in.
+    let env: StripeEnv = await getActiveStripeEnv();
+    let stripe = createStripeClient(env);
+    let pi;
+    try {
+      pi = await stripe.paymentIntents.retrieve(paymentIntentId, {}, connectRequestOptions(env));
+    } catch (e: any) {
+      if (e?.code !== "resource_missing" && e?.statusCode !== 404) throw e;
+      const other: StripeEnv = env === "live" ? "sandbox" : "live";
+      try {
+        stripe = createStripeClient(other);
+      } catch {
+        throw e; // other env not configured — report the original lookup failure
+      }
+      env = other;
+      pi = await stripe.paymentIntents.retrieve(paymentIntentId, {}, connectRequestOptions(env));
+    }
 
     // Fallback: if the webhook hasn't fired (or isn't configured), make sure
     // bookings exist in the DB whenever the PaymentIntent has succeeded.

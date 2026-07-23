@@ -6,6 +6,7 @@ import {
   connectRequestOptions,
   createStripeClient,
 } from "../_shared/stripe.ts";
+import { getActiveStripeEnv } from "../_shared/paymentsMode.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,7 +22,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { items, customerEmail, userId, environment, origin } = await req.json();
+    const { items, customerEmail, userId, origin } = await req.json();
 
     if (!Array.isArray(items) || items.length === 0) {
       return new Response(JSON.stringify({ error: "Your bag is empty." }), {
@@ -69,7 +70,8 @@ serve(async (req) => {
       });
     }
 
-    const env = (environment || "sandbox") as StripeEnv;
+    // Server-authoritative: the request no longer chooses sandbox vs live.
+    const env: StripeEnv = await getActiveStripeEnv(supabase);
     const stripe = createStripeClient(env);
     const baseUrl = typeof origin === "string" && origin.startsWith("http") ? origin : "";
 

@@ -64,7 +64,7 @@ serve(async (req) => {
       return jsonResponse({ error: "You must be signed in to manage a membership" }, 401);
     }
 
-    const { action, membershipId, newClassId, environment } = await req.json();
+    const { action, membershipId, newClassId } = await req.json();
     if (action !== "cancel" && action !== "switch_class") {
       return jsonResponse({ error: "Unknown action" }, 400);
     }
@@ -91,7 +91,9 @@ serve(async (req) => {
       return jsonResponse({ error: "This membership hasn't started yet" }, 400);
     }
 
-    const env = (environment || "sandbox") as StripeEnv;
+    // The membership row records which Stripe environment its subscription
+    // lives in — always use that, never a client-supplied value.
+    const env: StripeEnv = membership.stripe_env === "live" ? "live" : "sandbox";
     const stripe = createStripeClient(env);
     const connectOpts = connectRequestOptions(env);
 

@@ -56,6 +56,25 @@ Put each endpoint's signing secret in the matching
 `PAYMENTS_*_WEBHOOK_SECRET`. The handler is unchanged — signature scheme and
 payload shape are identical for Connect endpoints.
 
+## Sandbox ↔ live switch (server-authoritative)
+
+Which environment the platform charges in is decided by ONE switch — the
+`payments_mode` row in `app_settings` (`sandbox` | `live`). The payment edge
+functions read it on every request (a request can no longer choose its own
+environment), and the frontend reads the same row to pick the matching
+publishable-key + connected-account pair in `src/lib/stripe.ts` (the live
+pair is baked there; the sandbox pair comes from the `VITE_*` build env with
+baked fallbacks). `manage-membership` is the exception: it always uses the
+membership row's own `stripe_env`.
+
+Go live (in this order):
+1. Make sure the live pair in `src/lib/stripe.ts` (`LIVE_PUBLISHABLE_KEY`,
+   `LIVE_CONNECTED_ACCOUNT`) is filled and the frontend deployed.
+2. `update app_settings set value = 'live', updated_at = now() where key = 'payments_mode';`
+
+Roll back to test mode by setting it back to `sandbox`. No frontend rebuild
+needed for the flip itself — open pages pick it up on the next page load.
+
 ## Deploy & verify
 
 1. `supabase functions deploy` (create-payment-intent, create-checkout,

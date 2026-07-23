@@ -8,7 +8,7 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 import type { Appearance, StripeElementsOptions } from "@stripe/stripe-js";
-import { getStripe, getStripeEnvironment } from "@/lib/stripe";
+import { getPaymentsEnvironment, getStripe } from "@/lib/stripe";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart, cartItemKind, type CartItem, type PricingPlan } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -504,7 +504,6 @@ const CheckoutPage = () => {
               })),
               customerEmail: user?.email || profile?.email,
               userId: user?.id,
-              environment: getStripeEnvironment(),
               couponCode: coupon?.code,
               previousPaymentIntentId: paymentIntentId,
             },
@@ -530,6 +529,14 @@ const CheckoutPage = () => {
             }
           }
           setInitError(message);
+        } else if (
+          data.environment &&
+          data.environment !== (await getPaymentsEnvironment().catch(() => data.environment))
+        ) {
+          // The server just switched Stripe environments (e.g. go-live) and
+          // this page still holds the old configuration — a confirm would be
+          // doomed, so ask for a refresh instead.
+          setInitError("Payments were just updated — please refresh the page and try again.");
         } else {
           setClientSecret(data.clientSecret);
           setPaymentIntentId(data.paymentIntentId || null);

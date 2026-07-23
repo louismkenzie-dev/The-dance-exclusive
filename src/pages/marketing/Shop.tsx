@@ -140,10 +140,8 @@ const Shop = () => {
   const checkout = async () => {
     if (!sellingActive || bag.length === 0) return;
     setCheckingOut(true);
-    const token = import.meta.env.VITE_PAYMENTS_CLIENT_TOKEN as string | undefined;
-    const environment = token?.startsWith("pk_test_") ? "sandbox" : "live";
     const { data, error } = await supabase.functions.invoke("create-merch-checkout", {
-      body: { items: bag.map((b) => ({ variantId: b.variantId, quantity: b.qty })), environment, origin: window.location.origin },
+      body: { items: bag.map((b) => ({ variantId: b.variantId, quantity: b.qty })), origin: window.location.origin },
     });
     setCheckingOut(false);
     if (error || (data as any)?.error) {

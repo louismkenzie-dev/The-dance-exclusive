@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { getStripe, getStripeEnvironment } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -110,7 +110,7 @@ const CheckoutReturn = () => {
         try {
           const { data, error } = await supabase.functions.invoke(
             "get-payment-intent-status",
-            { body: { paymentIntentId, environment: getStripeEnvironment() } },
+            { body: { paymentIntentId } },
           );
           if (!error && data?.status) return data;
         } catch {
@@ -175,7 +175,7 @@ const CheckoutReturn = () => {
         // Legacy Embedded Checkout flow
         const { data, error } = await supabase.functions.invoke(
           "get-session-status",
-          { body: { sessionId, environment: getStripeEnvironment() } },
+          { body: { sessionId } },
         );
         if (cancelled) return;
         if (error || !data) return setStatus("error");

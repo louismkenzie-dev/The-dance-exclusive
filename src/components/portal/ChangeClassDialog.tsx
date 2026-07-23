@@ -14,7 +14,6 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { CalendarDays, Clock, Loader2, MapPin, Repeat } from "lucide-react";
 import { monthlyPrice } from "@/lib/pricing";
-import { getStripeEnvironment } from "@/lib/stripe";
 import { cn } from "@/lib/utils";
 
 interface CandidateClass {
@@ -107,7 +106,6 @@ const ChangeClassDialog = ({ open, onOpenChange, membership, onSwitched }: Chang
           action: "switch_class",
           membershipId: membership.id,
           newClassId: selectedId,
-          environment: getStripeEnvironment(),
         },
       });
       // supabase-js hides the function's JSON body behind error.context —

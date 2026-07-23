@@ -22,7 +22,6 @@ import { CalendarDays, MapPin, User, Users, Clock, Tag, Plus, QrCode, MessageCir
 import BookingQrDialog from "@/components/portal/BookingQrDialog";
 import { ClassPassesPanel } from "@/components/portal/ClassPassesPanel";
 import ChangeClassDialog from "@/components/portal/ChangeClassDialog";
-import { getStripeEnvironment } from "@/lib/stripe";
 
 const statusColors: Record<string, "default" | "secondary" | "destructive"> = {
   confirmed: "default",
@@ -142,7 +141,7 @@ const MyBookings = () => {
     setCancelling(true);
     try {
       const { data, error } = await supabase.functions.invoke("manage-membership", {
-        body: { action: "cancel", membershipId: cancelTarget.id, environment: getStripeEnvironment() },
+        body: { action: "cancel", membershipId: cancelTarget.id },
       });
       // supabase-js hides the function's JSON body behind error.context —
       // surface the server's friendly message instead of the generic one.

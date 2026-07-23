@@ -92,7 +92,7 @@ const StaffRegisters = () => {
     for (const s of all) {
       const { data: bookings } = await supabase
         .from("bookings")
-        .select(`id, student_id, parent_id, students:student_id ( first_name, last_name, preferred_name, profile_photo, avatar_url, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info )`)
+        .select(`id, student_id, parent_id, notes, students:student_id ( first_name, last_name, preferred_name, profile_photo, avatar_url, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info )`)
         .eq("class_id", s.class_id)
         .eq("status", "confirmed");
       const { data: att } = await supabase
@@ -101,7 +101,15 @@ const StaffRegisters = () => {
         .eq("class_session_id", s.id);
       const attByBooking: Record<string, any> = {};
       att?.forEach((a: any) => (attByBooking[a.booking_id] = a));
-      map[s.id] = (bookings ?? []).map((b: any) => ({ ...b, attendance: attByBooking[b.id] || null }));
+      // Pass/birthday bookings are per-session (the date is in their notes) —
+      // only show them on the register for their own date. Class-level
+      // bookings (memberships, trials, drop-ins) appear every week.
+      map[s.id] = (bookings ?? [])
+        .filter((b: any) => {
+          const m = /session (\d{4}-\d{2}-\d{2})/.exec(b.notes || "");
+          return !m || m[1] === s.session_date;
+        })
+        .map((b: any) => ({ ...b, attendance: attByBooking[b.id] || null }));
     }
     setAttendance(map);
     setLoading(false);

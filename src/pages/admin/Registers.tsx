@@ -81,7 +81,7 @@ const AdminRegisters = () => {
     const [{ data: bks }, { data: att }] = await Promise.all([
       supabase
         .from("bookings")
-        .select(`id, student_id, students:student_id ( id, first_name, last_name, preferred_name, profile_photo, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info )`)
+        .select(`id, student_id, notes, students:student_id ( id, first_name, last_name, preferred_name, profile_photo, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info )`)
         .eq("class_id", session.class_id)
         .eq("status", "confirmed"),
       supabase
@@ -91,7 +91,17 @@ const AdminRegisters = () => {
     ]);
     const attMap: Record<string, any> = {};
     (att ?? []).forEach((a: any) => (attMap[a.booking_id] = a));
-    setBookings((bks ?? []).map((b: any) => ({ ...b, attendance: attMap[b.id] || null })));
+    // Pass/birthday bookings are per-session (the date is in their notes) —
+    // only show them on the register for their own date. Class-level bookings
+    // (memberships, trials, drop-ins) appear every week.
+    setBookings(
+      (bks ?? [])
+        .filter((b: any) => {
+          const m = /session (\d{4}-\d{2}-\d{2})/.exec(b.notes || "");
+          return !m || m[1] === session.session_date;
+        })
+        .map((b: any) => ({ ...b, attendance: attMap[b.id] || null })),
+    );
   };
 
   const writeFailed = (error: { message: string } | null) => {

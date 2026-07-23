@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, CheckCircle2, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface SessionOption {
   id: string;
@@ -28,6 +30,8 @@ interface PassRedeemDialogProps {
   onRedeemed?: () => void;
 }
 
+const SESSION_DATE_RE = /session (\d{4}-\d{2}-\d{2})/;
+
 /** Session picker for redeeming a multi-class pass or the free birthday class.
  *  Bookings made here are created with NO payment — credits cover them. */
 export function PassRedeemDialog({
@@ -38,13 +42,34 @@ export function PassRedeemDialog({
   sessionOptions,
   onRedeemed,
 }: PassRedeemDialogProps) {
+  const { user } = useAuth();
   const [selSessions, setSelSessions] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [venueFilter, setVenueFilter] = useState<string>("all");
+  // "classId|date" keys of sessions the user is already booked into — shown
+  // green/faded so they can't re-book the same session.
+  const [bookedKeys, setBookedKeys] = useState<Set<string>>(new Set());
 
-  // Start each redemption with a clean selection.
+  // Start each redemption with a clean selection and fresh booked state.
   useEffect(() => {
-    if (open) setSelSessions([]);
-  }, [open]);
+    if (!open) return;
+    setSelSessions([]);
+    setVenueFilter("all");
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from("bookings")
+        .select("class_id, notes")
+        .eq("parent_id", user.id)
+        .in("status", ["confirmed", "pending_payment"]);
+      const keys = new Set<string>();
+      for (const b of data ?? []) {
+        const m = SESSION_DATE_RE.exec((b as any).notes || "");
+        if (m && (b as any).class_id) keys.add(`${(b as any).class_id}|${m[1]}`);
+      }
+      setBookedKeys(keys);
+    })();
+  }, [open, user]);
 
   const maxSelectable = mode === "birthday" ? 1 : pass?.sessions_remaining ?? 0;
 
@@ -100,9 +125,17 @@ export function PassRedeemDialog({
     }
   };
 
-  const upcoming = useMemo(
-    () => [...sessionOptions].sort((a, b) => a.session_date.localeCompare(b.session_date)),
+  const venues = useMemo(
+    () => [...new Set(sessionOptions.map((s) => s.venueName).filter(Boolean))] as string[],
     [sessionOptions],
+  );
+
+  const upcoming = useMemo(
+    () =>
+      [...sessionOptions]
+        .filter((s) => venueFilter === "all" || s.venueName === venueFilter)
+        .sort((a, b) => a.session_date.localeCompare(b.session_date)),
+    [sessionOptions, venueFilter],
   );
 
   return (
@@ -117,13 +150,54 @@ export function PassRedeemDialog({
               ? "Pick any one adult class"
               : `Pick up to ${maxSelectable} class${maxSelectable === 1 ? "" : "es"}`}
           </DialogDescription>
+          {venues.length > 1 && (
+            <Select value={venueFilter} onValueChange={setVenueFilter}>
+              <SelectTrigger className="mt-2 h-9">
+                <MapPin className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All venues</SelectItem>
+                {venues.map((v) => (
+                  <SelectItem key={v} value={v}>{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </DialogHeader>
         <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-1.5">
           {upcoming.length === 0 && (
-            <p className="text-sm text-muted-foreground py-8 text-center">No upcoming adult classes right now.</p>
+            <p className="text-sm text-muted-foreground py-8 text-center">
+              {venueFilter === "all"
+                ? "No upcoming adult classes right now."
+                : "No upcoming classes at this venue."}
+            </p>
           )}
           {upcoming.map((s) => {
+            const isBooked = bookedKeys.has(`${s.classId}|${s.session_date}`);
             const isSel = selSessions.includes(s.id);
+            if (isBooked) {
+              return (
+                <div
+                  key={s.id}
+                  aria-disabled="true"
+                  className="flex items-center gap-2.5 p-2 rounded-lg border text-sm border-emerald-500/40 bg-emerald-500/5 opacity-60"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  <CalendarDays className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-foreground font-medium truncate">{s.className}</span>
+                    <span className="block text-[10px] text-muted-foreground">
+                      {format(parseISO(s.session_date), "EEE d MMM")} · {s.start_time?.slice(0, 5)}–{s.end_time?.slice(0, 5)}
+                      {s.venueName ? ` · ${s.venueName}` : ""}
+                    </span>
+                  </span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                    Booked
+                  </span>
+                </div>
+              );
+            }
             return (
               <label
                 key={s.id}

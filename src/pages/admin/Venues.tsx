@@ -15,8 +15,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus, Edit, Trash2, MapPin, Building2, Phone, Mail, Globe,
-  Users, CheckCircle, XCircle, Car, Accessibility, Music, X, Camera
+  Users, CheckCircle, XCircle, Car, Accessibility, Music, X, Camera,
+  Check, Loader2, AlertTriangle
 } from "lucide-react";
+import { useAutosave } from "@/hooks/useAutosave";
 import { VenuePhotoGallery } from "@/components/VenuePhotoUpload";
 import { slugify, VENUE_STATUSES } from "@/lib/venuePresentation";
 
@@ -158,9 +160,7 @@ const AdminVenues = () => {
     setOpen(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const payload: any = {
+  const buildPayload = (): any => ({
       name: form.name, address_line1: form.address_line1,
       address_line2: form.address_line2 || null, city: form.city, county: form.county || null, postcode: form.postcode,
       capacity: form.capacity ? parseInt(form.capacity) : null, notes: form.notes || null,
@@ -188,13 +188,34 @@ const AdminVenues = () => {
       featured_order: form.featured_order !== "" ? parseInt(form.featured_order) : null,
       slug: (form.slug || slugify(form.name)) || null,
       short_description: form.short_description || null,
-    };
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const payload = buildPayload();
     let error;
     if (editing) ({ error } = await supabase.from("venues").update(payload).eq("id", editing.id));
     else ({ error } = await supabase.from("venues").insert(payload));
     if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
     else { toast({ title: editing ? "Venue updated" : "Venue created" }); setOpen(false); resetForm(); fetchVenues(); }
   };
+
+  // Word-Online-style autosave while editing an existing venue: changes are
+  // persisted moments after Amie stops typing — no Update button needed.
+  // New venues still use the explicit Create button (no row exists yet).
+  const autosave = useAutosave({
+    enabled: open && !!editing,
+    resetKey: open && editing ? editing.id : null,
+    data: form,
+    canSave: () =>
+      Boolean(form.name.trim() && form.address_line1.trim() && form.city.trim() && form.postcode.trim()),
+    save: async () => {
+      if (!editing) return;
+      const { error } = await supabase.from("venues").update(buildPayload()).eq("id", editing.id);
+      if (error) throw new Error(error.message);
+      fetchVenues();
+    },
+  });
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this venue permanently?")) return;
@@ -352,10 +373,27 @@ const AdminVenues = () => {
       )}
 
       {/* Venue dialog with tabs */}
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { if (editing) autosave.flush(); resetForm(); } }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editing ? `Edit: ${editing.name}` : "New Venue"}</DialogTitle>
+            <DialogTitle className="flex items-center justify-between gap-3 pr-8">
+              <span>{editing ? `Edit: ${editing.name}` : "New Venue"}</span>
+              {editing && (
+                <span className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
+                  {autosave.status === "saving" || autosave.status === "pending" ? (
+                    <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving…</>
+                  ) : autosave.status === "error" ? (
+                    <span className="flex items-center gap-1.5 text-destructive">
+                      <AlertTriangle className="w-3.5 h-3.5" /> Couldn&#39;t save — check required fields
+                    </span>
+                  ) : autosave.status === "saved" ? (
+                    <><Check className="w-3.5 h-3.5 text-emerald-500" /> All changes saved</>
+                  ) : (
+                    <><Check className="w-3.5 h-3.5" /> Autosave on</>
+                  )}
+                </span>
+              )}
+            </DialogTitle>
           </DialogHeader>
 
           <form onSubmit={handleSubmit}>
@@ -804,9 +842,22 @@ const AdminVenues = () => {
               </TabsContent>
             </Tabs>
 
-            <div className="flex gap-3 justify-end mt-6 pt-4 border-t border-border">
-              <Button type="button" variant="outline" onClick={() => { setOpen(false); resetForm(); }}>Cancel</Button>
-              <Button type="submit">{editing ? "Update Venue" : "Create Venue"}</Button>
+            <div className="flex gap-3 justify-end items-center mt-6 pt-4 border-t border-border">
+              {editing ? (
+                <>
+                  <span className="text-xs text-muted-foreground mr-auto">
+                    Changes save automatically as you type.
+                  </span>
+                  <Button type="button" onClick={() => { autosave.flush(); setOpen(false); resetForm(); }}>
+                    Done
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button type="button" variant="outline" onClick={() => { setOpen(false); resetForm(); }}>Cancel</Button>
+                  <Button type="submit">Create Venue</Button>
+                </>
+              )}
             </div>
           </form>
         </DialogContent>

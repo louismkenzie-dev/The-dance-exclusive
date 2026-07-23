@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
+import { useAutosave } from "@/hooks/useAutosave";
 import { Link } from "react-router-dom";
 import {
   Loader2, Palette, Building2, Upload, X, Globe, MapPin, Phone, Mail,
@@ -61,6 +62,10 @@ const SettingsCompany = () => {
   const [socialTwitter, setSocialTwitter] = useState("");
   const [socialLinkedin, setSocialLinkedin] = useState("");
   const [socialTiktok, setSocialTiktok] = useState("");
+  // Fields hydrate from the server exactly once — later refetches must not
+  // overwrite what the admin is typing mid-autosave.
+  const [hydrated, setHydrated] = useState(false);
+  const manualSaveRef = useRef(false);
 
   const { data: allSettings, isLoading } = useQuery({
     queryKey: ["admin-settings", user?.id],
@@ -76,7 +81,7 @@ const SettingsCompany = () => {
   });
 
   useEffect(() => {
-    if (allSettings) {
+    if (allSettings && !hydrated) {
       const v = (key: string) => allSettings.find((s: any) => s.key === key)?.value || "";
       setBusinessName(v("business_name"));
       setPrimaryColor(v("primary_color") || "#0a0f1a");
@@ -103,8 +108,9 @@ const SettingsCompany = () => {
       setSocialTwitter(v("social_twitter"));
       setSocialLinkedin(v("social_linkedin"));
       setSocialTiktok(v("social_tiktok"));
+      setHydrated(true);
     }
-  }, [allSettings]);
+  }, [allSettings, hydrated]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -160,11 +166,26 @@ const SettingsCompany = () => {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
-      toast.success("Settings saved successfully");
+      if (manualSaveRef.current) toast.success("Settings saved successfully");
+      manualSaveRef.current = false;
     },
     onError: (error: any) => {
       toast.error("Failed to save: " + error.message);
     },
+  });
+
+  // Word-Online-style autosave: settings persist moments after typing stops.
+  const autosave = useAutosave({
+    enabled: hydrated && !!user,
+    resetKey: hydrated ? "company-settings" : null,
+    data: {
+      businessName, primaryColor, secondaryColor, accentColor, logoUrl, faviconUrl,
+      registeredAddress, tradingAddress, websiteUrl, companyNumber, vatNumber,
+      notVatRegistered, phoneNumber, emailAddress, supportEmail, legalEntityName,
+      tradingName, industrySector, fulltimeEmployees, parttimeEmployees,
+      socialFacebook, socialInstagram, socialTwitter, socialLinkedin, socialTiktok,
+    },
+    save: () => saveMutation.mutateAsync(),
   });
 
   const handleFileUpload = async (
@@ -217,10 +238,21 @@ const SettingsCompany = () => {
             <p className="text-sm text-muted-foreground mt-1">Branding, business details, and contact information</p>
           </div>
         </div>
-        <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} size="lg">
-          {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Save All Settings
-        </Button>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">
+            {autosave.status === "saving" || autosave.status === "pending"
+              ? "Saving…"
+              : autosave.status === "error"
+                ? "Couldn't save — check values"
+                : autosave.status === "saved"
+                  ? "All changes saved"
+                  : "Autosave on"}
+          </span>
+          <Button onClick={() => { manualSaveRef.current = true; saveMutation.mutate(); }} disabled={saveMutation.isPending} size="lg">
+            {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Save All Settings
+          </Button>
+        </div>
       </div>
 
       {/* Branding Card */}
@@ -446,7 +478,7 @@ const SettingsCompany = () => {
       </Card>
 
       <div className="flex justify-end pb-8">
-        <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} size="lg">
+        <Button onClick={() => { manualSaveRef.current = true; saveMutation.mutate(); }} disabled={saveMutation.isPending} size="lg">
           {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Save All Settings
         </Button>

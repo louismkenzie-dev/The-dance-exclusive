@@ -16,7 +16,7 @@ const jsonResponse = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-const PORTAL_URL = Deno.env.get("STAFF_PORTAL_URL") || "https://thedanceexclusive.co.uk";
+const PORTAL_URL = Deno.env.get("STAFF_PORTAL_URL") || "https://app.thedanceexclusive.co.uk";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {

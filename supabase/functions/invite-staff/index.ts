@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const PORTAL_URL = Deno.env.get("STAFF_PORTAL_URL") || "https://thedanceexclusive.co.uk";
+const PORTAL_URL = Deno.env.get("STAFF_PORTAL_URL") || "https://app.thedanceexclusive.co.uk";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {

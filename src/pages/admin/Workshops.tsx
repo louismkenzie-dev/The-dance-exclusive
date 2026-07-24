@@ -154,7 +154,7 @@ const AdminWorkshops = () => {
     } else {
       setCoverPath(path);
       setCoverPreview(getMediaUrl(path));
-      setCoverPosition(null); // fresh photo — start from a centred frame
+      setCoverPosition(null); // fresh photo — top-biased default until a focus point is set
     }
     setCoverUploading(false);
   };
@@ -169,7 +169,7 @@ const AdminWorkshops = () => {
 
   const focalPoint = (() => {
     const m = /^([\d.]+)% ([\d.]+)%$/.exec(coverPosition ?? "");
-    return m ? { x: Number(m[1]), y: Number(m[2]) } : { x: 50, y: 50 };
+    return m ? { x: Number(m[1]), y: Number(m[2]) } : { x: 50, y: 25 };
   })();
 
   const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -370,13 +370,13 @@ const AdminWorkshops = () => {
                             <div className="flex items-end gap-3">
                               <div className="flex-1 min-w-0">
                                 <div className="rounded-lg overflow-hidden border border-border aspect-[2/1]">
-                                  <img src={coverPreview} alt="" className="w-full h-full object-cover" style={{ objectPosition: coverPosition ?? "50% 50%" }} />
+                                  <img src={coverPreview} alt="" className="w-full h-full object-cover" style={{ objectPosition: coverPosition ?? "50% 25%" }} />
                                 </div>
                                 <p className="text-[10px] text-muted-foreground mt-1 text-center">Class card (mobile)</p>
                               </div>
                               <div className="w-24 flex-shrink-0">
                                 <div className="rounded-lg overflow-hidden border border-border aspect-square">
-                                  <img src={coverPreview} alt="" className="w-full h-full object-cover" style={{ objectPosition: coverPosition ?? "50% 50%" }} />
+                                  <img src={coverPreview} alt="" className="w-full h-full object-cover" style={{ objectPosition: coverPosition ?? "50% 25%" }} />
                                 </div>
                                 <p className="text-[10px] text-muted-foreground mt-1 text-center">Thumbnail</p>
                               </div>
@@ -532,7 +532,7 @@ const AdminWorkshops = () => {
               <div className="flex gap-4 p-4">
                 {w.cover_image ? (
                   <div className="w-24 h-24 rounded-lg overflow-hidden shrink-0 bg-secondary">
-                    <img src={getMediaUrl(w.cover_image)} alt={w.name} className="w-full h-full object-cover" style={{ objectPosition: w.cover_position ?? "50% 50%" }} />
+                    <img src={getMediaUrl(w.cover_image)} alt={w.name} className="w-full h-full object-cover" style={{ objectPosition: w.cover_position ?? "50% 25%" }} />
                   </div>
                 ) : (
                   <div className={`w-24 h-24 rounded-lg shrink-0 flex items-center justify-center ${isAdult ? "bg-accent/10" : "bg-primary/10"}`}>

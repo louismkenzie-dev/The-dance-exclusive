@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Link, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,7 +34,9 @@ const JOURNEY = [
 const STATS = [
   { value: 7, suffix: "+", label: "Award-Winning Years" },
   { value: 500, suffix: "+", label: "Dancers & Counting" },
-  { value: 12, suffix: "", label: "Classes Every Week" },
+  // "Classes Every Week" is replaced with the live count of visible classes
+  // at render time — this value is only the fallback while it loads.
+  { value: 35, suffix: "", label: "Classes Every Week" },
   { value: 5, suffix: "", label: "Essex Venues" },
 ];
 
@@ -47,6 +51,23 @@ const Index = () => {
   const magBlue = useMagnetic<HTMLDivElement>(0.22);
   const magMag = useMagnetic<HTMLDivElement>(0.22);
   const heroParallax = useParallax<HTMLDivElement>(0.18);
+
+  // Live weekly-class count so the stat never goes stale as classes are added.
+  const [weeklyClasses, setWeeklyClasses] = useState<number | null>(null);
+  useEffect(() => {
+    supabase
+      .from("classes")
+      .select("id", { count: "exact", head: true })
+      .eq("is_active", true)
+      .eq("status", "confirmed")
+      .eq("publicly_visible", true)
+      .then(({ count }) => {
+        if (count != null && count > 0) setWeeklyClasses(count);
+      });
+  }, []);
+  const stats = STATS.map((s) =>
+    s.label === "Classes Every Week" && weeklyClasses != null ? { ...s, value: weeklyClasses } : s,
+  );
 
   if (!loading && user && role === "admin") {
     return <Navigate to="/admin" replace />;
@@ -144,7 +165,7 @@ const Index = () => {
       <section className="relative py-20 px-4 overflow-hidden">
         <div className="absolute inset-0 stage-light-duo opacity-60" />
         <div className="relative container grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-          {STATS.map((s, i) => (
+          {stats.map((s, i) => (
             <Reveal key={s.label} delay={i * 90}>
               <div className="font-display font-bold text-5xl md:text-6xl text-primary">
                 <StatCounter value={s.value} suffix={s.suffix} />

@@ -762,7 +762,7 @@ const AdminClasses = () => {
                             src={getMediaUrl(selectedWorkshop.cover_image)}
                             alt={selectedWorkshop.name}
                             className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
-                            style={{ objectPosition: selectedWorkshop.cover_position ?? "50% 50%" }}
+                            style={{ objectPosition: selectedWorkshop.cover_position ?? "50% 25%" }}
                           />
                         )}
                         <div className="min-w-0">
@@ -1500,7 +1500,7 @@ const AdminClasses = () => {
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                     <div className="flex items-start gap-3 md:gap-4 flex-1 min-w-0 cursor-pointer" onClick={toggleExpand}>
                       {c.workshops?.cover_image && (
-                        <img src={getMediaUrl(c.workshops.cover_image)} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" style={{ objectPosition: c.workshops.cover_position ?? "50% 50%" }} />
+                        <img src={getMediaUrl(c.workshops.cover_image)} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" style={{ objectPosition: c.workshops.cover_position ?? "50% 25%" }} />
                       )}
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">

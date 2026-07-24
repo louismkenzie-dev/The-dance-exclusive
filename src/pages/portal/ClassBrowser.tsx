@@ -598,7 +598,7 @@ const ClassBrowser = () => {
                         src={heroPhoto}
                         alt={heroAlt}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        style={workshopImage ? { objectPosition: (c.workshops as any)?.cover_position ?? "50% 50%" } : undefined}
+                        style={workshopImage ? { objectPosition: (c.workshops as any)?.cover_position ?? "50% 25%" } : undefined}
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent" />
                       {/* Distance badge */}
@@ -1274,7 +1274,7 @@ const ClassBrowser = () => {
                   <Card key={camp.id} className="card-elevated rounded-xl overflow-hidden border-border/50 bg-card/80 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-300">
                     {workshopImage && (
                       <div className="relative h-44 overflow-hidden">
-                        <img src={workshopImage} alt={camp.name} className="w-full h-full object-cover" style={{ objectPosition: camp.workshops?.cover_position ?? "50% 50%" }} />
+                        <img src={workshopImage} alt={camp.name} className="w-full h-full object-cover" style={{ objectPosition: camp.workshops?.cover_position ?? "50% 25%" }} />
                         <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent" />
                         <Badge className="absolute top-3 left-3 bg-amber-500/90 text-white">
                           <Music className="w-3 h-3 mr-1" /> Event

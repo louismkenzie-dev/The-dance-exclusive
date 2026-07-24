@@ -281,7 +281,7 @@ const MyBookings = () => {
             const venue = cls?.venues;
             const isAdult = cls?.class_type === "adult";
             const coverImage = getWorkshopImageUrl(cls?.workshops?.cover_image);
-            const coverPosition = cls?.workshops?.cover_position ?? "50% 50%";
+            const coverPosition = cls?.workshops?.cover_position ?? "50% 25%";
 
             return (
               <Card key={b.id} className="card-elevated animate-fade-in overflow-hidden hover:border-primary/40 transition-colors">

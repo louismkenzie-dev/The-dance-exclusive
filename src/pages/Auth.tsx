@@ -70,8 +70,11 @@ const Auth = () => {
     } else if (needsEmailConfirmation) {
       toast({ title: "Account created!", description: "Please check your email to verify your account." });
     } else {
-      // Email confirmation is off — they're signed in right now.
+      // Email confirmation is off — they're signed in right now. Land them on
+      // the same page an existing-account sign-in would (new accounts are
+      // always parents, so no role lookup needed).
       toast({ title: "Account created — welcome!", description: "You're signed in and ready to book." });
+      navigate(redirectTo || "/");
     }
   };
 

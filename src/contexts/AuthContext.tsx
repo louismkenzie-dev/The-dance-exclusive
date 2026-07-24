@@ -77,9 +77,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       applySession(session);
     });
 
+    // Mobile browsers throttle timers on backgrounded tabs, so the access
+    // token can slip past its ~1h expiry without auto-refreshing. When the
+    // tab regains focus, proactively refresh the session so the next write
+    // (add child, checkout, booking) carries a valid token — otherwise it
+    // reaches the database unauthenticated and trips row-level security.
+    const refreshOnFocus = () => {
+      if (document.visibilityState === "visible") {
+        void supabase.auth.getSession();
+      }
+    };
+    document.addEventListener("visibilitychange", refreshOnFocus);
+    window.addEventListener("focus", refreshOnFocus);
+
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      document.removeEventListener("visibilitychange", refreshOnFocus);
+      window.removeEventListener("focus", refreshOnFocus);
     };
   }, []);
 

@@ -63,12 +63,15 @@ const Auth = () => {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await signUp(signupEmail, signupPassword, signupName);
+    const { error, needsEmailConfirmation } = await signUp(signupEmail, signupPassword, signupName);
     setLoading(false);
     if (error) {
       toast({ title: "Signup failed", description: error.message, variant: "destructive" });
-    } else {
+    } else if (needsEmailConfirmation) {
       toast({ title: "Account created!", description: "Please check your email to verify your account." });
+    } else {
+      // Email confirmation is off — they're signed in right now.
+      toast({ title: "Account created — welcome!", description: "You're signed in and ready to book." });
     }
   };
 

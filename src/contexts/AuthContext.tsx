@@ -10,7 +10,7 @@ interface AuthContextType {
   loading: boolean;
   role: AppRole | null;
   profile: { full_name: string; email: string; phone: string | null; customer_type: string | null; profile_photo: string | null } | null;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null; needsEmailConfirmation?: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -106,7 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user?.id, authLoadKey]);
 
   const signUp = async (email: string, password: string, fullName: string) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -124,7 +124,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       });
     }
-    return { error: error as Error | null };
+    // No session on success = the project requires email confirmation; the
+    // caller adjusts its messaging (and redirect) accordingly.
+    return { error: error as Error | null, needsEmailConfirmation: !error && !data?.session };
   };
 
   const signIn = async (email: string, password: string) => {

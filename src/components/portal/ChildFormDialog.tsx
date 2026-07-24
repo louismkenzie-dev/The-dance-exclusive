@@ -269,8 +269,35 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
+
+    // A backgrounded mobile tab can hold an expired access token — the write
+    // would then reach the database unauthenticated and be rejected by
+    // row-level security ("new row violates ... students"). Force a fresh,
+    // valid session first and take the parent id from IT (never a stale
+    // context value), so the token the insert uses always matches parent_id.
+    let authedId = user.id;
+    try {
+      // getSession() refreshes an expired token when it can; if it returns
+      // nothing, try an explicit refresh before giving up.
+      const { data: { session } } = await supabase.auth.getSession();
+      const fresh = session ?? (await supabase.auth.refreshSession()).data.session;
+      if (!fresh?.user?.id) {
+        setSaving(false);
+        toast({
+          title: "Please sign in again",
+          description: "Your session has expired. Sign in and your details will be kept.",
+          variant: "destructive",
+        });
+        return;
+      }
+      authedId = fresh.user.id;
+    } catch {
+      // Network hiccup fetching the session — fall through with the context id;
+      // the insert will still be rejected safely if the token is truly invalid.
+    }
+
     const payload = {
-      parent_id: user.id,
+      parent_id: authedId,
       first_name: form.first_name,
       last_name: form.last_name,
       preferred_name: form.preferred_name || null,

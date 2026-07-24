@@ -145,6 +145,7 @@ export default function SessionManager({ classId, className, defaultInstructorId
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       setSessionInstructors(prev => ({ ...prev, [sessionId]: newIds }));
+      toast({ title: "Instructor added — saved", description: "Changes save instantly; no confirm needed." });
     }
     setSavingSession(null);
   };
@@ -156,11 +157,17 @@ export default function SessionManager({ classId, className, defaultInstructorId
 
     await supabase.from("session_instructors").delete().eq("session_id", sessionId);
     if (newIds.length > 0) {
-      await supabase.from("session_instructors").insert(
+      const { error } = await supabase.from("session_instructors").insert(
         newIds.map(sid => ({ session_id: sessionId, staff_id: sid }))
       );
+      if (error) {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+        setSavingSession(null);
+        return;
+      }
     }
     setSessionInstructors(prev => ({ ...prev, [sessionId]: newIds }));
+    toast({ title: "Instructor removed — saved", description: "Changes save instantly; no confirm needed." });
     setSavingSession(null);
   };
 
@@ -172,6 +179,7 @@ export default function SessionManager({ classId, className, defaultInstructorId
       delete next[sessionId];
       return next;
     });
+    toast({ title: "Back to class defaults — saved" });
     setSavingSession(null);
   };
 
@@ -235,6 +243,10 @@ export default function SessionManager({ classId, className, defaultInstructorId
             Sessions — {className}
             <Badge variant="outline">{sessions.length} sessions</Badge>
           </DialogTitle>
+          <p className="text-xs text-muted-foreground">
+            Every change here saves instantly — instructors, times, prices and statuses.
+            There&#39;s no save button; you can close this window at any time.
+          </p>
         </DialogHeader>
 
         {loading ? (

@@ -29,6 +29,7 @@ interface WorkshopOption {
   age_min: number | null;
   age_max: number | null;
   cover_image: string | null;
+  cover_position: string | null;
   capacity: number | null;
   duration_minutes: number | null;
   price: number | null;
@@ -83,7 +84,7 @@ interface ClassData {
   is_active: boolean;
   venues?: { name: string } | null;
   staff?: { full_name: string } | null;
-  workshops?: { name: string; cover_image: string | null } | null;
+  workshops?: { name: string; cover_image: string | null; cover_position: string | null } | null;
 }
 
 interface SessionRow {
@@ -210,10 +211,10 @@ const AdminClasses = () => {
 
   const fetchData = async () => {
     const [classesRes, venuesRes, staffRes, workshopsRes, termsRes, holidaysRes] = await Promise.all([
-      supabase.from("classes").select("*, venues(name), staff(full_name), workshops(name, cover_image)").order("created_at", { ascending: false }),
+      supabase.from("classes").select("*, venues(name), staff(full_name), workshops(name, cover_image, cover_position)").order("created_at", { ascending: false }),
       supabase.from("venues").select("id, name, capacity").eq("is_active", true),
       supabase.from("staff").select("id, full_name").eq("is_active", true),
-      supabase.from("workshops").select("id, name, description, theme, dance_style, class_type, age_min, age_max, cover_image, capacity, duration_minutes, price").eq("is_active", true),
+      supabase.from("workshops").select("id, name, description, theme, dance_style, class_type, age_min, age_max, cover_image, cover_position, capacity, duration_minutes, price").eq("is_active", true),
       supabase.from("school_terms").select("*").order("start_date"),
       supabase.from("school_holidays").select("*").eq("holiday_type", "bank_holiday").order("start_date"),
     ]);
@@ -714,7 +715,15 @@ const AdminClasses = () => {
                   <Label>Class Type *</Label>
                   <div className="flex gap-2">
                     <Button type="button" variant={classType === "children" ? "default" : "outline"} onClick={() => { setClassType("children"); setWorkshopId(""); }}>Children</Button>
-                    <Button type="button" variant={classType === "adult" ? "default" : "outline"} onClick={() => { setClassType("adult"); setWorkshopId(""); }}>Adult</Button>
+                    {/* Adult goes brand-pink when selected, matching the adult styling everywhere else */}
+                    <Button
+                      type="button"
+                      variant={classType === "adult" ? "default" : "outline"}
+                      className={classType === "adult" ? "bg-accent text-accent-foreground hover:bg-accent/90" : ""}
+                      onClick={() => { setClassType("adult"); setWorkshopId(""); }}
+                    >
+                      Adult
+                    </Button>
                   </div>
                 </div>
 
@@ -750,9 +759,10 @@ const AdminClasses = () => {
                       <div className="flex items-start gap-4">
                         {selectedWorkshop.cover_image && (
                           <img
-                            src={selectedWorkshop.cover_image}
+                            src={getMediaUrl(selectedWorkshop.cover_image)}
                             alt={selectedWorkshop.name}
                             className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
+                            style={{ objectPosition: selectedWorkshop.cover_position ?? "50% 50%" }}
                           />
                         )}
                         <div className="min-w-0">
@@ -1433,7 +1443,7 @@ const AdminClasses = () => {
       <div className="flex items-center gap-2 mb-6 flex-wrap">
         <Button variant={typeFilter === "all" ? "default" : "outline"} size="sm" onClick={() => setTypeFilter("all")}>All</Button>
         <Button variant={typeFilter === "children" ? "default" : "outline"} size="sm" onClick={() => setTypeFilter("children")}>Children</Button>
-        <Button variant={typeFilter === "adult" ? "default" : "outline"} size="sm" onClick={() => setTypeFilter("adult")}>Adult</Button>
+        <Button variant={typeFilter === "adult" ? "default" : "outline"} size="sm" className={typeFilter === "adult" ? "bg-accent text-accent-foreground hover:bg-accent/90" : ""} onClick={() => setTypeFilter("adult")}>Adult</Button>
         <div className="w-px h-6 bg-border mx-1" />
         <Select value={venueFilter} onValueChange={setVenueFilter}>
           <SelectTrigger className="w-[180px] h-8 text-sm">
@@ -1490,7 +1500,7 @@ const AdminClasses = () => {
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                     <div className="flex items-start gap-3 md:gap-4 flex-1 min-w-0 cursor-pointer" onClick={toggleExpand}>
                       {c.workshops?.cover_image && (
-                        <img src={getMediaUrl(c.workshops.cover_image)} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                        <img src={getMediaUrl(c.workshops.cover_image)} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" style={{ objectPosition: c.workshops.cover_position ?? "50% 50%" }} />
                       )}
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">

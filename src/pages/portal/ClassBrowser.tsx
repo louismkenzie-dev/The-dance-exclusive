@@ -114,8 +114,12 @@ interface ClassItem {
   publicly_visible: boolean;
   venues: VenueData | null;
   staff: StaffData | null;
-  workshops: { cover_image: string | null; name: string; description: string | null } | null;
+  workshops: { cover_image: string | null; cover_position: string | null; name: string; description: string | null } | null;
 }
+
+/** Public pages show instructors by first name only. */
+const instructorFirstName = (fullName: string | null | undefined) =>
+  (fullName ?? "").trim().split(/\s+/)[0] || null;
 
 const formatDays = (days: string[]) => {
   if (!days || days.length === 0) return null;
@@ -224,8 +228,8 @@ const ClassBrowser = () => {
         .from("classes")
         .select(`*, 
           venues(name, photo_outside, photo_indoor, photo_parking, address_line1, address_line2, city, postcode, latitude, longitude, directions, drop_off_info, has_parking, parking_details), 
-          staff(full_name, profile_photo, description, dance_skills), 
-          workshops(cover_image, name, description)`)
+          staff(full_name, profile_photo, description, dance_skills),
+          workshops(cover_image, cover_position, name, description)`)
         .eq("is_active", true)
         .eq("publicly_visible", true)
         .eq("status", "confirmed")
@@ -281,7 +285,7 @@ const ClassBrowser = () => {
     const today = new Date().toISOString().split("T")[0];
     supabase
       .from("camps")
-      .select("*, venues(name, address_line1, city, postcode, latitude, longitude), workshops(cover_image, name)")
+      .select("*, venues(name, address_line1, city, postcode, latitude, longitude), workshops(cover_image, cover_position, name)")
       .eq("is_active", true)
       .eq("class_type", classType as any)
       .gte("end_date", today)
@@ -594,6 +598,7 @@ const ClassBrowser = () => {
                         src={heroPhoto}
                         alt={heroAlt}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        style={workshopImage ? { objectPosition: (c.workshops as any)?.cover_position ?? "50% 50%" } : undefined}
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent" />
                       {/* Distance badge */}
@@ -692,7 +697,7 @@ const ClassBrowser = () => {
                       {staff && (
                         <div className="flex items-center gap-2">
                           <Users className="w-3.5 h-3.5 text-primary" />
-                          <span>{staff.full_name} <span className="text-[10px] uppercase tracking-widest text-muted-foreground/70 ml-1">Instructor</span></span>
+                          <span>{instructorFirstName(staff.full_name)} <span className="text-[10px] uppercase tracking-widest text-muted-foreground/70 ml-1">Instructor</span></span>
                         </div>
                       )}
                     </div>
@@ -756,7 +761,7 @@ const ClassBrowser = () => {
                             {staffPhoto ? (
                               <img
                                 src={staffPhoto}
-                                alt={staff.full_name}
+                                alt={instructorFirstName(staff.full_name) ?? "Instructor"}
                                 className="w-16 h-16 rounded-full object-cover ring-2 ring-primary/30 flex-shrink-0"
                               />
                             ) : (
@@ -765,7 +770,7 @@ const ClassBrowser = () => {
                               </div>
                             )}
                             <div className="min-w-0">
-                              <p className="font-semibold text-foreground">{staff.full_name}</p>
+                              <p className="font-semibold text-foreground">{instructorFirstName(staff.full_name)}</p>
                               <p className="text-[10px] uppercase tracking-widest text-primary mb-1">Instructor</p>
                               {staff.description && (
                                 <p className="text-xs text-muted-foreground line-clamp-3" style={{ textTransform: 'none', letterSpacing: 'normal', fontFamily: 'var(--font-body)' }}>
@@ -1269,7 +1274,7 @@ const ClassBrowser = () => {
                   <Card key={camp.id} className="card-elevated rounded-xl overflow-hidden border-border/50 bg-card/80 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-300">
                     {workshopImage && (
                       <div className="relative h-44 overflow-hidden">
-                        <img src={workshopImage} alt={camp.name} className="w-full h-full object-cover" />
+                        <img src={workshopImage} alt={camp.name} className="w-full h-full object-cover" style={{ objectPosition: camp.workshops?.cover_position ?? "50% 50%" }} />
                         <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent" />
                         <Badge className="absolute top-3 left-3 bg-amber-500/90 text-white">
                           <Music className="w-3 h-3 mr-1" /> Event

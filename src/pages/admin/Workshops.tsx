@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 
-const DANCE_STYLES = ["Tap", "Modern", "Jazz", "Hip Hop", "Ballet", "Contemporary", "Lyrical", "Street", "Musical Theatre", "Acro", "Commercial", "Mixed"];
+const DANCE_STYLES = ["Tap", "Modern", "Jazz", "Hip Hop", "Ballet", "Contemporary", "Lyrical", "Street", "Musical Theatre", "Acro", "Commercial", "Popping", "Locking", "Breaking", "Whacking", "Afro", "House", "Mixed"];
 
 type PlatformInfo = { label: string; Icon: typeof Globe; className: string };
 
@@ -46,6 +46,7 @@ interface Workshop {
   price: number | null;
   links: string[] | null;
   cover_image: string | null;
+  cover_position: string | null;
   is_active: boolean;
   created_at: string;
 }
@@ -80,6 +81,9 @@ const AdminWorkshops = () => {
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [coverUploading, setCoverUploading] = useState(false);
   const [coverPath, setCoverPath] = useState<string | null>(null);
+  // CSS object-position of the cover's focal point (e.g. "50% 30%") — the
+  // part of the photo that must stay in frame on every screen size.
+  const [coverPosition, setCoverPosition] = useState<string | null>(null);
   const [media, setMedia] = useState<WorkshopMedia[]>([]);
   const [mediaUploading, setMediaUploading] = useState(false);
   const [typeFilter, setTypeFilter] = useState<"all" | "children" | "adult">("all");
@@ -104,6 +108,7 @@ const AdminWorkshops = () => {
     setEditing(null);
     setCoverPreview(null);
     setCoverPath(null);
+    setCoverPosition(null);
     setMedia([]);
   };
 
@@ -132,6 +137,7 @@ const AdminWorkshops = () => {
     });
     setCoverPath(w.cover_image);
     setCoverPreview(w.cover_image ? getMediaUrl(w.cover_image) : null);
+    setCoverPosition(w.cover_position);
     fetchMedia(w.id);
     setOpen(true);
   };
@@ -148,9 +154,23 @@ const AdminWorkshops = () => {
     } else {
       setCoverPath(path);
       setCoverPreview(getMediaUrl(path));
+      setCoverPosition(null); // fresh photo — start from a centred frame
     }
     setCoverUploading(false);
   };
+
+  /** Set the cover's focal point from a click on the full photo. */
+  const setFocalFromClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = Math.round(Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)));
+    const y = Math.round(Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100)));
+    setCoverPosition(`${x}% ${y}%`);
+  };
+
+  const focalPoint = (() => {
+    const m = /^([\d.]+)% ([\d.]+)%$/.exec(coverPosition ?? "");
+    return m ? { x: Number(m[1]), y: Number(m[2]) } : { x: 50, y: 50 };
+  })();
 
   const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -213,6 +233,7 @@ const AdminWorkshops = () => {
       duration_minutes: form.duration_minutes ? parseInt(form.duration_minutes) : null,
       links: cleanedLinks,
       cover_image: coverPath,
+      cover_position: coverPosition,
       is_active: form.is_active,
     };
 
@@ -317,23 +338,63 @@ const AdminWorkshops = () => {
 
                   {/* Media Tab */}
                   <TabsContent value="media" className="space-y-4 mt-4">
-                    {/* Cover Image */}
+                    {/* Cover Image + framing */}
                     <div className="space-y-2">
-                      <Label>Cover Image</Label>
-                      <div
-                        className="relative group cursor-pointer border-2 border-dashed border-border rounded-lg aspect-square w-48 mx-auto flex items-center justify-center overflow-hidden hover:border-primary/50 transition-colors"
-                        onClick={() => coverInputRef.current?.click()}
-                      >
-                        {coverPreview ? (
-                          <img src={coverPreview} alt="Cover" className="w-full h-full object-cover" />
-                        ) : (
+                      <div className="flex items-center justify-between">
+                        <Label>Cover Image</Label>
+                        {coverPreview && (
+                          <Button type="button" variant="outline" size="sm" onClick={() => coverInputRef.current?.click()} disabled={coverUploading}>
+                            {coverUploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ImageIcon className="w-4 h-4 mr-2" />}
+                            Replace Photo
+                          </Button>
+                        )}
+                      </div>
+                      {coverPreview ? (
+                        <div className="space-y-3">
+                          <p className="text-xs text-muted-foreground">
+                            Click the photo where its focus should be (faces, the action). That spot
+                            stays in frame however the advert is cropped — phones, cards and thumbnails.
+                          </p>
+                          <div
+                            className="relative w-full max-w-sm mx-auto rounded-lg overflow-hidden border border-border cursor-crosshair"
+                            onClick={setFocalFromClick}
+                          >
+                            <img src={coverPreview} alt="Cover" draggable={false} className="w-full h-auto block select-none" />
+                            <div
+                              className="absolute w-6 h-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white ring-2 ring-primary shadow-lg pointer-events-none"
+                              style={{ left: `${focalPoint.x}%`, top: `${focalPoint.y}%` }}
+                            />
+                          </div>
+                          <div>
+                            <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">How it crops on the website</p>
+                            <div className="flex items-end gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="rounded-lg overflow-hidden border border-border aspect-[2/1]">
+                                  <img src={coverPreview} alt="" className="w-full h-full object-cover" style={{ objectPosition: coverPosition ?? "50% 50%" }} />
+                                </div>
+                                <p className="text-[10px] text-muted-foreground mt-1 text-center">Class card (mobile)</p>
+                              </div>
+                              <div className="w-24 flex-shrink-0">
+                                <div className="rounded-lg overflow-hidden border border-border aspect-square">
+                                  <img src={coverPreview} alt="" className="w-full h-full object-cover" style={{ objectPosition: coverPosition ?? "50% 50%" }} />
+                                </div>
+                                <p className="text-[10px] text-muted-foreground mt-1 text-center">Thumbnail</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          className="relative group cursor-pointer border-2 border-dashed border-border rounded-lg aspect-square w-48 mx-auto flex items-center justify-center overflow-hidden hover:border-primary/50 transition-colors"
+                          onClick={() => coverInputRef.current?.click()}
+                        >
                           <div className="text-center text-muted-foreground">
                             {coverUploading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : <ImageIcon className="w-8 h-8 mx-auto mb-1" />}
                             <p className="text-xs">Click to upload cover image</p>
                           </div>
-                        )}
-                        <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
-                      </div>
+                        </div>
+                      )}
+                      <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
                     </div>
 
                     {/* Links */}
@@ -471,7 +532,7 @@ const AdminWorkshops = () => {
               <div className="flex gap-4 p-4">
                 {w.cover_image ? (
                   <div className="w-24 h-24 rounded-lg overflow-hidden shrink-0 bg-secondary">
-                    <img src={getMediaUrl(w.cover_image)} alt={w.name} className="w-full h-full object-cover" />
+                    <img src={getMediaUrl(w.cover_image)} alt={w.name} className="w-full h-full object-cover" style={{ objectPosition: w.cover_position ?? "50% 50%" }} />
                   </div>
                 ) : (
                   <div className={`w-24 h-24 rounded-lg shrink-0 flex items-center justify-center ${isAdult ? "bg-accent/10" : "bg-primary/10"}`}>

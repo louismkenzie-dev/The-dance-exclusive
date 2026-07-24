@@ -23,6 +23,14 @@ import BookingQrDialog from "@/components/portal/BookingQrDialog";
 import { ClassPassesPanel } from "@/components/portal/ClassPassesPanel";
 import ChangeClassDialog from "@/components/portal/ChangeClassDialog";
 
+/** Cover images are stored as workshop-media storage paths — resolve to a URL. */
+const getWorkshopImageUrl = (path: string | null | undefined) => {
+  if (!path) return null;
+  if (path.startsWith("http")) return path;
+  const { data } = supabase.storage.from("workshop-media").getPublicUrl(path);
+  return data?.publicUrl || null;
+};
+
 const statusColors: Record<string, "default" | "secondary" | "destructive"> = {
   confirmed: "default",
   pending_payment: "secondary",
@@ -85,11 +93,11 @@ const MyBookings = () => {
       .select(`*,
         classes(name, day_of_week, start_time, end_time, class_type, dance_style, price_per_session, price_per_term, price_per_month, price_per_year, whatsapp_group_url,
           venues(name, address_line1, city, postcode),
-          workshops(name, cover_image)
+          workshops(name, cover_image, cover_position)
         ),
         camps(name, start_date, end_date, start_time, end_time, class_type,
           venues(name, address_line1, city, postcode),
-          workshops(name, cover_image)
+          workshops(name, cover_image, cover_position)
         ),
         students(first_name, last_name, preferred_name, profile_photo)`)
       .eq("parent_id", user.id)
@@ -245,7 +253,8 @@ const MyBookings = () => {
             const student = b.students;
             const venue = cls?.venues;
             const isAdult = cls?.class_type === "adult";
-            const coverImage = cls?.workshops?.cover_image;
+            const coverImage = getWorkshopImageUrl(cls?.workshops?.cover_image);
+            const coverPosition = cls?.workshops?.cover_position ?? "50% 50%";
 
             return (
               <Card key={b.id} className="card-elevated animate-fade-in overflow-hidden hover:border-primary/40 transition-colors">
@@ -254,7 +263,7 @@ const MyBookings = () => {
                     {/* Cover image strip */}
                     {coverImage && (
                       <div className="w-20 md:w-28 flex-shrink-0">
-                        <img src={coverImage} alt="" className="w-full h-full object-cover" />
+                        <img src={coverImage} alt="" className="w-full h-full object-cover" style={{ objectPosition: coverPosition }} />
                       </div>
                     )}
 

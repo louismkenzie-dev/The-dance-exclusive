@@ -34,7 +34,8 @@ const GENDER_OPTIONS = [
 
 const DANCE_STYLES = [
   "Ballet", "Tap", "Jazz", "Contemporary", "Street Dance", "Commercial",
-  "Lyrical", "Musical Theatre", "Acro", "Ballroom", "Latin", "Not sure yet",
+  "Lyrical", "Musical Theatre", "Acro", "Ballroom", "Latin",
+  "Popping", "Locking", "Breaking", "Whacking", "Afro", "House", "Not sure yet",
 ];
 
 const MEDICAL_CONDITIONS = [

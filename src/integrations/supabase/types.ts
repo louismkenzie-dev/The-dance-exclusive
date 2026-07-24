@@ -2548,6 +2548,7 @@ export type Database = {
           capacity: number | null
           class_type: Database["public"]["Enums"]["class_type"]
           cover_image: string | null
+          cover_position: string | null
           created_at: string
           dance_style: string | null
           description: string | null
@@ -2567,6 +2568,7 @@ export type Database = {
           capacity?: number | null
           class_type?: Database["public"]["Enums"]["class_type"]
           cover_image?: string | null
+          cover_position?: string | null
           created_at?: string
           dance_style?: string | null
           description?: string | null
@@ -2586,6 +2588,7 @@ export type Database = {
           capacity?: number | null
           class_type?: Database["public"]["Enums"]["class_type"]
           cover_image?: string | null
+          cover_position?: string | null
           created_at?: string
           dance_style?: string | null
           description?: string | null

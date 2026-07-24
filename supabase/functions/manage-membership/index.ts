@@ -65,7 +65,7 @@ serve(async (req) => {
     }
 
     const { action, membershipId, newClassId } = await req.json();
-    if (action !== "cancel" && action !== "switch_class") {
+    if (action !== "cancel" && action !== "switch_class" && action !== "payment_link") {
       return jsonResponse({ error: "Unknown action" }, 400);
     }
     if (!membershipId || typeof membershipId !== "string") {
@@ -111,7 +111,28 @@ serve(async (req) => {
       return jsonResponse({ error: "This membership has already ended" }, 400);
     }
 
-    // Fetched once — both actions email a confirmation.
+    // ────────────────────────────────────────────────────────────────────
+    // PAYMENT LINK — Stripe's hosted invoice page for a failed payment, so
+    // the family can settle it right now (with a different card if needed).
+    // ────────────────────────────────────────────────────────────────────
+    if (action === "payment_link") {
+      let payUrl: string | null = null;
+      try {
+        if (sub.latest_invoice) {
+          const invoiceId = typeof sub.latest_invoice === "string" ? sub.latest_invoice : (sub.latest_invoice as any).id;
+          const invoice: any = await stripe.invoices.retrieve(invoiceId, {}, connectOpts);
+          if (invoice?.status === "open") payUrl = invoice.hosted_invoice_url ?? null;
+        }
+      } catch (e) {
+        console.error("Could not fetch hosted invoice:", e);
+      }
+      if (!payUrl) {
+        return jsonResponse({ error: "There's nothing to pay right now — the payment may already have gone through." }, 400);
+      }
+      return jsonResponse({ url: payUrl });
+    }
+
+    // Fetched once — both remaining actions email a confirmation.
     const { data: profile } = await supabase
       .from("profiles")
       .select("email, full_name")

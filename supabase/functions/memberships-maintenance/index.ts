@@ -47,6 +47,22 @@ serve(async (_req) => {
     }
   };
 
+  // When a membership actually ends, take the standing weekly booking off the
+  // register too — otherwise lapsed families keep appearing at the door.
+  const retireBooking = async (m: any) => {
+    if (!m.class_id) return;
+    let q = supabase
+      .from("bookings")
+      .update({ status: "cancelled" })
+      .eq("parent_id", m.user_id)
+      .eq("class_id", m.class_id)
+      .eq("status", "confirmed")
+      .eq("booking_type", "monthly");
+    q = m.student_id ? q.eq("student_id", m.student_id) : q.is("student_id", null);
+    const { error } = await q;
+    if (error) console.error("Failed to retire booking for membership", m.id, error);
+  };
+
   const describeMembership = async (m: any) => {
     const [{ data: student }, { data: cls }] = await Promise.all([
       m.student_id
@@ -104,6 +120,7 @@ serve(async (_req) => {
           .from("memberships")
           .update({ status: "cancelled", cancelled_at: nowIso, updated_at: nowIso })
           .eq("id", m.id);
+        await retireBooking(m);
         summary.endedNow++;
         const desc = await describeMembership(m);
         await sendEmail(m.user_id, "membership_ended", { ...desc, endDate: m.cancel_at });
@@ -145,6 +162,7 @@ serve(async (_req) => {
               .update({ status: "cancelled", cancelled_at: m.cancelled_at ?? nowIso, updated_at: nowIso })
               .eq("id", m.id)
               .neq("status", "cancelled");
+            await retireBooking(m);
             summary.syncedCancelled++;
             const desc = await describeMembership(m);
             await sendEmail(m.user_id, "membership_ended", { ...desc, endDate: m.cancel_at ?? nowIso });
@@ -162,6 +180,18 @@ serve(async (_req) => {
           .in("status", ["active", "past_due", "paused", "cancel_scheduled"]);
 
         if (sub.status === "past_due" || sub.status === "unpaid") {
+          // Stripe's hosted invoice page lets the family pay the failed month
+          // (with a different card if needed) — the "Pay Now" in our email.
+          let payUrl: string | null = null;
+          try {
+            if (sub.latest_invoice) {
+              const invoiceId = typeof sub.latest_invoice === "string" ? sub.latest_invoice : sub.latest_invoice.id;
+              const invoice: any = await stripe.invoices.retrieve(invoiceId, {}, connectOpts);
+              if (invoice?.status === "open") payUrl = invoice.hosted_invoice_url ?? null;
+            }
+          } catch (e) {
+            console.error("Could not fetch hosted invoice for", subId, e);
+          }
           for (const m of members.filter((x: any) => x.status === "active")) {
             await supabase
               .from("memberships")
@@ -172,6 +202,7 @@ serve(async (_req) => {
             await sendEmail(m.user_id, "membership_payment_failed", {
               ...desc,
               monthlyAmount: Number(m.monthly_amount),
+              payUrl,
             });
           }
         }

@@ -30,6 +30,69 @@ const BUSINESS_KEYS = [
   "social_facebook", "social_instagram", "social_twitter", "social_linkedin", "social_tiktok",
 ];
 
+/** Studio-written note included word-for-word in the day-before trial
+ *  reminder email. Stored in app_settings; autosaves as the admin types. */
+const TrialReminderCard = () => {
+  const [message, setMessage] = useState("");
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "trial_reminder_message")
+        .maybeSingle();
+      setMessage(data?.value ?? "");
+      setLoadedKey("loaded");
+    })();
+  }, []);
+
+  const autosave = useAutosave({
+    enabled: loadedKey != null,
+    resetKey: loadedKey,
+    data: { message },
+    save: async () => {
+      const { error } = await supabase
+        .from("app_settings")
+        .upsert(
+          { key: "trial_reminder_message", value: message, updated_at: new Date().toISOString() },
+          { onConflict: "key" },
+        );
+      if (error) throw error;
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" />Trial Reminder Email</CardTitle>
+        <CardDescription>
+          Sent automatically the day before every booked trial, with the class name, time and
+          venue. Your note below is included word-for-word.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <Textarea
+          rows={4}
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="e.g. Please arrive 10 minutes early, wear comfy clothes and bring a bottle of water!"
+        />
+        <p className="text-xs text-muted-foreground">
+          {autosave.status === "saving" || autosave.status === "pending"
+            ? "Saving…"
+            : autosave.status === "error"
+              ? "Couldn't save — check your connection"
+              : autosave.status === "saved"
+                ? "All changes saved"
+                : "Changes save automatically as you type"}
+        </p>
+      </CardContent>
+    </Card>
+  );
+};
+
 const SettingsCompany = () => {
   const queryClient = useQueryClient();
   const { user, loading: authLoading } = useAuth();
@@ -476,6 +539,8 @@ const SettingsCompany = () => {
           </div>
         </CardContent>
       </Card>
+
+      <TrialReminderCard />
 
       <div className="flex justify-end pb-8">
         <Button onClick={() => { manualSaveRef.current = true; saveMutation.mutate(); }} disabled={saveMutation.isPending} size="lg">

@@ -76,6 +76,7 @@ const MyBookings = () => {
   const [passCredits, setPassCredits] = useState(0);
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [membershipsLoading, setMembershipsLoading] = useState(true);
+  const [payLinkLoading, setPayLinkLoading] = useState<string | null>(null);
   // Membership pending cancellation confirmation (controls the AlertDialog).
   const [cancelTarget, setCancelTarget] = useState<Membership | null>(null);
   const [cancelling, setCancelling] = useState(false);
@@ -143,6 +144,32 @@ const MyBookings = () => {
     next.delete("qr");
     setSearchParams(next, { replace: true });
   }, [bookings, loading, searchParams, setSearchParams]);
+
+  // Stripe hosted invoice page for a failed membership payment — pays the
+  // outstanding month (any card) and registers immediately.
+  const openPaymentLink = async (membershipId: string) => {
+    setPayLinkLoading(membershipId);
+    try {
+      const { data, error } = await supabase.functions.invoke("manage-membership", {
+        body: { action: "payment_link", membershipId },
+      });
+      let message = data?.error || error?.message;
+      const ctx = (error as { context?: Response } | null)?.context;
+      if (ctx && typeof ctx.json === "function") {
+        try {
+          const body = await ctx.json();
+          if (body?.error) message = body.error;
+        } catch { /* keep generic */ }
+      }
+      if (data?.url) {
+        window.open(data.url, "_blank", "noopener");
+      } else {
+        toast.error("Couldn't open the payment page", { description: message || "Please try again or contact us." });
+      }
+    } finally {
+      setPayLinkLoading(null);
+    }
+  };
 
   const confirmCancelMembership = async () => {
     if (!cancelTarget) return;
@@ -457,10 +484,20 @@ const MyBookings = () => {
                           )}
 
                           {m.status === "past_due" && (
-                            <p className="text-sm text-amber-600 dark:text-amber-400 pt-1">
-                              We couldn&#39;t take your last payment — it will be retried automatically.
-                              Please check your card details.
-                            </p>
+                            <div className="pt-1 space-y-2">
+                              <p className="text-sm text-amber-600 dark:text-amber-400">
+                                We couldn&#39;t take your last payment — it will be retried automatically,
+                                or you can settle it right now.
+                              </p>
+                              <Button
+                                size="sm"
+                                className="bg-amber-500 hover:bg-amber-600 text-white"
+                                disabled={payLinkLoading === m.id}
+                                onClick={() => openPaymentLink(m.id)}
+                              >
+                                {payLinkLoading === m.id ? "Opening…" : "Pay now"}
+                              </Button>
+                            </div>
                           )}
 
                           {m.status === "paused" && (

@@ -74,10 +74,13 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
     const { data: s } = await supabase.from("students").select("*").eq("id", studentId!).maybeSingle();
     setStudent(s);
     if (s?.parent_id) {
+      // Staff-facing view is deliberately minimal: no parent contact details or
+      // address — only the pickup PIN (needed to verify collectors) plus the
+      // child's own emergency contact and authorised collectors.
       const [{ data: p }, { data: c }] = await Promise.all([
         supabase
           .from("profiles")
-          .select("full_name, email, phone, secondary_phone, address_line1, city, postcode, pickup_pin")
+          .select("pickup_pin")
           .eq("user_id", s.parent_id)
           .maybeSingle(),
         supabase
@@ -176,8 +179,7 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
                   <SheetTitle>{student.first_name} {student.last_name}</SheetTitle>
                   <SheetDescription>
                     {student.preferred_name && <>"{student.preferred_name}" · </>}
-                    {age != null && <>{age} years old · </>}
-                    {student.gender || "—"}
+                    {age != null ? `${age} years old` : "Age not on file"}
                   </SheetDescription>
                 </div>
               </div>
@@ -205,18 +207,6 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
                 )}
               </Card>
             )}
-
-            {/* DOB / quick facts */}
-            <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-              <div className="bg-muted/40 rounded p-2">
-                <div className="text-muted-foreground flex items-center gap-1"><Cake className="w-3 h-3" /> Date of birth</div>
-                <div className="font-medium">{student.date_of_birth ? format(new Date(student.date_of_birth), "d MMM yyyy") : "—"}</div>
-              </div>
-              <div className="bg-muted/40 rounded p-2">
-                <div className="text-muted-foreground">Ability</div>
-                <div className="font-medium">{student.ability_level || "—"}</div>
-              </div>
-            </div>
 
             {/* Critical safeguarding flags */}
             <div className="flex flex-wrap gap-1.5 mt-4">
@@ -274,28 +264,20 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
                 </Section>
               )}
 
-              {/* Parent */}
-              {parent && (
-                <Section title="Parent / guardian" icon={User}>
-                  <Row label="Name" value={parent.full_name} />
-                  <Row label="Phone" value={parent.phone} />
-                  {parent.secondary_phone && <Row label="Alt phone" value={parent.secondary_phone} />}
-                  <Row label="Email" value={parent.email} />
-                  {parent.address_line1 && (
-                    <Row label="Address" value={`${parent.address_line1}, ${parent.city ?? ""} ${parent.postcode ?? ""}`} />
-                  )}
-                  {parent.pickup_pin && (
-                    <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-amber-600">No QR? Family PIN</span>
-                        <span className="font-mono font-bold text-lg tracking-[0.3em]">{parent.pickup_pin}</span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground mt-1">
-                        If the collector has no QR code, ask them for this 4-digit Family PIN before
-                        signing in/out, and record their name when prompted.
-                      </p>
+              {/* Pickup verification — the Family PIN only; parent contact
+                  details are deliberately not shown to staff */}
+              {parent?.pickup_pin && (
+                <Section title="Pickup verification" icon={User}>
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-amber-600">No QR? Family PIN</span>
+                      <span className="font-mono font-bold text-lg tracking-[0.3em]">{parent.pickup_pin}</span>
                     </div>
-                  )}
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      If the collector has no QR code, ask them for this 4-digit Family PIN before
+                      signing in/out, and record their name when prompted.
+                    </p>
+                  </div>
                 </Section>
               )}
 
@@ -325,13 +307,6 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
               <Section title="Consent" icon={Camera}>
                 <Row label="Photo & media consent" value={student.photo_consent ? "✓ Yes" : "✗ No"} />
               </Section>
-
-              {/* Notes */}
-              {student.notes && (
-                <Section title="Notes" icon={Shield}>
-                  <p className="text-sm bg-muted/50 p-2 rounded whitespace-pre-wrap">{student.notes}</p>
-                </Section>
-              )}
 
               {/* Mark as — register status */}
               {booking && (onCheckIn || onCheckOut || onMarkAbsent || onClearAttendance) && (

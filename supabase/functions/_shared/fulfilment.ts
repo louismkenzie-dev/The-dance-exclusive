@@ -15,6 +15,9 @@ export interface FulfilmentItem {
   totalPrice: number;
   /** metadata key, e.g. "item_0" — used for pass idempotency */
   ref: string;
+  /** Chosen session date (trials) — recorded in the booking notes so the
+   *  register shows the booking only on that day and reminders know when. */
+  sessionDate: string | null;
 }
 
 /** Parse the compact per-item PI metadata written by create-payment-intent.
@@ -48,6 +51,7 @@ export function parsePaymentIntentItems(metadata: Record<string, unknown> | null
       pricingPlan: parsed.p || "session",
       totalPrice: Number(parsed.t || 0),
       ref: key,
+      sessionDate: /^\d{4}-\d{2}-\d{2}$/.test(parsed.d || "") ? parsed.d : null,
     });
   }
   return items;
@@ -119,16 +123,58 @@ export async function fulfillItems(
       status: "confirmed",
       booking_type: item.kind === "camp" ? "camp" : (item.pricingPlan || "session"),
       amount: item.totalPrice,
-      notes: `Stripe PaymentIntent: ${pi.id}`,
+      notes: `Stripe PaymentIntent: ${pi.id}${item.sessionDate ? ` | session ${item.sessionDate}` : ""}`,
     });
     if (error) console.error("Failed to create booking:", error);
     else {
       totalAmount += item.totalPrice;
       console.log("Booking created:", item.kind, item.classId || item.campId);
+      // Trials are hot leads — let the studio know straight away.
+      if (item.kind === "class" && item.pricingPlan === "trial") {
+        try {
+          await notifyAdminTrialBooked(supabase, userId, item);
+        } catch (e) {
+          console.error("Trial admin notification failed:", e);
+        }
+      }
     }
   }
 
   return totalAmount;
+}
+
+/** Email the studio inbox whenever a trial is booked. */
+async function notifyAdminTrialBooked(supabase: any, userId: string, item: FulfilmentItem) {
+  const adminEmail = Deno.env.get("ADMIN_NOTIFY_EMAIL") || "hello@thedanceexclusive.co.uk";
+  const [{ data: cls }, { data: student }, { data: parent }] = await Promise.all([
+    item.classId
+      ? supabase.from("classes").select("name, day_of_week, start_time, end_time, venues:venue_id ( name )").eq("id", item.classId).maybeSingle()
+      : Promise.resolve({ data: null }),
+    item.studentId
+      ? supabase.from("students").select("first_name, last_name").eq("id", item.studentId).maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase.from("profiles").select("full_name, email, phone").eq("user_id", userId).maybeSingle(),
+  ]);
+  await supabase.functions.invoke("send-email", {
+    headers: { "x-internal-auth": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
+    body: {
+      template: "admin_trial_booked",
+      to: adminEmail,
+      data: {
+        className: cls?.name ?? "a class",
+        dayOfWeek: cls?.day_of_week ?? null,
+        startTime: cls?.start_time ?? null,
+        endTime: cls?.end_time ?? null,
+        venueName: cls?.venues?.name ?? null,
+        sessionDate: item.sessionDate,
+        studentName: student ? `${student.first_name} ${student.last_name}` : null,
+        parentName: parent?.full_name ?? null,
+        parentEmail: parent?.email ?? null,
+        parentPhone: parent?.phone ?? null,
+        amount: item.totalPrice,
+      },
+    },
+  });
 }
 
 /**

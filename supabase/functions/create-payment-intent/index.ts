@@ -185,6 +185,31 @@ serve(async (req) => {
       campScheduledIds.set(campId, new Set((campSessions ?? []).map((s: any) => s.id)));
     }
 
+    // A trial is for ONE chosen session — resolve its date server-side so the
+    // booking records exactly which day (register + reminder emails rely on it).
+    const trialSessionDates = new Map<number, string>(); // cart index → YYYY-MM-DD
+    {
+      const trialEntries = cartItems
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) =>
+          kindOf(item) === "class" && item.pricingPlan === "trial" && (item.selectedSessionIds?.length ?? 0) > 0,
+        );
+      const sessionIds = [...new Set(trialEntries.map(({ item }) => item.selectedSessionIds![0]))];
+      if (sessionIds.length > 0) {
+        const { data: sessRows } = await supabaseAdmin
+          .from("class_sessions")
+          .select("id, class_id, session_date")
+          .in("id", sessionIds);
+        const sessById = new Map((sessRows ?? []).map((r: any) => [r.id, r]));
+        for (const { item, index } of trialEntries) {
+          const sess = sessById.get(item.selectedSessionIds![0]);
+          if (sess && sess.class_id === item.classId && sess.session_date >= today) {
+            trialSessionDates.set(index, sess.session_date);
+          }
+        }
+      }
+    }
+
     // Monthly items are priced together (additional-class rates + £110 cap).
     // Keyed by cart-array index so the client (which sends items in the same
     // order) and this code agree item-for-item.
@@ -428,6 +453,7 @@ serve(async (req) => {
           s: item.studentId || "",
           p: item.pricingPlan,
           t: chargedPrices[index],
+          ...(trialSessionDates.has(index) && { d: trialSessionDates.get(index) }),
         }),
       ]),
     );

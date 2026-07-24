@@ -2610,6 +2610,10 @@ export type Database = {
     }
     Functions: {
       get_staff_id_for_user: { Args: { _user_id: string }; Returns: string }
+      get_unpaid_membership_attendees: {
+        Args: { _class_id: string }
+        Returns: { student_id: string | null; user_id: string }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

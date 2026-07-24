@@ -78,17 +78,22 @@ const AdminRegisters = () => {
   const loadRegister = async () => {
     const session = sessions.find((s) => s.id === selectedSessionId);
     if (!session) return;
-    const [{ data: bks }, { data: att }] = await Promise.all([
+    const [{ data: bks }, { data: att }, { data: unpaidRows }] = await Promise.all([
       supabase
         .from("bookings")
-        .select(`id, student_id, notes, students:student_id ( id, first_name, last_name, preferred_name, profile_photo, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info )`)
+        .select(`id, student_id, parent_id, notes, students:student_id ( id, first_name, last_name, preferred_name, profile_photo, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info, photo_consent )`)
         .eq("class_id", session.class_id)
         .eq("status", "confirmed"),
       supabase
         .from("attendance")
         .select("*")
         .eq("class_session_id", session.id),
+      // Families whose monthly membership payment has failed — flagged so the
+      // door team can catch non-payers.
+      supabase.rpc("get_unpaid_membership_attendees", { _class_id: session.class_id }),
     ]);
+    const unpaidStudents = new Set((unpaidRows ?? []).map((u: any) => u.student_id).filter(Boolean));
+    const unpaidParents = new Set((unpaidRows ?? []).filter((u: any) => !u.student_id).map((u: any) => u.user_id));
     const attMap: Record<string, any> = {};
     (att ?? []).forEach((a: any) => (attMap[a.booking_id] = a));
     // Pass/birthday bookings are per-session (the date is in their notes) —
@@ -100,7 +105,11 @@ const AdminRegisters = () => {
           const m = /session (\d{4}-\d{2}-\d{2})/.exec(b.notes || "");
           return !m || m[1] === session.session_date;
         })
-        .map((b: any) => ({ ...b, attendance: attMap[b.id] || null })),
+        .map((b: any) => ({
+          ...b,
+          attendance: attMap[b.id] || null,
+          unpaid: unpaidStudents.has(b.student_id) || (!b.student_id && unpaidParents.has(b.parent_id)),
+        })),
     );
   };
 
@@ -330,10 +339,14 @@ const AdminRegisters = () => {
                                   </div>
                                 )}
                                 <div className="min-w-0">
-                                  <p className="font-medium text-sm hover:underline">
+                                  <p className="font-medium text-sm hover:underline flex items-center gap-1.5">
                                     {student ? `${student.first_name} ${student.last_name}` : "Adult attendee"}
+                                    {student && student.photo_consent === false && (
+                                      <CameraOff className="w-3.5 h-3.5 text-destructive flex-shrink-0" aria-label="No photo consent" />
+                                    )}
                                   </p>
                                   <div className="flex gap-1 mt-0.5">
+                                    {b.unpaid && <Badge variant="destructive" className="text-[10px]">Unpaid</Badge>}
                                     {student?.is_self && <Badge variant="outline" className="text-[10px]">Adult</Badge>}
                                     {student?.has_send && <Badge className="text-[10px] bg-amber-500 hover:bg-amber-600">SEND</Badge>}
                                     {!student && <Badge variant="outline" className="text-[10px] text-muted-foreground">No profile</Badge>}

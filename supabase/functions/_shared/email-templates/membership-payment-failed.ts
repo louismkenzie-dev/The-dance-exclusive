@@ -16,6 +16,8 @@ export interface MembershipPaymentFailedData {
   studentName?: string | null;
   className: string;
   monthlyAmount: number;
+  /** Stripe hosted invoice URL — lets the family pay the failed month right now. */
+  payUrl?: string | null;
 }
 
 export function renderMembershipPaymentFailed(data: MembershipPaymentFailedData) {
@@ -40,11 +42,17 @@ export function renderMembershipPaymentFailed(data: MembershipPaymentFailedData)
     ${paragraph(
       `<strong>No need to rebook</strong> &mdash; the payment will be retried automatically over the next few days, and the membership stays in place.`,
     )}
-    ${paragraph(
-      `To make sure the retry goes through, please check that your card details are up to date and that there are sufficient funds. If the card has expired or been replaced, just get in touch and we&#39;ll help you update it.`,
-    )}
+    ${
+      data.payUrl
+        ? paragraph(
+          `The quickest fix is to pay this month securely online now &mdash; you can also use a different card there, and it registers straight away.`,
+        )
+        : paragraph(
+          `To make sure the retry goes through, please check that your card details are up to date and that there are sufficient funds. If the card has expired or been replaced, just get in touch and we&#39;ll help you update it.`,
+        )
+    }
 
-    ${ctaButton("View My Memberships", `${BRAND.appUrl}/account/bookings`)}
+    ${data.payUrl ? ctaButton("Pay Now", data.payUrl) : ctaButton("View My Memberships", `${BRAND.appUrl}/account/bookings`)}
 
     ${divider()}
 

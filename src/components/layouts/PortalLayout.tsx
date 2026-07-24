@@ -165,7 +165,10 @@ const PortalLayout = () => {
               </span>
             </Link>
 
-            <DropdownMenu>
+            {/* modal={false}: Radix's modal dropdowns lock the page
+                (pointer-events: none on body) while open — on touch devices
+                that lock can stick on first open and freeze the screen. */}
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="text-foreground hover:text-foreground/80 uppercase tracking-wider text-xs font-semibold px-4">
                   Explore
@@ -201,7 +204,7 @@ const PortalLayout = () => {
                   </Link>
                 </Button>
                 <CartButton />
-                <DropdownMenu>
+                <DropdownMenu modal={false}>
                   <DropdownMenuTrigger asChild>
                      <Button
                       variant="ghost"

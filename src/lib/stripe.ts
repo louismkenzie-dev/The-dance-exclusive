@@ -20,9 +20,10 @@ export interface PaymentsConfig {
 // browser bundle.
 // ---------------------------------------------------------------------------
 
-// Live pair — filled at go-live. The publishable key comes from the Nullshift
-// platform Stripe dashboard (Developers → API keys).
-const LIVE_PUBLISHABLE_KEY = "";
+// Live pair — Nullshift platform publishable key (public by design) bound to
+// The Dance Exclusive's live connected account.
+const LIVE_PUBLISHABLE_KEY =
+  "pk_live_51TgWSQ2QyV8RYLws3fjJsrrvkzTj5PFbPMNEFld1akVXNaHhdYGLjNpD6rjSuzW6sDsVsCJpHclRjDOsWwidj7ra00r1z9If5P";
 const LIVE_CONNECTED_ACCOUNT = "acct_1TqvwgCcuURED2Xm";
 
 // Sandbox pair — prefer the build-time env (Vercel/.env); fall back to the

@@ -15,10 +15,12 @@ describe("resolvePaymentsConfig", () => {
     expect(cfg.connectedAccount?.startsWith("acct_")).toBe(true);
   });
 
-  it("fails closed when live mode is requested but no live key is configured", () => {
-    // This build has no pk_live baked in and no live env token — a fallback
-    // to sandbox here would mismatch the server's live PaymentIntents, so it
-    // must throw instead.
-    expect(() => resolvePaymentsConfig("live")).toThrow(/live payments/i);
+  it("returns the matching live pair (live key + live connected account)", () => {
+    const cfg = resolvePaymentsConfig("live");
+    expect(cfg.environment).toBe("live");
+    expect(cfg.publishableKey.startsWith("pk_live_")).toBe(true);
+    expect(cfg.connectedAccount?.startsWith("acct_")).toBe(true);
+    // Never mix environments: a live key must never ship with the test account.
+    expect(cfg.connectedAccount).not.toBe(resolvePaymentsConfig("sandbox").connectedAccount);
   });
 });

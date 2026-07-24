@@ -39,7 +39,7 @@ export const BRAND = {
   appUrl: "https://app.thedanceexclusive.co.uk",
   supportEmail: "hello@thedanceexclusive.co.uk",
   /** Public export of the splat logo (light-on-dark variant), served from the site. */
-  logoUrl: "https://the-dance-exclusive.vercel.app/brand/email-logo.png",
+  logoUrl: "https://the-dance-exclusive-louis-mckenzies-projects.vercel.app/brand/email-logo.png",
 };
 
 export const FONT_BODY = "'Inter','Segoe UI',Arial,sans-serif";

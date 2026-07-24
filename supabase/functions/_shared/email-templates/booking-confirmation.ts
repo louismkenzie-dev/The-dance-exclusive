@@ -84,7 +84,7 @@ export function renderBookingConfirmation(data: BookingConfirmationData) {
       const qrCta = b.id
         ? ctaButton(
             "View entrance QR code",
-            `https://the-dance-exclusive.vercel.app/account/bookings?qr=${encodeURIComponent(b.id)}`,
+            `https://thedanceexclusive.co.uk/account/bookings?qr=${encodeURIComponent(b.id)}`,
           )
         : "";
 

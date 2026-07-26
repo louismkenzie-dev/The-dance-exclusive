@@ -174,117 +174,258 @@ const membershipBadge: Record<string, { label: string; className: string }> = {
   incomplete: { label: "Incomplete", className: "text-muted-foreground" },
 };
 
-/** Admin view of every monthly membership (real Stripe subscriptions). */
+/** One row in the unified "who's on what plan" view — a monthly membership
+ *  (Stripe subscription) or a one-off plan purchase (termly/yearly/trial/PAYG). */
+type PlanKind = "monthly" | "yearly" | "term" | "trial" | "session";
+
+interface PlanRow {
+  key: string;
+  plan: PlanKind;
+  parentName: string;
+  parentEmail: string;
+  childName: string;
+  className: string;
+  classSchedule: string | null;
+  amount: number;
+  perMonth: boolean;
+  statusLabel: string;
+  statusClass: string;
+  started: string;
+  nextCharge: string | null;
+  ends: string | null;
+  live: boolean;
+}
+
+const planMeta: Record<PlanKind, { label: string; className: string }> = {
+  monthly: { label: "Monthly", className: "border-primary/40 bg-primary/10 text-primary" },
+  yearly: { label: "Yearly", className: "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
+  term: { label: "Termly", className: "border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-400" },
+  trial: { label: "Trial", className: "border-green-500/40 bg-green-500/10 text-green-600 dark:text-green-400" },
+  session: { label: "Pay as you go", className: "border-border bg-muted text-muted-foreground" },
+};
+
+const PLAN_ORDER: PlanKind[] = ["monthly", "yearly", "term", "trial", "session"];
+
+/** Admin view of every plan a family is on: monthly memberships (real Stripe
+ *  subscriptions) plus termly / yearly / trial / pay-as-you-go purchases,
+ *  categorised so it's easy to find who's on what. */
 const MembershipsTab = () => {
-  const [memberships, setMemberships] = useState<AdminMembership[]>([]);
+  const [rows, setRows] = useState<PlanRow[]>([]);
+  const [monthlyStats, setMonthlyStats] = useState({ activeCount: 0, recurring: 0 });
+  const [planFilter, setPlanFilter] = useState<"all" | PlanKind>("all");
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchMemberships = async () => {
-      const { data } = await supabase
-        .from("memberships")
-        .select("id, user_id, monthly_amount, status, started_at, current_period_end, cancel_at, students(first_name, last_name), classes(name, day_of_week, start_time)")
-        .order("created_at", { ascending: false });
-      if (data) {
-        // No FK between memberships.user_id and profiles — join client-side.
-        const userIds = [...new Set(data.map((m) => m.user_id))];
-        const { data: profiles } = userIds.length > 0
-          ? await supabase.from("profiles").select("user_id, full_name, email").in("user_id", userIds)
-          : { data: [] };
-        const profileMap = new Map((profiles ?? []).map((p) => [p.user_id, p]));
-        setMemberships(
-          (data as unknown as Omit<AdminMembership, "profile">[]).map((m) => ({
-            ...m,
-            profile: profileMap.get(m.user_id) ?? null,
-          })),
-        );
-      }
+    const fetchPlans = async () => {
+      const [membershipsRes, bookingsRes] = await Promise.all([
+        supabase
+          .from("memberships")
+          .select("id, user_id, monthly_amount, status, started_at, current_period_end, cancel_at, students(first_name, last_name), classes(name, day_of_week, start_time)")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("bookings")
+          .select("id, parent_id, booking_type, amount, booked_at, students(first_name, last_name), classes(name, day_of_week, start_time)")
+          .in("booking_type", ["term", "yearly", "trial", "session"])
+          .eq("status", "confirmed")
+          .order("booked_at", { ascending: false }),
+      ]);
+
+      const memberships = (membershipsRes.data ?? []) as unknown as (Omit<AdminMembership, "profile"> & { user_id: string })[];
+      const planBookings = (bookingsRes.data ?? []) as any[];
+
+      // No FK between memberships.user_id / bookings.parent_id and profiles —
+      // join client-side.
+      const userIds = [...new Set([
+        ...memberships.map((m) => m.user_id),
+        ...planBookings.map((b) => b.parent_id),
+      ])];
+      const { data: profiles } = userIds.length > 0
+        ? await supabase.from("profiles").select("user_id, full_name, email").in("user_id", userIds)
+        : { data: [] };
+      const profileMap = new Map((profiles ?? []).map((p) => [p.user_id, p]));
+
+      const schedule = (cls: { day_of_week: string | null; start_time: string | null } | null) =>
+        cls?.day_of_week
+          ? `${cls.day_of_week.charAt(0).toUpperCase() + cls.day_of_week.slice(1)}${cls.start_time ? ` ${cls.start_time.slice(0, 5)}` : ""}`
+          : null;
+
+      const isLive = (s: string) => s === "active" || s === "past_due" || s === "cancel_scheduled";
+
+      const membershipRows: PlanRow[] = memberships.map((m) => {
+        const badge = membershipBadge[m.status] ?? { label: m.status, className: "" };
+        const profile = profileMap.get(m.user_id);
+        return {
+          key: `m-${m.id}`,
+          plan: "monthly",
+          parentName: profile?.full_name || "Unknown",
+          parentEmail: profile?.email || "—",
+          childName: m.students ? `${m.students.first_name} ${m.students.last_name}` : "—",
+          className: m.classes?.name || "—",
+          classSchedule: schedule(m.classes),
+          amount: Number(m.monthly_amount),
+          perMonth: true,
+          statusLabel: badge.label,
+          statusClass: badge.className,
+          started: m.started_at,
+          nextCharge: m.status !== "cancelled" ? m.current_period_end : null,
+          ends: m.cancel_at,
+          live: isLive(m.status),
+        };
+      });
+
+      const bookingRows: PlanRow[] = planBookings.map((b) => {
+        const profile = profileMap.get(b.parent_id);
+        const plan = (["yearly", "term", "trial", "session"].includes(b.booking_type) ? b.booking_type : "session") as PlanKind;
+        return {
+          key: `b-${b.id}`,
+          plan,
+          parentName: profile?.full_name || "Unknown",
+          parentEmail: profile?.email || "—",
+          childName: b.students ? `${b.students.first_name} ${b.students.last_name}` : "—",
+          className: b.classes?.name || "—",
+          classSchedule: schedule(b.classes),
+          amount: Number(b.amount ?? 0),
+          perMonth: false,
+          statusLabel: "Paid",
+          statusClass: "border-transparent bg-emerald-600 text-white",
+          started: b.booked_at,
+          nextCharge: null,
+          ends: null,
+          live: true,
+        };
+      });
+
+      setRows([...membershipRows, ...bookingRows]);
+      setMonthlyStats({
+        activeCount: memberships.filter((m) => m.status === "active").length,
+        recurring: memberships
+          .filter((m) => m.status === "active" || m.status === "cancel_scheduled")
+          .reduce((sum, m) => sum + Number(m.monthly_amount), 0),
+      });
       setLoading(false);
     };
-    fetchMemberships();
+    fetchPlans();
   }, []);
 
-  // Live memberships first (soonest charge at the top), then past/incomplete ones.
-  const isLive = (s: string) => s === "active" || s === "past_due" || s === "cancel_scheduled";
-  const sorted = [...memberships].sort((a, b) => {
-    const rank = (m: AdminMembership) => (isLive(m.status) ? 0 : 1);
-    const charge = (m: AdminMembership) =>
-      m.current_period_end ? new Date(m.current_period_end).getTime() : Number.MAX_SAFE_INTEGER;
-    return rank(a) - rank(b) || charge(a) - charge(b);
+  const counts = PLAN_ORDER.reduce((acc, p) => {
+    acc[p] = rows.filter((r) => r.plan === p).length;
+    return acc;
+  }, {} as Record<PlanKind, number>);
+
+  const filtered = rows.filter((r) => {
+    if (planFilter !== "all" && r.plan !== planFilter) return false;
+    if (!search) return true;
+    const s = search.toLowerCase();
+    return (
+      r.parentName.toLowerCase().includes(s) ||
+      r.parentEmail.toLowerCase().includes(s) ||
+      r.childName.toLowerCase().includes(s) ||
+      r.className.toLowerCase().includes(s)
+    );
   });
 
-  const activeCount = memberships.filter((m) => m.status === "active").length;
-  const recurring = memberships
-    .filter((m) => m.status === "active" || m.status === "cancel_scheduled")
-    .reduce((sum, m) => sum + Number(m.monthly_amount), 0);
+  // Group by plan (monthly → yearly → termly → trial → PAYG), live rows first,
+  // soonest charge at the top within monthly.
+  const sorted = [...filtered].sort((a, b) => {
+    const planRank = PLAN_ORDER.indexOf(a.plan) - PLAN_ORDER.indexOf(b.plan);
+    if (planRank !== 0) return planRank;
+    if (a.live !== b.live) return a.live ? -1 : 1;
+    const charge = (r: PlanRow) => (r.nextCharge ? new Date(r.nextCharge).getTime() : Number.MAX_SAFE_INTEGER);
+    return charge(a) - charge(b) || a.parentName.localeCompare(b.parentName);
+  });
 
-  if (loading) return <div className="text-muted-foreground">Loading memberships...</div>;
-  if (memberships.length === 0) {
-    return <Card><CardContent className="py-12 text-center text-muted-foreground">No memberships yet.</CardContent></Card>;
+  if (loading) return <div className="text-muted-foreground">Loading plans...</div>;
+  if (rows.length === 0) {
+    return <Card><CardContent className="py-12 text-center text-muted-foreground">No memberships or plan purchases yet.</CardContent></Card>;
   }
 
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        {activeCount} active membership{activeCount === 1 ? "" : "s"} · £
-        {recurring.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/month recurring
+        {monthlyStats.activeCount} active monthly membership{monthlyStats.activeCount === 1 ? "" : "s"} · £
+        {monthlyStats.recurring.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/month recurring
       </p>
-      <Card className="animate-fade-in">
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Customer</TableHead>
-                <TableHead>Child</TableHead>
-                <TableHead>Class</TableHead>
-                <TableHead>£/month</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Started</TableHead>
-                <TableHead>Next charge</TableHead>
-                <TableHead>Ends</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sorted.map((m) => {
-                const badge = membershipBadge[m.status] ?? { label: m.status, className: "" };
-                return (
-                  <TableRow key={m.id}>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          variant={planFilter === "all" ? "default" : "outline"}
+          onClick={() => setPlanFilter("all")}
+        >
+          All ({rows.length})
+        </Button>
+        {PLAN_ORDER.filter((p) => counts[p] > 0).map((p) => (
+          <Button
+            key={p}
+            size="sm"
+            variant={planFilter === p ? "default" : "outline"}
+            onClick={() => setPlanFilter(p)}
+          >
+            {planMeta[p].label} ({counts[p]})
+          </Button>
+        ))}
+        <Input
+          placeholder="Search parent, child or class..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-xs ml-auto"
+        />
+      </div>
+
+      {filtered.length === 0 ? (
+        <Card><CardContent className="py-12 text-center text-muted-foreground">No plans match your search.</CardContent></Card>
+      ) : (
+        <Card className="animate-fade-in">
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Child</TableHead>
+                  <TableHead>Class</TableHead>
+                  <TableHead>Plan</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Started</TableHead>
+                  <TableHead>Next charge</TableHead>
+                  <TableHead>Ends</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sorted.map((r) => (
+                  <TableRow key={r.key}>
                     <TableCell>
-                      <span className="font-medium">{m.profile?.full_name || "Unknown"}</span>
-                      <span className="block text-xs text-muted-foreground">{m.profile?.email || "—"}</span>
+                      <span className="font-medium">{r.parentName}</span>
+                      <span className="block text-xs text-muted-foreground">{r.parentEmail}</span>
                     </TableCell>
+                    <TableCell>{r.childName}</TableCell>
                     <TableCell>
-                      {m.students ? `${m.students.first_name} ${m.students.last_name}` : "—"}
-                    </TableCell>
-                    <TableCell>
-                      <span>{m.classes?.name || "—"}</span>
-                      {m.classes?.day_of_week && (
-                        <span className="block text-xs text-muted-foreground capitalize">
-                          {m.classes.day_of_week}
-                          {m.classes.start_time && ` ${m.classes.start_time.slice(0, 5)}`}
-                        </span>
+                      <span>{r.className}</span>
+                      {r.classSchedule && (
+                        <span className="block text-xs text-muted-foreground">{r.classSchedule}</span>
                       )}
                     </TableCell>
-                    <TableCell>£{Number(m.monthly_amount).toFixed(2)}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={badge.className}>{badge.label}</Badge>
-                    </TableCell>
-                    <TableCell>{format(new Date(m.started_at), "d MMM yyyy")}</TableCell>
-                    <TableCell>
-                      {m.status !== "cancelled" && m.current_period_end
-                        ? format(new Date(m.current_period_end), "d MMM yyyy")
-                        : "—"}
+                      <Badge variant="outline" className={planMeta[r.plan].className}>{planMeta[r.plan].label}</Badge>
                     </TableCell>
                     <TableCell>
-                      {m.cancel_at ? format(new Date(m.cancel_at), "d MMM yyyy") : "—"}
+                      £{r.amount.toFixed(2)}
+                      {r.perMonth && <span className="text-xs text-muted-foreground">/mo</span>}
                     </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={r.statusClass}>{r.statusLabel}</Badge>
+                    </TableCell>
+                    <TableCell>{format(new Date(r.started), "d MMM yyyy")}</TableCell>
+                    <TableCell>{r.nextCharge ? format(new Date(r.nextCharge), "d MMM yyyy") : "—"}</TableCell>
+                    <TableCell>{r.ends ? format(new Date(r.ends), "d MMM yyyy") : "—"}</TableCell>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
@@ -346,7 +487,7 @@ const AdminBookings = () => {
         <TabsList className="mb-6">
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
           <TabsTrigger value="passes">Class Passes</TabsTrigger>
-          <TabsTrigger value="memberships">Memberships</TabsTrigger>
+          <TabsTrigger value="memberships">Memberships & Plans</TabsTrigger>
         </TabsList>
 
         <TabsContent value="bookings">

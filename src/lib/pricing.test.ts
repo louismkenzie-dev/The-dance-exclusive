@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   ADULT_PASSES,
   additionalMonthlyPrice,
+  additionalYearlyPrice,
   computeSiblingDiscount,
   durationMinutes,
   monthlyPrice,
   priceMonthlyItems,
+  priceYearlyItems,
   sessionPrice,
   termPrice,
   trialPrice,
@@ -232,5 +234,87 @@ describe("computeSiblingDiscount", () => {
       item("b", "child2", 27.2, { siblingDiscountEnabled: false }),
     ]);
     expect(result.total).toBe(0);
+  });
+});
+
+describe("yearly additional-class pricing", () => {
+  it("derives the additional-class yearly rates (£7.75 / £6.75 weekly × 38 weeks − 10%)", () => {
+    expect(additionalYearlyPrice(childClass())).toBe(265.05);
+    expect(additionalYearlyPrice(childClass({ end_time: "17:45" }))).toBe(230.85);
+  });
+
+  it("keeps yearly cheaper than 11 monthly payments for an additional class", () => {
+    expect(additionalYearlyPrice(childClass())).toBeLessThan(
+      additionalMonthlyPrice(childClass()) * 11,
+    );
+  });
+});
+
+describe("priceYearlyItems", () => {
+  const yearlyItem = (
+    id: string,
+    studentId: string | null,
+    cls: PricedClass = childClass(),
+    classId = `class-${id}`,
+  ) => ({
+    id,
+    classId,
+    studentId,
+    fullYearly: yearlyPrice(cls),
+    additionalYearly: additionalYearlyPrice(cls),
+  });
+
+  it("charges one class at the full yearly rate", () => {
+    const result = priceYearlyItems([yearlyItem("a", "child1")]);
+    expect(result.get("a")).toBe(307.8);
+  });
+
+  it("charges a child's further classes at the additional-class yearly rate", () => {
+    const result = priceYearlyItems([
+      yearlyItem("a", "child1"),
+      yearlyItem("b", "child1"),
+      yearlyItem("c", "child1"),
+    ]);
+    const amounts = [result.get("a"), result.get("b"), result.get("c")].sort(
+      (x, y) => (y ?? 0) - (x ?? 0),
+    );
+    expect(amounts).toEqual([307.8, 265.05, 265.05]);
+  });
+
+  it("makes the most expensive class the full-price one", () => {
+    const short = childClass({ end_time: "17:45" }); // yearly 273.60, additional 230.85
+    const result = priceYearlyItems([
+      yearlyItem("a", "child1", short),
+      yearlyItem("b", "child1", childClass()),
+    ]);
+    expect(result.get("b")).toBe(307.8); // 60-min is dearer → full rate
+    expect(result.get("a")).toBe(230.85); // 45-min at the additional rate
+  });
+
+  it("prices different children independently", () => {
+    const result = priceYearlyItems([
+      yearlyItem("a", "child1"),
+      yearlyItem("b", "child2"),
+    ]);
+    expect(result.get("a")).toBe(307.8);
+    expect(result.get("b")).toBe(307.8);
+  });
+
+  it("treats items without a student as their own group", () => {
+    const result = priceYearlyItems([
+      yearlyItem("a", null),
+      yearlyItem("b", null),
+    ]);
+    expect(result.get("a")).toBe(307.8);
+    expect(result.get("b")).toBe(307.8);
+  });
+
+  it("uses classId as a stable tie-break for equal-priced classes", () => {
+    const result = priceYearlyItems([
+      yearlyItem("a", "child1", childClass(), "zzz"),
+      yearlyItem("b", "child1", childClass(), "aaa"),
+    ]);
+    expect(result.get("b")).toBe(307.8); // "aaa" sorts first → full rate
+    expect(result.get("a")).toBe(265.05);
   });
 });

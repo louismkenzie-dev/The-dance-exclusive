@@ -66,7 +66,11 @@ const CartDrawer = () => {
                   const dates = item.selectedSessionDates ?? [];
                   const hasDates = dates.length > 0;
                   const showDatesUI = item.pricingPlan === "session" || item.pricingPlan === "trial";
-                  const canEdit = item.pricingPlan === "session" || item.pricingPlan === "trial";
+                  const isMembership = item.pricingPlan === "monthly" || item.pricingPlan === "term" || item.pricingPlan === "yearly";
+                  // Drop-in/trial items edit their dates; children's membership
+                  // items can switch plan (monthly/termly/yearly) in place.
+                  const canEdit = showDatesUI ||
+                    ((item.itemKind ?? "class") === "class" && isMembership && item.classType === "children");
                   return (
                     <div key={item.id} className="rounded-xl border border-border/50 bg-muted/30 p-3.5 space-y-2">
                       <div className="flex items-start justify-between gap-2">
@@ -91,7 +95,7 @@ const CartDrawer = () => {
                               size="icon"
                               className="h-7 w-7 text-muted-foreground hover:text-primary"
                               onClick={() => setEditingItem(item)}
-                              title="Edit dates"
+                              title={showDatesUI ? "Edit dates" : "Change plan"}
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </Button>

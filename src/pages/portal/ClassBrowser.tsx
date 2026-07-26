@@ -24,8 +24,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   CalendarDays, Clock, MapPin, Users, Sparkles, Heart, Camera, Car, Navigation,
-  ChevronDown, ChevronUp, Search, X, Info, ShoppingCart, Tag, Ticket, Crown, Music, UserPlus
+  ChevronDown, ChevronUp, Search, X, Info, ShoppingCart, Tag, Ticket, Crown, Music, UserPlus, BellRing
 } from "lucide-react";
+import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { audienceText, isClassBookable } from "@/lib/classAudience";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -170,6 +171,12 @@ const ClassBrowser = () => {
   const [activeSection, setActiveSection] = useState<"classes" | "camps" | "shows">("classes");
   const [quickBookClassId, setQuickBookClassId] = useState<string | null>(null);
   const [bookCampId, setBookCampId] = useState<string | null>(null);
+  const [schoolTerms, setSchoolTerms] = useState<{ name: string; term_type: string; start_date: string; end_date: string }[]>([]);
+  // Waitlist: standing enrolment per class (via security-definer RPC) + the
+  // classes this parent is already waitlisted for.
+  const [enrollmentCounts, setEnrollmentCounts] = useState<Record<string, number>>({});
+  const [waitlistClassIds, setWaitlistClassIds] = useState<Set<string>>(new Set());
+  const [waitlistBusy, setWaitlistBusy] = useState<string | null>(null);
   // Monthly membership cancellation-notice acknowledgement (inline plan panel).
   const [monthlyNotice, setMonthlyNotice] = useState<{ proceed: () => void } | null>(null);
 
@@ -195,6 +202,23 @@ const ClassBrowser = () => {
       });
   };
   useEffect(fetchAttendees, [user]);
+
+  // Term dates strip — parents see the term calendar while choosing classes.
+  useEffect(() => {
+    let cancelled = false;
+    const today = new Date().toISOString().slice(0, 10);
+    supabase
+      .from("school_terms")
+      .select("name, term_type, start_date, end_date")
+      .in("term_type", ["autumn", "spring", "summer"])
+      .gte("end_date", today)
+      .order("start_date", { ascending: true })
+      .limit(3)
+      .then(({ data }) => {
+        if (!cancelled && data) setSchoolTerms(data as any);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   // Auto-geocode parent's home postcode for proximity sorting
   useEffect(() => {
@@ -274,11 +298,57 @@ const ClassBrowser = () => {
         setClasses(activeClasses as any);
         setClassSessions(sessions);
         setSessionCounts(counts);
+
+        // Standing enrolment per class so we can show "class full" + waitlist.
+        const activeIds = activeClasses.map((cls: any) => cls.id);
+        if (activeIds.length > 0) {
+          const { data: enrolData } = await (supabase.rpc as any)("get_class_enrollment", { _class_ids: activeIds });
+          const enrol: Record<string, number> = {};
+          for (const row of enrolData ?? []) enrol[row.class_id] = Number(row.confirmed_count);
+          setEnrollmentCounts(enrol);
+        }
       }
       setLoading(false);
     };
     fetchClasses();
   }, [classType]);
+
+  // This parent's waitlist entries (to toggle Join/Leave on full classes).
+  useEffect(() => {
+    if (!user) { setWaitlistClassIds(new Set()); return; }
+    (supabase.from("class_waitlist" as any) as any)
+      .select("class_id")
+      .eq("parent_id", user.id)
+      .then(({ data }: any) => {
+        if (data) setWaitlistClassIds(new Set<string>(data.map((w: any) => w.class_id as string)));
+      });
+  }, [user]);
+
+  const toggleWaitlist = async (classId: string, className: string) => {
+    if (!user) { navigate("/auth"); return; }
+    setWaitlistBusy(classId);
+    const table = supabase.from("class_waitlist" as any) as any;
+    if (waitlistClassIds.has(classId)) {
+      const { error } = await table.delete().eq("class_id", classId).eq("parent_id", user.id);
+      if (error) {
+        toast.error("Couldn't leave the waitlist — please try again.");
+      } else {
+        setWaitlistClassIds(prev => { const next = new Set(prev); next.delete(classId); return next; });
+        toast.success("Removed from waitlist", { description: className });
+      }
+    } else {
+      const { error } = await table.insert({ class_id: classId, parent_id: user.id });
+      if (error) {
+        toast.error("Couldn't join the waitlist — please try again.");
+      } else {
+        setWaitlistClassIds(prev => new Set(prev).add(classId));
+        toast.success("You're on the waitlist!", {
+          description: `We'll email you as soon as a space opens up in ${className}.`,
+        });
+      }
+    }
+    setWaitlistBusy(null);
+  };
 
   // Fetch camps
   useEffect(() => {
@@ -555,6 +625,28 @@ const ClassBrowser = () => {
           ))}
         </div>
 
+        {/* Term dates — so parents can see the term calendar before they book */}
+        {schoolTerms.length > 0 && (
+          <div className="max-w-3xl mx-auto mb-10">
+            <div className="rounded-xl border border-border/50 bg-card/60 px-5 py-4">
+              <p className="text-[11px] uppercase tracking-widest text-muted-foreground/70 font-semibold mb-2 flex items-center gap-1.5">
+                <CalendarDays className="w-3.5 h-3.5" /> Term Dates
+              </p>
+              <div className="flex flex-wrap gap-x-6 gap-y-1.5">
+                {schoolTerms.map((t) => (
+                  <p key={`${t.term_type}-${t.start_date}`} className="text-sm text-foreground" style={{ fontFamily: "var(--font-body)" }}>
+                    <span className="font-semibold">{t.name.replace(/\s*\(.*\)\s*$/, "")}</span>
+                    <span className="text-muted-foreground"> · {format(parseISO(t.start_date), "d MMM")} – {format(parseISO(t.end_date), "d MMM yyyy")}</span>
+                  </p>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2">
+                Weekly classes run in term time. Monthly memberships pause automatically in August.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* CLASSES SECTION */}
         <div id="section-classes" className={activeSection !== "classes" ? "hidden" : ""}>
         {loading ? (
@@ -584,6 +676,8 @@ const ClassBrowser = () => {
               const staffPhoto = getStaffPhotoUrl(staff?.profile_photo || null);
               const workshop = c.workshops as { cover_image: string | null; name: string; description: string | null } | null;
               const childNames = matchedChildren.map(ch => ch.preferred_name || ch.first_name);
+              const isFull = (c.capacity ?? 0) > 0 && (enrollmentCounts[c.id] ?? 0) >= c.capacity;
+              const onWaitlist = waitlistClassIds.has(c.id);
 
               return (
                 <Card
@@ -670,6 +764,11 @@ const ClassBrowser = () => {
                             Invite Only
                           </Badge>
                         )}
+                        {isFull && !c.invite_only && (
+                          <Badge className="text-[10px] uppercase tracking-wider border bg-destructive/15 text-destructive border-destructive/30">
+                            Class Full
+                          </Badge>
+                        )}
                       </div>
                       {audienceText(c) && (
                         <span className="text-[11px] text-muted-foreground/80 whitespace-nowrap">{audienceText(c)}</span>
@@ -710,9 +809,25 @@ const ClassBrowser = () => {
                       </div>
                     )}
 
-                    {/* Action buttons: Book Now (primary) + More Info (secondary) */}
+                    {/* Action buttons: Book Now (primary) + More Info (secondary).
+                        Full classes swap Book Now for Join Waitlist. */}
                     <div className="flex items-stretch gap-2 mb-4">
-                      {isClassBookable(c) ? (
+                      {isClassBookable(c) && isFull ? (
+                        <Button
+                          size="sm"
+                          variant={onWaitlist ? "secondary" : "default"}
+                          disabled={waitlistBusy === c.id}
+                          onClick={() => toggleWaitlist(c.id, c.name)}
+                          className="flex-1 uppercase tracking-wider text-xs font-bold gap-1.5"
+                          style={onWaitlist ? undefined : {
+                            background: isAdult ? "hsl(330, 90%, 55%)" : "hsl(193, 100%, 44%)",
+                            color: "white",
+                          }}
+                        >
+                          <BellRing className="w-3.5 h-3.5" />
+                          {onWaitlist ? "On Waitlist — tap to leave" : "Join Waitlist"}
+                        </Button>
+                      ) : isClassBookable(c) ? (
                         <Button
                           size="sm"
                           onClick={() => {

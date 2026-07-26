@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 
-const DANCE_STYLES = ["Tap", "Modern", "Jazz", "Hip Hop", "Ballet", "Contemporary", "Lyrical", "Street", "Musical Theatre", "Acro", "Commercial", "Popping", "Locking", "Breaking", "Whacking", "Afro", "House", "Mixed"];
+const DANCE_STYLES = ["Tap", "Modern", "Jazz", "Hip Hop", "Ballet", "Contemporary", "Lyrical", "Street", "Musical Theatre", "Acro", "Commercial", "Popping", "Locking", "Breaking", "Whacking", "Afro", "House", "Crew Choreography", "Lite Feet", "Private Lessons", "Mixed"];
 
 type PlatformInfo = { label: string; Icon: typeof Globe; className: string };
 

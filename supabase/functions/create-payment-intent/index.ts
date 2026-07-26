@@ -14,9 +14,11 @@ import {
   ADULT_PASSES,
   type AdultPassType,
   additionalMonthlyPrice,
+  additionalYearlyPrice,
   computeSiblingDiscount,
   monthlyPrice,
   priceMonthlyItems,
+  priceYearlyItems,
   round2,
   sessionPrice,
   termPrice,
@@ -232,6 +234,27 @@ serve(async (req) => {
       .filter(Boolean) as { id: string; classId: string; studentId: string | null; fullMonthly: number; additionalMonthly: number }[];
     const monthlyPrices = priceMonthlyItems(monthlyInputs);
 
+    // Pay-yearly items get the same additional-class treatment: a child's
+    // most expensive class at the full yearly rate, further classes at the
+    // additional-class yearly rate.
+    const yearlyInputs = cartItems
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => kindOf(item) === "class" && item.pricingPlan === "yearly")
+      .map(({ item, index }) => {
+        const cls = classById.get(item.classId as string);
+        return cls
+          ? {
+            id: itemKey(item, index),
+            classId: item.classId as string,
+            studentId: item.studentId ?? null,
+            fullYearly: yearlyPrice(cls),
+            additionalYearly: additionalYearlyPrice(cls),
+          }
+          : null;
+      })
+      .filter(Boolean) as { id: string; classId: string; studentId: string | null; fullYearly: number; additionalYearly: number }[];
+    const yearlyPrices = priceYearlyItems(yearlyInputs);
+
     const expectedPrices: number[] = [];
     for (const [index, item] of cartItems.entries()) {
       const kind = kindOf(item);
@@ -314,7 +337,7 @@ serve(async (req) => {
           return jsonResponse({ error: `${cls.name} has no remaining sessions this term, so the termly plan isn't available.`, code: "plan_not_allowed" }, 400);
         }
       } else if (plan === "yearly") {
-        expected = yearlyPrice(cls);
+        expected = yearlyPrices.get(itemKey(item, index)) ?? yearlyPrice(cls);
       } else {
         return jsonResponse({ error: `Unknown pricing plan "${plan}" in your basket.` }, 400);
       }

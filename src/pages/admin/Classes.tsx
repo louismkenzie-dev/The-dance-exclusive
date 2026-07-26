@@ -137,6 +137,7 @@ const AdminClasses = () => {
   const [expandedClassId, setExpandedClassId] = useState<string | null>(null);
   const [classSessions, setClassSessions] = useState<Record<string, ClassSessionData[]>>({});
   const [sessionCounts, setSessionCounts] = useState<Record<string, number>>({});
+  const [waitlistCounts, setWaitlistCounts] = useState<Record<string, number>>({});
   const [typeFilter, setTypeFilter] = useState<"all" | "children" | "adult">("all");
   const [venueFilter, setVenueFilter] = useState<string>("all");
   const [showPast, setShowPast] = useState(false);
@@ -236,6 +237,16 @@ const AdminClasses = () => {
         const counts: Record<string, number> = {};
         sessionsRes.data.forEach((s: any) => { counts[s.class_id] = (counts[s.class_id] || 0) + 1; });
         setSessionCounts(counts);
+      }
+
+      // Waitlist counts (admin RLS: full read) — badge full classes with demand.
+      const { data: waitlistRows } = await (supabase.from("class_waitlist" as any) as any)
+        .select("class_id")
+        .in("class_id", ids);
+      if (waitlistRows) {
+        const wl: Record<string, number> = {};
+        waitlistRows.forEach((w: any) => { wl[w.class_id] = (wl[w.class_id] || 0) + 1; });
+        setWaitlistCounts(wl);
       }
       if (instructorsRes.data) {
         const map: Record<string, string[]> = {};
@@ -1520,6 +1531,11 @@ const AdminClasses = () => {
                           )}
                           {(c as any).booking_enabled === false && !(c as any).invite_only && (
                             <Badge variant="outline" className="text-muted-foreground">Booking Off</Badge>
+                          )}
+                          {(waitlistCounts[c.id] || 0) > 0 && (
+                            <Badge variant="outline" className="border-orange-500/40 bg-orange-500/10 text-orange-500">
+                              Waitlist: {waitlistCounts[c.id]}
+                            </Badge>
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">

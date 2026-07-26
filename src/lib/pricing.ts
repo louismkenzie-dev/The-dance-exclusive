@@ -135,6 +135,13 @@ export const monthlyPrice = (cls: PricedClass): number => {
 export const additionalMonthlyPrice = (cls: PricedClass): number =>
   round2(childAdditionalWeeklyRate(cls) * MONTHLY_WEEKS_MULTIPLIER);
 
+/** Pay-yearly price when this is an ADDITIONAL weekly class for the same
+ *  child — the additional-class weekly rate (e.g. £7.75/60-min) × 38 dance
+ *  weeks, less the 10% yearly discount. Mirrors the monthly rule so paying
+ *  yearly is never more expensive than monthly for multi-class children. */
+export const additionalYearlyPrice = (cls: PricedClass): number =>
+  round2(childAdditionalWeeklyRate(cls) * DANCE_WEEKS_PER_YEAR * (1 - YEARLY_UPFRONT_DISCOUNT));
+
 /** Pay-yearly upfront price — 38 weeks less the 10% yearly discount (best deal). */
 export const yearlyPrice = (cls: PricedClass): number => {
   if (cls.price_per_year != null && Number(cls.price_per_year) > 0) {
@@ -214,6 +221,47 @@ export const priceMonthlyItems = (items: MonthlyItemInput[]): Map<string, number
       }
       total = round2(total + amount);
       result.set(item.id, amount);
+    });
+  }
+
+  return result;
+};
+
+export interface YearlyItemInput {
+  /** Cart item id — the key the result Map is keyed by (caller-specific). */
+  id: string;
+  /** Stable tie-break id so client and server order equal-priced items identically. */
+  classId: string;
+  /** The child this yearly booking is for. */
+  studentId: string | null;
+  /** Standard yearly price for the class (first-class rate). */
+  fullYearly: number;
+  /** Yearly price at the additional-class rate. */
+  additionalYearly: number;
+}
+
+/**
+ * Same additional-class rule as monthly, applied to pay-yearly items: per
+ * child, the most expensive class is charged at the full yearly rate and
+ * every further class at the additional-class yearly rate. (No Unlimited
+ * cap — that is a monthly-membership product only.)
+ */
+export const priceYearlyItems = (items: YearlyItemInput[]): Map<string, number> => {
+  const result = new Map<string, number>();
+  const byChild = new Map<string, YearlyItemInput[]>();
+  for (const item of items) {
+    const key = item.studentId ?? `item:${item.id}`;
+    const group = byChild.get(key) ?? [];
+    group.push(item);
+    byChild.set(key, group);
+  }
+
+  for (const group of byChild.values()) {
+    const sorted = [...group].sort(
+      (a, b) => b.fullYearly - a.fullYearly || a.classId.localeCompare(b.classId),
+    );
+    sorted.forEach((item, index) => {
+      result.set(item.id, index === 0 ? item.fullYearly : item.additionalYearly);
     });
   }
 

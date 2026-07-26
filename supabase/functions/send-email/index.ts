@@ -52,6 +52,10 @@ import {
   renderTrialReminder,
   type TrialReminderData,
 } from "../_shared/email-templates/trial-reminder.ts";
+import {
+  renderWaitlistSpace,
+  type WaitlistSpaceData,
+} from "../_shared/email-templates/waitlist-space.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -108,7 +112,8 @@ type Payload =
   | { template: "membership_class_changed"; to: string; data: MembershipClassChangedData }
   | { template: "staff_class_assigned"; to: string; data: StaffClassAssignedData }
   | { template: "admin_trial_booked"; to: string; data: AdminTrialBookedData }
-  | { template: "trial_reminder"; to: string; data: TrialReminderData };
+  | { template: "trial_reminder"; to: string; data: TrialReminderData }
+  | { template: "waitlist_space"; to: string; data: WaitlistSpaceData };
 
 function buildEmail(payload: Payload): { subject: string; html: string } {
   switch (payload.template) {
@@ -138,6 +143,8 @@ function buildEmail(payload: Payload): { subject: string; html: string } {
       return renderAdminTrialBooked(payload.data);
     case "trial_reminder":
       return renderTrialReminder(payload.data);
+    case "waitlist_space":
+      return renderWaitlistSpace(payload.data);
     default:
       throw new Error(`Unknown template: ${(payload as any).template}`);
   }

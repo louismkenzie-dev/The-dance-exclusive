@@ -5,7 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, LogIn, LogOut, ScanLine, AlertTriangle, CameraOff, Heart, Check } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, LogIn, LogOut, ScanLine, AlertTriangle, CameraOff, Heart, Check, CalendarDays } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { addDays, differenceInYears, format, parseISO } from "date-fns";
 import StudentProfileDrawer from "@/components/staff/StudentProfileDrawer";
@@ -28,6 +30,7 @@ const StaffRegisters = () => {
   const { toast } = useToast();
   // Local date, not UTC — toISOString() opens yesterday's register after 11pm BST.
   const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [sessions, setSessions] = useState<any[]>([]);
   const [attendance, setAttendance] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
@@ -299,10 +302,32 @@ const StaffRegisters = () => {
 
       <div className="flex items-center justify-between mb-6 gap-3">
         <Button variant="outline" size="icon" onClick={() => shiftDate(-1)}><ChevronLeft className="w-4 h-4" /></Button>
-        <div className="flex-1 text-center">
-          <p className="text-lg font-semibold">{new Date(date).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="text-xs text-muted-foreground bg-transparent border-none focus:outline-none" />
-        </div>
+        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+          <PopoverTrigger asChild>
+            <button className="flex-1 text-center group" title="Open calendar">
+              <p className="text-lg font-semibold group-hover:text-primary transition-colors">
+                {new Date(date).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+              </p>
+              <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                <CalendarDays className="w-3 h-3" /> Tap to pick a date
+              </p>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="center">
+            <Calendar
+              mode="single"
+              selected={parseISO(date)}
+              defaultMonth={parseISO(date)}
+              onSelect={(d) => {
+                if (d) {
+                  setDate(format(d, "yyyy-MM-dd"));
+                  setCalendarOpen(false);
+                }
+              }}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
         <Button variant="outline" size="icon" onClick={() => shiftDate(1)}><ChevronRight className="w-4 h-4" /></Button>
       </div>
 

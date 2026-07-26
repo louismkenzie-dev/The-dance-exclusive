@@ -25,10 +25,10 @@ import { ScrollProgress } from "@/components/immersive/ScrollProgress";
 import FeaturedVenueCarousel from "@/components/FeaturedVenueCarousel";
 
 const JOURNEY = [
-  { stage: "Tots", age: "Ages 3–5", copy: "First steps, big smiles. Rhythm, confidence and play.", tint: "193 100% 44%" },
-  { stage: "Juniors", age: "Ages 6–10", copy: "Street & commercial foundations. Crews, routines, showcases.", tint: "260 75% 62%" },
-  { stage: "Seniors", age: "Ages 11–17", copy: "Competition-level technique. Stage craft and serious skills.", tint: "300 80% 58%" },
-  { stage: "Adults", age: "19+", copy: "Heels, commercial & street. Train hard, feel unstoppable.", tint: "330 90% 55%" },
+  { stage: "Minis", age: "Ages 3–7", copy: "First dance steps, big smiles. High energy, confidence and music games.", tint: "193 100% 44%" },
+  { stage: "Juniors", age: "Ages 8–12", copy: "Street & Commercial foundations. Routines, performances and fun.", tint: "260 75% 62%" },
+  { stage: "Seniors", age: "Ages 13–18", copy: "Street & Commercial dynamics. Stage craft, dynamics and showcases.", tint: "300 80% 58%" },
+  { stage: "Adults", age: "19+", copy: "Commercial, Heels and Street Dance. Gain confidence, feel unstoppable.", tint: "330 90% 55%" },
 ];
 
 const STATS = [

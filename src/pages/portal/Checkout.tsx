@@ -35,10 +35,13 @@ import { TERMS_AND_CONDITIONS } from "@/lib/terms";
 import {
   MONTHLY_PAYMENT_INFO,
   additionalMonthlyPrice,
+  additionalYearlyPrice,
   computeSiblingDiscount,
   monthlyPrice,
   priceMonthlyItems,
+  priceYearlyItems,
   round2,
+  yearlyPrice,
 } from "@/lib/pricing";
 
 const planLabel: Record<PricingPlan, string> = {
@@ -431,6 +434,22 @@ const CheckoutPage = () => {
         });
       const monthlyCharges = priceMonthlyItems(monthlyInputs);
       for (const [id, amount] of monthlyCharges) charges.set(id, amount);
+
+      // Pay-yearly gets the same additional-class treatment (no cap).
+      const yearlyInputs = items
+        .filter((i) => cartItemKind(i) === "class" && i.pricingPlan === "yearly" && i.classId && pricingCtx.classes.has(i.classId))
+        .map((i) => {
+          const cls = pricingCtx.classes.get(i.classId as string)!;
+          return {
+            id: i.id,
+            classId: i.classId as string,
+            studentId: i.studentId,
+            fullYearly: yearlyPrice(cls),
+            additionalYearly: additionalYearlyPrice(cls),
+          };
+        });
+      const yearlyCharges = priceYearlyItems(yearlyInputs);
+      for (const [id, amount] of yearlyCharges) charges.set(id, amount);
     }
     const adjustedSubtotal = round2([...charges.values()].reduce((s, v) => s + v, 0));
     const multiClassDiscount = round2(totalAmount - adjustedSubtotal);

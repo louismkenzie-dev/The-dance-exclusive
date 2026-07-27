@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, LogIn, LogOut, ScanLine, AlertTriangle, CameraOff, Heart, Check, CalendarDays } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, LogIn, LogOut, ScanLine, AlertTriangle, CameraOff, Heart, Check, CalendarDays, Star } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -187,6 +187,26 @@ const StaffRegisters = () => {
     void load();
   };
 
+  // "Dancer of the Week" tick (Class4kids-style) — stored on the attendance
+  // row so it lives in the register history for that session.
+  const toggleDancerOfWeek = async (sessionId: string, classId: string, booking: any) => {
+    const next = !booking.attendance?.dancer_of_week;
+    const { error } = booking.attendance
+      ? await supabase.from("attendance").update({ dancer_of_week: next } as any).eq("id", booking.attendance.id)
+      : await supabase.from("attendance").insert({
+          booking_id: booking.id,
+          class_id: classId,
+          class_session_id: sessionId,
+          student_id: booking.student_id ?? null,
+          session_date: date,
+          status: "expected",
+          dancer_of_week: true,
+        } as any);
+    if (writeFailed(error)) return;
+    toast({ title: next ? "Dancer of the Week ⭐" : "Dancer of the Week removed" });
+    void load();
+  };
+
   const performCheckOut = async (booking: any, method: "qr" | "manual", collector: string | null) => {
     if (!booking.attendance) return;
     const now = new Date().toISOString();
@@ -358,6 +378,9 @@ const StaffRegisters = () => {
                         <TableHead className="w-[34%]">Student</TableHead>
                         <TableHead className="w-[80px]">Age</TableHead>
                         <TableHead className="w-[90px] text-center">Medical</TableHead>
+                        <TableHead className="w-[70px] text-center" title="Dancer of the Week">
+                          <Star className="w-4 h-4 inline text-amber-400" />
+                        </TableHead>
                         <TableHead>Arrival / Departure</TableHead>
                         <TableHead className="text-right w-[130px]">Status</TableHead>
                       </TableRow>
@@ -422,6 +445,21 @@ const StaffRegisters = () => {
                               ) : (
                                 <span className="text-muted-foreground/50">—</span>
                               )}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <button
+                                type="button"
+                                title={att?.dancer_of_week ? "Remove Dancer of the Week" : "Make Dancer of the Week"}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void toggleDancerOfWeek(s.id, s.class_id, b);
+                                }}
+                                className="p-1 rounded hover:bg-muted transition-colors"
+                              >
+                                <Star
+                                  className={`w-5 h-5 ${att?.dancer_of_week ? "text-amber-400 fill-amber-400" : "text-muted-foreground/40"}`}
+                                />
+                              </button>
                             </TableCell>
                             <TableCell className="text-xs tabular-nums">
                               {att?.checked_in_at || att?.checked_out_at ? (

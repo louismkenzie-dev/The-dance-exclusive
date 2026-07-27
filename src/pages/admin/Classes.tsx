@@ -178,7 +178,13 @@ const AdminClasses = () => {
   const [termDiscountAmount, setTermDiscountAmount] = useState("");
   const [yearDiscountAmount, setYearDiscountAmount] = useState("");
   const [sessions, setSessions] = useState<SessionRow[]>([]);
-  const [sessionStaffing, setSessionStaffing] = useState<Record<number, string[]>>({});
+  // Dates the admin deleted from the generated list ("hall not available").
+  // The generator skips these, so step navigation / time tweaks / editing the
+  // class later never resurrect them. Keyed by yyyy-MM-dd.
+  const [removedDates, setRemovedDates] = useState<Set<string>>(new Set());
+  // Per-session instructor overrides, keyed by session DATE (yyyy-MM-dd) so
+  // deleting a date doesn't shift every later override onto the wrong session.
+  const [sessionStaffing, setSessionStaffing] = useState<Record<string, string[]>>({});
   const [allowTrial, setAllowTrial] = useState(false);
   const [audienceLabel, setAudienceLabel] = useState("");
   const [schoolYearMin, setSchoolYearMin] = useState("");
@@ -297,6 +303,7 @@ const AdminClasses = () => {
     setTermDiscountAmount("");
     setYearDiscountAmount("");
     setSessions([]);
+    setRemovedDates(new Set());
     setSessionStaffing({});
     setAllowTrial(false);
     setAudienceLabel("");
@@ -383,9 +390,10 @@ const AdminClasses = () => {
       const allDays = eachDayOfInterval({ start, end });
       const matching = allDays.filter(d => {
         if (!dayIndices.includes(getDay(d))) return false;
-        // Exclude bank holidays
         const dateStr = format(d, "yyyy-MM-dd");
+        // Exclude bank holidays and dates the admin manually removed
         if (bankHolidayDates.has(dateStr)) return false;
+        if (removedDates.has(dateStr)) return false;
         return true;
       });
       allSessions.push(...matching.map(d => ({
@@ -500,6 +508,43 @@ const AdminClasses = () => {
     setBookingEnabled((c as any).booking_enabled ?? true);
     setSiblingDiscountEnabled((c as any).sibling_discount_enabled ?? true);
     setWhatsappGroupUrl((c as any).whatsapp_group_url || "");
+    setSessionStaffing({});
+    // Seed removed-dates from reality: any date this schedule WOULD generate
+    // that has no session row in the database was deleted by the admin before
+    // (hall unavailable, etc.) — keep it deleted through this edit/clone
+    // instead of silently resurrecting it.
+    setRemovedDates(new Set());
+    {
+      const days = c.days_of_week?.length ? c.days_of_week : [c.day_of_week];
+      const dayIdx = days.map(d => DAY_INDEX_MAP[d]);
+      const matchedTerms = c.term_start && c.term_end
+        ? schoolTerms.filter(t => t.start_date >= c.term_start! && t.end_date <= c.term_end!)
+        : [];
+      if (matchedTerms.length > 0) {
+        void supabase
+          .from("class_sessions")
+          .select("session_date")
+          .eq("class_id", c.id)
+          .then(({ data }) => {
+            const existing = new Set((data ?? []).map((s: any) => s.session_date));
+            const removed = new Set<string>();
+            for (const term of matchedTerms) {
+              for (const d of eachDayOfInterval({ start: parseISO(term.start_date), end: parseISO(term.end_date) })) {
+                if (!dayIdx.includes(getDay(d))) continue;
+                const dateStr = format(d, "yyyy-MM-dd");
+                if (bankHolidayDates.has(dateStr)) continue;
+                if (!existing.has(dateStr)) removed.add(dateStr);
+              }
+            }
+            setRemovedDates(removed);
+            // If the generator already ran (admin reached the dates step fast),
+            // strip the removed dates from the current list too.
+            if (removed.size > 0) {
+              setSessions(prev => prev.filter(s => !removed.has(s.date)));
+            }
+          });
+      }
+    }
     setStep(1);
     setOpen(true);
   };
@@ -558,6 +603,11 @@ const AdminClasses = () => {
     }
 
     let classId: string;
+    // Existing session rows by date (edit mode) — reconciled below instead of
+    // delete-and-recreate, which used to resurrect admin-removed dates, wipe
+    // per-session instructor assignments (CASCADE) and orphan attendance
+    // records (SET NULL).
+    const existingByDate = new Map<string, { id: string; session_date: string; start_time: string; end_time: string }>();
 
     if (editing) {
       const { error } = await supabase.from("classes").update(payload).eq("id", editing.id);
@@ -567,8 +617,11 @@ const AdminClasses = () => {
         return;
       }
       classId = editing.id;
-      // Delete old sessions and re-create
-      await supabase.from("class_sessions").delete().eq("class_id", classId);
+      const { data: existingSessions } = await supabase
+        .from("class_sessions")
+        .select("id, session_date, start_time, end_time")
+        .eq("class_id", classId);
+      for (const s of existingSessions ?? []) existingByDate.set(s.session_date, s as any);
     } else {
       const { data, error } = await supabase.from("classes").insert(payload).select("id").single();
       if (error || !data) {
@@ -579,25 +632,52 @@ const AdminClasses = () => {
       classId = data.id;
     }
 
-    // Insert sessions with instructor overrides
-    if (sessions.length > 0) {
-      const sessionRows = sessions.map((s, i) => ({
+    const todayIso = format(new Date(), "yyyy-MM-dd");
+    const desiredDates = new Set(sessions.map(s => s.date));
+
+    if (editing) {
+      // Remove future sessions no longer in the schedule. Past sessions stay
+      // untouched so register/attendance history survives edits.
+      const toDelete = [...existingByDate.values()]
+        .filter(s => !desiredDates.has(s.session_date) && s.session_date >= todayIso)
+        .map(s => s.id);
+      if (toDelete.length > 0) {
+        await supabase.from("class_sessions").delete().in("id", toDelete);
+      }
+      // Update times on kept future sessions when they changed.
+      for (const s of sessions) {
+        const existing = existingByDate.get(s.date);
+        if (!existing || s.date < todayIso) continue;
+        if (existing.start_time?.slice(0, 5) !== s.start_time || existing.end_time?.slice(0, 5) !== s.end_time) {
+          await supabase
+            .from("class_sessions")
+            .update({ start_time: s.start_time, end_time: s.end_time })
+            .eq("id", existing.id);
+        }
+      }
+    }
+
+    // Insert only genuinely new dates, with their instructor overrides.
+    const newSessions = sessions.filter(s => !existingByDate.has(s.date));
+    if (newSessions.length > 0) {
+      const sessionRows = newSessions.map(s => ({
         class_id: classId,
         session_date: s.date,
         start_time: s.start_time,
         end_time: s.end_time,
-        instructor_id: sessionStaffing[i]?.[0] || instructorIds[0] || null,
+        instructor_id: sessionStaffing[s.date]?.[0] || instructorIds[0] || null,
       }));
       const { data: insertedSessions, error: sessError } = await supabase.from("class_sessions").insert(sessionRows).select("id");
       if (sessError) {
         toast({ title: "Warning", description: `Class saved but sessions failed: ${sessError.message}`, variant: "destructive" });
       }
 
-      // Save session-level instructor assignments
       if (insertedSessions) {
         const sessionInstructorRows: { session_id: string; staff_id: string }[] = [];
         insertedSessions.forEach((sess, i) => {
-          const staffIds = sessionStaffing[i] && sessionStaffing[i].length > 0 ? sessionStaffing[i] : instructorIds;
+          const date = newSessions[i]?.date;
+          const override = date ? sessionStaffing[date] : undefined;
+          const staffIds = override && override.length > 0 ? override : instructorIds;
           staffIds.forEach(sid => {
             sessionInstructorRows.push({ session_id: sess.id, staff_id: sid });
           });
@@ -605,6 +685,18 @@ const AdminClasses = () => {
         if (sessionInstructorRows.length > 0) {
           await supabase.from("session_instructors").insert(sessionInstructorRows);
         }
+      }
+    }
+
+    // Existing sessions keep their current staffing unless the admin
+    // explicitly overrode them in this wizard run.
+    if (editing) {
+      for (const [date, staffIds] of Object.entries(sessionStaffing)) {
+        const existing = existingByDate.get(date);
+        if (!existing || !staffIds || staffIds.length === 0 || !desiredDates.has(date)) continue;
+        await supabase.from("session_instructors").delete().eq("session_id", existing.id);
+        await supabase.from("session_instructors").insert(staffIds.map(sid => ({ session_id: existing.id, staff_id: sid })));
+        await supabase.from("class_sessions").update({ instructor_id: staffIds[0] }).eq("id", existing.id);
       }
     }
 
@@ -1162,7 +1254,12 @@ const AdminClasses = () => {
                         variant="ghost"
                         size="icon"
                         className="flex-shrink-0"
-                        onClick={() => setSessions(prev => prev.filter((_, idx) => idx !== i))}
+                        onClick={() => {
+                          // Remember the removal so regeneration (step nav,
+                          // time changes, later edits) doesn't bring it back.
+                          setRemovedDates(prev => new Set(prev).add(s.date));
+                          setSessions(prev => prev.filter((_, idx) => idx !== i));
+                        }}
                       >
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
@@ -1377,8 +1474,8 @@ const AdminClasses = () => {
                   <p className="text-xs text-muted-foreground mb-3">Leave blank to use the default instructors above</p>
 
                   <div className="max-h-[350px] overflow-y-auto space-y-2 pr-1">
-                    {sessions.map((s, i) => {
-                      const overrideIds = sessionStaffing[i] || [];
+                    {sessions.map((s) => {
+                      const overrideIds = sessionStaffing[s.date] || [];
                       const usingDefault = overrideIds.length === 0;
                       return (
                         <div key={s.date} className={`flex items-center gap-3 p-3 rounded-lg border ${usingDefault ? 'border-border bg-card/50' : 'border-primary/30 bg-primary/5'}`}>
@@ -1396,7 +1493,7 @@ const AdminClasses = () => {
                                     {staff.full_name}
                                     <button type="button" onClick={() => setSessionStaffing(prev => ({
                                       ...prev,
-                                      [i]: prev[i].filter(id => id !== sid)
+                                      [s.date]: prev[s.date].filter(id => id !== sid)
                                     }))} className="ml-0.5 hover:text-destructive">
                                       <X className="w-3 h-3" />
                                     </button>
@@ -1409,14 +1506,14 @@ const AdminClasses = () => {
                             if (!v) return;
                             setSessionStaffing(prev => ({
                               ...prev,
-                              [i]: [...(prev[i] || []), v].filter((id, idx, arr) => arr.indexOf(id) === idx)
+                              [s.date]: [...(prev[s.date] || []), v].filter((id, idx, arr) => arr.indexOf(id) === idx)
                             }));
                           }}>
                             <SelectTrigger className="w-40">
                               <SelectValue placeholder="Override..." />
                             </SelectTrigger>
                             <SelectContent>
-                              {staffList.filter(st => !(sessionStaffing[i] || []).includes(st.id)).map(st => (
+                              {staffList.filter(st => !(sessionStaffing[s.date] || []).includes(st.id)).map(st => (
                                 <SelectItem key={st.id} value={st.id}>{st.full_name}</SelectItem>
                               ))}
                             </SelectContent>
@@ -1424,7 +1521,7 @@ const AdminClasses = () => {
                           {!usingDefault && (
                             <Button variant="ghost" size="icon" className="flex-shrink-0" onClick={() => setSessionStaffing(prev => {
                               const next = { ...prev };
-                              delete next[i];
+                              delete next[s.date];
                               return next;
                             })}>
                               <X className="w-4 h-4 text-muted-foreground" />

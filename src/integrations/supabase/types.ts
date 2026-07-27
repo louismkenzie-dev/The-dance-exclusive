@@ -52,6 +52,7 @@ export type Database = {
           class_session_id: string | null
           collector_name: string | null
           created_at: string
+          dancer_of_week: boolean
           id: string
           notes: string | null
           session_date: string
@@ -68,6 +69,7 @@ export type Database = {
           class_session_id?: string | null
           collector_name?: string | null
           created_at?: string
+          dancer_of_week?: boolean
           id?: string
           notes?: string | null
           session_date: string
@@ -84,6 +86,7 @@ export type Database = {
           class_session_id?: string | null
           collector_name?: string | null
           created_at?: string
+          dancer_of_week?: boolean
           id?: string
           notes?: string | null
           session_date?: string
@@ -1269,7 +1272,9 @@ export type Database = {
           is_primary: boolean
           item_id: string
           media_type: string
+          position: string | null
           sort_order: number | null
+          zoom: number | null
         }
         Insert: {
           caption?: string | null
@@ -1279,7 +1284,9 @@ export type Database = {
           is_primary?: boolean
           item_id: string
           media_type?: string
+          position?: string | null
           sort_order?: number | null
+          zoom?: number | null
         }
         Update: {
           caption?: string | null
@@ -1289,7 +1296,9 @@ export type Database = {
           is_primary?: boolean
           item_id?: string
           media_type?: string
+          position?: string | null
           sort_order?: number | null
+          zoom?: number | null
         }
         Relationships: [
           {

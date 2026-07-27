@@ -21,7 +21,7 @@ import { Reveal } from "@/components/immersive/Reveal";
 import { Marquee } from "@/components/immersive/Marquee";
 
 type Variant = { id: string; size: string; stock_quantity: number; price_override: number | null; is_active: boolean };
-type Media = { file_path: string; is_primary: boolean; sort_order: number | null };
+type Media = { file_path: string; is_primary: boolean; sort_order: number | null; position: string | null; zoom: number | null };
 type Product = {
   id: string;
   name: string;
@@ -37,8 +37,36 @@ const BAG_KEY = "tde_bag_v1";
 const readBag = (): BagItem[] => {
   try { const r = localStorage.getItem(BAG_KEY); return r ? JSON.parse(r) : []; } catch { return []; }
 };
-const primaryImage = (p: Product) =>
-  (p.merchandise_media.find((m) => m.is_primary) ?? p.merchandise_media[0])?.file_path ?? "/placeholder.svg";
+// file_path is a storage path (items/<id>/...), not a URL — resolve via the bucket.
+const getMediaUrl = (path: string | null | undefined) => {
+  if (!path) return "/placeholder.svg";
+  if (path.startsWith("http") || path.startsWith("/")) return path;
+  const { data } = supabase.storage.from("merchandise-media").getPublicUrl(path);
+  return data?.publicUrl || "/placeholder.svg";
+};
+const primaryMedia = (p: Product): Media | undefined =>
+  p.merchandise_media.find((m) => m.is_primary) ?? p.merchandise_media[0];
+const primaryImage = (p: Product) => getMediaUrl(primaryMedia(p)?.file_path);
+
+/** Product image, honouring admin-set framing (focal point + zoom). Unframed
+ *  photos keep the original letterboxed "contain" look. */
+const ProductImage = ({ media, alt, className = "" }: { media: Media | undefined; alt: string; className?: string }) => {
+  const framed = !!(media?.position || media?.zoom);
+  if (!framed) {
+    return <img src={getMediaUrl(media?.file_path)} alt={alt} loading="lazy" className={`relative h-full w-full object-contain p-6 ${className}`} />;
+  }
+  const pos = media?.position || "50% 50%";
+  const zoom = Number(media?.zoom) > 0 ? Number(media?.zoom) : 1;
+  return (
+    <img
+      src={getMediaUrl(media?.file_path)}
+      alt={alt}
+      loading="lazy"
+      className={`relative h-full w-full object-cover ${className}`}
+      style={{ objectPosition: pos, transform: zoom !== 1 ? `scale(${zoom})` : undefined, transformOrigin: pos }}
+    />
+  );
+};
 
 const CATEGORY_LABEL: Record<string, string> = {
   hoodies: "Hoodies", "t-shirts": "T-Shirts", tops: "Crop Tops", bottoms: "Bottoms", accessories: "Accessories",
@@ -64,7 +92,7 @@ const Shop = () => {
       const [{ data, error }, { data: sellingSetting }] = await Promise.all([
         supabase
           .from("merchandise_items")
-          .select("id, name, category, base_price, description, merchandise_media(file_path,is_primary,sort_order), merchandise_variants(id,size,stock_quantity,price_override,is_active)")
+          .select("id, name, category, base_price, description, merchandise_media(file_path,is_primary,sort_order,position,zoom), merchandise_variants(id,size,stock_quantity,price_override,is_active)")
           .eq("is_active", true)
           .order("display_order", { ascending: true }),
         supabase
@@ -222,7 +250,7 @@ const Shop = () => {
                     >
                       <div className="relative aspect-square overflow-hidden bg-[radial-gradient(120%_100%_at_50%_0%,hsl(220_22%_12%),hsl(220_26%_6%))]">
                         <GrainOverlay />
-                        <img src={primaryImage(p)} alt={p.name} loading="lazy" className="relative h-full w-full object-contain p-6 transition-transform duration-500 group-hover:scale-105" />
+                        <ProductImage media={primaryMedia(p)} alt={p.name} className="transition-transform duration-500 group-hover:scale-105" />
                         {!inStock && (
                           <span className="absolute top-3 left-3 px-2 py-0.5 rounded-full bg-background/80 border border-border text-[10px] uppercase tracking-widest text-muted-foreground">Sold out</span>
                         )}
@@ -281,7 +309,7 @@ const Shop = () => {
             <div className="grid sm:grid-cols-2 gap-6">
               <div className="relative aspect-square rounded-xl overflow-hidden bg-[radial-gradient(120%_100%_at_50%_0%,hsl(220_22%_12%),hsl(220_26%_6%))]">
                 <GrainOverlay />
-                <img src={primaryImage(selected)} alt={selected.name} className="relative h-full w-full object-contain p-6" />
+                <ProductImage media={primaryMedia(selected)} alt={selected.name} />
               </div>
               <div className="flex flex-col">
                 <DialogHeader>
@@ -352,7 +380,7 @@ const Shop = () => {
                 {bag.map((b) => (
                   <div key={b.variantId} className="flex gap-3 rounded-xl border border-border bg-card/50 p-3">
                     <div className="w-16 h-16 rounded-lg bg-[radial-gradient(120%_100%_at_50%_0%,hsl(220_22%_12%),hsl(220_26%_6%))] shrink-0 overflow-hidden">
-                      <img src={b.image} alt={b.name} className="w-full h-full object-contain p-1.5" />
+                      <img src={getMediaUrl(b.image)} alt={b.name} className="w-full h-full object-contain p-1.5" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-display text-sm leading-tight truncate">{b.name}</p>

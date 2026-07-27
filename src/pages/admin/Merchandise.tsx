@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Image, Package, X, Upload } from "lucide-react";
+import { Plus, Pencil, Trash2, Image, Package, X, Upload, Crop } from "lucide-react";
 
 const CATEGORIES = [
   { value: "t-shirt", label: "T-Shirt" },
@@ -56,6 +56,10 @@ type MerchMedia = {
   caption: string | null;
   sort_order: number | null;
   is_primary: boolean;
+  /** CSS object-position focal point, e.g. "50% 25%". Null = unframed (fit). */
+  position: string | null;
+  /** Zoom factor (1 = no zoom). Null = unframed (fit). */
+  zoom: number | null;
 };
 
 type MerchBundle = {
@@ -292,6 +296,43 @@ const Merchandise = () => {
     await supabase.from("merchandise_media").delete().eq("id", m.id);
     setMedia(prev => prev.filter(x => x.id !== m.id));
     toast({ title: "Media deleted" });
+  };
+
+  // ─── Photo framing (focal point + zoom, mirrors the public shop) ─────
+  const [framingMedia, setFramingMedia] = useState<MerchMedia | null>(null);
+  const [framePos, setFramePos] = useState({ x: 50, y: 50 });
+  const [frameZoom, setFrameZoom] = useState(1);
+  const [savingFrame, setSavingFrame] = useState(false);
+
+  const openFraming = (m: MerchMedia) => {
+    const [px, py] = (m.position ?? "50% 50%").split(" ").map(v => parseFloat(v));
+    setFramePos({ x: Number.isFinite(px) ? px : 50, y: Number.isFinite(py) ? py : 50 });
+    setFrameZoom(Number(m.zoom) > 0 ? Number(m.zoom) : 1);
+    setFramingMedia(m);
+  };
+
+  const setFrameFocalFromClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setFramePos({
+      x: Math.round(Math.min(100, Math.max(0, ((e.clientX - rect.left) / rect.width) * 100))),
+      y: Math.round(Math.min(100, Math.max(0, ((e.clientY - rect.top) / rect.height) * 100))),
+    });
+  };
+
+  const saveFraming = async (reset: boolean) => {
+    if (!framingMedia) return;
+    setSavingFrame(true);
+    const patch = reset
+      ? { position: null, zoom: null }
+      : { position: `${framePos.x}% ${framePos.y}%`, zoom: frameZoom };
+    const { error } = await supabase.from("merchandise_media").update(patch as any).eq("id", framingMedia.id);
+    setSavingFrame(false);
+    if (error) {
+      return toast({ title: "Couldn't save framing", description: error.message, variant: "destructive" });
+    }
+    setMedia(prev => prev.map(m => (m.id === framingMedia.id ? { ...m, ...patch } as MerchMedia : m)));
+    setFramingMedia(null);
+    toast({ title: reset ? "Framing reset — photo shows fitted again" : "Framing saved", description: reset ? undefined : "The shop now shows this photo with your crop." });
   };
 
   // ─── Bundles CRUD ───────────────────────────────
@@ -617,9 +658,15 @@ const Merchandise = () => {
                       <img src={getStorageUrl(m.file_path)} alt="" className="w-full aspect-square object-cover" />
                     )}
                     {m.is_primary && <Badge className="absolute top-1 left-1 text-[10px]">Primary</Badge>}
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    {(m.position || m.zoom) && <Badge variant="secondary" className="absolute top-1 right-1 text-[10px]">Framed</Badge>}
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-wrap items-center justify-center gap-2 p-2">
                       {!m.is_primary && (
                         <Button size="sm" variant="secondary" className="text-xs h-7" onClick={() => setPrimaryImage(m.id)}>Set Primary</Button>
+                      )}
+                      {m.media_type !== "video" && (
+                        <Button size="sm" variant="secondary" className="text-xs h-7 gap-1" onClick={() => openFraming(m)}>
+                          <Crop className="w-3 h-3" /> Frame
+                        </Button>
                       )}
                       <Button size="sm" variant="destructive" className="text-xs h-7" onClick={() => deleteMedia(m)}><Trash2 className="w-3 h-3" /></Button>
                     </div>
@@ -628,6 +675,70 @@ const Merchandise = () => {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Photo Framing Dialog ────────────────── */}
+      <Dialog open={!!framingMedia} onOpenChange={(o) => !o && setFramingMedia(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Frame photo</DialogTitle>
+          </DialogHeader>
+          {framingMedia && (
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Tap the photo to set the focus point, then zoom until it fills the frame the way you want.
+                This is exactly how it appears on the shop.
+              </p>
+              <div
+                className="relative aspect-square rounded-xl overflow-hidden border cursor-crosshair bg-muted/30"
+                onClick={setFrameFocalFromClick}
+                title="Tap to set the focus point"
+              >
+                <img
+                  src={getStorageUrl(framingMedia.file_path)}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  style={{
+                    objectPosition: `${framePos.x}% ${framePos.y}%`,
+                    transform: frameZoom !== 1 ? `scale(${frameZoom})` : undefined,
+                    transformOrigin: `${framePos.x}% ${framePos.y}%`,
+                  }}
+                />
+                {/* focal point marker */}
+                <div
+                  className="absolute w-5 h-5 -ml-2.5 -mt-2.5 rounded-full border-2 border-white shadow-[0_0_0_2px_rgba(0,0,0,0.4)] pointer-events-none"
+                  style={{ left: `${framePos.x}%`, top: `${framePos.y}%` }}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Zoom</Label>
+                  <span className="text-xs text-muted-foreground tabular-nums">{frameZoom.toFixed(2)}×</span>
+                </div>
+                <input
+                  type="range"
+                  min={1}
+                  max={2.5}
+                  step={0.05}
+                  value={frameZoom}
+                  onChange={(e) => setFrameZoom(parseFloat(e.target.value))}
+                  className="w-full accent-primary"
+                />
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <Button variant="ghost" size="sm" onClick={() => saveFraming(true)} disabled={savingFrame}>
+                  Reset to fit
+                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setFramingMedia(null)}>Cancel</Button>
+                  <Button size="sm" onClick={() => saveFraming(false)} disabled={savingFrame}>
+                    {savingFrame ? "Saving..." : "Save framing"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

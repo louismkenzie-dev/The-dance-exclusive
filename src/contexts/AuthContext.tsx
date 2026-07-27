@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
@@ -25,6 +25,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [role, setRole] = useState<AppRole | null>(null);
   const [profile, setProfile] = useState<AuthContextType["profile"]>(null);
   const [authLoadKey, setAuthLoadKey] = useState(0);
+  // The signed-in user id the current context state belongs to. Lets the auth
+  // listener tell "same user, refreshed token" apart from a real user change.
+  const activeUserIdRef = useRef<string | null>(null);
 
   const fetchUserData = async (userId: string) => {
     const [rolesRes, profileRes] = await Promise.all([
@@ -50,27 +53,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let mounted = true;
 
-    const applySession = (nextSession: Session | null) => {
+    const applySession = (nextSession: Session | null, event?: string) => {
       if (!mounted) return;
 
+      const nextUserId = nextSession?.user?.id ?? null;
+      const sameUser = nextUserId !== null && nextUserId === activeUserIdRef.current;
+      activeUserIdRef.current = nextUserId;
+
       setSession(nextSession);
-      setUser(nextSession?.user ?? null);
 
       if (!nextSession?.user) {
+        setUser(null);
         setRole(null);
         setProfile(null);
         setLoading(false);
         return;
       }
 
+      // Same user, refreshed token (tab refocus, hourly auto-refresh): keep
+      // the page mounted and every form intact — flipping `loading` here
+      // unmounts the whole route tree and wipes in-progress work. Only
+      // replace the user object when their details actually changed, so
+      // effects keyed on `user` don't re-run on every refocus either.
+      if (sameUser) {
+        if (event === "USER_UPDATED") setUser(nextSession.user);
+        return;
+      }
+
+      setUser(nextSession.user);
       setRole(null);
       setProfile(null);
       setLoading(true);
       setAuthLoadKey((current) => current + 1);
     };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      applySession(nextSession);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      applySession(nextSession, event);
     });
 
     void supabase.auth.getSession().then(({ data: { session } }) => {
@@ -151,6 +169,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    activeUserIdRef.current = null;
     setUser(null);
     setSession(null);
     setRole(null);

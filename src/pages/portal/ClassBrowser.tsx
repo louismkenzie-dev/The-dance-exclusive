@@ -248,11 +248,10 @@ const ClassBrowser = () => {
   useEffect(() => {
     const fetchClasses = async () => {
       setLoading(true);
-      const { data } = await supabase
+      const { data: rawData } = await supabase
         .from("classes")
-        .select(`*, 
-          venues(name, photo_outside, photo_indoor, photo_parking, address_line1, address_line2, city, postcode, latitude, longitude, directions, drop_off_info, has_parking, parking_details), 
-          staff(full_name, profile_photo, description, dance_skills),
+        .select(`*,
+          venues(name, photo_outside, photo_indoor, photo_parking, address_line1, address_line2, city, postcode, latitude, longitude, directions, drop_off_info, has_parking, parking_details),
           workshops(cover_image, cover_position, name, description)`)
         .eq("is_active", true)
         .eq("publicly_visible", true)
@@ -261,6 +260,26 @@ const ClassBrowser = () => {
         .order("sort_order")
         .order("day_of_week")
         .order("start_time");
+      // Instructor details come from the public-safe staff view (first names
+      // only — the staff table itself is not publicly readable).
+      let data = rawData as any[] | null;
+      if (data) {
+        const instructorIds = [...new Set(data.map((c: any) => c.instructor_id).filter(Boolean))];
+        let staffById = new Map<string, any>();
+        if (instructorIds.length > 0) {
+          const { data: staffRows } = await (supabase.from("staff_public" as any) as any)
+            .select("id, first_name, profile_photo, description, dance_skills")
+            .in("id", instructorIds);
+          staffById = new Map(((staffRows as any[]) ?? []).map((s) => [
+            s.id,
+            { full_name: s.first_name, profile_photo: s.profile_photo, description: s.description, dance_skills: s.dance_skills },
+          ]));
+        }
+        data = data.map((c: any) => ({
+          ...c,
+          staff: c.instructor_id ? staffById.get(c.instructor_id) ?? null : null,
+        }));
+      }
       if (data) {
         // Fetch all scheduled sessions for the listed classes in one query,
         // splitting upcoming from past client-side.

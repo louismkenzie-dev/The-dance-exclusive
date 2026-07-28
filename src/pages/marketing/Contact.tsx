@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import {
   Mail,
@@ -21,6 +21,8 @@ import { Marquee } from "@/components/immersive/Marquee";
 import { StatCounter } from "@/components/immersive/StatCounter";
 import { useMagnetic } from "@/hooks/useMagnetic";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { capitalise, numberWord, useSiteStats } from "@/lib/siteStats";
 
 const bodyStyle = {
   textTransform: "none" as const,
@@ -28,7 +30,8 @@ const bodyStyle = {
   fontFamily: "var(--font-body)",
 };
 
-const VENUES: { name: string; area: string; note: string }[] = [
+// Fallback only — replaced by the live venues admin manages once loaded.
+const VENUES_FALLBACK: { name: string; area: string; note: string }[] = [
   { name: "Kelvedon", area: "Studio HQ", note: "Tots, Juniors & Seniors" },
   { name: "Braintree", area: "Town centre", note: "Street & commercial" },
   { name: "White Notley", area: "Village hall", note: "Junior crews" },
@@ -60,6 +63,53 @@ const REASONS: { q: string; a: string }[] = [
 
 const Contact = () => {
   const { toast } = useToast();
+  const siteStats = useSiteStats();
+  const [liveVenues, setLiveVenues] = useState<{ name: string; area: string; note: string }[]>([]);
+  const [contact, setContact] = useState<{ email: string; instagram: string | null; facebook: string | null }>({
+    email: "hello@thedanceexclusive.co.uk",
+    instagram: null,
+    facebook: null,
+  });
+
+  // Venues + contact details come from what admin manages, so this page
+  // updates itself when a venue is added or the studio email/socials change.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [venuesRes, settingsRes] = await Promise.all([
+        supabase
+          .from("venues")
+          .select("name, city, short_description")
+          .eq("publicly_visible", true)
+          .order("is_featured", { ascending: false })
+          .order("name"),
+        supabase
+          .from("app_settings")
+          .select("key, value")
+          .in("key", ["email_address", "social_instagram", "social_facebook"]),
+      ]);
+      if (cancelled) return;
+      if (venuesRes.data && venuesRes.data.length > 0) {
+        setLiveVenues(
+          (venuesRes.data as any[]).map((v) => ({
+            name: v.name,
+            area: v.city || "Essex",
+            note: v.short_description || "All ages welcome",
+          })),
+        );
+      }
+      const s = new Map(((settingsRes.data as any[]) ?? []).map((r) => [r.key, r.value]));
+      setContact({
+        email: (s.get("email_address") || "").trim() || "hello@thedanceexclusive.co.uk",
+        instagram: (s.get("social_instagram") || "").trim() || null,
+        facebook: (s.get("social_facebook") || "").trim() || null,
+      });
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const venues = liveVenues.length > 0 ? liveVenues : VENUES_FALLBACK;
+  const venueCount = siteStats?.venues ?? venues.length;
   const magBlue = useMagnetic<HTMLDivElement>(0.22);
 
   const [name, setName] = useState("");
@@ -121,11 +171,11 @@ const Contact = () => {
           <Reveal delay={300}>
             <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
               <a
-                href="mailto:hello@thedanceexclusive.co.uk"
+                href={`mailto:${contact.email}`}
                 className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-5 py-2.5 text-sm font-semibold uppercase tracking-wider transition-colors hover:bg-primary/10"
               >
                 <Mail className="h-4 w-4 text-primary" />
-                hello@thedanceexclusive.co.uk
+                {contact.email}
               </a>
               <span
                 className="inline-flex items-center gap-2 rounded-full border border-border bg-card/40 px-5 py-2.5 text-sm text-muted-foreground"
@@ -142,14 +192,11 @@ const Contact = () => {
       {/* ───────────────── MARQUEE ───────────────── */}
       <div className="relative py-6 border-y border-border/60 bg-card/30">
         <Marquee
-          items={[
-            "Kelvedon",
-            "Braintree",
-            "White Notley",
-            "Chelmsford",
-            "Clacton",
-            "Five Essex Venues",
-          ]}
+          items={
+            (siteStats?.venueTowns?.length ?? 0) >= 2
+              ? [...siteStats!.venueTowns, `${capitalise(numberWord(venueCount))} Essex Venues`]
+              : ["Kelvedon", "Braintree", "White Notley", "Chelmsford", "Clacton", "Five Essex Venues"]
+          }
           speed={38}
           accent="text-accent"
         />
@@ -285,7 +332,7 @@ const Contact = () => {
                   </p>
                   <div className="space-y-5">
                     <a
-                      href="mailto:hello@thedanceexclusive.co.uk"
+                      href={`mailto:${contact.email}`}
                       className="group flex items-start gap-4"
                     >
                       <span className="mt-0.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
@@ -299,7 +346,7 @@ const Contact = () => {
                           className="block text-base font-medium group-hover:text-primary transition-colors"
                           style={bodyStyle}
                         >
-                          hello@thedanceexclusive.co.uk
+                          {contact.email}
                         </span>
                       </span>
                     </a>
@@ -329,7 +376,7 @@ const Contact = () => {
                     </span>
                     <div className="flex flex-wrap gap-3">
                       <a
-                        href="https://instagram.com/thedanceexclusive"
+                        href={contact.instagram || "https://instagram.com/thedanceexclusive"}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/5 px-4 py-2 text-sm font-semibold transition-colors hover:bg-accent/10"
@@ -338,7 +385,7 @@ const Contact = () => {
                         Instagram
                       </a>
                       <a
-                        href="https://facebook.com/thedanceexclusive"
+                        href={contact.facebook || "https://facebook.com/thedanceexclusive"}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-4 py-2 text-sm font-semibold transition-colors hover:bg-primary/10"
@@ -403,7 +450,7 @@ const Contact = () => {
                 Find your floor
               </p>
               <h2 className="font-display font-bold text-4xl md:text-6xl">
-                Five Essex Venues
+                {capitalise(numberWord(venueCount))} Essex Venues
               </h2>
               <p
                 className="mt-4 text-muted-foreground text-lg"
@@ -416,7 +463,7 @@ const Contact = () => {
           </Reveal>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {VENUES.map((v, i) => (
+            {venues.map((v, i) => (
               <Reveal key={v.name} delay={i * 90}>
                 <div className="group relative h-full rounded-2xl border border-border bg-card/60 p-6 overflow-hidden transition-colors hover:border-accent/40">
                   <div className="absolute inset-0 stage-light-blue opacity-0 group-hover:opacity-40 transition-opacity duration-500" />
@@ -443,12 +490,12 @@ const Contact = () => {
             ))}
 
             {/* Stat tile */}
-            <Reveal delay={VENUES.length * 90}>
+            <Reveal delay={venues.length * 90}>
               <div className="relative h-full rounded-2xl border border-accent/30 bg-card/60 p-6 flex flex-col justify-center items-center text-center overflow-hidden">
                 <div className="absolute inset-0 stage-light-mag opacity-60" />
                 <div className="relative">
                   <p className="font-display text-5xl md:text-6xl text-accent leading-none">
-                    <StatCounter value={500} suffix="+" />
+                    <StatCounter value={siteStats?.dancers ?? 500} suffix="+" />
                   </p>
                   <p
                     className="mt-3 text-sm uppercase tracking-[0.2em] text-muted-foreground"
@@ -541,7 +588,7 @@ const Contact = () => {
                     variant="outline"
                     className="px-9 py-6 text-base font-semibold uppercase tracking-wider border-accent/40 text-foreground hover:bg-accent/10"
                   >
-                    <a href="mailto:hello@thedanceexclusive.co.uk">
+                    <a href={`mailto:${contact.email}`}>
                       Email the team
                     </a>
                   </Button>

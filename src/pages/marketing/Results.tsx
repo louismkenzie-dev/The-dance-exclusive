@@ -16,6 +16,7 @@ import { Reveal } from "@/components/immersive/Reveal";
 import { Marquee } from "@/components/immersive/Marquee";
 import { StatCounter } from "@/components/immersive/StatCounter";
 import { useMagnetic } from "@/hooks/useMagnetic";
+import { capitalise, numberWord, useSiteStats } from "@/lib/siteStats";
 
 /* ──────────────────────────── DATA ──────────────────────────── */
 
@@ -108,6 +109,8 @@ const PODIUM = [
 /* ──────────────────────────── PAGE ──────────────────────────── */
 
 const Results = () => {
+  const siteStats = useSiteStats();
+  const years = siteStats?.yearsRunning ?? 7;
   const magTrain = useMagnetic<HTMLDivElement>(0.22);
   const magBook = useMagnetic<HTMLDivElement>(0.22);
 
@@ -286,8 +289,8 @@ const Results = () => {
               className="mt-4 mx-auto max-w-xl text-muted-foreground text-lg"
               style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
             >
-              Seven years of competing — and winning — at the highest levels of UK street and
-              commercial dance.
+              {capitalise(numberWord(years))} years of competing — and winning — at the highest
+              levels of UK street and commercial dance.
             </p>
           </Reveal>
 

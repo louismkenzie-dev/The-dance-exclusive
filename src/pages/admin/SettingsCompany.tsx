@@ -93,6 +93,94 @@ const TrialReminderCard = () => {
   );
 };
 
+/** Studio-history numbers shown on the public website (years running,
+ *  dancers taught, titles won). Venue/class/coach counts are live from the
+ *  platform — these are the claims only the studio knows. Autosaves. */
+const PublicSiteStatsCard = () => {
+  const [foundedYear, setFoundedYear] = useState("");
+  const [dancers, setDancers] = useState("");
+  const [titles, setTitles] = useState("");
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("key, value")
+        .in("key", ["founded_year", "stat_dancers", "stat_titles"]);
+      const v = (key: string) => (data ?? []).find((r: any) => r.key === key)?.value ?? "";
+      setFoundedYear(v("founded_year"));
+      setDancers(v("stat_dancers"));
+      setTitles(v("stat_titles"));
+      setLoadedKey("loaded");
+    })();
+  }, []);
+
+  const autosave = useAutosave({
+    enabled: loadedKey != null,
+    resetKey: loadedKey,
+    data: { foundedYear, dancers, titles },
+    save: async () => {
+      const { error } = await supabase.from("app_settings").upsert(
+        [
+          { key: "founded_year", value: foundedYear.trim(), description: "Year the studio was founded — powers the \"years running\" stat on the public site", updated_at: new Date().toISOString() },
+          { key: "stat_dancers", value: dancers.trim(), description: "Dancers taught so far — shown as \"N+\" on the public site", updated_at: new Date().toISOString() },
+          { key: "stat_titles", value: titles.trim(), description: "Competition titles & awards — shown as \"N+\" on the public site", updated_at: new Date().toISOString() },
+        ],
+        { onConflict: "key" },
+      );
+      if (error) throw error;
+    },
+  });
+
+  const yearsRunning = (() => {
+    const y = parseInt(foundedYear, 10);
+    return Number.isFinite(y) && y > 1900 ? Math.max(1, new Date().getFullYear() - y) : null;
+  })();
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" />Public Website Stats</CardTitle>
+        <CardDescription>
+          Shown on the front page, Our Story and Meet the Crew. Venue, class and coach counts
+          update automatically as you add them — these three are your studio's history.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="space-y-1.5">
+            <Label>Founded year</Label>
+            <Input type="number" value={foundedYear} onChange={(e) => setFoundedYear(e.target.value)} placeholder="2019" />
+            {yearsRunning != null && (
+              <p className="text-xs text-muted-foreground">Shows as "{yearsRunning}+ Award-Winning Years"</p>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label>Dancers taught</Label>
+            <Input type="number" value={dancers} onChange={(e) => setDancers(e.target.value)} placeholder="500" />
+            <p className="text-xs text-muted-foreground">Shows as "{dancers || "500"}+ Dancers & Counting"</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Titles &amp; awards</Label>
+            <Input type="number" value={titles} onChange={(e) => setTitles(e.target.value)} placeholder="30" />
+            <p className="text-xs text-muted-foreground">Shows as "{titles || "30"}+ Titles &amp; Awards"</p>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {autosave.status === "saving" || autosave.status === "pending"
+            ? "Saving…"
+            : autosave.status === "error"
+              ? "Couldn't save — check your connection"
+              : autosave.status === "saved"
+                ? "All changes saved"
+                : "Changes save automatically as you type"}
+        </p>
+      </CardContent>
+    </Card>
+  );
+};
+
 const SettingsCompany = () => {
   const queryClient = useQueryClient();
   const { user, loading: authLoading } = useAuth();
@@ -539,6 +627,8 @@ const SettingsCompany = () => {
           </div>
         </CardContent>
       </Card>
+
+      <PublicSiteStatsCard />
 
       <TrialReminderCard />
 

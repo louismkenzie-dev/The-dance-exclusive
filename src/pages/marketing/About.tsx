@@ -17,6 +17,7 @@ import GrainOverlay from "@/components/immersive/GrainOverlay";
 import { Reveal } from "@/components/immersive/Reveal";
 import { Marquee } from "@/components/immersive/Marquee";
 import { StatCounter } from "@/components/immersive/StatCounter";
+import { capitalise, numberWord, useSiteStats } from "@/lib/siteStats";
 import { useMagnetic } from "@/hooks/useMagnetic";
 
 const sentence = {
@@ -79,16 +80,33 @@ const TIMELINE = [
   },
 ];
 
-const STATS = [
-  { value: 7, suffix: "+", label: "Award-Winning Years" },
-  { value: 500, suffix: "+", label: "Dancers & Counting" },
-  { value: 5, suffix: "", label: "Essex Venues" },
-  { value: 25, suffix: "+", label: "Titles & Awards" },
-];
-
 export default function About() {
   const magBlue = useMagnetic<HTMLDivElement>(0.22);
   const magMag = useMagnetic<HTMLDivElement>(0.22);
+  const siteStats = useSiteStats();
+
+  // Live where the platform knows the number (venues), admin-set for studio
+  // history (years / dancers / titles) — static values are only fallbacks.
+  const years = siteStats?.yearsRunning ?? 7;
+  const venueCount = siteStats?.venues ?? 5;
+  const venueWord = numberWord(venueCount);
+  const stats = [
+    { value: years, suffix: "+", label: "Award-Winning Years" },
+    { value: siteStats?.dancers ?? 500, suffix: "+", label: "Dancers & Counting" },
+    { value: venueCount, suffix: "", label: "Essex Venues" },
+    { value: siteStats?.titles ?? 30, suffix: "+", label: "Titles & Awards" },
+  ];
+
+  // The final timeline chapter grows with the studio.
+  const timeline = TIMELINE.map((t) =>
+    t.year === "2026"
+      ? {
+          ...t,
+          title: `${capitalise(venueWord)} Venues, One Family`,
+          copy: `Now across ${venueWord} Essex venues with hundreds of dancers every week — and still run with the same family spirit it started with.`,
+        }
+      : t,
+  );
 
   return (
     <div className="bg-background text-foreground overflow-x-clip">
@@ -202,8 +220,9 @@ export default function About() {
                 getting better.
               </p>
               <p className="text-foreground/90">
-                Seven years on, we're an award-winning school across five Essex venues, teaching
-                hundreds of dancers every week — and still run with the exact heart it started with.
+                {capitalise(numberWord(years))} years on, we're an award-winning school across{" "}
+                {venueWord} Essex venues, teaching hundreds of dancers every week — and still run
+                with the exact heart it started with.
               </p>
             </div>
             <div className="mt-8 flex items-center gap-3 text-sm">
@@ -289,8 +308,8 @@ export default function About() {
             </p>
             <h2 className="font-display font-bold text-4xl md:text-6xl">From Hall to Headline</h2>
             <p className="mt-4 text-muted-foreground" style={sentence}>
-              Seven years, five venues and hundreds of dancers — the lights shift from blue to magenta
-              as the story grows.
+              {capitalise(numberWord(years))} years, {venueWord} venues and hundreds of dancers —
+              the lights shift from blue to magenta as the story grows.
             </p>
           </Reveal>
 
@@ -305,7 +324,7 @@ export default function About() {
             />
 
             <div className="space-y-10">
-              {TIMELINE.map((t, i) => {
+              {timeline.map((t, i) => {
                 const left = i % 2 === 0;
                 return (
                   <Reveal key={t.year} delay={i * 90}>
@@ -353,7 +372,7 @@ export default function About() {
         <div className="absolute inset-0 stage-light-duo opacity-70" />
         <GrainOverlay />
         <div className="relative container grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-          {STATS.map((s, i) => (
+          {stats.map((s, i) => (
             <Reveal key={s.label} delay={i * 90}>
               <div className="font-display font-bold text-5xl md:text-6xl text-primary">
                 <StatCounter value={s.value} suffix={s.suffix} />
@@ -436,7 +455,7 @@ export default function About() {
           </div>
           <div className="mt-8 flex items-center justify-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground/80">
             <MapPin className="w-4 h-4 text-primary" />
-            Five venues across Essex
+            {capitalise(venueWord)} venues across Essex
             <ArrowRight className="w-3.5 h-3.5" />
             <Zap className="w-4 h-4 text-accent" />
             One unforgettable first class

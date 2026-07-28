@@ -1,6 +1,4 @@
-import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { Link, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +17,7 @@ import GrainOverlay from "@/components/immersive/GrainOverlay";
 import { Reveal } from "@/components/immersive/Reveal";
 import { Marquee } from "@/components/immersive/Marquee";
 import { StatCounter } from "@/components/immersive/StatCounter";
+import { useSiteStats } from "@/lib/siteStats";
 import { useMagnetic } from "@/hooks/useMagnetic";
 import { useParallax } from "@/hooks/useParallax";
 import { ScrollProgress } from "@/components/immersive/ScrollProgress";
@@ -31,11 +30,11 @@ const JOURNEY = [
   { stage: "Adults", age: "19+", copy: "Commercial, Heels and Street Dance. Gain confidence, feel unstoppable.", tint: "330 90% 55%" },
 ];
 
-const STATS = [
+// Fallbacks only — every value is replaced by live platform data / admin
+// settings (useSiteStats) once loaded, so the numbers never go stale.
+const STATS_FALLBACK = [
   { value: 7, suffix: "+", label: "Award-Winning Years" },
   { value: 500, suffix: "+", label: "Dancers & Counting" },
-  // "Classes Every Week" is replaced with the live count of visible classes
-  // at render time — this value is only the fallback while it loads.
   { value: 35, suffix: "", label: "Classes Every Week" },
   { value: 5, suffix: "", label: "Essex Venues" },
 ];
@@ -52,22 +51,19 @@ const Index = () => {
   const magMag = useMagnetic<HTMLDivElement>(0.22);
   const heroParallax = useParallax<HTMLDivElement>(0.18);
 
-  // Live weekly-class count so the stat never goes stale as classes are added.
-  const [weeklyClasses, setWeeklyClasses] = useState<number | null>(null);
-  useEffect(() => {
-    supabase
-      .from("classes")
-      .select("id", { count: "exact", head: true })
-      .eq("is_active", true)
-      .eq("status", "confirmed")
-      .eq("publicly_visible", true)
-      .then(({ count }) => {
-        if (count != null && count > 0) setWeeklyClasses(count);
-      });
-  }, []);
-  const stats = STATS.map((s) =>
-    s.label === "Classes Every Week" && weeklyClasses != null ? { ...s, value: weeklyClasses } : s,
-  );
+  // Live platform counts + admin-set studio history, so the front page keeps
+  // itself up to date as venues/classes are added.
+  const siteStats = useSiteStats();
+  const stats = [
+    { value: siteStats?.yearsRunning ?? STATS_FALLBACK[0].value, suffix: "+", label: "Award-Winning Years" },
+    { value: siteStats?.dancers ?? STATS_FALLBACK[1].value, suffix: "+", label: "Dancers & Counting" },
+    { value: siteStats?.weeklyClasses ?? STATS_FALLBACK[2].value, suffix: "", label: "Classes Every Week" },
+    { value: siteStats?.venues ?? STATS_FALLBACK[3].value, suffix: "", label: "Essex Venues" },
+  ];
+  const venueTowns = siteStats?.venueTowns ?? [];
+  const townsLine = venueTowns.length >= 2
+    ? `${venueTowns.slice(0, -1).join(", ")} & ${venueTowns[venueTowns.length - 1]} — a high-energy class near you.`
+    : "Kelvedon, Braintree, White Notley, Chelmsford & Clacton — a high-energy class near you.";
 
   if (!loading && user && role === "admin") {
     return <Navigate to="/admin" replace />;
@@ -279,7 +275,7 @@ const Index = () => {
             {[
               { Icon: Award, title: "Award-Winning", copy: "A multi-award-winning school with competition titles and showcase pedigree across Essex and beyond." },
               { Icon: ShieldCheck, title: "DBS-Checked & Insured", copy: "Every instructor is DBS-checked, fully insured and safeguarding-trained. Your child is in safe hands." },
-              { Icon: MapPin, title: "5 Essex Venues", copy: "Kelvedon, Braintree, White Notley, Chelmsford & Clacton — a high-energy class near you." },
+              { Icon: MapPin, title: `${siteStats?.venues ?? 5} Essex Venues`, copy: townsLine },
             ].map(({ Icon, title, copy }, i) => (
               <Reveal key={title} delay={i * 100}>
                 <div className="h-full rounded-2xl border border-border bg-card/60 p-8 transition-colors hover:border-primary/40">

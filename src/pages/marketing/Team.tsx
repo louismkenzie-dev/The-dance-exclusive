@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,79 +19,37 @@ import { Reveal } from "@/components/immersive/Reveal";
 import { Marquee } from "@/components/immersive/Marquee";
 import { StatCounter } from "@/components/immersive/StatCounter";
 import { useMagnetic } from "@/hooks/useMagnetic";
+import { supabase } from "@/integrations/supabase/client";
+import { capitalise, numberWord, useSiteStats } from "@/lib/siteStats";
 
 /** Alternating stage-light accents — odd cards blue, even cards magenta. */
 const BLUE = "193 100% 44%";
 const MAGENTA = "330 90% 55%";
 
-type Instructor = {
-  name: string;
-  initials: string;
-  credit: string;
-  tags: string[];
-  bio: string;
+/** Safe public subset of a staff member (staff_public view — first names only). */
+type CrewMember = {
+  id: string;
+  first_name: string;
+  profile_photo: string | null;
+  description: string | null;
+  dance_skills: string[] | null;
+  role: string | null;
 };
 
-const INSTRUCTORS: Instructor[] = [
-  {
-    name: "Jade Okafor",
-    initials: "JO",
-    credit: "Artistic Director · Commercial Coach",
-    tags: ["Commercial", "Street", "Choreography"],
-    bio: "Founder and driving force of TDE. Seven years building championship crews and the sharpest commercial routines in Essex.",
-  },
-  {
-    name: "Marcus Bonetti",
-    initials: "MB",
-    credit: "Head of Street · Competition Coach",
-    tags: ["Hip-Hop", "Breaking", "Battles"],
-    bio: "Battle-tested freestyler turned coach. Marcus drills foundations hard then sets dancers loose to find their own swagger.",
-  },
-  {
-    name: "Priya Sandhu",
-    initials: "PS",
-    credit: "Heels Lead · Performance Director",
-    tags: ["Heels", "Commercial", "Stage Craft"],
-    bio: "Brings West End polish to our adult heels floor — power, attitude and technique with absolutely zero judgement.",
-  },
-  {
-    name: "Callum Fraser",
-    initials: "CF",
-    credit: "Juniors Specialist · Choreographer",
-    tags: ["Street", "Kids", "Routines"],
-    bio: "A natural with our younger crews. Callum turns first-class nerves into stage-ready confidence faster than anyone.",
-  },
-  {
-    name: "Niamh O'Reilly",
-    initials: "NO",
-    credit: "Ballet & Conditioning · Technique Coach",
-    tags: ["Ballet", "Contemporary", "Strength"],
-    bio: "Classically trained and obsessed with clean lines. Niamh gives every dancer the technical backbone to go further.",
-  },
-  {
-    name: "Theo Adeyemi",
-    initials: "TA",
-    credit: "Commercial Coach · Showcase Director",
-    tags: ["Commercial", "Locking", "Performance"],
-    bio: "The energy in the room. Theo choreographs our biggest showcase numbers and makes sure every dancer hits the spotlight.",
-  },
-  {
-    name: "Lola Hartley",
-    initials: "LH",
-    credit: "Tots & Foundations · Early Years Lead",
-    tags: ["Tots", "Rhythm", "Play"],
-    bio: "Where it all begins. Lola makes the very first steps pure joy — rhythm, smiles and a lifelong love of movement.",
-  },
-  {
-    name: "Devon Walsh",
-    initials: "DW",
-    credit: "Seniors Coach · Competition Choreographer",
-    tags: ["Commercial", "Street", "Competition"],
-    bio: "Sharp, demanding and fiercely proud of his teams. Devon prepares our seniors for the biggest competitive stages.",
-  },
-];
+const getStaffPhotoUrl = (path: string | null) => {
+  if (!path) return null;
+  if (path.startsWith("http")) return path;
+  const { data } = supabase.storage.from("staff-photos").getPublicUrl(path);
+  return data?.publicUrl || null;
+};
 
-const TRUST = [
+const creditLine = (m: CrewMember) => {
+  const role = m.role && m.role.toLowerCase() !== "staff" ? capitalise(m.role) : "Instructor";
+  const lead = m.dance_skills?.[0];
+  return lead ? `${role} · ${lead}` : role;
+};
+
+const TRUST = (venuePhrase: string) => [
   {
     Icon: ShieldCheck,
     title: "DBS-Checked",
@@ -99,7 +58,7 @@ const TRUST = [
   {
     Icon: BadgeCheck,
     title: "Fully Insured",
-    copy: "Comprehensive public liability cover across all five of our Essex venues.",
+    copy: `Comprehensive public liability cover across ${venuePhrase}.`,
   },
   {
     Icon: HeartHandshake,
@@ -115,6 +74,35 @@ const TRUST = [
 
 const Team = () => {
   const magJoin = useMagnetic<HTMLDivElement>(0.22);
+  const stats = useSiteStats();
+  const [crew, setCrew] = useState<CrewMember[]>([]);
+  const [crewLoading, setCrewLoading] = useState(true);
+
+  // Live roster: every active staff member admin has added, first names only.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase.from("staff_public" as any) as any)
+        .select("id, first_name, profile_photo, description, dance_skills, role, created_at")
+        .order("created_at", { ascending: true });
+      if (!cancelled) {
+        setCrew(((data as CrewMember[]) ?? []).filter((m) => m.first_name));
+        setCrewLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const venueCount = stats?.venues ?? 5;
+  const venuePhrase = `all ${numberWord(venueCount)} of our Essex venues`;
+  const coachCount = stats?.coaches ?? (crew.length || 14);
+
+  // Marquee from the skills the team actually teaches, falling back to the
+  // generic strip until the roster loads.
+  const skillItems = [...new Set(crew.flatMap((m) => m.dance_skills ?? []))];
+  const marqueeItems = skillItems.length >= 4
+    ? skillItems
+    : ["Choreographers", "Competition Coaches", "Heels Specialists", "Street Originators", "Ballet Technicians", "Showcase Directors", "Mentors"];
 
   return (
     <div className="bg-background text-foreground overflow-x-clip">
@@ -154,19 +142,7 @@ const Team = () => {
 
       {/* ───────────────── MARQUEE STRIP ───────────────── */}
       <div className="border-y border-border bg-card/40 py-4 text-foreground/90">
-        <Marquee
-          items={[
-            "Choreographers",
-            "Competition Coaches",
-            "Heels Specialists",
-            "Street Originators",
-            "Ballet Technicians",
-            "Showcase Directors",
-            "Mentors",
-          ]}
-          speed={40}
-          accent="text-accent"
-        />
+        <Marquee items={marqueeItems} speed={40} accent="text-accent" />
       </div>
 
       {/* ───────────────── INSTRUCTOR GRID ───────────────── */}
@@ -190,90 +166,133 @@ const Team = () => {
             </p>
           </Reveal>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {INSTRUCTORS.map((p, i) => {
-              const tint = i % 2 === 0 ? BLUE : MAGENTA;
-              return (
-                <Reveal key={p.name} delay={(i % 4) * 90}>
-                  <article
-                    className="group relative h-full rounded-2xl border bg-card/60 backdrop-blur-sm p-5 transition-all duration-500 hover:-translate-y-2 overflow-hidden"
-                    style={{ borderColor: `hsl(${tint} / 0.3)` }}
-                  >
-                    {/* hover glow */}
-                    <div
-                      className="absolute -inset-px rounded-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-100 pointer-events-none"
-                      style={{ boxShadow: `0 24px 60px -18px hsl(${tint} / 0.55)` }}
-                    />
-                    <div
-                      className="absolute -top-20 -right-16 w-44 h-44 rounded-full blur-3xl opacity-30 transition-opacity duration-500 group-hover:opacity-70 pointer-events-none"
-                      style={{ background: `hsl(${tint} / 0.5)` }}
-                    />
-
-                    <div className="relative">
-                      {/* portrait placeholder */}
+          {crewLoading ? (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="aspect-[4/6] rounded-2xl border border-border bg-card/40 animate-pulse" />
+              ))}
+            </div>
+          ) : crew.length === 0 ? (
+            <p
+              className="text-muted-foreground"
+              style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
+            >
+              Full roster coming soon — come meet everyone in the studio.
+            </p>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {crew.map((p, i) => {
+                const tint = i % 2 === 0 ? BLUE : MAGENTA;
+                const photo = getStaffPhotoUrl(p.profile_photo);
+                return (
+                  <Reveal key={p.id} delay={(i % 4) * 90}>
+                    <article
+                      className="group relative h-full rounded-2xl border bg-card/60 backdrop-blur-sm p-5 transition-all duration-500 hover:-translate-y-2 overflow-hidden"
+                      style={{ borderColor: `hsl(${tint} / 0.3)` }}
+                    >
+                      {/* hover glow */}
                       <div
-                        className="relative aspect-[4/5] w-full rounded-xl border overflow-hidden flex flex-col items-center justify-center gap-3 mb-5"
-                        style={{
-                          borderColor: `hsl(${tint} / 0.25)`,
-                          background: `linear-gradient(160deg, hsl(${tint} / 0.18), hsl(220 22% 7%) 70%)`,
-                        }}
-                      >
-                        <div
-                          className="w-16 h-16 rounded-full border flex items-center justify-center font-display font-bold text-2xl"
-                          style={{
-                            color: `hsl(${tint})`,
-                            borderColor: `hsl(${tint} / 0.4)`,
-                            background: `hsl(${tint} / 0.12)`,
-                          }}
-                        >
-                          {p.initials}
-                        </div>
-                        <User
-                          className="w-7 h-7 opacity-40"
-                          style={{ color: `hsl(${tint})` }}
-                          aria-hidden
-                        />
-                        <span className="absolute bottom-2 inset-x-0 text-center text-[10px] uppercase tracking-[0.25em] text-muted-foreground/60">
-                          Portrait
-                        </span>
-                      </div>
+                        className="absolute -inset-px rounded-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-100 pointer-events-none"
+                        style={{ boxShadow: `0 24px 60px -18px hsl(${tint} / 0.55)` }}
+                      />
+                      <div
+                        className="absolute -top-20 -right-16 w-44 h-44 rounded-full blur-3xl opacity-30 transition-opacity duration-500 group-hover:opacity-70 pointer-events-none"
+                        style={{ background: `hsl(${tint} / 0.5)` }}
+                      />
 
-                      <h3 className="font-display text-2xl leading-tight">{p.name}</h3>
-                      <p
-                        className="mt-1 text-xs uppercase tracking-[0.15em]"
-                        style={{ color: `hsl(${tint})` }}
-                      >
-                        {p.credit}
-                      </p>
-
-                      <div className="mt-3 flex flex-wrap gap-1.5">
-                        {p.tags.map((t) => (
-                          <span
-                            key={t}
-                            className="text-[10px] uppercase tracking-[0.12em] px-2.5 py-1 rounded-full border font-semibold"
+                      <div className="relative">
+                        {photo ? (
+                          /* portrait with the branded stage-light grade */
+                          <div
+                            className="relative aspect-[4/5] w-full rounded-xl border overflow-hidden mb-5"
+                            style={{ borderColor: `hsl(${tint} / 0.25)` }}
+                          >
+                            <img
+                              src={photo}
+                              alt={p.first_name}
+                              loading="lazy"
+                              className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                              style={{ filter: "saturate(0.9) contrast(1.05)" }}
+                            />
+                            <div
+                              className="absolute inset-0 pointer-events-none mix-blend-color"
+                              style={{ background: `hsl(${tint} / 0.16)` }}
+                            />
+                            <div
+                              className="absolute inset-0 pointer-events-none"
+                              style={{
+                                background: `linear-gradient(160deg, hsl(${tint} / 0.35), transparent 55%), linear-gradient(to top, hsl(220 22% 7% / 0.85), transparent 42%)`,
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          /* no photo yet — branded initials placeholder */
+                          <div
+                            className="relative aspect-[4/5] w-full rounded-xl border overflow-hidden flex flex-col items-center justify-center gap-3 mb-5"
                             style={{
-                              color: `hsl(${tint})`,
-                              borderColor: `hsl(${tint} / 0.3)`,
-                              background: `hsl(${tint} / 0.08)`,
+                              borderColor: `hsl(${tint} / 0.25)`,
+                              background: `linear-gradient(160deg, hsl(${tint} / 0.18), hsl(220 22% 7%) 70%)`,
                             }}
                           >
-                            {t}
-                          </span>
-                        ))}
-                      </div>
+                            <div
+                              className="w-16 h-16 rounded-full border flex items-center justify-center font-display font-bold text-2xl"
+                              style={{
+                                color: `hsl(${tint})`,
+                                borderColor: `hsl(${tint} / 0.4)`,
+                                background: `hsl(${tint} / 0.12)`,
+                              }}
+                            >
+                              {p.first_name.charAt(0).toUpperCase()}
+                            </div>
+                            <User
+                              className="w-7 h-7 opacity-40"
+                              style={{ color: `hsl(${tint})` }}
+                              aria-hidden
+                            />
+                          </div>
+                        )}
 
-                      <p
-                        className="mt-4 text-sm text-muted-foreground"
-                        style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
-                      >
-                        {p.bio}
-                      </p>
-                    </div>
-                  </article>
-                </Reveal>
-              );
-            })}
-          </div>
+                        <h3 className="font-display text-2xl leading-tight">{p.first_name}</h3>
+                        <p
+                          className="mt-1 text-xs uppercase tracking-[0.15em]"
+                          style={{ color: `hsl(${tint})` }}
+                        >
+                          {creditLine(p)}
+                        </p>
+
+                        {(p.dance_skills?.length ?? 0) > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            {p.dance_skills!.slice(0, 4).map((t) => (
+                              <span
+                                key={t}
+                                className="text-[10px] uppercase tracking-[0.12em] px-2.5 py-1 rounded-full border font-semibold"
+                                style={{
+                                  color: `hsl(${tint})`,
+                                  borderColor: `hsl(${tint} / 0.3)`,
+                                  background: `hsl(${tint} / 0.08)`,
+                                }}
+                              >
+                                {t}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {p.description && (
+                          <p
+                            className="mt-4 text-sm text-muted-foreground"
+                            style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}
+                          >
+                            {p.description}
+                          </p>
+                        )}
+                      </div>
+                    </article>
+                  </Reveal>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
 
@@ -282,10 +301,10 @@ const Team = () => {
         <div className="absolute inset-0 stage-light-mag opacity-40" />
         <div className="relative container grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
           {[
-            { value: 14, suffix: "", label: "Pro Coaches", Icon: Users },
+            { value: coachCount, suffix: "", label: "Pro Coaches", Icon: Users },
             { value: 100, suffix: "%", label: "DBS-Checked", Icon: ShieldCheck },
-            { value: 30, suffix: "+", label: "Comp Titles Coached", Icon: Trophy },
-            { value: 5, suffix: "", label: "Essex Venues", Icon: Music2 },
+            { value: stats?.titles ?? 30, suffix: "+", label: "Comp Titles Coached", Icon: Trophy },
+            { value: venueCount, suffix: "", label: "Essex Venues", Icon: Music2 },
           ].map((s, i) => (
             <Reveal key={s.label} delay={i * 90}>
               <s.Icon className="w-6 h-6 mx-auto mb-3 text-accent" aria-hidden />
@@ -330,7 +349,7 @@ const Team = () => {
           </Reveal>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {TRUST.map(({ Icon, title, copy }, i) => (
+            {TRUST(venuePhrase).map(({ Icon, title, copy }, i) => (
               <Reveal key={title} delay={i * 90}>
                 <div className="h-full rounded-2xl border border-border bg-card/60 p-7 transition-colors hover:border-primary/40">
                   <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/25 flex items-center justify-center text-primary mb-5">
@@ -415,7 +434,7 @@ const Team = () => {
                 {
                   Icon: Users,
                   title: "Shape Young Talent",
-                  copy: "From tots to seniors across five thriving Essex venues.",
+                  copy: `From tots to seniors across ${numberWord(venueCount)} thriving Essex venues.`,
                   tint: BLUE,
                 },
               ].map(({ Icon, title, copy, tint }) => (

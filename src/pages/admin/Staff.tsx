@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { compareStaffBySeniority } from "@/lib/staffRoles";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -195,7 +196,14 @@ const AdminStaff = () => {
 
   const fetchStaff = async () => {
     const { data } = await supabase.from("staff").select("*").order("full_name");
-    if (data) setStaff(data as unknown as StaffMember[]);
+    // Leadership → instructors → assistants → support, alphabetical within each.
+    if (data) {
+      setStaff(
+        [...(data as unknown as StaffMember[])].sort((a, b) =>
+          compareStaffBySeniority(a, b, (s) => s.full_name ?? ""),
+        ),
+      );
+    }
     setLoading(false);
   };
 

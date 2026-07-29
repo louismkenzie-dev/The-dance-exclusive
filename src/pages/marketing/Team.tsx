@@ -21,6 +21,7 @@ import { StatCounter } from "@/components/immersive/StatCounter";
 import { useMagnetic } from "@/hooks/useMagnetic";
 import { supabase } from "@/integrations/supabase/client";
 import { capitalise, numberWord, useSiteStats } from "@/lib/siteStats";
+import { compareStaffBySeniority } from "@/lib/staffRoles";
 
 /** Alternating stage-light accents — odd cards blue, even cards magenta. */
 const BLUE = "193 100% 44%";
@@ -78,7 +79,8 @@ const Team = () => {
   const [crew, setCrew] = useState<CrewMember[]>([]);
   const [crewLoading, setCrewLoading] = useState(true);
 
-  // Live roster: every active staff member admin has added, first names only.
+  // Live roster: every active staff member admin has added, first names only,
+  // ordered leadership → instructors → assistants (alphabetical within each).
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -86,7 +88,11 @@ const Team = () => {
         .select("id, first_name, profile_photo, description, dance_skills, role, created_at")
         .order("created_at", { ascending: true });
       if (!cancelled) {
-        setCrew(((data as CrewMember[]) ?? []).filter((m) => m.first_name));
+        setCrew(
+          ((data as CrewMember[]) ?? [])
+            .filter((m) => m.first_name)
+            .sort((a, b) => compareStaffBySeniority(a, b, (m) => m.first_name)),
+        );
         setCrewLoading(false);
       }
     })();

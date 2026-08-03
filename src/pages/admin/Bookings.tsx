@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { ADULT_PASSES, type AdultPassType } from "@/lib/pricing";
 
@@ -15,6 +16,7 @@ interface Booking {
   id: string;
   status: string;
   booking_type: string;
+  class_id: string | null;
   amount: number | null;
   booked_at: string;
   notes: string | null;
@@ -22,6 +24,11 @@ interface Booking {
   students: { first_name: string; last_name: string } | null;
   profiles: { full_name: string; email: string } | null;
 }
+
+/** Booking types the admin can move to another class in place. Monthly
+ *  memberships are excluded — they're Stripe subscriptions with their own
+ *  change-class flow; camps/passes have no class to move. */
+const MOVABLE_TYPES = ["trial", "session", "term", "yearly"];
 
 const statusColors: Record<string, "default" | "secondary" | "destructive"> = {
   confirmed: "default",
@@ -211,7 +218,7 @@ const PLAN_ORDER: PlanKind[] = ["monthly", "yearly", "term", "trial", "session"]
  *  categorised so it's easy to find who's on what. */
 const MembershipsTab = () => {
   const [rows, setRows] = useState<PlanRow[]>([]);
-  const [monthlyStats, setMonthlyStats] = useState({ activeCount: 0, recurring: 0 });
+  const [monthlyStats, setMonthlyStats] = useState({ activeCount: 0, recurring: 0, pausedCount: 0 });
   const [planFilter, setPlanFilter] = useState<"all" | PlanKind>("all");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -297,11 +304,15 @@ const MembershipsTab = () => {
       });
 
       setRows([...membershipRows, ...bookingRows]);
+      // "Live" includes paused — every August the maintenance job pauses all
+      // monthly subscriptions (no payments in August, resuming 1 September),
+      // and counting only status==='active' made the whole book look gone.
+      const liveStatuses = ["active", "paused", "past_due", "cancel_scheduled"];
+      const live = memberships.filter((m) => liveStatuses.includes(m.status));
       setMonthlyStats({
-        activeCount: memberships.filter((m) => m.status === "active").length,
-        recurring: memberships
-          .filter((m) => m.status === "active" || m.status === "cancel_scheduled")
-          .reduce((sum, m) => sum + Number(m.monthly_amount), 0),
+        activeCount: live.length,
+        recurring: live.reduce((sum, m) => sum + Number(m.monthly_amount), 0),
+        pausedCount: memberships.filter((m) => m.status === "paused").length,
       });
       setLoading(false);
     };
@@ -343,8 +354,13 @@ const MembershipsTab = () => {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        {monthlyStats.activeCount} active monthly membership{monthlyStats.activeCount === 1 ? "" : "s"} · £
+        {monthlyStats.activeCount} live monthly membership{monthlyStats.activeCount === 1 ? "" : "s"} · £
         {monthlyStats.recurring.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/month recurring
+        {monthlyStats.pausedCount > 0 && (
+          <span className="block text-xs mt-0.5">
+            {monthlyStats.pausedCount} paused for the August break — no payments this month, everything resumes automatically on 1 September.
+          </span>
+        )}
       </p>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -436,6 +452,74 @@ const AdminBookings = () => {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  // "Paid for the wrong class" fix: move a booking to another class in place,
+  // keeping the child and the payment.
+  const [moveBooking, setMoveBooking] = useState<Booking | null>(null);
+  const [moveClasses, setMoveClasses] = useState<{ id: string; name: string; class_type: string; day_of_week: string; start_time: string | null }[]>([]);
+  const [moveClassId, setMoveClassId] = useState("");
+  const [moveSessions, setMoveSessions] = useState<{ id: string; session_date: string; start_time: string }[]>([]);
+  const [moveSessionDate, setMoveSessionDate] = useState("");
+  const [moveSaving, setMoveSaving] = useState(false);
+
+  const bookedSessionDate = (b: Booking | null) => /session (\d{4}-\d{2}-\d{2})/.exec(b?.notes || "")?.[1] ?? null;
+
+  const openMove = async (b: Booking) => {
+    setMoveBooking(b);
+    setMoveClassId("");
+    setMoveSessions([]);
+    setMoveSessionDate("");
+    const { data } = await supabase
+      .from("classes")
+      .select("id, name, class_type, day_of_week, start_time")
+      .eq("is_active", true)
+      .order("name");
+    setMoveClasses(((data as any[]) ?? []).filter((c) => c.id !== b.class_id));
+  };
+
+  // Per-date bookings (trial / drop-in) need a date at the new class too.
+  const onMoveClassPicked = async (classId: string) => {
+    setMoveClassId(classId);
+    setMoveSessionDate("");
+    if (!bookedSessionDate(moveBooking)) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const { data } = await supabase
+      .from("class_sessions")
+      .select("id, session_date, start_time")
+      .eq("class_id", classId)
+      .eq("status", "scheduled")
+      .gte("session_date", today)
+      .order("session_date");
+    setMoveSessions((data as any[]) ?? []);
+  };
+
+  const saveMove = async () => {
+    if (!moveBooking || !moveClassId) return;
+    const oldDate = bookedSessionDate(moveBooking);
+    if (oldDate && !moveSessionDate) {
+      toast({ title: "Pick a date", description: "This booking is for a specific session — choose the date at the new class.", variant: "destructive" });
+      return;
+    }
+    setMoveSaving(true);
+    let notes = moveBooking.notes ?? "";
+    if (oldDate && moveSessionDate) {
+      // Point the register at the new date and let the day-before trial
+      // reminder send again for it.
+      notes = notes.replace(`session ${oldDate}`, `session ${moveSessionDate}`).replace(" | reminder sent", "");
+    }
+    const { error } = await supabase
+      .from("bookings")
+      .update({ class_id: moveClassId, notes: notes || null })
+      .eq("id", moveBooking.id);
+    setMoveSaving(false);
+    if (error) {
+      toast({ title: "Couldn't move the booking", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Booking moved", description: "The child now appears on the new class's register. The amount already paid is unchanged." });
+    setMoveBooking(null);
+    fetchBookings();
+  };
 
   const fetchBookings = async () => {
     let query = supabase
@@ -531,6 +615,9 @@ const AdminBookings = () => {
                   {b.status === "pending_payment" && (
                     <Button size="sm" onClick={() => updateStatus(b.id, "confirmed")}>Confirm</Button>
                   )}
+                  {b.status === "confirmed" && b.class_id && MOVABLE_TYPES.includes(b.booking_type) && (
+                    <Button size="sm" variant="outline" onClick={() => openMove(b)}>Move class</Button>
+                  )}
                   {b.status !== "cancelled" && (
                     <Button size="sm" variant="outline" onClick={() => updateStatus(b.id, "cancelled")}>Cancel</Button>
                   )}
@@ -550,6 +637,72 @@ const AdminBookings = () => {
           <MembershipsTab />
         </TabsContent>
       </Tabs>
+
+      {/* Move a paid booking to another class (wrong-class fix) */}
+      <Dialog open={!!moveBooking} onOpenChange={(o) => !o && setMoveBooking(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Move booking to another class</DialogTitle>
+            <DialogDescription>
+              {moveBooking?.students
+                ? `${moveBooking.students.first_name} ${moveBooking.students.last_name}`
+                : "This booking"}{" "}
+              — currently {moveBooking?.classes?.name ?? "unassigned"}. The child and the amount
+              already paid stay exactly as they are; only the class changes.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium">New class</p>
+              <Select value={moveClassId} onValueChange={onMoveClassPicked}>
+                <SelectTrigger><SelectValue placeholder="Choose a class..." /></SelectTrigger>
+                <SelectContent>
+                  {moveClasses.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name} · {c.day_of_week.charAt(0).toUpperCase() + c.day_of_week.slice(1)}
+                      {c.start_time ? ` ${c.start_time.slice(0, 5)}` : ""}
+                      {` (${c.class_type === "children" ? "Children" : "Adults"})`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {bookedSessionDate(moveBooking) && moveClassId && (
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium">New session date</p>
+                {moveSessions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No upcoming sessions at that class — pick a different one.</p>
+                ) : (
+                  <Select value={moveSessionDate} onValueChange={setMoveSessionDate}>
+                    <SelectTrigger><SelectValue placeholder="Choose a date..." /></SelectTrigger>
+                    <SelectContent>
+                      {moveSessions.map((s) => (
+                        <SelectItem key={s.id} value={s.session_date}>
+                          {format(new Date(s.session_date + "T00:00:00"), "EEE d MMM yyyy")} · {s.start_time?.slice(0, 5)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
+
+            {moveBooking?.booking_type === "term" && (
+              <p className="text-xs text-muted-foreground">
+                Termly booking: if the new class has a different price, settle any difference with
+                the parent separately — the system won't charge or refund on a move.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMoveBooking(null)}>Cancel</Button>
+            <Button onClick={saveMove} disabled={moveSaving || !moveClassId}>
+              {moveSaving ? "Moving..." : "Move booking"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -276,7 +276,7 @@ const Shop = () => {
       <section className="border-t border-border py-12 px-4">
         <div className="container grid sm:grid-cols-3 gap-6 text-center">
           {[
-            { Icon: Truck, t: "Fast UK Delivery", c: "Dispatched within 3 working days, tracked to your door." },
+            { Icon: Truck, t: "Fast UK Delivery", c: "Dispatched within 7 working days, tracked to your door." },
             { Icon: ShieldCheck, t: "Secure Checkout", c: "Card payments handled securely by Stripe. We never store your details." },
             { Icon: Sparkles, t: "Studio Quality", c: "Heavyweight fabrics that survive every rehearsal and wash." },
           ].map(({ Icon, t, c }) => (

@@ -40,6 +40,32 @@ export const isValidTimeRange = (start: string, end: string): boolean => {
 export const isValidAgeRange = (min: number | null, max: number | null): boolean =>
   min == null || max == null || min <= max;
 
+/** Months of early-booking grace before the minimum age: a child whose
+ *  (age_min)th birthday falls within this window may book (Amie's rule —
+ *  "allow access to parents whose kids' bdays are within 6 months"). */
+export const AGE_MIN_GRACE_MONTHS = 6;
+
+/** True when the child is at/above the class minimum age, or reaches it
+ *  within the grace window. */
+export const meetsMinAgeWithGrace = (dob: string | Date, ageMin: number | null | undefined): boolean => {
+  if (ageMin == null) return true;
+  const birth = new Date(dob);
+  if (Number.isNaN(birth.getTime())) return false;
+  const birthday = new Date(birth);
+  birthday.setFullYear(birth.getFullYear() + ageMin);
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() + AGE_MIN_GRACE_MONTHS);
+  return birthday <= cutoff;
+};
+
+/** Full eligibility: grace-window minimum, strict maximum. */
+export const isChildAgeEligible = (
+  dob: string | Date,
+  ageMin: number | null | undefined,
+  ageMax: number | null | undefined,
+  currentAge: number,
+): boolean => meetsMinAgeWithGrace(dob, ageMin) && (ageMax == null || currentAge <= ageMax);
+
 /**
  * Human-readable audience text. The stored audience_label always wins — it
  * preserves labels like "O17" or "16+U" whose numeric meaning is unconfirmed.

@@ -6,6 +6,8 @@ import {
   titleCaseClassName,
   isClassPubliclyVisible,
   isClassBookable,
+  isChildAgeEligible,
+  meetsMinAgeWithGrace,
 } from "./classAudience";
 
 const access = (overrides = {}) => ({
@@ -100,5 +102,45 @@ describe("public visibility and booking gates", () => {
   it("never allows booking provisional or hidden classes", () => {
     expect(isClassBookable(access({ status: "provisional" }))).toBe(false);
     expect(isClassBookable(access({ publicly_visible: false }))).toBe(false);
+  });
+});
+
+describe("age eligibility with 6-month grace", () => {
+  // DOB helpers relative to "now" so the tests never go stale.
+  const dobForAge = (years: number, extraMonths = 0) => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - years);
+    d.setMonth(d.getMonth() - extraMonths);
+    return d.toISOString().slice(0, 10);
+  };
+
+  it("allows a child already at the minimum age", () => {
+    expect(meetsMinAgeWithGrace(dobForAge(8, 1), 8)).toBe(true);
+  });
+
+  it("allows a child who turns the minimum age within 6 months", () => {
+    // 7 years 10 months old → 8th birthday in ~2 months
+    expect(meetsMinAgeWithGrace(dobForAge(7, 10), 8)).toBe(true);
+  });
+
+  it("blocks a child whose birthday is more than 6 months away", () => {
+    // 7 years 2 months old → 8th birthday in ~10 months
+    expect(meetsMinAgeWithGrace(dobForAge(7, 2), 8)).toBe(false);
+  });
+
+  it("treats a null minimum as no restriction", () => {
+    expect(meetsMinAgeWithGrace(dobForAge(3), null)).toBe(true);
+  });
+
+  it("keeps the maximum age strict — no grace on the old side", () => {
+    // 13-year-old cannot book an ages 8-12 class even though min passes
+    expect(isChildAgeEligible(dobForAge(13, 1), 8, 12, 13)).toBe(false);
+    // 12-year-old still can
+    expect(isChildAgeEligible(dobForAge(12, 1), 8, 12, 12)).toBe(true);
+  });
+
+  it("combines grace minimum with strict maximum", () => {
+    // 7y10m old, class ages 8-12 → eligible via grace
+    expect(isChildAgeEligible(dobForAge(7, 10), 8, 12, 7)).toBe(true);
   });
 });

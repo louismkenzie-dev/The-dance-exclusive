@@ -20,6 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCart, type PricingPlan } from "@/contexts/CartContext";
 import { supabase } from "@/integrations/supabase/client";
 import { isAttendeeProfileComplete } from "@/lib/attendeeProfile";
+import { isChildAgeEligible } from "@/lib/classAudience";
 import { ChildFormDialog } from "@/components/portal/ChildFormDialog";
 import {
   MONTHLY_MEMBERSHIP_NOTICE,
@@ -197,13 +198,12 @@ export function QuickBookDialog({
 
   const eligibleChildren = children.map(ch => {
     const age = getAge(ch.date_of_birth);
-    const tooYoung = c.age_min != null && age < c.age_min;
-    const tooOld = c.age_max != null && age > c.age_max;
     // Has any cart item for non-pick plans (term/monthly) — used as a soft hint, NOT a disable
     const hasFullPlanItem = cartItems.some(ci =>
       ci.classId === c.id && ci.studentId === ch.id && (ci.pricingPlan === "term" || ci.pricingPlan === "monthly" || ci.pricingPlan === "yearly")
     );
-    return { ...ch, age, eligible: !tooYoung && !tooOld, hasFullPlanItem };
+    // 6-month grace before the minimum age; the maximum stays strict.
+    return { ...ch, age, eligible: isChildAgeEligible(ch.date_of_birth, c.age_min, c.age_max, age), hasFullPlanItem };
   });
   const hasEligible = eligibleChildren.some(ch => ch.eligible);
 

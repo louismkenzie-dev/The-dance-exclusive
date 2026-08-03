@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
-import { audienceText, isClassBookable } from "@/lib/classAudience";
+import { audienceText, isChildAgeEligible, isClassBookable } from "@/lib/classAudience";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -431,15 +431,13 @@ const ClassBrowser = () => {
     return age;
   };
 
-  // Which children match a class's age range?
+  // Which children match a class's age range? (6-month grace before the
+  // minimum age — kids whose birthday is coming up can book early.)
   const getMatchingChildren = (c: { age_min: number | null; age_max: number | null }) => {
     if (!children.length) return [];
-    return children.filter(child => {
-      const age = getAge(child.date_of_birth);
-      const minOk = c.age_min == null || age >= c.age_min;
-      const maxOk = c.age_max == null || age <= c.age_max;
-      return minOk && maxOk;
-    });
+    return children.filter(child =>
+      isChildAgeEligible(child.date_of_birth, c.age_min, c.age_max, getAge(child.date_of_birth)),
+    );
   };
 
   // Effective coords: manual search overrides home coords
@@ -1175,10 +1173,9 @@ const ClassBrowser = () => {
                                 };
                                 const eligibleChildren = children.map(ch => {
                                   const age = getChildAge(ch.date_of_birth);
-                                  const tooYoung = c.age_min != null && age < c.age_min;
-                                  const tooOld = c.age_max != null && age > c.age_max;
                                   const alreadyAdded = cartItems.some(ci => ci.classId === c.id && ci.studentId === ch.id);
-                                  return { ...ch, age, eligible: !tooYoung && !tooOld, alreadyAdded };
+                                  // 6-month grace: nearly-old-enough kids can book early.
+                                  return { ...ch, age, eligible: isChildAgeEligible(ch.date_of_birth, c.age_min, c.age_max, age), alreadyAdded };
                                 });
                                 const hasEligible = eligibleChildren.some(ch => ch.eligible);
                                 const selected = selectedChildren[c.id] || [];

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -311,12 +311,44 @@ const Merchandise = () => {
     setFramingMedia(m);
   };
 
-  const setFrameFocalFromClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
+  const setFrameFocal = (clientX: number, clientY: number, target: HTMLElement) => {
+    const rect = target.getBoundingClientRect();
     setFramePos({
-      x: Math.round(Math.min(100, Math.max(0, ((e.clientX - rect.left) / rect.width) * 100))),
-      y: Math.round(Math.min(100, Math.max(0, ((e.clientY - rect.top) / rect.height) * 100))),
+      x: Math.round(Math.min(100, Math.max(0, ((clientX - rect.left) / rect.width) * 100))),
+      y: Math.round(Math.min(100, Math.max(0, ((clientY - rect.top) / rect.height) * 100))),
     });
+  };
+
+  // Drag-to-pan: dragging the photo moves it inside the frame (a tap still
+  // sets the focus point directly). Pointer events cover mouse and touch.
+  const frameDragRef = useRef<{ startX: number; startY: number; posX: number; posY: number; moved: boolean } | null>(null);
+
+  const onFramePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    frameDragRef.current = { startX: e.clientX, startY: e.clientY, posX: framePos.x, posY: framePos.y, moved: false };
+  };
+
+  const onFramePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = frameDragRef.current;
+    if (!d) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const dx = ((e.clientX - d.startX) / rect.width) * 100;
+    const dy = ((e.clientY - d.startY) / rect.height) * 100;
+    if (!d.moved && (Math.abs(dx) > 1.5 || Math.abs(dy) > 1.5)) d.moved = true;
+    if (d.moved) {
+      // Dragging the photo right reveals more of its left side, so the
+      // object-position moves opposite to the drag.
+      setFramePos({
+        x: Math.round(Math.min(100, Math.max(0, d.posX - dx))),
+        y: Math.round(Math.min(100, Math.max(0, d.posY - dy))),
+      });
+    }
+  };
+
+  const onFramePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = frameDragRef.current;
+    frameDragRef.current = null;
+    if (d && !d.moved) setFrameFocal(e.clientX, e.clientY, e.currentTarget);
   };
 
   const saveFraming = async (reset: boolean) => {
@@ -687,18 +719,23 @@ const Merchandise = () => {
           {framingMedia && (
             <div className="space-y-4">
               <p className="text-xs text-muted-foreground">
-                Tap the photo to set the focus point, then zoom until it fills the frame the way you want.
-                This is exactly how it appears on the shop.
+                Drag the photo to move it inside the frame, tap to jump the focus point, and zoom
+                until it fits the way you want. This is exactly how it appears on the shop.
               </p>
               <div
-                className="relative aspect-square rounded-xl overflow-hidden border cursor-crosshair bg-muted/30"
-                onClick={setFrameFocalFromClick}
-                title="Tap to set the focus point"
+                className="relative aspect-square rounded-xl overflow-hidden border cursor-move bg-muted/30 select-none"
+                style={{ touchAction: "none" }}
+                onPointerDown={onFramePointerDown}
+                onPointerMove={onFramePointerMove}
+                onPointerUp={onFramePointerUp}
+                onPointerCancel={() => { frameDragRef.current = null; }}
+                title="Drag to move · tap to set the focus point"
               >
                 <img
                   src={getStorageUrl(framingMedia.file_path)}
                   alt=""
-                  className="h-full w-full object-cover"
+                  draggable={false}
+                  className="h-full w-full object-cover pointer-events-none"
                   style={{
                     objectPosition: `${framePos.x}% ${framePos.y}%`,
                     transform: frameZoom !== 1 ? `scale(${frameZoom})` : undefined,

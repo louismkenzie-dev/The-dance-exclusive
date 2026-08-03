@@ -11,6 +11,7 @@ import { CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, LogIn, LogOut,
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { addDays, differenceInYears, format, parseISO } from "date-fns";
 import StudentProfileDrawer from "@/components/staff/StudentProfileDrawer";
+import VenueFilterChips from "@/components/VenueFilterChips";
 
 const formatDay = (d: string) => d.charAt(0).toUpperCase() + d.slice(1);
 
@@ -24,6 +25,7 @@ const AdminRegisters = () => {
   const [loading, setLoading] = useState(true);
   const [profileBooking, setProfileBooking] = useState<{ booking: any; sessionId: string; classId: string } | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [venueFilter, setVenueFilter] = useState<string>("all");
 
   const isPast = date < todayIso;
   const isToday = date === todayIso;
@@ -45,7 +47,7 @@ const AdminRegisters = () => {
       .from("class_sessions")
       .select(`
         id, session_date, start_time, end_time, class_id,
-        classes:class_id ( id, name, day_of_week, venues:venue_id ( name ) ),
+        classes:class_id ( id, name, day_of_week, venue_id, venues:venue_id ( name ) ),
         session_instructors ( staff:staff_id ( id, first_name, last_name, full_name ) )
       `)
       .eq("session_date", date)
@@ -193,6 +195,28 @@ const AdminRegisters = () => {
   const presentCount = useMemo(() => bookings.filter((b) => b.attendance?.checked_in_at).length, [bookings]);
   const absentCount = useMemo(() => bookings.filter((b) => b.attendance?.status === "absent").length, [bookings]);
 
+  // Venue chips for the day — only venues that actually have a register today.
+  const venueOptions = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const s of sessions) {
+      if (s.classes?.venue_id && s.classes?.venues?.name) byId.set(s.classes.venue_id, s.classes.venues.name);
+    }
+    return [...byId.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [sessions]);
+
+  const visibleSessions = useMemo(
+    () => sessions.filter((s) => venueFilter === "all" || s.classes?.venue_id === venueFilter),
+    [sessions, venueFilter],
+  );
+
+  // Keep a valid register selected when the venue filter hides the current one.
+  useEffect(() => {
+    if (visibleSessions.length === 0) return;
+    if (!visibleSessions.some((s) => s.id === selectedSessionId)) {
+      setSelectedSessionId(visibleSessions[0].id);
+    }
+  }, [visibleSessions, selectedSessionId]);
+
   const selectedSession = sessions.find((s) => s.id === selectedSessionId);
 
   const statusInfo = (att: any) => {
@@ -282,6 +306,12 @@ const AdminRegisters = () => {
         <Card><CardContent className="py-12 text-center text-muted-foreground">No classes scheduled for this day.</CardContent></Card>
       ) : (
         <>
+          <VenueFilterChips venues={venueOptions} value={venueFilter} onChange={setVenueFilter} className="mb-4" />
+
+          {visibleSessions.length === 0 ? (
+            <Card><CardContent className="py-12 text-center text-muted-foreground">No classes at this venue today — switch venue or pick another date.</CardContent></Card>
+          ) : (
+          <>
           {/* Session picker */}
           <div className="mb-6">
             <label className="text-xs uppercase tracking-wider text-muted-foreground mb-2 block">Pick a register</label>
@@ -306,7 +336,7 @@ const AdminRegisters = () => {
                 </SelectValue>
               </SelectTrigger>
               <SelectContent className="max-w-[90vw]">
-                {sessions.map((s) => (
+                {visibleSessions.map((s) => (
                   <SelectItem key={s.id} value={s.id} className="py-3">
                     <div className="flex flex-col gap-0.5">
                       <span className="font-medium">{s.classes?.name}</span>
@@ -452,6 +482,8 @@ const AdminRegisters = () => {
                 )}
               </CardContent>
             </Card>
+          )}
+          </>
           )}
         </>
       )}

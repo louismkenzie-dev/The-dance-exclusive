@@ -7,19 +7,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { PassRedeemDialog, type SessionOption } from "@/components/portal/PassRedeemDialog";
-
-interface VenueOption {
-  id: string;
-  name: string;
-}
+import VenueFilterChips from "@/components/VenueFilterChips";
 
 interface TimetableClass {
   id: string;
@@ -73,7 +62,6 @@ const Timetable = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [venues, setVenues] = useState<VenueOption[]>([]);
   const [venueId, setVenueId] = useState<string>("all");
   const [classes, setClasses] = useState<TimetableClass[]>([]);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
@@ -82,15 +70,14 @@ const Timetable = () => {
   const [passes, setPasses] = useState<PassRow[]>([]);
   const [passDialogOpen, setPassDialogOpen] = useState(false);
 
-  // Venue picker options — publicly visible venues only.
-  useEffect(() => {
-    supabase
-      .from("venues")
-      .select("id, name")
-      .eq("publicly_visible", true)
-      .order("name")
-      .then(({ data }) => setVenues((data as VenueOption[]) ?? []));
-  }, []);
+  // Venue chips — only venues that actually host a bookable class.
+  const venues = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const c of classes) {
+      if (c.venue_id && c.venues?.name) byId.set(c.venue_id, c.venues.name);
+    }
+    return [...byId.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [classes]);
 
   // Bookable classes + their scheduled sessions in the next three weeks.
   // Two batched queries for the whole page — venue filtering is client-side.
@@ -272,30 +259,15 @@ const Timetable = () => {
     <div className="min-h-[80vh] bg-background">
       <div className="container py-12 max-w-4xl">
         {/* Header + venue picker */}
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-display font-bold flex items-center gap-2.5">
-              <CalendarDays className="w-7 h-7 text-primary" /> Timetable
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1" style={bodyFont}>
-              Every upcoming class over the next {HORIZON_DAYS} days. Members with a
-              membership are already covered — everyone else can book in a couple of taps.
-            </p>
-          </div>
-          <Select value={venueId} onValueChange={setVenueId}>
-            <SelectTrigger className="w-full sm:w-60 shrink-0" aria-label="Filter timetable by venue">
-              <MapPin className="w-3.5 h-3.5 mr-1.5 text-primary shrink-0" />
-              <SelectValue placeholder="All venues" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All venues</SelectItem>
-              {venues.map((v) => (
-                <SelectItem key={v.id} value={v.id}>
-                  {v.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="mb-8">
+          <h1 className="text-3xl font-display font-bold flex items-center gap-2.5">
+            <CalendarDays className="w-7 h-7 text-primary" /> Timetable
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1" style={bodyFont}>
+            Every upcoming class over the next {HORIZON_DAYS} days. Members with a
+            membership are already covered — everyone else can book in a couple of taps.
+          </p>
+          <VenueFilterChips venues={venues} value={venueId} onChange={setVenueId} className="mt-4" />
         </div>
 
         {loading ? (

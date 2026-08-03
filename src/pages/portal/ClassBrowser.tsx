@@ -45,6 +45,7 @@ import { ChildFormDialog } from "@/components/portal/ChildFormDialog";
 import { CampBookDialog } from "@/components/portal/CampBookDialog";
 import { AdultPassesCard } from "@/components/portal/AdultPassesCard";
 import { isAttendeeProfileComplete } from "@/lib/attendeeProfile";
+import VenueFilterChips from "@/components/VenueFilterChips";
 import {
   MONTHLY_MEMBERSHIP_NOTICE,
   MONTHLY_PAYMENT_INFO,
@@ -114,6 +115,7 @@ interface ClassItem {
   booking_enabled: boolean;
   status: string;
   publicly_visible: boolean;
+  venue_id: string | null;
   venues: VenueData | null;
   staff: StaffData | null;
   workshops: { cover_image: string | null; cover_position: string | null; name: string; description: string | null } | null;
@@ -170,6 +172,7 @@ const ClassBrowser = () => {
   const [selectedSessions, setSelectedSessions] = useState<Record<string, string[]>>({});
   const [hasExistingBookings, setHasExistingBookings] = useState<boolean | null>(null);
   const [activeSection, setActiveSection] = useState<"classes" | "camps" | "shows">("classes");
+  const [venueFilter, setVenueFilter] = useState<string>("all");
   const [quickBookClassId, setQuickBookClassId] = useState<string | null>(null);
   const [bookCampId, setBookCampId] = useState<string | null>(null);
   const [schoolTerms, setSchoolTerms] = useState<{ name: string; term_type: string; start_date: string; end_date: string }[]>([]);
@@ -331,6 +334,7 @@ const ClassBrowser = () => {
       setLoading(false);
     };
     fetchClasses();
+    setVenueFilter("all");
   }, [classType]);
 
   // This parent's waitlist entries (to toggle Join/Leave on full classes).
@@ -444,9 +448,21 @@ const ClassBrowser = () => {
   // Effective coords: manual search overrides home coords
   const effectiveCoords = searchCoords || homeCoords;
 
+  // Venue chips come from the loaded classes, so only venues actually running
+  // classes of this type appear.
+  const venueOptions = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const c of classes) {
+      const v = c.venues as VenueData | null;
+      if (c.venue_id && v?.name) byId.set(c.venue_id, v.name);
+    }
+    return [...byId.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [classes]);
+
   // Sort: age-matched classes first, then by distance
   const sortedClasses = useMemo(() => {
-    const scored = classes.map(c => {
+    const filtered = venueFilter === "all" ? classes : classes.filter(c => c.venue_id === venueFilter);
+    const scored = filtered.map(c => {
       const matched = getMatchingChildren(c);
       const ageScore = matched.length > 0 ? 0 : 1;
       let dist = 9999;
@@ -460,7 +476,7 @@ const ClassBrowser = () => {
     });
     scored.sort((a, b) => a.ageScore - b.ageScore || a.dist - b.dist);
     return scored;
-  }, [classes, effectiveCoords, children]);
+  }, [classes, effectiveCoords, children, venueFilter]);
 
   const getDistance = (c: ClassItem) => {
     if (!effectiveCoords) return null;
@@ -667,13 +683,23 @@ const ClassBrowser = () => {
 
         {/* CLASSES SECTION */}
         <div id="section-classes" className={activeSection !== "classes" ? "hidden" : ""}>
+        {!loading && (
+          <VenueFilterChips
+            venues={venueOptions}
+            value={venueFilter}
+            onChange={setVenueFilter}
+            className="justify-center mb-8"
+          />
+        )}
         {loading ? (
           <div className="text-center text-muted-foreground py-12">Loading classes...</div>
         ) : sortedClasses.length === 0 ? (
           <Card className="card-elevated border-border/50">
             <CardContent className="py-16 text-center text-muted-foreground">
               <CalendarDays className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
-              No {classType} classes available right now. Check back soon!
+              {venueFilter !== "all"
+                ? `No ${classType} classes at this venue right now — try another venue.`
+                : `No ${classType} classes available right now. Check back soon!`}
             </CardContent>
           </Card>
         ) : (

@@ -16,6 +16,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { AlertTriangle, Crown, Loader2, MapPin, UserPlus, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import VenueFilterChips from "@/components/VenueFilterChips";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
@@ -35,6 +36,7 @@ interface TimetableClass {
   end_time: string;
   capacity: number;
   publicly_visible: boolean;
+  venue_id: string | null;
   venues: { name: string } | null;
   class_instructors: AssignedStaff[];
 }
@@ -58,6 +60,7 @@ const AdminTimetable = () => {
   const [classes, setClasses] = useState<TimetableClass[]>([]);
   const [staffList, setStaffList] = useState<StaffOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [venueFilter, setVenueFilter] = useState<string>("all");
   const [assignTarget, setAssignTarget] = useState<TimetableClass | null>(null);
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<"main" | "assistant">("main");
@@ -69,7 +72,7 @@ const AdminTimetable = () => {
       supabase
         .from("classes")
         .select(
-          "id, name, class_type, dance_style, day_of_week, start_time, end_time, capacity, publicly_visible, venues(name), class_instructors(id, instructor_role, staff(id, full_name, email, user_id))",
+          "id, name, class_type, dance_style, day_of_week, start_time, end_time, capacity, publicly_visible, venue_id, venues(name), class_instructors(id, instructor_role, staff(id, full_name, email, user_id))",
         )
         .eq("is_active", true)
         .order("start_time"),
@@ -87,9 +90,26 @@ const AdminTimetable = () => {
     fetchAll();
   }, [fetchAll]);
 
+  // Venue chips come from the classes themselves, so only venues that actually
+  // host a class appear. Classes with no venue show on the all-venues view only.
+  const venueOptions = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const c of classes) {
+      if (c.venue_id && c.venues?.name) byId.set(c.venue_id, c.venues.name);
+    }
+    return [...byId.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [classes]);
+
+  const visibleClasses = useMemo(
+    () => classes.filter((c) => venueFilter === "all" || c.venue_id === venueFilter),
+    [classes, venueFilter],
+  );
+
   const unstaffedCount = useMemo(
-    () => classes.filter((c) => (c.class_instructors ?? []).length === 0).length,
-    [classes],
+    () => visibleClasses.filter((c) => (c.class_instructors ?? []).length === 0).length,
+    [visibleClasses],
   );
 
   const openAssign = (cls: TimetableClass) => {
@@ -153,7 +173,7 @@ const AdminTimetable = () => {
 
   const classesByDay = DAYS.map((day) => ({
     day,
-    classes: classes.filter((c) => c.day_of_week === day),
+    classes: visibleClasses.filter((c) => c.day_of_week === day),
   }));
 
   const assignedIds = new Set(
@@ -184,6 +204,10 @@ const AdminTimetable = () => {
           </Badge>
         )}
       </div>
+
+      {!loading && (
+        <VenueFilterChips venues={venueOptions} value={venueFilter} onChange={setVenueFilter} className="mb-6" />
+      )}
 
       {loading ? (
         <div className="text-muted-foreground">Loading timetable...</div>

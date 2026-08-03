@@ -16,6 +16,7 @@ import {
   Plus, Pencil, Trash2, LayoutGrid, Columns, TableProperties,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import VenueFilterChips from "@/components/VenueFilterChips";
 import {
   format,
   startOfMonth,
@@ -109,6 +110,7 @@ type ViewMode = "month" | "week";
 
 const AdminCalendar = () => {
   const [viewMode, setViewMode] = useState<ViewMode>("month");
+  const [venueFilter, setVenueFilter] = useState<string>("all");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isMobile, setIsMobile] = useState(false);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
@@ -209,7 +211,19 @@ const AdminCalendar = () => {
     staff: null,
   }));
 
-  const allSessions = [...sessions, ...campSessionsAsUnified].sort((a, b) => a.start_time.localeCompare(b.start_time));
+  const { data: venueOptions = [] } = useQuery({
+    queryKey: ["calendar-venues"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("venues").select("id, name").order("name");
+      if (error) throw error;
+      return (data || []) as { id: string; name: string }[];
+    },
+  });
+
+  // Sessions with no venue set only appear on the all-venues view.
+  const allSessions = [...sessions, ...campSessionsAsUnified]
+    .filter((s) => venueFilter === "all" || s.classes?.venue_id === venueFilter)
+    .sort((a, b) => a.start_time.localeCompare(b.start_time));
 
   // Fetch session_instructors and class_instructors for multi-instructor display
   const sessionIds = sessions.map(s => s.id);
@@ -836,6 +850,9 @@ const AdminCalendar = () => {
           </div>
         </CardHeader>
         <CardContent>
+          {/* Venue switcher — whole-studio calendar or one venue at a time */}
+          <VenueFilterChips venues={venueOptions} value={venueFilter} onChange={setVenueFilter} className="mb-4" />
+
           {/* Legend */}
           <div className="flex flex-wrap gap-4 mb-4 text-xs">
             <div className="flex items-center gap-1.5">

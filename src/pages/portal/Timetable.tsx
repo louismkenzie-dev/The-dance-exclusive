@@ -65,6 +65,9 @@ const Timetable = () => {
   const [venueId, setVenueId] = useState<string>("all");
   const [classes, setClasses] = useState<TimetableClass[]>([]);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
+  /** Set when the next session is beyond the normal horizon (holiday break):
+   *  the date classes come back, shown as a banner over next term's timetable. */
+  const [backOn, setBackOn] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [memberships, setMemberships] = useState<MembershipRow[]>([]);
   const [passes, setPasses] = useState<PassRow[]>([]);
@@ -96,20 +99,41 @@ const Timetable = () => {
       setClasses(cls);
 
       if (cls.length > 0) {
+        // Anchor the window on the next session rather than today, so during
+        // holiday breaks (all of August, half terms) parents see the start of
+        // next term instead of an empty screen.
         const today = format(new Date(), "yyyy-MM-dd");
-        const horizon = format(addDays(new Date(), HORIZON_DAYS), "yyyy-MM-dd");
-        const { data: sessionData } = await supabase
+        const { data: nextRow } = await supabase
           .from("class_sessions")
-          .select("id, class_id, session_date, start_time, end_time")
+          .select("session_date")
           .in("class_id", cls.map((c) => c.id))
           .eq("status", "scheduled")
           .gte("session_date", today)
-          .lte("session_date", horizon)
           .order("session_date")
-          .order("start_time");
-        setSessions((sessionData as SessionRow[]) ?? []);
+          .limit(1);
+        const firstDate = (nextRow?.[0]?.session_date as string | undefined) ?? null;
+        if (!firstDate) {
+          setSessions([]);
+          setBackOn(null);
+        } else {
+          const horizonFromToday = format(addDays(new Date(), HORIZON_DAYS), "yyyy-MM-dd");
+          setBackOn(firstDate > horizonFromToday ? firstDate : null);
+          const windowStart = firstDate > today ? firstDate : today;
+          const windowEnd = format(addDays(parseISO(windowStart), HORIZON_DAYS), "yyyy-MM-dd");
+          const { data: sessionData } = await supabase
+            .from("class_sessions")
+            .select("id, class_id, session_date, start_time, end_time")
+            .in("class_id", cls.map((c) => c.id))
+            .eq("status", "scheduled")
+            .gte("session_date", windowStart)
+            .lte("session_date", windowEnd)
+            .order("session_date")
+            .order("start_time");
+          setSessions((sessionData as SessionRow[]) ?? []);
+        }
       } else {
         setSessions([]);
+        setBackOn(null);
       }
       setLoading(false);
     };
@@ -264,11 +288,26 @@ const Timetable = () => {
             <CalendarDays className="w-7 h-7 text-primary" /> Timetable
           </h1>
           <p className="text-sm text-muted-foreground mt-1" style={bodyFont}>
-            Every upcoming class over the next {HORIZON_DAYS} days. Members with a
-            membership are already covered — everyone else can book in a couple of taps.
+            {backOn
+              ? "The first three weeks of next term."
+              : `Every upcoming class over the next ${HORIZON_DAYS} days.`}{" "}
+            Members with a membership are already covered — everyone else can book in a
+            couple of taps.
           </p>
           <VenueFilterChips venues={venues} value={venueId} onChange={setVenueId} className="mt-4" />
         </div>
+
+        {!loading && backOn && (
+          <div className="mb-6 rounded-xl border border-primary/30 bg-primary/5 px-5 py-4">
+            <p className="text-sm font-semibold text-foreground">
+              We&apos;re on a break — classes are back{" "}
+              {format(parseISO(backOn), "EEEE d MMMM")}.
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5" style={bodyFont}>
+              Here&apos;s the start of the new term so you can plan (and book) ahead.
+            </p>
+          </div>
+        )}
 
         {loading ? (
           <div className="text-center text-muted-foreground py-16">Loading timetable...</div>

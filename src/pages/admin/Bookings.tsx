@@ -224,6 +224,9 @@ interface FamilyGroup {
   statusChips: { label: string; count: number; className: string }[];
   unlimited: boolean;
   hasLive: boolean;
+  /** Every non-ended row is an abandoned checkout — nothing was ever charged. */
+  incompleteOnly: boolean;
+  incompleteTotal: number;
 }
 
 const STATUS_CHIP_ORDER = ["Active", "Payment issue", "Paused", "Ending", "Incomplete", "Ended"];
@@ -376,11 +379,14 @@ const MembershipsTab = () => {
     }, new Map<string, PlanRow[]>())
     .entries()]
     .map(([email, familyRows]): FamilyGroup => {
-      // "Current" = anything not fully ended (paused/past_due still count
-      // towards the family's recurring total and the £110 cap).
-      const current = familyRows.filter((r) => r.statusLabel !== "Ended");
+      // "Charging" = plans Stripe will actually collect (paused/past_due still
+      // count towards the family's recurring total and the £110 cap).
+      // Incomplete rows are abandoned checkouts — no payment was ever taken,
+      // so they never contribute to the headline £/mo.
+      const charging = familyRows.filter((r) => r.statusLabel !== "Ended" && r.statusLabel !== "Incomplete");
+      const incomplete = familyRows.filter((r) => r.statusLabel === "Incomplete");
       const perChild = new Map<string, number>();
-      for (const r of current) {
+      for (const r of charging) {
         if (r.childName !== "—") perChild.set(r.childName, (perChild.get(r.childName) ?? 0) + r.amount);
       }
       const countsByLabel = new Map<string, { count: number; className: string }>();
@@ -399,16 +405,21 @@ const MembershipsTab = () => {
         rows: [...familyRows].sort((a, b) =>
           a.live !== b.live ? (a.live ? -1 : 1) : charge(a) - charge(b) || a.childName.localeCompare(b.childName),
         ),
-        liveTotal: current.reduce((sum, r) => sum + r.amount, 0),
+        liveTotal: charging.reduce((sum, r) => sum + r.amount, 0),
         statusChips: [...countsByLabel.entries()]
           .sort((a, b) => chipRank(a[0]) - chipRank(b[0]))
           .map(([label, { count, className }]) => ({ label, count, className })),
         unlimited: [...perChild.values()].some((total) => total >= 110),
         hasLive: familyRows.some((r) => r.live),
+        incompleteOnly: charging.length === 0 && incomplete.length > 0,
+        incompleteTotal: incomplete.reduce((sum, r) => sum + r.amount, 0),
       };
     })
     .filter((g) => g.rows.some(matchesSearch))
     .sort((a, b) => (a.hasLive !== b.hasLive ? (a.hasLive ? -1 : 1) : a.name.localeCompare(b.name)));
+
+  const payingGroups = familyGroups.filter((g) => !g.incompleteOnly);
+  const abandonedGroups = familyGroups.filter((g) => g.incompleteOnly);
 
   const showMonthly = planFilter === "all" || planFilter === "monthly";
   const showOneOff = planFilter !== "monthly";
@@ -462,10 +473,10 @@ const MembershipsTab = () => {
         <Card><CardContent className="py-12 text-center text-muted-foreground">No plans match your search.</CardContent></Card>
       ) : (
         <>
-          {showMonthly && familyGroups.length > 0 && (
+          {showMonthly && payingGroups.length > 0 && (
             <div className="space-y-3">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Monthly memberships</h3>
-              {familyGroups.map((g) => (
+              {payingGroups.map((g) => (
                 <Collapsible key={g.email}>
                   <Card className="animate-fade-in">
                     <CollapsibleTrigger asChild>
@@ -520,6 +531,74 @@ const MembershipsTab = () => {
                                 <TableCell>{format(new Date(r.started), "d MMM yyyy")}</TableCell>
                                 <TableCell>{r.nextCharge ? format(new Date(r.nextCharge), "d MMM yyyy") : "—"}</TableCell>
                                 <TableCell>{r.ends ? format(new Date(r.ends), "d MMM yyyy") : "—"}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
+              ))}
+            </div>
+          )}
+
+          {showMonthly && abandonedGroups.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unfinished checkouts</h3>
+              <p className="text-xs text-muted-foreground -mt-1">
+                These parents started a membership checkout but never completed payment — nothing has been or
+                will be charged. Worth a friendly follow-up.
+              </p>
+              {abandonedGroups.map((g) => (
+                <Collapsible key={g.email}>
+                  <Card className="animate-fade-in border-dashed">
+                    <CollapsibleTrigger asChild>
+                      <CardContent className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-4 cursor-pointer hover:bg-accent/30 transition-colors">
+                        <div>
+                          <span className="font-medium text-muted-foreground">{g.name}</span>
+                          <span className="block text-xs text-muted-foreground">{g.email}</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap justify-end">
+                          <span className="text-sm text-muted-foreground whitespace-nowrap">
+                            £{g.incompleteTotal.toFixed(2)}/mo attempted · never charged
+                          </span>
+                          {g.statusChips.map((c) => (
+                            <Badge key={c.label} variant="outline" className={c.className}>
+                              {c.count} {c.label.toLowerCase()}
+                            </Badge>
+                          ))}
+                          <ChevronDown className="w-4 h-4 text-muted-foreground ml-1 transition-transform duration-200 [[data-state=open]_&]:rotate-180" />
+                        </div>
+                      </CardContent>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="border-t border-border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Child</TableHead>
+                              <TableHead>Class</TableHead>
+                              <TableHead>£/mo</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Attempted</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {g.rows.map((r) => (
+                              <TableRow key={r.key}>
+                                <TableCell>{r.childName}</TableCell>
+                                <TableCell>
+                                  <span>{r.className}</span>
+                                  {r.classSchedule && (
+                                    <span className="block text-xs text-muted-foreground">{r.classSchedule}</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>£{r.amount.toFixed(2)}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className={r.statusClass}>{r.statusLabel}</Badge>
+                                </TableCell>
+                                <TableCell>{format(new Date(r.started), "d MMM yyyy")}</TableCell>
                               </TableRow>
                             ))}
                           </TableBody>

@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils";
 import { TERMS_AND_CONDITIONS } from "@/lib/terms";
 import {
   MONTHLY_PAYMENT_INFO,
+  UNLIMITED_MONTHLY_CAP,
   additionalMonthlyPrice,
   additionalYearlyPrice,
   computeSiblingDiscount,
@@ -43,6 +44,15 @@ import {
   round2,
   yearlyPrice,
 } from "@/lib/pricing";
+
+/** "5 September" — en-GB day + month, in studio time so the 07:00 UTC
+ *  billing anchor always reads as the 5th. */
+const formatFirstPayment = (iso: string): string =>
+  new Date(iso).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    timeZone: "Europe/London",
+  });
 
 const planLabel: Record<PricingPlan, string> = {
   trial: "Trial",
@@ -167,13 +177,20 @@ function buildAppearance(): Appearance {
 const PaymentForm = ({
   totalAmount,
   customerEmail,
+  clientSecret,
+  subscriptionId,
 }: {
   totalAmount: number;
   customerEmail?: string | null;
+  clientSecret: string;
+  subscriptionId?: string | null;
 }) => {
   const stripe = useStripe();
   const elements = useElements();
   const { clearCart } = useCart();
+  // August membership signups save a card via SetupIntent — nothing is
+  // charged today, so the confirm step and button copy differ.
+  const setupMode = clientSecret.startsWith("seti_");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState<string>(customerEmail || "");
@@ -194,6 +211,47 @@ const PaymentForm = ({
 
     const origin = window.location.origin;
     const returnUrl = `${origin}/checkout/return`;
+
+    if (setupMode) {
+      // £0-today path: confirm the SetupIntent (card saved, first charge on
+      // the subscription's trial end). Stripe appends setup_intent params to
+      // the return_url on a redirect; the inline path mirrors them below.
+      const setupReturnUrl = `${returnUrl}?subscription=${subscriptionId ?? ""}`;
+      const { error: submitError, setupIntent } = await stripe.confirmSetup({
+        elements,
+        confirmParams: { return_url: setupReturnUrl },
+        redirect: "if_required",
+      });
+
+      if (submitError) {
+        setError(submitError.message || "Card setup failed. Please try again.");
+        setSubmitting(false);
+        return;
+      }
+
+      if (setupIntent) {
+        if (setupIntent.status === "succeeded") {
+          // Activate the membership (bookings + email) before leaving the
+          // page. The return page and the daily maintenance job both retry
+          // this idempotently, so a transient failure must not block success.
+          try {
+            await supabase.functions.invoke("finalize-membership-setup", {
+              body: { subscriptionId },
+            });
+          } catch {
+            // return page / maintenance job complete the activation
+          }
+          clearCart();
+        }
+        window.location.assign(
+          `${setupReturnUrl}&setup_intent=${setupIntent.id}` +
+            `&setup_intent_client_secret=${setupIntent.client_secret}` +
+            `&redirect_status=${setupIntent.status === "succeeded" ? "succeeded" : "processing"}`,
+        );
+      }
+      // Otherwise Stripe is mid-redirect — do nothing.
+      return;
+    }
 
     // `redirect: "if_required"` lets card payments complete inline without a
     // redirect (so we navigate manually). Payment methods are card + wallets
@@ -294,6 +352,8 @@ const PaymentForm = ({
           <>
             <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing…
           </>
+        ) : setupMode ? (
+          <>Set Up Membership — £0 today</>
         ) : (
           <>Pay £{totalAmount.toFixed(2)}</>
         )}
@@ -349,6 +409,11 @@ const CheckoutPage = () => {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [serverTotal, setServerTotal] = useState<number | null>(null);
+  // August £0-today signups: card saved via SetupIntent, first charge on the
+  // 5th of next month. Populated from the create-payment-intent response.
+  const [setupMode, setSetupMode] = useState(false);
+  const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
+  const [firstPaymentDate, setFirstPaymentDate] = useState<string | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(true);
   // Attendee-profile errors get an actionable "Add attendee details" button.
@@ -478,6 +543,19 @@ const CheckoutPage = () => {
   }, [items, pricingCtx, totalAmount]);
 
   const hasMonthlyItems = items.some((i) => i.pricingPlan === "monthly");
+  // £110 Unlimited marketing: true when any child's monthly memberships in
+  // this basket already sum to the cap (extra classes are then free).
+  const capReachedForChild = useMemo(() => {
+    const byChild = new Map<string, number>();
+    for (const i of items) {
+      if (i.pricingPlan !== "monthly" || i.classType !== "children" || !i.studentId) continue;
+      byChild.set(
+        i.studentId,
+        (byChild.get(i.studentId) ?? 0) + (adjusted.charges.get(i.id) ?? i.totalPrice),
+      );
+    }
+    return [...byChild.values()].some((total) => total >= UNLIMITED_MONTHLY_CAP - 0.005);
+  }, [items, adjusted]);
   // Client estimate for instant feedback; replaced by the server's authoritative
   // amount once the PaymentIntent is created.
   const estimatedTotal = Math.max(
@@ -502,6 +580,9 @@ const CheckoutPage = () => {
       setInitializing(true);
       setClientSecret(null);
       setServerTotal(null);
+      setSetupMode(false);
+      setSubscriptionId(null);
+      setFirstPaymentDate(null);
       try {
         const { data, error } = await supabase.functions.invoke(
           "create-payment-intent",
@@ -558,7 +639,12 @@ const CheckoutPage = () => {
           setInitError("Payments were just updated — please refresh the page and try again.");
         } else {
           setClientSecret(data.clientSecret);
-          setPaymentIntentId(data.paymentIntentId || null);
+          // In setup mode this stores the seti_ id — the server safely
+          // ignores it when it comes back as previousPaymentIntentId.
+          setPaymentIntentId(data.paymentIntentId || data.setupIntentId || null);
+          setSetupMode(!!data.setupMode);
+          setSubscriptionId(data.subscriptionId ?? null);
+          setFirstPaymentDate(data.firstPaymentDate ?? null);
           // The server's amount is authoritative — display it so the "Pay"
           // button and total always match exactly what Stripe will charge,
           // even if the client's sibling/coupon estimate drifts slightly.
@@ -698,6 +784,8 @@ const CheckoutPage = () => {
                   <PaymentForm
                     totalAmount={finalTotal}
                     customerEmail={user?.email || profile?.email}
+                    clientSecret={clientSecret}
+                    subscriptionId={subscriptionId}
                   />
                 </Elements>
               )}
@@ -837,6 +925,18 @@ const CheckoutPage = () => {
                             £{finalTotal.toFixed(2)}
                           </span>
                         </div>
+                        {setupMode && firstPaymentDate && (
+                          <p className="text-xs text-primary leading-relaxed pt-1">
+                            Nothing to pay today — your first payment of £
+                            {estimatedTotal.toFixed(2)} is taken on{" "}
+                            {formatFirstPayment(firstPaymentDate)}.
+                          </p>
+                        )}
+                        {capReachedForChild && (
+                          <p className="text-[11px] text-primary leading-relaxed pt-1">
+                            £110 cap reached — every extra class for this child is free.
+                          </p>
+                        )}
                         {hasMonthlyItems && (
                           <p className="text-[11px] text-muted-foreground leading-relaxed pt-1">
                             {MONTHLY_PAYMENT_INFO} Cancelling requires one month's written

@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ADULT_PASSES, type AdultPassType } from "@/lib/pricing";
 
@@ -213,6 +215,19 @@ const planMeta: Record<PlanKind, { label: string; className: string }> = {
 
 const PLAN_ORDER: PlanKind[] = ["monthly", "yearly", "term", "trial", "session"];
 
+/** All of one customer's monthly memberships, rolled up for the family card. */
+interface FamilyGroup {
+  email: string;
+  name: string;
+  rows: PlanRow[];
+  liveTotal: number;
+  statusChips: { label: string; count: number; className: string }[];
+  unlimited: boolean;
+  hasLive: boolean;
+}
+
+const STATUS_CHIP_ORDER = ["Active", "Payment issue", "Paused", "Ending", "Incomplete", "Ended"];
+
 /** Admin view of every plan a family is on: monthly memberships (real Stripe
  *  subscriptions) plus termly / yearly / trial / pay-as-you-go purchases,
  *  categorised so it's easy to find who's on what. */
@@ -324,8 +339,7 @@ const MembershipsTab = () => {
     return acc;
   }, {} as Record<PlanKind, number>);
 
-  const filtered = rows.filter((r) => {
-    if (planFilter !== "all" && r.plan !== planFilter) return false;
+  const matchesSearch = (r: PlanRow) => {
     if (!search) return true;
     const s = search.toLowerCase();
     return (
@@ -334,17 +348,72 @@ const MembershipsTab = () => {
       r.childName.toLowerCase().includes(s) ||
       r.className.toLowerCase().includes(s)
     );
-  });
+  };
 
-  // Group by plan (monthly → yearly → termly → trial → PAYG), live rows first,
-  // soonest charge at the top within monthly.
-  const sorted = [...filtered].sort((a, b) => {
-    const planRank = PLAN_ORDER.indexOf(a.plan) - PLAN_ORDER.indexOf(b.plan);
-    if (planRank !== 0) return planRank;
-    if (a.live !== b.live) return a.live ? -1 : 1;
-    const charge = (r: PlanRow) => (r.nextCharge ? new Date(r.nextCharge).getTime() : Number.MAX_SAFE_INTEGER);
-    return charge(a) - charge(b) || a.parentName.localeCompare(b.parentName);
-  });
+  const charge = (r: PlanRow) => (r.nextCharge ? new Date(r.nextCharge).getTime() : Number.MAX_SAFE_INTEGER);
+
+  // One-off plans keep the flat table, grouped by plan (yearly → termly →
+  // trial → PAYG), live rows first.
+  const oneOffSorted = rows
+    .filter((r) => r.plan !== "monthly" && (planFilter === "all" || r.plan === planFilter) && matchesSearch(r))
+    .sort((a, b) => {
+      const planRank = PLAN_ORDER.indexOf(a.plan) - PLAN_ORDER.indexOf(b.plan);
+      if (planRank !== 0) return planRank;
+      if (a.live !== b.live) return a.live ? -1 : 1;
+      return charge(a) - charge(b) || a.parentName.localeCompare(b.parentName);
+    });
+
+  // Monthly memberships roll up into one collapsible card per customer. A
+  // search match on any row keeps the whole family card (with full totals)
+  // so the headline £/mo never shows a partial figure.
+  const familyGroups: FamilyGroup[] = [...rows
+    .filter((r) => r.plan === "monthly")
+    .reduce((map, r) => {
+      const list = map.get(r.parentEmail);
+      if (list) list.push(r);
+      else map.set(r.parentEmail, [r]);
+      return map;
+    }, new Map<string, PlanRow[]>())
+    .entries()]
+    .map(([email, familyRows]): FamilyGroup => {
+      // "Current" = anything not fully ended (paused/past_due still count
+      // towards the family's recurring total and the £110 cap).
+      const current = familyRows.filter((r) => r.statusLabel !== "Ended");
+      const perChild = new Map<string, number>();
+      for (const r of current) {
+        if (r.childName !== "—") perChild.set(r.childName, (perChild.get(r.childName) ?? 0) + r.amount);
+      }
+      const countsByLabel = new Map<string, { count: number; className: string }>();
+      for (const r of familyRows) {
+        const entry = countsByLabel.get(r.statusLabel);
+        if (entry) entry.count += 1;
+        else countsByLabel.set(r.statusLabel, { count: 1, className: r.statusClass });
+      }
+      const chipRank = (label: string) => {
+        const i = STATUS_CHIP_ORDER.indexOf(label);
+        return i === -1 ? STATUS_CHIP_ORDER.length : i;
+      };
+      return {
+        email,
+        name: familyRows[0].parentName,
+        rows: [...familyRows].sort((a, b) =>
+          a.live !== b.live ? (a.live ? -1 : 1) : charge(a) - charge(b) || a.childName.localeCompare(b.childName),
+        ),
+        liveTotal: current.reduce((sum, r) => sum + r.amount, 0),
+        statusChips: [...countsByLabel.entries()]
+          .sort((a, b) => chipRank(a[0]) - chipRank(b[0]))
+          .map(([label, { count, className }]) => ({ label, count, className })),
+        unlimited: [...perChild.values()].some((total) => total >= 110),
+        hasLive: familyRows.some((r) => r.live),
+      };
+    })
+    .filter((g) => g.rows.some(matchesSearch))
+    .sort((a, b) => (a.hasLive !== b.hasLive ? (a.hasLive ? -1 : 1) : a.name.localeCompare(b.name)));
+
+  const showMonthly = planFilter === "all" || planFilter === "monthly";
+  const showOneOff = planFilter !== "monthly";
+  const nothingToShow =
+    (!showMonthly || familyGroups.length === 0) && (!showOneOff || oneOffSorted.length === 0);
 
   if (loading) return <div className="text-muted-foreground">Loading plans...</div>;
   if (rows.length === 0) {
@@ -389,58 +458,135 @@ const MembershipsTab = () => {
         />
       </div>
 
-      {filtered.length === 0 ? (
+      {nothingToShow ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">No plans match your search.</CardContent></Card>
       ) : (
-        <Card className="animate-fade-in">
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Child</TableHead>
-                  <TableHead>Class</TableHead>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Started</TableHead>
-                  <TableHead>Next charge</TableHead>
-                  <TableHead>Ends</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sorted.map((r) => (
-                  <TableRow key={r.key}>
-                    <TableCell>
-                      <span className="font-medium">{r.parentName}</span>
-                      <span className="block text-xs text-muted-foreground">{r.parentEmail}</span>
-                    </TableCell>
-                    <TableCell>{r.childName}</TableCell>
-                    <TableCell>
-                      <span>{r.className}</span>
-                      {r.classSchedule && (
-                        <span className="block text-xs text-muted-foreground">{r.classSchedule}</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={planMeta[r.plan].className}>{planMeta[r.plan].label}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      £{r.amount.toFixed(2)}
-                      {r.perMonth && <span className="text-xs text-muted-foreground">/mo</span>}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={r.statusClass}>{r.statusLabel}</Badge>
-                    </TableCell>
-                    <TableCell>{format(new Date(r.started), "d MMM yyyy")}</TableCell>
-                    <TableCell>{r.nextCharge ? format(new Date(r.nextCharge), "d MMM yyyy") : "—"}</TableCell>
-                    <TableCell>{r.ends ? format(new Date(r.ends), "d MMM yyyy") : "—"}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <>
+          {showMonthly && familyGroups.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Monthly memberships</h3>
+              {familyGroups.map((g) => (
+                <Collapsible key={g.email}>
+                  <Card className="animate-fade-in">
+                    <CollapsibleTrigger asChild>
+                      <CardContent className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-4 cursor-pointer hover:bg-accent/30 transition-colors">
+                        <div>
+                          <span className="font-medium">{g.name}</span>
+                          <span className="block text-xs text-muted-foreground">{g.email}</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap justify-end">
+                          <span className="font-semibold whitespace-nowrap">
+                            £{g.liveTotal.toFixed(2)}
+                            <span className="text-xs font-normal text-muted-foreground">/mo</span>
+                          </span>
+                          {g.statusChips.map((c) => (
+                            <Badge key={c.label} variant="outline" className={c.className}>
+                              {c.count} {c.label.toLowerCase()}
+                            </Badge>
+                          ))}
+                          {g.unlimited && <Badge className="whitespace-nowrap">Unlimited £110</Badge>}
+                          <ChevronDown className="w-4 h-4 text-muted-foreground ml-1 transition-transform duration-200 [[data-state=open]_&]:rotate-180" />
+                        </div>
+                      </CardContent>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="border-t border-border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Child</TableHead>
+                              <TableHead>Class</TableHead>
+                              <TableHead>£/mo</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Started</TableHead>
+                              <TableHead>Next charge</TableHead>
+                              <TableHead>Ends</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {g.rows.map((r) => (
+                              <TableRow key={r.key}>
+                                <TableCell>{r.childName}</TableCell>
+                                <TableCell>
+                                  <span>{r.className}</span>
+                                  {r.classSchedule && (
+                                    <span className="block text-xs text-muted-foreground">{r.classSchedule}</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>£{r.amount.toFixed(2)}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className={r.statusClass}>{r.statusLabel}</Badge>
+                                </TableCell>
+                                <TableCell>{format(new Date(r.started), "d MMM yyyy")}</TableCell>
+                                <TableCell>{r.nextCharge ? format(new Date(r.nextCharge), "d MMM yyyy") : "—"}</TableCell>
+                                <TableCell>{r.ends ? format(new Date(r.ends), "d MMM yyyy") : "—"}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
+              ))}
+            </div>
+          )}
+
+          {showOneOff && oneOffSorted.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">One-off plans</h3>
+              <Card className="animate-fade-in">
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Child</TableHead>
+                        <TableHead>Class</TableHead>
+                        <TableHead>Plan</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Started</TableHead>
+                        <TableHead>Next charge</TableHead>
+                        <TableHead>Ends</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {oneOffSorted.map((r) => (
+                        <TableRow key={r.key}>
+                          <TableCell>
+                            <span className="font-medium">{r.parentName}</span>
+                            <span className="block text-xs text-muted-foreground">{r.parentEmail}</span>
+                          </TableCell>
+                          <TableCell>{r.childName}</TableCell>
+                          <TableCell>
+                            <span>{r.className}</span>
+                            {r.classSchedule && (
+                              <span className="block text-xs text-muted-foreground">{r.classSchedule}</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={planMeta[r.plan].className}>{planMeta[r.plan].label}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            £{r.amount.toFixed(2)}
+                            {r.perMonth && <span className="text-xs text-muted-foreground">/mo</span>}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={r.statusClass}>{r.statusLabel}</Badge>
+                          </TableCell>
+                          <TableCell>{format(new Date(r.started), "d MMM yyyy")}</TableCell>
+                          <TableCell>{r.nextCharge ? format(new Date(r.nextCharge), "d MMM yyyy") : "—"}</TableCell>
+                          <TableCell>{r.ends ? format(new Date(r.ends), "d MMM yyyy") : "—"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

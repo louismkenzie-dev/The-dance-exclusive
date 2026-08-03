@@ -18,6 +18,10 @@ export interface FulfilmentItem {
   /** Chosen session date (trials) — recorded in the booking notes so the
    *  register shows the booking only on that day and reminders know when. */
   sessionDate: string | null;
+  /** Chosen session dates (pay-as-you-go) — fulfilled as one dated booking
+   *  per session so registers and the 24h self-service move know exactly
+   *  which days were paid for. */
+  sessionDates: string[] | null;
 }
 
 /** Parse the compact per-item PI metadata written by create-payment-intent.
@@ -52,6 +56,9 @@ export function parsePaymentIntentItems(metadata: Record<string, unknown> | null
       totalPrice: Number(parsed.t || 0),
       ref: key,
       sessionDate: /^\d{4}-\d{2}-\d{2}$/.test(parsed.d || "") ? parsed.d : null,
+      sessionDates: Array.isArray(parsed.sd)
+        ? parsed.sd.filter((d: unknown) => /^\d{4}-\d{2}-\d{2}$/.test(String(d)))
+        : null,
     });
   }
   return items;
@@ -95,6 +102,53 @@ export async function fulfillItems(
       else {
         totalAmount += item.totalPrice;
         console.log("Class pass created:", item.passType);
+      }
+      continue;
+    }
+
+    // Pay-as-you-go with chosen dates: one dated booking per session, so the
+    // register shows the dancer only on the days they paid for and each date
+    // can be moved independently (24h self-service rule).
+    if (item.kind === "class" && item.sessionDates && item.sessionDates.length > 0) {
+      const n = item.sessionDates.length;
+      const totalPence = Math.round(item.totalPrice * 100);
+      const perPence = Math.floor(totalPence / n);
+      for (let i = 0; i < n; i++) {
+        const date = item.sessionDates[i];
+        // Last date absorbs the rounding remainder so the sum matches exactly.
+        const amount = (i === n - 1 ? totalPence - perPence * (n - 1) : perPence) / 100;
+        // Duplicate guard: same attendee, same class, same date (idempotent
+        // across webhook + polling double-fires and repeat purchases).
+        const dupQuery = supabase
+          .from("bookings")
+          .select("id")
+          .eq("parent_id", userId)
+          .eq("class_id", item.classId)
+          .in("status", ["confirmed", "pending_payment"])
+          .ilike("notes", `%session ${date}%`)
+          .limit(1);
+        if (item.studentId) dupQuery.eq("student_id", item.studentId);
+        else dupQuery.is("student_id", null);
+        const { data: existingDated } = await dupQuery;
+        if ((existingDated ?? []).length > 0) {
+          console.log("Skipping duplicate dated booking:", item.classId, date);
+          continue;
+        }
+        const { error } = await supabase.from("bookings").insert({
+          class_id: item.classId,
+          camp_id: null,
+          student_id: item.studentId,
+          parent_id: userId,
+          status: "confirmed",
+          booking_type: item.pricingPlan || "session",
+          amount,
+          notes: `Stripe PaymentIntent: ${pi.id} | session ${date}`,
+        });
+        if (error) console.error("Failed to create dated booking:", error);
+        else {
+          totalAmount += amount;
+          console.log("Dated booking created:", item.classId, date);
+        }
       }
       continue;
     }
@@ -214,26 +268,11 @@ export async function fulfillInvoicePaymentIntent(
       console.error("Subscription has no userId metadata:", sub.id);
       return true;
     }
-    // First payment: create the bookings for everything in the basket…
-    const items = parsePaymentIntentItems(sub.metadata);
-    const totalAmount = await fulfillItems(supabase, userId, pi, items);
-    // …record any holiday-workshop coupon…
-    await recordCouponRedemption(supabase, userId, { id: pi.id, metadata: sub.metadata });
-    // …and activate the memberships written at checkout time.
-    const { error } = await supabase
-      .from("memberships")
-      .update({
-        status: "active",
-        started_at: new Date().toISOString(),
-        current_period_end: periodEnd,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("stripe_subscription_id", sub.id)
-      .eq("status", "incomplete");
-    if (error) console.error("Failed to activate memberships:", error);
-
-    const charged = pi.amount_received != null ? pi.amount_received / 100 : totalAmount;
-    await sendBookingConfirmationEmail(supabase, userId, pi.id, charged || null);
+    await activateMembershipCheckout(supabase, sub, {
+      id: pi.id,
+      amountReceived: pi.amount_received ?? null,
+      metadata: sub.metadata,
+    });
     return true;
   }
 
@@ -248,6 +287,72 @@ export async function fulfillInvoicePaymentIntent(
     .update({ status: "active", updated_at: new Date().toISOString() })
     .eq("stripe_subscription_id", sub.id)
     .eq("status", "past_due");
+  return true;
+}
+
+/**
+ * Shared membership-checkout activation: creates the basket's bookings from
+ * the subscription's metadata, records the coupon, flips 'incomplete'
+ * membership rows to 'active' and sends the confirmation email.
+ *
+ * `payment` is the first-invoice PaymentIntent for paid signups, or null for
+ * August card-setup signups (nothing charged today — bookings reference the
+ * subscription id instead).
+ */
+export async function activateMembershipCheckout(
+  supabase: any,
+  sub: any,
+  payment: { id: string; amountReceived: number | null; metadata?: any } | null,
+): Promise<void> {
+  const userId = sub.metadata?.userId;
+  if (!userId) {
+    console.error("Subscription has no userId metadata:", sub.id);
+    return;
+  }
+  const reference = payment?.id ?? sub.id;
+  const periodEnd = sub.current_period_end
+    ? new Date(sub.current_period_end * 1000).toISOString()
+    : null;
+
+  const items = parsePaymentIntentItems(sub.metadata);
+  const totalAmount = await fulfillItems(supabase, userId, { id: reference }, items);
+  if (payment) {
+    await recordCouponRedemption(supabase, userId, { id: payment.id, metadata: payment.metadata ?? sub.metadata });
+  }
+
+  const { error } = await supabase
+    .from("memberships")
+    .update({
+      status: "active",
+      started_at: new Date().toISOString(),
+      current_period_end: periodEnd,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("stripe_subscription_id", sub.id)
+    .eq("status", "incomplete");
+  if (error) console.error("Failed to activate memberships:", error);
+
+  const charged = payment
+    ? (payment.amountReceived != null ? payment.amountReceived / 100 : totalAmount)
+    : 0;
+  await sendBookingConfirmationEmail(supabase, userId, reference, charged || null);
+}
+
+/**
+ * August card-setup activation (no money moved today). Idempotent: only acts
+ * when the subscription still has 'incomplete' membership rows — safe to call
+ * from the client finalize step AND the daily maintenance fallback.
+ * Returns true when activation ran.
+ */
+export async function activateMembershipSetup(supabase: any, sub: any): Promise<boolean> {
+  const { data: incompleteRows } = await supabase
+    .from("memberships")
+    .select("id")
+    .eq("stripe_subscription_id", sub.id)
+    .eq("status", "incomplete")
+    .limit(1);
+  if ((incompleteRows ?? []).length === 0) return false;
+  await activateMembershipCheckout(supabase, sub, null);
   return true;
 }
 

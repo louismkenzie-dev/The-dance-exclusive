@@ -64,15 +64,24 @@ const CheckoutReturn = () => {
   const paymentIntentId = searchParams.get("payment_intent");
   const clientSecret = searchParams.get("payment_intent_client_secret");
   const sessionId = searchParams.get("session_id");
+  // August £0-today membership signups arrive with SetupIntent params
+  // (appended by Stripe on redirect, or by Checkout's inline hand-off) plus
+  // our own ?subscription= from the return_url.
+  const setupIntentId = searchParams.get("setup_intent");
+  const setupClientSecret = searchParams.get("setup_intent_client_secret");
+  const subscriptionId = searchParams.get("subscription");
   const [status, setStatus] = useState<Status>("loading");
   const [email, setEmail] = useState<string | null>(null);
   const [amount, setAmount] = useState<number | null>(null);
   const [bookings, setBookings] = useState<BookingDetail[]>([]);
+  // Setup (£0-today) success variant: no payment summary, first-charge date.
+  const [isSetup, setIsSetup] = useState(false);
+  const [firstPaymentDate, setFirstPaymentDate] = useState<string | null>(null);
   const { clearCart } = useCart();
   const { user } = useAuth();
 
   useEffect(() => {
-    if (!paymentIntentId && !sessionId) {
+    if (!paymentIntentId && !sessionId && !setupClientSecret && !subscriptionId) {
       setStatus("error");
       return;
     }
@@ -136,8 +145,74 @@ const CheckoutReturn = () => {
       }
     };
 
+    // £0-today membership setup: verify the SetupIntent with Stripe, then ask
+    // the server to finalize (attach the payment method + activate bookings —
+    // idempotent, also retried by the daily maintenance job).
+    const checkSetupStatus = async () => {
+      try {
+        let setupStatus: string | null = null;
+        if (setupClientSecret) {
+          try {
+            const stripe = await getStripe();
+            if (stripe) {
+              const { setupIntent } = await stripe.retrieveSetupIntent(setupClientSecret);
+              setupStatus = setupIntent?.status ?? null;
+            }
+          } catch {
+            // fall back to the redirect status below
+          }
+        }
+        if (cancelled) return;
+        // Stripe unreachable (or link revisited without the secret) — trust
+        // the redirect_status Stripe/Checkout stamped on the URL.
+        const succeeded =
+          setupStatus === "succeeded" ||
+          (setupStatus == null && searchParams.get("redirect_status") === "succeeded");
+
+        if (!succeeded) {
+          setStatus(
+            setupStatus === "processing" || setupStatus === "requires_action"
+              ? "processing"
+              : "error",
+          );
+          return;
+        }
+
+        setIsSetup(true);
+        clearCart();
+        if (subscriptionId) {
+          try {
+            const { data } = await supabase.functions.invoke(
+              "finalize-membership-setup",
+              { body: { subscriptionId } },
+            );
+            if (!cancelled && data?.firstPaymentDate) {
+              setFirstPaymentDate(data.firstPaymentDate);
+            }
+          } catch {
+            // maintenance job completes the activation — don't fail the UI
+          }
+        }
+        if (cancelled) return;
+        setStatus("success");
+        if (subscriptionId) {
+          // Setup-mode bookings reference the subscription id in their notes.
+          void pollForBookings(subscriptionId).then((found) => {
+            if (!cancelled) setBookings(found);
+          });
+        }
+      } catch {
+        if (!cancelled) setStatus("error");
+      }
+    };
+
     const checkStatus = async () => {
       try {
+        if (!paymentIntentId && !sessionId && (setupClientSecret || setupIntentId || subscriptionId)) {
+          await checkSetupStatus();
+          return;
+        }
+
         if (paymentIntentId) {
           const [server, stripeStatus] = await Promise.all([
             fetchServerStatus(),
@@ -200,7 +275,8 @@ const CheckoutReturn = () => {
     return () => {
       cancelled = true;
     };
-  }, [paymentIntentId, sessionId, clientSecret, clearCart, user?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentIntentId, sessionId, clientSecret, setupIntentId, setupClientSecret, subscriptionId, clearCart, user?.id]);
 
   if (status === "loading") {
     return (
@@ -278,21 +354,41 @@ const CheckoutReturn = () => {
           </div>
           <div className="space-y-2">
             <Badge className="uppercase tracking-wider text-xs">
-              <Sparkles className="w-3 h-3 mr-1" /> Booking Confirmed
+              <Sparkles className="w-3 h-3 mr-1" />{" "}
+              {isSetup ? "Membership Confirmed" : "Booking Confirmed"}
             </Badge>
             <h1 className="text-4xl md:text-5xl font-black text-foreground tracking-tight">
-              You're all booked in!
+              {isSetup
+                ? "Membership set up — nothing to pay today"
+                : "You're all booked in!"}
             </h1>
-            <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-              Thank you for booking with The Dance Exclusive.
-              {email && (
-                <>
-                  {" "}
-                  A receipt has been sent to{" "}
-                  <span className="text-foreground font-medium">{email}</span>.
-                </>
-              )}
-            </p>
+            {isSetup ? (
+              <p className="text-muted-foreground text-lg max-w-xl mx-auto">
+                Your card is saved and your classes are booked. Your first
+                payment is on{" "}
+                <span className="text-foreground font-medium">
+                  {firstPaymentDate
+                    ? new Date(firstPaymentDate).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "long",
+                        timeZone: "Europe/London",
+                      })
+                    : "the 5th of next month"}
+                </span>
+                .
+              </p>
+            ) : (
+              <p className="text-muted-foreground text-lg max-w-xl mx-auto">
+                Thank you for booking with The Dance Exclusive.
+                {email && (
+                  <>
+                    {" "}
+                    A receipt has been sent to{" "}
+                    <span className="text-foreground font-medium">{email}</span>.
+                  </>
+                )}
+              </p>
+            )}
           </div>
         </div>
 

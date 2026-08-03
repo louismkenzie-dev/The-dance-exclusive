@@ -20,6 +20,7 @@ import { useCart, cartItemKind, type CartItem, type PricingPlan } from "@/contex
 import {
   MONTHLY_MEMBERSHIP_NOTICE,
   MONTHLY_PAYMENT_INFO,
+  UNLIMITED_CAP_INFO,
   monthlyPrice,
   termPrice,
   termlySavingsPercent,
@@ -234,7 +235,7 @@ export function EditCartItemDialog({ open, onOpenChange, item }: EditCartItemDia
                   {priceMonthly != null && planButton(
                     "monthly",
                     "Monthly Membership",
-                    "Rolling monthly · paused in August · 1 month's notice to cancel",
+                    "Rolling monthly · billed on the 5th · 12th month free",
                     <span className="font-bold text-foreground">
                       £{priceMonthly.toFixed(2)}
                       <span className="text-[10px] font-normal text-muted-foreground">/mo</span>
@@ -263,7 +264,10 @@ export function EditCartItemDialog({ open, onOpenChange, item }: EditCartItemDia
                   )}
                 </div>
                 {plan === "monthly" && (
-                  <p className="text-[10px] text-muted-foreground leading-relaxed">{MONTHLY_PAYMENT_INFO}</p>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">{MONTHLY_PAYMENT_INFO}</p>
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">{UNLIMITED_CAP_INFO}</p>
+                  </div>
                 )}
                 <p className="text-[11px] text-muted-foreground bg-muted/30 rounded-lg p-2.5">
                   Multi-class and sibling discounts stay applied — they're worked out automatically at checkout, whichever plan you pick.

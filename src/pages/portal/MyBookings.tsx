@@ -15,13 +15,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { CalendarDays, MapPin, User, Users, Clock, Tag, Plus, QrCode, MessageCircle, Ticket, Repeat } from "lucide-react";
 import BookingQrDialog from "@/components/portal/BookingQrDialog";
 import { ClassPassesPanel } from "@/components/portal/ClassPassesPanel";
 import ChangeClassDialog from "@/components/portal/ChangeClassDialog";
+import MoveSessionDialog from "@/components/portal/MoveSessionDialog";
 
 /** Cover images are stored as workshop-media storage paths — resolve to a URL. */
 const getWorkshopImageUrl = (path: string | null | undefined) => {
@@ -30,6 +31,23 @@ const getWorkshopImageUrl = (path: string | null | undefined) => {
   const { data } = supabase.storage.from("workshop-media").getPublicUrl(path);
   return data?.publicUrl || null;
 };
+
+/** Dated bookings carry their session date in notes: "... | session YYYY-MM-DD". */
+const sessionDateFromNotes = (notes: string | null | undefined): string | null =>
+  notes?.match(/session (\d{4}-\d{2}-\d{2})/)?.[1] ?? null;
+
+/** Booking types that can be moved to another session (server enforces the rest). */
+const MOVABLE_BOOKING_TYPES = new Set(["trial", "session", "drop_in"]);
+
+/** Client-side approximation of the 24h move cutoff (local time — the
+ *  move-booking-session endpoint enforces the real London-time rule). */
+const moveStillOpen = (dateStr: string, startTime: string | null): boolean =>
+  new Date(`${dateStr}T${(startTime ?? "00:00").slice(0, 5)}:00`).getTime() - Date.now() >=
+  24 * 3600_000;
+
+/** Display name of a membership's free month (memberships.free_month, default August). */
+const freeMonthName = (freeMonth: number | null | undefined) =>
+  format(new Date(2000, (freeMonth ?? 8) - 1, 1), "MMMM");
 
 const statusColors: Record<string, "default" | "secondary" | "destructive"> = {
   confirmed: "default",
@@ -53,6 +71,7 @@ interface Membership {
   final_payment_date: string | null;
   cancel_at: string | null;
   cancelled_at: string | null;
+  free_month: number | null;
   students: { first_name: string; last_name: string; date_of_birth: string | null } | null;
   classes: { name: string; day_of_week: string | null; start_time: string | null } | null;
 }
@@ -82,6 +101,8 @@ const MyBookings = () => {
   const [cancelling, setCancelling] = useState(false);
   // Membership whose class is being changed (controls the ChangeClassDialog).
   const [changeTarget, setChangeTarget] = useState<Membership | null>(null);
+  // Dated booking being moved to another session (controls the MoveSessionDialog).
+  const [moveTarget, setMoveTarget] = useState<any | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const customerType = profile?.customer_type as string | null;
@@ -124,7 +145,7 @@ const MyBookings = () => {
     if (!user) { setMemberships([]); return; }
     const { data } = await supabase
       .from("memberships")
-      .select("id, status, class_id, monthly_amount, started_at, current_period_end, final_payment_date, cancel_at, cancelled_at, students(first_name, last_name, date_of_birth), classes(name, day_of_week, start_time)")
+      .select("id, status, class_id, monthly_amount, started_at, current_period_end, final_payment_date, cancel_at, cancelled_at, free_month, students(first_name, last_name, date_of_birth), classes(name, day_of_week, start_time)")
       .eq("user_id", user.id)
       .neq("status", "incomplete") // never surface half-created subscriptions
       .order("created_at", { ascending: false });
@@ -282,6 +303,14 @@ const MyBookings = () => {
             const isAdult = cls?.class_type === "adult";
             const coverImage = getWorkshopImageUrl(cls?.workshops?.cover_image);
             const coverPosition = cls?.workshops?.cover_position ?? "50% 25%";
+            // Dated (per-session) bookings can be moved up to 24h before start.
+            const sessionDate = sessionDateFromNotes(b.notes);
+            const isMovable =
+              b.status === "confirmed" &&
+              MOVABLE_BOOKING_TYPES.has(b.booking_type) &&
+              !!sessionDate &&
+              !!b.class_id;
+            const moveOpen = sessionDate ? moveStillOpen(sessionDate, cls?.start_time ?? null) : false;
 
             return (
               <Card key={b.id} className="card-elevated animate-fade-in overflow-hidden hover:border-primary/40 transition-colors">
@@ -308,16 +337,24 @@ const MyBookings = () => {
                             </Badge>
                           </div>
 
-                          {/* Schedule */}
+                          {/* Schedule — dated bookings show their session date prominently */}
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <CalendarDays className="w-3.5 h-3.5" />
-                              {cls?.day_of_week
-                                ? cls.day_of_week.charAt(0).toUpperCase() + cls.day_of_week.slice(1)
-                                : camp?.start_date && camp?.end_date
-                                  ? `${camp.start_date.slice(8, 10)}/${camp.start_date.slice(5, 7)} – ${camp.end_date.slice(8, 10)}/${camp.end_date.slice(5, 7)}`
-                                  : "—"}
-                            </span>
+                            {sessionDate ? (
+                              <span className="flex items-center gap-1 font-semibold text-foreground">
+                                <CalendarDays className="w-3.5 h-3.5 text-primary" />
+                                {format(parseISO(sessionDate), "EEE d MMM")}
+                                {cls?.start_time && <> · {cls.start_time.slice(0, 5)}</>}
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1">
+                                <CalendarDays className="w-3.5 h-3.5" />
+                                {cls?.day_of_week
+                                  ? cls.day_of_week.charAt(0).toUpperCase() + cls.day_of_week.slice(1)
+                                  : camp?.start_date && camp?.end_date
+                                    ? `${camp.start_date.slice(8, 10)}/${camp.start_date.slice(5, 7)} – ${camp.end_date.slice(8, 10)}/${camp.end_date.slice(5, 7)}`
+                                    : "—"}
+                              </span>
+                            )}
                             <span className="flex items-center gap-1">
                               <Clock className="w-3.5 h-3.5" />
                               {cls?.start_time?.slice(0, 5)} – {cls?.end_time?.slice(0, 5)}
@@ -392,6 +429,20 @@ const MyBookings = () => {
                               <QrCode className="w-3.5 h-3.5" /> Sign-in QR
                             </Button>
                           )}
+                          {isMovable && (moveOpen ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setMoveTarget(b)}
+                              className="gap-1.5"
+                            >
+                              <Repeat className="w-3.5 h-3.5" /> Move session
+                            </Button>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground text-right max-w-[9rem]">
+                              Locked — moves close 24h before the session
+                            </span>
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -479,7 +530,9 @@ const MyBookings = () => {
                               <p className="text-sm text-muted-foreground">
                                 Next payment: {format(new Date(m.current_period_end), "d MMM yyyy")}
                               </p>
-                              <p className="text-xs text-muted-foreground">Payments pause in August</p>
+                              <p className="text-xs text-muted-foreground">
+                                You pay 11 months a year — {freeMonthName(m.free_month)} is your free month.
+                              </p>
                             </div>
                           )}
 
@@ -502,7 +555,7 @@ const MyBookings = () => {
 
                           {m.status === "paused" && (
                             <p className="text-sm text-muted-foreground pt-1">
-                              Payments are paused for August — they restart automatically in September.
+                              Payments are paused for your free month — they restart automatically next month.
                             </p>
                           )}
 
@@ -577,6 +630,23 @@ const MyBookings = () => {
           monthly_amount: Number(changeTarget.monthly_amount),
         } : null}
         onSwitched={() => { fetchMemberships(); fetchBookings(); }}
+      />
+
+      <MoveSessionDialog
+        open={!!moveTarget}
+        onOpenChange={(o) => { if (!o) setMoveTarget(null); }}
+        booking={moveTarget ? {
+          id: moveTarget.id,
+          classId: moveTarget.class_id,
+          className: moveTarget.classes?.name ?? "your class",
+          bookingType: moveTarget.booking_type,
+          sessionDate: sessionDateFromNotes(moveTarget.notes) ?? "",
+          classType: (moveTarget.classes?.class_type ?? "children") as "children" | "adult",
+          studentName: moveTarget.students
+            ? `${moveTarget.students.first_name} ${moveTarget.students.last_name}`
+            : null,
+        } : null}
+        onMoved={fetchBookings}
       />
 
       <AlertDialog open={!!cancelTarget} onOpenChange={(o) => { if (!o && !cancelling) setCancelTarget(null); }}>

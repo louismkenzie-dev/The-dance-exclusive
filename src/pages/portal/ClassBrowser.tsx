@@ -48,6 +48,7 @@ import { isAttendeeProfileComplete } from "@/lib/attendeeProfile";
 import {
   MONTHLY_MEMBERSHIP_NOTICE,
   MONTHLY_PAYMENT_INFO,
+  UNLIMITED_CAP_INFO,
   monthlyPrice,
   sessionPrice,
   termPrice,
@@ -658,7 +659,7 @@ const ClassBrowser = () => {
                 ))}
               </div>
               <p className="text-[11px] text-muted-foreground mt-2">
-                Weekly classes run in term time. Monthly memberships pause automatically in August.
+                Weekly classes run in term time. Monthly memberships are billed on the 5th — you pay 11 months a year, with your 12th month free.
               </p>
             </div>
           </div>
@@ -1050,7 +1051,7 @@ const ClassBrowser = () => {
                                   >
                                     <div>
                                       <span className="font-semibold text-foreground">Monthly Membership</span>
-                                      <span className="block text-[10px] text-muted-foreground">Rolling monthly · paused in August · 1 month's notice</span>
+                                      <span className="block text-[10px] text-muted-foreground">Rolling monthly · billed on the 5th · 12th month free</span>
                                     </div>
                                     <span className="font-bold text-foreground">
                                       £{priceMon.toFixed(2)}
@@ -1620,6 +1621,9 @@ const ClassBrowser = () => {
             <AlertDialogDescription className="space-y-3">
               <span className="block">{MONTHLY_MEMBERSHIP_NOTICE}</span>
               <span className="block text-xs">{MONTHLY_PAYMENT_INFO}</span>
+              {classType === "children" && (
+                <span className="block text-xs">{UNLIMITED_CAP_INFO}</span>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

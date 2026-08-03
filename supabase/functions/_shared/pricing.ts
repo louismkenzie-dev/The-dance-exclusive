@@ -343,9 +343,13 @@ export const MONTHLY_MEMBERSHIP_NOTICE =
   "hello@thedanceexclusive.co.uk before your membership can be cancelled.";
 
 export const MONTHLY_PAYMENT_INFO =
-  "Your payment is taken on the same day each month that you joined. " +
-  `Memberships cover the ${DANCE_WEEKS_PER_YEAR} dance weeks from September to July — ` +
-  "payments are paused in August.";
+  "Your first month is paid when you join, then payments come out on the 5th of each month. " +
+  "You pay 11 months a year — your 12th month is free (for September starters that's August). " +
+  "Join during August and you pay nothing until 5 September.";
+
+export const UNLIMITED_CAP_INFO =
+  "£110 Unlimited: once a child's monthly memberships reach £110 a month, that's the cap — " +
+  "every extra class for them is included at no extra charge.";
 
 export const ADULT_CANCELLATION_INFO =
   "Adult classes are non-refundable, but you can move your booking to another date " +

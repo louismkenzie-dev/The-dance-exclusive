@@ -10,6 +10,7 @@ import {
 } from "../_shared/stripe.ts";
 import { validateAndCompute } from "../_shared/coupon.ts";
 import { getActiveStripeEnv } from "../_shared/paymentsMode.ts";
+import { chargesFirstMonthAtSignup, firstBillingAnchor, freeMonthFor } from "../_shared/billing.ts";
 import {
   ADULT_PASSES,
   type AdultPassType,
@@ -80,7 +81,13 @@ serve(async (req) => {
     // Cancel any previous PaymentIntent the client is replacing — prevents
     // an abandoned PI from being confirmed later and creating a duplicate
     // charge for the same cart.
-    if (previousPaymentIntentId && typeof previousPaymentIntentId === "string") {
+    if (
+      previousPaymentIntentId &&
+      typeof previousPaymentIntentId === "string" &&
+      previousPaymentIntentId.startsWith("pi_")
+    ) {
+      // (SetupIntent ids from August membership checkouts are skipped — the
+      // maintenance job sweeps their abandoned card-less subscriptions.)
       try {
         await stripe.paymentIntents.cancel(previousPaymentIntentId, {}, connectOpts);
         console.log("Cancelled previous PaymentIntent:", previousPaymentIntentId);
@@ -212,6 +219,43 @@ serve(async (req) => {
       }
     }
 
+    // Pay-as-you-go bookings are for SPECIFIC chosen sessions — resolve the
+    // dates server-side (validated against the class's real schedule) so
+    // fulfilment can create one dated booking per session. Registers then
+    // show the dancer only on the days they actually paid for, and the
+    // 24-hour self-service move knows which session a booking is for.
+    const sessionPlanDates = new Map<number, string[]>(); // cart index → YYYY-MM-DD[]
+    {
+      const sessionEntries = cartItems
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) =>
+          kindOf(item) === "class" && item.pricingPlan === "session" && (item.selectedSessionIds?.length ?? 0) > 0,
+        );
+      const allIds = [...new Set(sessionEntries.flatMap(({ item }) => item.selectedSessionIds!))];
+      if (allIds.length > 0) {
+        const { data: sessRows } = await supabaseAdmin
+          .from("class_sessions")
+          .select("id, class_id, session_date, status")
+          .in("id", allIds);
+        const sessById = new Map((sessRows ?? []).map((r: any) => [r.id, r]));
+        for (const { item, index } of sessionEntries) {
+          const dates: string[] = [];
+          for (const sid of new Set(item.selectedSessionIds!)) {
+            const sess = sessById.get(sid);
+            if (!sess || sess.class_id !== item.classId || sess.session_date < today || sess.status === "cancelled") {
+              return jsonResponse({ error: "One of your chosen dates is no longer available — please re-pick your sessions." }, 400);
+            }
+            dates.push(sess.session_date);
+          }
+          dates.sort();
+          if (dates.length > 30) {
+            return jsonResponse({ error: "That's a lot of dates for one booking — please split them across two checkouts." }, 400);
+          }
+          sessionPlanDates.set(index, dates);
+        }
+      }
+    }
+
     // Monthly items are priced together (additional-class rates + £110 cap).
     // Keyed by cart-array index so the client (which sends items in the same
     // order) and this code agree item-for-item.
@@ -327,7 +371,12 @@ serve(async (req) => {
         }
         expected = trialPrice(cls);
       } else if (plan === "session") {
-        const count = Math.max(1, Number(item.sessionsCount || item.selectedSessionIds?.length || 1));
+        // When dates were chosen, the VALIDATED date count is authoritative —
+        // a tampered client can't claim fewer sessions than it books.
+        const validatedDates = sessionPlanDates.get(index);
+        const count = validatedDates
+          ? validatedDates.length
+          : Math.max(1, Number(item.sessionsCount || item.selectedSessionIds?.length || 1));
         expected = round2(sessionPrice(cls) * count);
       } else if (plan === "monthly") {
         expected = monthlyPrices.get(itemKey(item, index)) ?? monthlyPrice(cls);
@@ -465,6 +514,8 @@ serve(async (req) => {
     }
 
     // Compact metadata so we stay under Stripe's 500-char per-value limit.
+    // (sd = the validated pay-as-you-go session dates; ≤30 dates enforced
+    // above keeps the value comfortably inside the limit.)
     const bookingMetadata = Object.fromEntries(
       cartItems.map((item, index) => [
         `item_${index}`,
@@ -477,6 +528,7 @@ serve(async (req) => {
           p: item.pricingPlan,
           t: chargedPrices[index],
           ...(trialSessionDates.has(index) && { d: trialSessionDates.get(index) }),
+          ...(sessionPlanDates.has(index) && { sd: sessionPlanDates.get(index) }),
         }),
       ]),
     );
@@ -550,11 +602,30 @@ serve(async (req) => {
         monthlyPriceIds.push({ index, priceId: price.id });
       }
 
+      // Billing calendar (Amie's model): recurring charges anchor on the 5th
+      // of the month AFTER signup via a Stripe trial. Outside August the
+      // first month is charged TODAY as a one-off line on the first invoice;
+      // during August nothing is charged — the card is saved via a
+      // SetupIntent and billing simply starts on 5 September.
+      const now = new Date();
+      const chargeFirstMonthNow = chargesFirstMonthAtSignup(now);
+      const billingAnchor = firstBillingAnchor(now);
+      const freeMonth = freeMonthFor(now);
+
       // One-off items join the first invoice; the coupon (holiday workshops
       // only) is allocated against the camp items it applies to.
       const oneOffEntries = cartItems
         .map((item, index) => ({ item, index }))
         .filter(({ item }) => !(kindOf(item) === "class" && item.pricingPlan === "monthly"));
+
+      if (!chargeFirstMonthNow && oneOffEntries.length > 0) {
+        // August-deferred memberships save a card without paying, so one-off
+        // items can't ride the same (zero-amount) first invoice.
+        return jsonResponse({
+          error: "September memberships are set up with no payment today, so they need their own checkout — please book your other items separately first, then add the membership.",
+        }, 400);
+      }
+
       let couponRemaining = discountInPence;
       const addInvoiceItems: { price_data: { currency: string; product: string; unit_amount: number }; quantity: number }[] = [];
       let oneOffProductId: string | null = null;
@@ -578,12 +649,32 @@ serve(async (req) => {
         });
       }
 
+      // The signup month itself is paid up-front as a one-off "first month"
+      // line per membership (the recurring price is trialing until the 5th).
+      if (chargeFirstMonthNow) {
+        const firstMonthProduct = await stripe.products.create(
+          { name: "First month (paid at signup)" },
+          connectOpts,
+        );
+        for (const { index } of monthlyEntries) {
+          const amount = Math.round(chargedPrices[index] * 100);
+          if (amount > 0) {
+            addInvoiceItems.push({
+              price_data: { currency: "gbp", product: firstMonthProduct.id, unit_amount: amount },
+              quantity: 1,
+            });
+          }
+        }
+      }
+
       const feePercent = getConnectedAccountId(env) ? getPlatformFeePercent() : null;
 
       const subscription = await stripe.subscriptions.create(
         {
           customer: customerId,
           items: monthlyPriceIds.map(({ priceId }) => ({ price: priceId })),
+          trial_end: Math.floor(billingAnchor.getTime() / 1000),
+          proration_behavior: "none",
           payment_behavior: "default_incomplete",
           payment_settings: {
             save_default_payment_method: "on_subscription",
@@ -591,7 +682,7 @@ serve(async (req) => {
           },
           ...(addInvoiceItems.length > 0 && { add_invoice_items: addInvoiceItems }),
           ...(feePercent != null && feePercent > 0 && { application_fee_percent: feePercent }),
-          expand: ["latest_invoice.payment_intent"],
+          expand: ["latest_invoice.payment_intent", "pending_setup_intent"],
           metadata: {
             userId,
             itemCount: String(cartItems.length),
@@ -612,12 +703,21 @@ serve(async (req) => {
 
       const invoice = subscription.latest_invoice as any;
       const pi = invoice?.payment_intent as any;
-      if (!pi?.client_secret) {
+      const setupIntent = subscription.pending_setup_intent as any;
+
+      // Outside August the first invoice carries real money and MUST have a
+      // PaymentIntent; during August there is nothing to pay and Stripe gives
+      // us a SetupIntent to save the card for 5 September instead.
+      if (chargeFirstMonthNow && !pi?.client_secret) {
         throw new Error("Could not initialise the membership payment");
+      }
+      if (!chargeFirstMonthNow && !setupIntent?.client_secret) {
+        throw new Error("Could not initialise the membership card setup");
       }
 
       // Clear stale placeholders from abandoned checkouts, then record each
-      // membership as incomplete until the first invoice is paid.
+      // membership as incomplete until the first invoice is paid (or, for
+      // August signups, until the card save succeeds).
       await supabaseAdmin
         .from("memberships")
         .delete()
@@ -636,11 +736,27 @@ serve(async (req) => {
           monthly_amount: chargedPrices[index],
           status: "incomplete",
           stripe_env: env,
+          free_month: freeMonth,
+          stripe_setup_intent_id: setupIntent?.id ?? null,
           current_period_end: subscription.current_period_end
             ? new Date(subscription.current_period_end * 1000).toISOString()
             : null,
         });
         if (memErr) console.error("Failed to record incomplete membership:", memErr);
+      }
+
+      if (!chargeFirstMonthNow) {
+        return jsonResponse({
+          clientSecret: setupIntent.client_secret,
+          setupMode: true,
+          setupIntentId: setupIntent.id,
+          subscriptionId: subscription.id,
+          amount: 0,
+          firstPaymentDate: billingAnchor.toISOString(),
+          siblingDiscountAmount: siblingDiscountInPence / 100,
+          discountAmount: discountInPence / 100,
+          environment: env,
+        });
       }
 
       return jsonResponse({

@@ -25,6 +25,7 @@ import { ChildFormDialog } from "@/components/portal/ChildFormDialog";
 import {
   MONTHLY_MEMBERSHIP_NOTICE,
   MONTHLY_PAYMENT_INFO,
+  UNLIMITED_CAP_INFO,
   monthlyPrice,
   sessionPrice,
   termPrice,
@@ -442,7 +443,7 @@ export function QuickBookDialog({
                 >
                   <div>
                     <span className="font-semibold text-foreground">Monthly Membership</span>
-                    <span className="block text-[10px] text-muted-foreground">Rolling monthly · paused in August · 1 month's notice to cancel</span>
+                    <span className="block text-[10px] text-muted-foreground">Rolling monthly · billed on the 5th · 12th month free</span>
                   </div>
                   <span className="font-bold text-foreground">
                     £{priceMonthly.toFixed(2)}
@@ -493,7 +494,12 @@ export function QuickBookDialog({
               )}
             </div>
             {plan === "monthly" && (
-              <p className="text-[10px] text-muted-foreground leading-relaxed">{MONTHLY_PAYMENT_INFO}</p>
+              <div className="space-y-1">
+                <p className="text-[10px] text-muted-foreground leading-relaxed">{MONTHLY_PAYMENT_INFO}</p>
+                {isChildren && (
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">{UNLIMITED_CAP_INFO}</p>
+                )}
+              </div>
             )}
           </div>
 

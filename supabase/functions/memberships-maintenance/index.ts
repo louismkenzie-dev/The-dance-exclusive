@@ -4,8 +4,13 @@
 //     the whole subscription is ending), marks them cancelled and emails the
 //     family.
 //  2. Syncs membership statuses/periods with Stripe (past-due, cancelled).
-//  3. Pauses collection for August (no payments over the summer break) and
-//     resumes it for September, per the club's 38-dance-week pricing.
+//  3. Pauses collection across each subscription's annual FREE MONTH
+//     (memberships.free_month — the 12th month families don't pay) and
+//     resumes it the month after.
+//  4. Handles trial-anchored signups (August card-setup checkouts): activates
+//     memberships once a card is on file if the client-side finalize never
+//     ran, and cancels abandoned card-less checkouts after 24h — including
+//     orphaned Stripe subscriptions whose DB rows a re-checkout deleted.
 // All operations are idempotent — running it repeatedly is safe.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -14,6 +19,8 @@ import {
   connectRequestOptions,
   createStripeClient,
 } from "../_shared/stripe.ts";
+import { londonYMD, resumeAfterFreeMonth } from "../_shared/billing.ts";
+import { activateMembershipSetup } from "../_shared/fulfilment.ts";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -27,7 +34,16 @@ serve(async (_req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  const summary = { endedNow: 0, syncedCancelled: 0, pastDue: 0, paused: 0, resumed: 0, errors: 0 };
+  const summary = {
+    endedNow: 0,
+    syncedCancelled: 0,
+    pastDue: 0,
+    paused: 0,
+    resumed: 0,
+    activatedSetups: 0,
+    cancelledAbandoned: 0,
+    errors: 0,
+  };
   const nowIso = new Date().toISOString();
 
   const sendEmail = async (userId: string, template: string, data: Record<string, unknown>) => {
@@ -131,11 +147,13 @@ serve(async (_req) => {
     }
 
     // ── 2. Sync live statuses with Stripe ───────────────────────────────
+    // 'incomplete' rows (free_month included via *) are needed so trialing
+    // card-setup subscriptions can be activated or abandoned below.
     const { data: openMemberships } = await supabase
       .from("memberships")
       .select("*")
       .eq("stripe_env", env)
-      .in("status", ["active", "past_due", "paused", "cancel_scheduled"]);
+      .in("status", ["active", "past_due", "paused", "cancel_scheduled", "incomplete"]);
     const bySub = new Map<string, any[]>();
     for (const m of openMemberships ?? []) {
       const list = bySub.get(m.stripe_subscription_id) ?? [];
@@ -143,8 +161,7 @@ serve(async (_req) => {
       bySub.set(m.stripe_subscription_id, list);
     }
 
-    const month = new Date().getUTCMonth(); // 7 = August, 8 = September
-    const year = new Date().getUTCFullYear();
+    const month = londonYMD().m; // 1-based London calendar month (8 = August)
 
     for (const [subId, members] of bySub) {
       try {
@@ -164,6 +181,8 @@ serve(async (_req) => {
               .neq("status", "cancelled");
             await retireBooking(m);
             summary.syncedCancelled++;
+            // Never-activated checkouts get no "membership ended" email.
+            if (m.status === "incomplete") continue;
             const desc = await describeMembership(m);
             await sendEmail(m.user_id, "membership_ended", { ...desc, endDate: m.cancel_at ?? nowIso });
           }
@@ -207,12 +226,41 @@ serve(async (_req) => {
           }
         }
 
-        // ── 3. Summer pause: no collection in August, resume in September ──
-        if (month === 7 && !sub.pause_collection && sub.status === "active") {
-          const resumesAt = Math.floor(Date.UTC(year, 8, 1) / 1000); // 1 Sept
+        // ── 3. Annual free month + trial-anchored signups ──────────────────
+        // Each subscription skips its own free month (memberships.free_month,
+        // shared by every row on the sub) via pause_collection "void" across
+        // that month, then resumes. Existing rows default to August.
+        const freeMonth = members.find((x: any) => x.free_month != null)?.free_month ?? 8;
+
+        if (sub.status === "trialing") {
+          // Trialing subs are never paused — the trial already covers the gap.
+          if (sub.default_payment_method && members.some((x: any) => x.status === "incomplete")) {
+            // Card saved but the client-side finalize never ran — activate now.
+            if (await activateMembershipSetup(supabase, sub)) summary.activatedSetups++;
+          } else if (
+            !sub.default_payment_method &&
+            sub.created &&
+            sub.created * 1000 < Date.now() - 24 * 3600_000
+          ) {
+            // Abandoned August checkout: still no card 24h on — clean up
+            // quietly (no email; nothing ever started).
+            await stripe.subscriptions.cancel(subId, {}, connectOpts);
+            await supabase
+              .from("memberships")
+              .update({ status: "cancelled", cancelled_at: nowIso, updated_at: nowIso })
+              .eq("stripe_subscription_id", subId)
+              .neq("status", "cancelled");
+            summary.cancelledAbandoned++;
+          }
+        } else if (sub.status === "active" && !sub.pause_collection && month === freeMonth) {
           await stripe.subscriptions.update(
             subId,
-            { pause_collection: { behavior: "void", resumes_at: resumesAt } },
+            {
+              pause_collection: {
+                behavior: "void",
+                resumes_at: Math.floor(resumeAfterFreeMonth(freeMonth).getTime() / 1000),
+              },
+            },
             connectOpts,
           );
           await supabase
@@ -221,7 +269,7 @@ serve(async (_req) => {
             .eq("stripe_subscription_id", subId)
             .eq("status", "active");
           summary.paused++;
-        } else if (month !== 7 && sub.pause_collection) {
+        } else if (sub.pause_collection && month !== freeMonth) {
           await stripe.subscriptions.update(subId, { pause_collection: "" } as any, connectOpts);
           await supabase
             .from("memberships")
@@ -234,6 +282,33 @@ serve(async (_req) => {
         summary.errors++;
         console.error("Failed to sync subscription", subId, e);
       }
+    }
+
+    // ── 4. Orphan sweep ─────────────────────────────────────────────────
+    // A re-checkout deletes a user's 'incomplete' membership rows, so the
+    // abandoned subscription from the earlier attempt never appears in the
+    // grouping above. Cancel any card-less membership-checkout trial older
+    // than 24h so it can't start billing when the trial ends.
+    try {
+      const trialing: any = await stripe.subscriptions.list(
+        { status: "trialing", limit: 100 },
+        connectOpts,
+      );
+      for (const orphan of trialing?.data ?? []) {
+        if (bySub.has(orphan.id)) continue; // handled with its DB rows above
+        if (orphan.metadata?.checkoutType !== "membership_checkout") continue;
+        if (orphan.default_payment_method) continue;
+        if (!orphan.created || orphan.created * 1000 >= Date.now() - 24 * 3600_000) continue;
+        try {
+          await stripe.subscriptions.cancel(orphan.id, {}, connectOpts);
+          summary.cancelledAbandoned++;
+          console.log("Cancelled orphaned trialing subscription:", orphan.id);
+        } catch (e) {
+          console.error("Failed to cancel orphaned subscription", orphan.id, e);
+        }
+      }
+    } catch (e) {
+      console.error("Orphan sweep failed for", env, e);
     }
   }
 

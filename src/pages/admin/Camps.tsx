@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit, Trash2, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, X, Copy, MapPin, Calendar, Users, Clock } from "lucide-react";
 import { format, parseISO, eachDayOfInterval, isBefore, isWeekend, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameMonth, isSameDay, getDay } from "date-fns";
+import WorkshopCover from "@/components/WorkshopCover";
 
 interface WorkshopOption {
   id: string;
@@ -23,6 +24,9 @@ interface WorkshopOption {
   age_min: number | null;
   age_max: number | null;
   cover_image: string | null;
+  cover_position: string | null;
+  cover_zoom: number | null;
+  cover_fit: string | null;
   capacity: number | null;
 }
 
@@ -46,7 +50,7 @@ interface CampData {
   end_time: string;
   is_active: boolean;
   venues?: { name: string } | null;
-  workshops?: { name: string; cover_image: string | null } | null;
+  workshops?: { name: string; cover_image: string | null; cover_position: string | null; cover_zoom: number | null; cover_fit: string | null } | null;
 }
 
 interface SessionRow {
@@ -55,6 +59,14 @@ interface SessionRow {
   start_time: string;
   end_time: string;
 }
+
+// Covers may be legacy full URLs or storage paths in the workshop-media bucket.
+const getWorkshopImageUrl = (path: string | null | undefined) => {
+  if (!path) return null;
+  if (path.startsWith("http")) return path;
+  const { data } = supabase.storage.from("workshop-media").getPublicUrl(path);
+  return data?.publicUrl || null;
+};
 
 const AdminCamps = () => {
   const [camps, setCamps] = useState<CampData[]>([]);
@@ -88,7 +100,16 @@ const AdminCamps = () => {
   const [priceTotal, setPriceTotal] = useState("");
   const [siblingDiscountEnabled, setSiblingDiscountEnabled] = useState(true);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
-  const [sessionStaffing, setSessionStaffing] = useState<Record<number, string[]>>({});
+  // Per-day staffing overrides keyed by DATE (not list index — deleting a day
+  // must not shift everyone else's staffing).
+  const [sessionStaffing, setSessionStaffing] = useState<Record<string, string[]>>({});
+  // Which weekdays a date-range camp runs on (date-fns getDay: 0=Sun..6=Sat).
+  // "Every Monday for a term" = just Monday — the range no longer force-fills
+  // every day in between.
+  const [rangeWeekdays, setRangeWeekdays] = useState<Set<number>>(new Set([0, 1, 2, 3, 4, 5, 6]));
+  // False right after loading an existing camp's saved sessions — stops the
+  // auto-regenerator from resurrecting deleted days the moment Edit opens.
+  const datesDirty = useRef(true);
   const [campInstructors, setCampInstructors] = useState<Record<string, string[]>>({});
   const [campInstructorDetails, setCampInstructorDetails] = useState<Record<string, { staff_id: string; instructor_role: string; pay_per_hour_override: number | null }[]>>({});
   const [selectedHolidayId, setSelectedHolidayId] = useState<string | null>(null);
@@ -111,10 +132,10 @@ const AdminCamps = () => {
 
   const fetchData = async () => {
     const [campsRes, venuesRes, staffRes, workshopsRes, holidaysRes] = await Promise.all([
-      supabase.from("camps").select("*, venues(name), workshops(name, cover_image)").order("created_at", { ascending: false }),
+      supabase.from("camps").select("*, venues(name), workshops(name, cover_image, cover_position, cover_zoom, cover_fit)").order("created_at", { ascending: false }),
       supabase.from("venues").select("id, name, capacity").eq("is_active", true),
       supabase.from("staff").select("id, full_name, pay_per_hour").eq("is_active", true),
-      supabase.from("workshops").select("id, name, description, theme, dance_style, class_type, age_min, age_max, cover_image, capacity").eq("is_active", true),
+      supabase.from("workshops").select("id, name, description, theme, dance_style, class_type, age_min, age_max, cover_image, cover_position, cover_zoom, cover_fit, capacity").eq("is_active", true),
       supabase.from("school_holidays").select("*").neq("holiday_type", "bank_holiday").order("start_date"),
     ]);
 
@@ -180,13 +201,16 @@ const AdminCamps = () => {
     setSiblingDiscountEnabled(true);
     setSessions([]);
     setSessionStaffing({});
+    setRangeWeekdays(new Set([0, 1, 2, 3, 4, 5, 6]));
+    datesDirty.current = true;
     setEditing(null);
     setStep(1);
     setSelectedHolidayId(null);
     setSelectedDates(new Set());
   };
 
-  // Generate sessions from selected dates or date range
+  // Generate sessions from selected dates or date range (range days filtered
+  // to the chosen weekdays — "every Monday" stays every Monday).
   const generateSessions = () => {
     let dates: string[];
     if (selectedDates.size > 0) {
@@ -195,7 +219,9 @@ const AdminCamps = () => {
       const start = parseISO(startDate);
       const end = parseISO(endDate);
       if (isBefore(end, start)) return;
-      dates = eachDayOfInterval({ start, end }).map(d => format(d, "yyyy-MM-dd"));
+      dates = eachDayOfInterval({ start, end })
+        .filter(d => rangeWeekdays.has(getDay(d)))
+        .map(d => format(d, "yyyy-MM-dd"));
     } else {
       return;
     }
@@ -214,16 +240,20 @@ const AdminCamps = () => {
     }
   };
 
+  // Auto-regenerate only after the user has actually touched the dates —
+  // never on opening Edit, where it would resurrect deleted days.
   useEffect(() => {
+    if (!datesDirty.current) return;
     if (step === 2 && selectedDates.size > 0) {
       generateSessions();
     } else if (step === 2 && startDate && endDate && selectedDates.size === 0 && !selectedHolidayId) {
       generateSessions();
     }
-  }, [startDate, endDate, step, selectedDates]);
+  }, [startDate, endDate, step, selectedDates, rangeWeekdays]);
 
   // When a holiday is selected, pre-select all weekdays
   const selectHoliday = (holiday: typeof schoolHolidays[0]) => {
+    datesDirty.current = true;
     if (selectedHolidayId === holiday.id) {
       // Deselect
       setSelectedHolidayId(null);
@@ -242,6 +272,7 @@ const AdminCamps = () => {
   };
 
   const toggleDate = (dateStr: string) => {
+    datesDirty.current = true;
     setSelectedDates(prev => {
       const next = new Set(prev);
       if (next.has(dateStr)) {
@@ -257,7 +288,7 @@ const AdminCamps = () => {
     setSessions(prev => prev.map((s, i) => i === idx ? { ...s, [field]: val } : s));
   };
 
-  const populateForm = (c: CampData, isEdit: boolean) => {
+  const populateForm = async (c: CampData, isEdit: boolean) => {
     setClassType((c.class_type as "children" | "adult") || "children");
     setWorkshopId(c.workshop_id || "");
     setVenueId(c.venue_id || "");
@@ -281,12 +312,65 @@ const AdminCamps = () => {
     setPriceTotal(c.price_total?.toString() || "");
     setSiblingDiscountEnabled(c.sibling_discount_enabled ?? true);
     setEditing(isEdit ? c : null);
+    setSelectedHolidayId(null);
+    setSelectedDates(new Set());
     setStep(1);
     setOpen(true);
+
+    // Load the camp's REAL saved sessions (and per-day staffing) so editing
+    // starts from what's actually scheduled — not a regenerated every-day
+    // range that resurrects days the admin already deleted.
+    const { data: savedSessions } = await supabase
+      .from("camp_sessions")
+      .select("id, session_date, start_time, end_time")
+      .eq("camp_id", c.id)
+      .order("session_date");
+
+    if (savedSessions && savedSessions.length > 0) {
+      setSessions(savedSessions.map(r => ({
+        date: r.session_date,
+        dayLabel: format(parseISO(r.session_date), "EEEE, d MMM yyyy"),
+        start_time: r.start_time?.slice(0, 5) || "09:00",
+        end_time: r.end_time?.slice(0, 5) || "16:00",
+      })));
+      // Remember which weekdays this camp runs on, so widening the date range
+      // later keeps the pattern (an every-Monday camp stays Mondays).
+      setRangeWeekdays(new Set(savedSessions.map(r => getDay(parseISO(r.session_date)))));
+
+      // Per-day staffing: only sessions whose staff differ from the camp
+      // defaults count as overrides (defaults are written to every session).
+      const sessionIds = savedSessions.map(r => r.id);
+      const { data: si } = await supabase
+        .from("camp_session_instructors")
+        .select("session_id, staff_id")
+        .in("session_id", sessionIds);
+      const staffBySession = new Map<string, string[]>();
+      (si ?? []).forEach((r: any) => {
+        const list = staffBySession.get(r.session_id) ?? [];
+        list.push(r.staff_id);
+        staffBySession.set(r.session_id, list);
+      });
+      const defaultSet = [...ids].sort().join(",");
+      const overrides: Record<string, string[]> = {};
+      savedSessions.forEach(r => {
+        const staff = staffBySession.get(r.id) ?? [];
+        if (staff.length > 0 && [...staff].sort().join(",") !== defaultSet) {
+          overrides[r.session_date] = staff;
+        }
+      });
+      setSessionStaffing(overrides);
+      datesDirty.current = false;
+    } else {
+      // No saved sessions (older camps) — fall back to generating from range.
+      setSessions([]);
+      setSessionStaffing({});
+      setRangeWeekdays(new Set([0, 1, 2, 3, 4, 5, 6]));
+      datesDirty.current = true;
+    }
   };
 
-  const openEdit = (c: CampData) => populateForm(c, true);
-  const openClone = (c: CampData) => populateForm(c, false);
+  const openEdit = (c: CampData) => { void populateForm(c, true); };
+  const openClone = (c: CampData) => { void populateForm(c, false); };
 
   const handleSubmit = async () => {
     if (!selectedWorkshop) return;
@@ -356,7 +440,9 @@ const AdminCamps = () => {
         }
         const sessionInstructorRows: { session_id: string; staff_id: string }[] = [];
         insertedSessions.forEach((sess, i) => {
-          const staffIds = sessionStaffing[i] && sessionStaffing[i].length > 0 ? sessionStaffing[i] : instructorIds;
+          const dateKey = sessionRows[i]?.session_date;
+          const override = dateKey ? sessionStaffing[dateKey] : undefined;
+          const staffIds = override && override.length > 0 ? override : instructorIds;
           staffIds.forEach(sid => {
             sessionInstructorRows.push({ session_id: sess.id, staff_id: sid });
           });
@@ -488,11 +574,15 @@ const AdminCamps = () => {
                     <CardContent className="pt-4 space-y-2">
                       <div className="flex items-start gap-4">
                         {selectedWorkshop.cover_image && (
-                          <img
-                            src={selectedWorkshop.cover_image}
-                            alt={selectedWorkshop.name}
-                            className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
-                          />
+                          <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-black/40">
+                            <WorkshopCover
+                              src={getWorkshopImageUrl(selectedWorkshop.cover_image)!}
+                              alt={selectedWorkshop.name}
+                              cover_position={selectedWorkshop.cover_position}
+                              cover_zoom={selectedWorkshop.cover_zoom}
+                              cover_fit={selectedWorkshop.cover_fit}
+                            />
+                          </div>
                         )}
                         <div className="min-w-0">
                           <h4 className="font-semibold text-foreground">{selectedWorkshop.name}</h4>
@@ -714,13 +804,57 @@ const AdminCamps = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">Start Date *</Label>
-                      <Input type="date" value={startDate} onChange={e => { setStartDate(e.target.value); setSelectedHolidayId(null); setSelectedDates(new Set()); }} />
+                      <Input type="date" value={startDate} onChange={e => { datesDirty.current = true; setStartDate(e.target.value); setSelectedHolidayId(null); setSelectedDates(new Set()); }} />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">End Date *</Label>
-                      <Input type="date" value={endDate} onChange={e => { setEndDate(e.target.value); setSelectedHolidayId(null); setSelectedDates(new Set()); }} />
+                      <Input type="date" value={endDate} onChange={e => { datesDirty.current = true; setEndDate(e.target.value); setSelectedHolidayId(null); setSelectedDates(new Set()); }} />
                     </div>
                   </div>
+
+                  {/* Which days of the week the camp runs on — a weekly session
+                      like crew training picks one day, not every date between */}
+                  {!selectedHolidayId && selectedDates.size === 0 && (
+                    <div className="space-y-2 mt-4">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <Label className="text-xs text-muted-foreground">Runs on these days</Label>
+                        <div className="flex gap-1">
+                          <Button type="button" variant="ghost" size="sm" className="text-xs h-6 px-2"
+                            onClick={() => { datesDirty.current = true; setRangeWeekdays(new Set([0, 1, 2, 3, 4, 5, 6])); }}>
+                            Every day
+                          </Button>
+                          <Button type="button" variant="ghost" size="sm" className="text-xs h-6 px-2"
+                            onClick={() => { datesDirty.current = true; setRangeWeekdays(new Set([1, 2, 3, 4, 5])); }}>
+                            Weekdays
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {([[1, "Mon"], [2, "Tue"], [3, "Wed"], [4, "Thu"], [5, "Fri"], [6, "Sat"], [0, "Sun"]] as const).map(([dow, label]) => (
+                          <Button
+                            key={dow}
+                            type="button"
+                            size="sm"
+                            variant={rangeWeekdays.has(dow) ? "default" : "outline"}
+                            className="h-8 w-12 px-0"
+                            onClick={() => {
+                              datesDirty.current = true;
+                              setRangeWeekdays(prev => {
+                                const next = new Set(prev);
+                                if (next.has(dow)) next.delete(dow); else next.add(dow);
+                                return next;
+                              });
+                            }}
+                          >
+                            {label}
+                          </Button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        e.g. weekly crew training every Monday: tick just Mon and set the date range for the whole term.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -738,7 +872,9 @@ const AdminCamps = () => {
                   const expectedDates = selectedDates.size > 0
                     ? Array.from(selectedDates).sort()
                     : (startDate && endDate && !isBefore(parseISO(endDate), parseISO(startDate))
-                        ? eachDayOfInterval({ start: parseISO(startDate), end: parseISO(endDate) }).map(d => format(d, "yyyy-MM-dd"))
+                        ? eachDayOfInterval({ start: parseISO(startDate), end: parseISO(endDate) })
+                            .filter(d => rangeWeekdays.has(getDay(d)))
+                            .map(d => format(d, "yyyy-MM-dd"))
                         : []);
                   const currentDates = sessions.map(s => s.date).sort();
                   const datesMatch = expectedDates.length === currentDates.length && expectedDates.every((d, i) => d === currentDates[i]);
@@ -766,7 +902,7 @@ const AdminCamps = () => {
                   <Button variant="outline" onClick={() => setStep(1)}>
                     <ChevronLeft className="w-4 h-4 mr-1" /> Back
                   </Button>
-                  <Button onClick={() => { if (selectedDates.size > 0 && sessions.length === 0) generateSessions(); setStep(3); }} disabled={!canProceedStep2}>
+                  <Button onClick={() => { if (sessions.length === 0) generateSessions(); setStep(3); }} disabled={!canProceedStep2}>
                     Next: Review <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 </div>
@@ -793,7 +929,17 @@ const AdminCamps = () => {
                       <Input type="time" value={s.start_time} onChange={e => updateSessionTime(i, "start_time", e.target.value)} className="w-28" />
                       <span className="text-muted-foreground text-sm">–</span>
                       <Input type="time" value={s.end_time} onChange={e => updateSessionTime(i, "end_time", e.target.value)} className="w-28" />
-                      <Button variant="ghost" size="icon" className="flex-shrink-0" onClick={() => setSessions(prev => prev.filter((_, idx) => idx !== i))}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="flex-shrink-0"
+                        onClick={() => {
+                          // A hand-pruned list must survive step navigation —
+                          // only an explicit date change regenerates it.
+                          datesDirty.current = false;
+                          setSessions(prev => prev.filter((_, idx) => idx !== i));
+                        }}
+                      >
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
                     </div>
@@ -905,8 +1051,8 @@ const AdminCamps = () => {
                   <p className="text-xs text-muted-foreground mb-3">Leave blank to use the default instructors above</p>
 
                   <div className="max-h-[350px] overflow-y-auto space-y-2 pr-1">
-                    {sessions.map((s, i) => {
-                      const overrideIds = sessionStaffing[i] || [];
+                    {sessions.map((s) => {
+                      const overrideIds = sessionStaffing[s.date] || [];
                       const usingDefault = overrideIds.length === 0;
                       return (
                         <div key={s.date} className={`flex items-center gap-3 p-3 rounded-lg border ${usingDefault ? 'border-border bg-card/50' : 'border-primary/30 bg-primary/5'}`}>
@@ -924,7 +1070,7 @@ const AdminCamps = () => {
                                     {staff.full_name}
                                     <button type="button" onClick={() => setSessionStaffing(prev => ({
                                       ...prev,
-                                      [i]: prev[i].filter(id => id !== sid)
+                                      [s.date]: (prev[s.date] || []).filter(id => id !== sid)
                                     }))} className="ml-0.5 hover:text-destructive">
                                       <X className="w-3 h-3" />
                                     </button>
@@ -937,14 +1083,14 @@ const AdminCamps = () => {
                             if (!v) return;
                             setSessionStaffing(prev => ({
                               ...prev,
-                              [i]: [...(prev[i] || []), v].filter((id, idx, arr) => arr.indexOf(id) === idx)
+                              [s.date]: [...(prev[s.date] || []), v].filter((id, idx, arr) => arr.indexOf(id) === idx)
                             }));
                           }}>
                             <SelectTrigger className="w-40">
                               <SelectValue placeholder="Override..." />
                             </SelectTrigger>
                             <SelectContent>
-                              {staffList.filter(st => !(sessionStaffing[i] || []).includes(st.id)).map(st => (
+                              {staffList.filter(st => !(sessionStaffing[s.date] || []).includes(st.id)).map(st => (
                                 <SelectItem key={st.id} value={st.id}>{st.full_name}</SelectItem>
                               ))}
                             </SelectContent>
@@ -952,7 +1098,7 @@ const AdminCamps = () => {
                           {!usingDefault && (
                             <Button variant="ghost" size="icon" className="flex-shrink-0" onClick={() => setSessionStaffing(prev => {
                               const next = { ...prev };
-                              delete next[i];
+                              delete next[s.date];
                               return next;
                             })}>
                               <X className="w-4 h-4 text-muted-foreground" />
@@ -1005,7 +1151,14 @@ const AdminCamps = () => {
                 <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-4">
                   <div className="flex items-start gap-3 lg:gap-4 min-w-0 flex-1">
                   {c.workshops?.cover_image && (
-                    <img src={c.workshops.cover_image} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                    <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-black/40">
+                      <WorkshopCover
+                        src={getWorkshopImageUrl(c.workshops.cover_image)!}
+                        cover_position={c.workshops.cover_position}
+                        cover_zoom={c.workshops.cover_zoom}
+                        cover_fit={c.workshops.cover_fit}
+                      />
+                    </div>
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">

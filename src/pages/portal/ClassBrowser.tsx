@@ -46,6 +46,7 @@ import { CampBookDialog } from "@/components/portal/CampBookDialog";
 import { AdultPassesCard } from "@/components/portal/AdultPassesCard";
 import { isAttendeeProfileComplete } from "@/lib/attendeeProfile";
 import VenueFilterChips from "@/components/VenueFilterChips";
+import WorkshopCover from "@/components/WorkshopCover";
 import {
   MONTHLY_MEMBERSHIP_NOTICE,
   MONTHLY_PAYMENT_INFO,
@@ -118,7 +119,7 @@ interface ClassItem {
   venue_id: string | null;
   venues: VenueData | null;
   staff: StaffData | null;
-  workshops: { cover_image: string | null; cover_position: string | null; name: string; description: string | null } | null;
+  workshops: { cover_image: string | null; cover_position: string | null; cover_zoom: number | null; cover_fit: string | null; name: string; description: string | null } | null;
 }
 
 /** Public pages show instructors by first name only. */
@@ -256,7 +257,7 @@ const ClassBrowser = () => {
         .from("classes")
         .select(`*,
           venues(name, photo_outside, photo_indoor, photo_parking, address_line1, address_line2, city, postcode, latitude, longitude, directions, drop_off_info, has_parking, parking_details),
-          workshops(cover_image, cover_position, name, description)`)
+          workshops(cover_image, cover_position, cover_zoom, cover_fit, name, description)`)
         .eq("is_active", true)
         .eq("publicly_visible", true)
         .eq("status", "confirmed")
@@ -379,7 +380,7 @@ const ClassBrowser = () => {
     const today = new Date().toISOString().split("T")[0];
     supabase
       .from("camps")
-      .select("*, venues(name, address_line1, city, postcode, latitude, longitude), workshops(cover_image, cover_position, name)")
+      .select("*, venues(name, address_line1, city, postcode, latitude, longitude), workshops(cover_image, cover_position, cover_zoom, cover_fit, name)")
       .eq("is_active", true)
       .eq("class_type", classType as any)
       .gte("end_date", today)
@@ -731,13 +732,23 @@ const ClassBrowser = () => {
                 >
                   {/* Workshop/venue photo header */}
                   {heroPhoto && (
-                    <div className="relative h-44 overflow-hidden">
-                      <img
-                        src={heroPhoto}
-                        alt={heroAlt}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        style={workshopImage ? { objectPosition: (c.workshops as any)?.cover_position ?? "50% 25%" } : undefined}
-                      />
+                    <div className="relative h-44 overflow-hidden bg-black/40">
+                      {workshopImage ? (
+                        <WorkshopCover
+                          src={heroPhoto}
+                          alt={heroAlt}
+                          cover_position={(c.workshops as any)?.cover_position}
+                          cover_zoom={(c.workshops as any)?.cover_zoom}
+                          cover_fit={(c.workshops as any)?.cover_fit}
+                          className="group-hover:scale-105 transition-transform duration-500"
+                        />
+                      ) : (
+                        <img
+                          src={heroPhoto}
+                          alt={heroAlt}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                      )}
                       <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent" />
                       {/* Distance badge */}
                       {distance !== null && (
@@ -1431,8 +1442,14 @@ const ClassBrowser = () => {
                 return (
                   <Card key={camp.id} className="card-elevated rounded-xl overflow-hidden border-border/50 bg-card/80 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-300">
                     {workshopImage && (
-                      <div className="relative h-44 overflow-hidden">
-                        <img src={workshopImage} alt={camp.name} className="w-full h-full object-cover" style={{ objectPosition: camp.workshops?.cover_position ?? "50% 25%" }} />
+                      <div className="relative h-44 overflow-hidden bg-black/40">
+                        <WorkshopCover
+                          src={workshopImage}
+                          alt={camp.name}
+                          cover_position={camp.workshops?.cover_position}
+                          cover_zoom={(camp.workshops as any)?.cover_zoom}
+                          cover_fit={(camp.workshops as any)?.cover_fit}
+                        />
                         <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent" />
                         <Badge className="absolute top-3 left-3 bg-amber-500/90 text-white">
                           <Music className="w-3 h-3 mr-1" /> Event

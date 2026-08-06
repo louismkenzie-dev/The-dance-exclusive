@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit, Trash2, CalendarDays, ChevronRight, ChevronLeft, ListChecks, ChevronDown, ChevronUp, Clock, User, Archive, X, Copy, Flag, AlertTriangle } from "lucide-react";
 import SessionManager from "@/components/admin/SessionManager";
 import { AssignStaffDialog } from "@/components/admin/AssignStaffDialog";
+import WorkshopCover from "@/components/WorkshopCover";
 import { format, addDays, parseISO, eachDayOfInterval, getDay, isBefore, isWithinInterval } from "date-fns";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
@@ -30,6 +31,8 @@ interface WorkshopOption {
   age_max: number | null;
   cover_image: string | null;
   cover_position: string | null;
+  cover_zoom: number | null;
+  cover_fit: string | null;
   capacity: number | null;
   duration_minutes: number | null;
   price: number | null;
@@ -84,7 +87,7 @@ interface ClassData {
   is_active: boolean;
   venues?: { name: string } | null;
   staff?: { full_name: string } | null;
-  workshops?: { name: string; cover_image: string | null; cover_position: string | null } | null;
+  workshops?: { name: string; cover_image: string | null; cover_position: string | null; cover_zoom: number | null; cover_fit: string | null } | null;
 }
 
 interface SessionRow {
@@ -218,10 +221,10 @@ const AdminClasses = () => {
 
   const fetchData = async () => {
     const [classesRes, venuesRes, staffRes, workshopsRes, termsRes, holidaysRes] = await Promise.all([
-      supabase.from("classes").select("*, venues(name), staff(full_name), workshops(name, cover_image, cover_position)").order("created_at", { ascending: false }),
+      supabase.from("classes").select("*, venues(name), staff(full_name), workshops(name, cover_image, cover_position, cover_zoom, cover_fit)").order("created_at", { ascending: false }),
       supabase.from("venues").select("id, name, capacity").eq("is_active", true),
       supabase.from("staff").select("id, full_name").eq("is_active", true),
-      supabase.from("workshops").select("id, name, description, theme, dance_style, class_type, age_min, age_max, cover_image, cover_position, capacity, duration_minutes, price").eq("is_active", true),
+      supabase.from("workshops").select("id, name, description, theme, dance_style, class_type, age_min, age_max, cover_image, cover_position, cover_zoom, cover_fit, capacity, duration_minutes, price").eq("is_active", true),
       supabase.from("school_terms").select("*").order("start_date"),
       supabase.from("school_holidays").select("*").eq("holiday_type", "bank_holiday").order("start_date"),
     ]);
@@ -861,12 +864,15 @@ const AdminClasses = () => {
                     <CardContent className="pt-4 space-y-2">
                       <div className="flex items-start gap-4">
                         {selectedWorkshop.cover_image && (
-                          <img
-                            src={getMediaUrl(selectedWorkshop.cover_image)}
-                            alt={selectedWorkshop.name}
-                            className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
-                            style={{ objectPosition: selectedWorkshop.cover_position ?? "50% 25%" }}
-                          />
+                          <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-black/40">
+                            <WorkshopCover
+                              src={getMediaUrl(selectedWorkshop.cover_image)}
+                              alt={selectedWorkshop.name}
+                              cover_position={selectedWorkshop.cover_position}
+                              cover_zoom={selectedWorkshop.cover_zoom}
+                              cover_fit={selectedWorkshop.cover_fit}
+                            />
+                          </div>
                         )}
                         <div className="min-w-0">
                           <h4 className="font-semibold text-foreground">{selectedWorkshop.name}</h4>
@@ -1608,7 +1614,14 @@ const AdminClasses = () => {
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                     <div className="flex items-start gap-3 md:gap-4 flex-1 min-w-0 cursor-pointer" onClick={toggleExpand}>
                       {c.workshops?.cover_image && (
-                        <img src={getMediaUrl(c.workshops.cover_image)} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" style={{ objectPosition: c.workshops.cover_position ?? "50% 25%" }} />
+                        <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-black/40">
+                          <WorkshopCover
+                            src={getMediaUrl(c.workshops.cover_image)}
+                            cover_position={c.workshops.cover_position}
+                            cover_zoom={c.workshops.cover_zoom}
+                            cover_fit={c.workshops.cover_fit}
+                          />
+                        </div>
                       )}
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">

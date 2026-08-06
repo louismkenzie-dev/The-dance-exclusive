@@ -23,6 +23,7 @@ import BookingQrDialog from "@/components/portal/BookingQrDialog";
 import { ClassPassesPanel } from "@/components/portal/ClassPassesPanel";
 import ChangeClassDialog from "@/components/portal/ChangeClassDialog";
 import MoveSessionDialog from "@/components/portal/MoveSessionDialog";
+import WorkshopCover from "@/components/WorkshopCover";
 
 /** Cover images are stored as workshop-media storage paths — resolve to a URL. */
 const getWorkshopImageUrl = (path: string | null | undefined) => {
@@ -115,11 +116,11 @@ const MyBookings = () => {
       .select(`*,
         classes(name, day_of_week, start_time, end_time, class_type, dance_style, price_per_session, price_per_term, price_per_month, price_per_year, whatsapp_group_url,
           venues(name, address_line1, city, postcode),
-          workshops(name, cover_image, cover_position)
+          workshops(name, cover_image, cover_position, cover_zoom, cover_fit)
         ),
         camps(name, start_date, end_date, start_time, end_time, class_type,
           venues(name, address_line1, city, postcode),
-          workshops(name, cover_image, cover_position)
+          workshops(name, cover_image, cover_position, cover_zoom, cover_fit)
         ),
         students(first_name, last_name, preferred_name, profile_photo)`)
       .eq("parent_id", user.id)
@@ -318,8 +319,13 @@ const MyBookings = () => {
                   <div className="flex">
                     {/* Cover image strip */}
                     {coverImage && (
-                      <div className="w-20 md:w-28 flex-shrink-0">
-                        <img src={coverImage} alt="" className="w-full h-full object-cover" style={{ objectPosition: coverPosition }} />
+                      <div className="w-20 md:w-28 flex-shrink-0 bg-black/40">
+                        <WorkshopCover
+                          src={coverImage}
+                          cover_position={coverPosition}
+                          cover_zoom={cls?.workshops?.cover_zoom}
+                          cover_fit={cls?.workshops?.cover_fit}
+                        />
                       </div>
                     )}
 

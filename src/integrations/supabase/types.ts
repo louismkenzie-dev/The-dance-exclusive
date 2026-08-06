@@ -335,6 +335,13 @@ export type Database = {
             referencedRelation: "staff"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "camp_instructors_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       camp_session_instructors: {
@@ -375,6 +382,13 @@ export type Database = {
             columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camp_session_instructors_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_public"
             referencedColumns: ["id"]
           },
         ]
@@ -656,6 +670,13 @@ export type Database = {
             referencedRelation: "staff"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "class_instructors_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       class_passes: {
@@ -767,6 +788,55 @@ export type Database = {
             columns: ["instructor_id"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_sessions_instructor_id_fkey"
+            columns: ["instructor_id"]
+            isOneToOne: false
+            referencedRelation: "staff_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      class_waitlist: {
+        Row: {
+          class_id: string
+          created_at: string
+          id: string
+          notified_at: string | null
+          parent_id: string
+          student_id: string | null
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          id?: string
+          notified_at?: string | null
+          parent_id: string
+          student_id?: string | null
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          id?: string
+          notified_at?: string | null
+          parent_id?: string
+          student_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_waitlist_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_waitlist_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
             referencedColumns: ["id"]
           },
         ]
@@ -913,6 +983,13 @@ export type Database = {
             columns: ["instructor_id"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classes_instructor_id_fkey"
+            columns: ["instructor_id"]
+            isOneToOne: false
+            referencedRelation: "staff_public"
             referencedColumns: ["id"]
           },
           {
@@ -1086,12 +1163,14 @@ export type Database = {
           created_at: string
           current_period_end: string | null
           final_payment_date: string | null
+          free_month: number | null
           id: string
           monthly_amount: number
           started_at: string
           status: string
           stripe_env: string
           stripe_price_id: string | null
+          stripe_setup_intent_id: string | null
           stripe_subscription_id: string
           stripe_subscription_item_id: string | null
           student_id: string | null
@@ -1106,12 +1185,14 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           final_payment_date?: string | null
+          free_month?: number | null
           id?: string
           monthly_amount?: number
           started_at?: string
           status?: string
           stripe_env?: string
           stripe_price_id?: string | null
+          stripe_setup_intent_id?: string | null
           stripe_subscription_id: string
           stripe_subscription_item_id?: string | null
           student_id?: string | null
@@ -1126,12 +1207,14 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           final_payment_date?: string | null
+          free_month?: number | null
           id?: string
           monthly_amount?: number
           started_at?: string
           status?: string
           stripe_env?: string
           stripe_price_id?: string | null
+          stripe_setup_intent_id?: string | null
           stripe_subscription_id?: string
           stripe_subscription_item_id?: string | null
           student_id?: string | null
@@ -1763,6 +1846,13 @@ export type Database = {
             referencedRelation: "staff"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "session_availability_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       session_instructors: {
@@ -1803,6 +1893,13 @@ export type Database = {
             columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_instructors_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_public"
             referencedColumns: ["id"]
           },
         ]
@@ -2019,6 +2116,51 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_documents: {
+        Row: {
+          created_at: string
+          doc_type: string
+          expiry_date: string | null
+          file_path: string
+          id: string
+          label: string | null
+          staff_id: string
+        }
+        Insert: {
+          created_at?: string
+          doc_type: string
+          expiry_date?: string | null
+          file_path: string
+          id?: string
+          label?: string | null
+          staff_id: string
+        }
+        Update: {
+          created_at?: string
+          doc_type?: string
+          expiry_date?: string | null
+          file_path?: string
+          id?: string
+          label?: string | null
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_documents_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_documents_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_invites: {
         Row: {
           created_at: string
@@ -2058,42 +2200,11 @@ export type Database = {
             referencedRelation: "staff"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      staff_documents: {
-        Row: {
-          created_at: string
-          doc_type: string
-          expiry_date: string | null
-          file_path: string
-          id: string
-          label: string | null
-          staff_id: string
-        }
-        Insert: {
-          created_at?: string
-          doc_type: string
-          expiry_date?: string | null
-          file_path: string
-          id?: string
-          label?: string | null
-          staff_id: string
-        }
-        Update: {
-          created_at?: string
-          doc_type?: string
-          expiry_date?: string | null
-          file_path?: string
-          id?: string
-          label?: string | null
-          staff_id?: string
-        }
-        Relationships: [
           {
-            foreignKeyName: "staff_documents_staff_id_fkey"
+            foreignKeyName: "staff_invites_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
-            referencedRelation: "staff"
+            referencedRelation: "staff_public"
             referencedColumns: ["id"]
           },
         ]
@@ -2556,8 +2667,10 @@ export type Database = {
           age_min: number | null
           capacity: number | null
           class_type: Database["public"]["Enums"]["class_type"]
+          cover_fit: string
           cover_image: string | null
           cover_position: string | null
+          cover_zoom: number | null
           created_at: string
           dance_style: string | null
           description: string | null
@@ -2576,8 +2689,10 @@ export type Database = {
           age_min?: number | null
           capacity?: number | null
           class_type?: Database["public"]["Enums"]["class_type"]
+          cover_fit?: string
           cover_image?: string | null
           cover_position?: string | null
+          cover_zoom?: number | null
           created_at?: string
           dance_style?: string | null
           description?: string | null
@@ -2596,8 +2711,10 @@ export type Database = {
           age_min?: number | null
           capacity?: number | null
           class_type?: Database["public"]["Enums"]["class_type"]
+          cover_fit?: string
           cover_image?: string | null
           cover_position?: string | null
+          cover_zoom?: number | null
           created_at?: string
           dance_style?: string | null
           description?: string | null
@@ -2615,13 +2732,52 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      staff_public: {
+        Row: {
+          created_at: string | null
+          dance_skills: string[] | null
+          description: string | null
+          first_name: string | null
+          id: string | null
+          profile_photo: string | null
+          role: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          dance_skills?: string[] | null
+          description?: string | null
+          first_name?: never
+          id?: string | null
+          profile_photo?: string | null
+          role?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          dance_skills?: string[] | null
+          description?: string | null
+          first_name?: never
+          id?: string | null
+          profile_photo?: string | null
+          role?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      get_class_enrollment: {
+        Args: { _class_ids: string[] }
+        Returns: {
+          class_id: string
+          confirmed_count: number
+        }[]
+      }
       get_staff_id_for_user: { Args: { _user_id: string }; Returns: string }
       get_unpaid_membership_attendees: {
         Args: { _class_id: string }
-        Returns: { student_id: string | null; user_id: string }[]
+        Returns: {
+          student_id: string
+          user_id: string
+        }[]
       }
       has_role: {
         Args: {

@@ -12,6 +12,7 @@ import { Plus, Edit, Trash2, Loader2, Image as ImageIcon, Video, Youtube, X, Ins
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import WorkshopCover from "@/components/WorkshopCover";
 
 const DANCE_STYLES = ["Tap", "Modern", "Jazz", "Hip Hop", "Ballet", "Contemporary", "Lyrical", "Street", "Musical Theatre", "Acro", "Commercial", "Popping", "Locking", "Breaking", "Whacking", "Afro", "House", "Crew Choreography", "Lite Feet", "Private Lessons", "Mixed"];
 
@@ -47,6 +48,8 @@ interface Workshop {
   links: string[] | null;
   cover_image: string | null;
   cover_position: string | null;
+  cover_zoom: number | null;
+  cover_fit: string | null;
   is_active: boolean;
   created_at: string;
 }
@@ -84,6 +87,10 @@ const AdminWorkshops = () => {
   // CSS object-position of the cover's focal point (e.g. "50% 30%") — the
   // part of the photo that must stay in frame on every screen size.
   const [coverPosition, setCoverPosition] = useState<string | null>(null);
+  const [coverZoom, setCoverZoom] = useState(1);
+  // "contain" shows the whole image letterboxed — for logo artwork that any
+  // crop would cut off.
+  const [coverFit, setCoverFit] = useState<"cover" | "contain">("cover");
   const [media, setMedia] = useState<WorkshopMedia[]>([]);
   const [mediaUploading, setMediaUploading] = useState(false);
   const [typeFilter, setTypeFilter] = useState<"all" | "children" | "adult">("all");
@@ -109,6 +116,8 @@ const AdminWorkshops = () => {
     setCoverPreview(null);
     setCoverPath(null);
     setCoverPosition(null);
+    setCoverZoom(1);
+    setCoverFit("cover");
     setMedia([]);
   };
 
@@ -138,6 +147,8 @@ const AdminWorkshops = () => {
     setCoverPath(w.cover_image);
     setCoverPreview(w.cover_image ? getMediaUrl(w.cover_image) : null);
     setCoverPosition(w.cover_position);
+    setCoverZoom(Number(w.cover_zoom) > 1 ? Number(w.cover_zoom) : 1);
+    setCoverFit(w.cover_fit === "contain" ? "contain" : "cover");
     fetchMedia(w.id);
     setOpen(true);
   };
@@ -154,23 +165,53 @@ const AdminWorkshops = () => {
     } else {
       setCoverPath(path);
       setCoverPreview(getMediaUrl(path));
-      setCoverPosition(null); // fresh photo — top-biased default until a focus point is set
+      // Fresh photo — top-biased default until framing is set
+      setCoverPosition(null);
+      setCoverZoom(1);
+      setCoverFit("cover");
     }
     setCoverUploading(false);
-  };
-
-  /** Set the cover's focal point from a click on the full photo. */
-  const setFocalFromClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = Math.round(Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)));
-    const y = Math.round(Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100)));
-    setCoverPosition(`${x}% ${y}%`);
   };
 
   const focalPoint = (() => {
     const m = /^([\d.]+)% ([\d.]+)%$/.exec(coverPosition ?? "");
     return m ? { x: Number(m[1]), y: Number(m[2]) } : { x: 50, y: 25 };
   })();
+
+  // Drag-to-pan on the class-card preview (a tap still jumps the focus point
+  // directly). Pointer events cover mouse and touch — same as merch framing.
+  const frameDragRef = useRef<{ startX: number; startY: number; posX: number; posY: number; moved: boolean } | null>(null);
+
+  const onFramePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (coverFit === "contain") return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    frameDragRef.current = { startX: e.clientX, startY: e.clientY, posX: focalPoint.x, posY: focalPoint.y, moved: false };
+  };
+
+  const onFramePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = frameDragRef.current;
+    if (!d) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const dx = ((e.clientX - d.startX) / rect.width) * 100;
+    const dy = ((e.clientY - d.startY) / rect.height) * 100;
+    if (!d.moved && (Math.abs(dx) > 1.5 || Math.abs(dy) > 1.5)) d.moved = true;
+    if (d.moved) {
+      // Dragging the photo right reveals more of its left side, so the
+      // object-position moves opposite to the drag.
+      setCoverPosition(`${Math.round(Math.min(100, Math.max(0, d.posX - dx)))}% ${Math.round(Math.min(100, Math.max(0, d.posY - dy)))}%`);
+    }
+  };
+
+  const onFramePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = frameDragRef.current;
+    frameDragRef.current = null;
+    if (d && !d.moved) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = Math.round(Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)));
+      const y = Math.round(Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100)));
+      setCoverPosition(`${x}% ${y}%`);
+    }
+  };
 
   const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -234,6 +275,8 @@ const AdminWorkshops = () => {
       links: cleanedLinks,
       cover_image: coverPath,
       cover_position: coverPosition,
+      cover_zoom: coverZoom > 1 ? coverZoom : null,
+      cover_fit: coverFit,
       is_active: form.is_active,
     };
 
@@ -352,35 +395,88 @@ const AdminWorkshops = () => {
                       {coverPreview ? (
                         <div className="space-y-3">
                           <p className="text-xs text-muted-foreground">
-                            Click the photo where its focus should be (faces, the action). That spot
-                            stays in frame however the advert is cropped — phones, cards and thumbnails.
+                            {coverFit === "contain"
+                              ? "The whole image shows inside the card — perfect for logo artwork."
+                              : "Drag the image to move it inside the frame, tap to jump the focus point, and zoom below. This is exactly how it crops on the website."}
                           </p>
                           <div
-                            className="relative w-full max-w-sm mx-auto rounded-lg overflow-hidden border border-border cursor-crosshair"
-                            onClick={setFocalFromClick}
+                            className="relative w-full rounded-lg overflow-hidden border border-border bg-black/40 aspect-[2/1] touch-none select-none"
+                            style={{ cursor: coverFit === "contain" ? "default" : "move" }}
+                            onPointerDown={onFramePointerDown}
+                            onPointerMove={onFramePointerMove}
+                            onPointerUp={onFramePointerUp}
                           >
-                            <img src={coverPreview} alt="Cover" draggable={false} className="w-full h-auto block select-none" />
-                            <div
-                              className="absolute w-6 h-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white ring-2 ring-primary shadow-lg pointer-events-none"
-                              style={{ left: `${focalPoint.x}%`, top: `${focalPoint.y}%` }}
-                            />
+                            {coverFit === "contain" ? (
+                              <img src={coverPreview} alt="Cover" draggable={false} className="w-full h-full object-contain" />
+                            ) : (
+                              <img
+                                src={coverPreview}
+                                alt="Cover"
+                                draggable={false}
+                                className="w-full h-full object-cover"
+                                style={{
+                                  objectPosition: coverPosition ?? "50% 25%",
+                                  ...(coverZoom > 1 ? { transform: `scale(${coverZoom})`, transformOrigin: coverPosition ?? "50% 25%" } : {}),
+                                }}
+                              />
+                            )}
                           </div>
-                          <div>
-                            <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1.5">How it crops on the website</p>
-                            <div className="flex items-end gap-3">
-                              <div className="flex-1 min-w-0">
-                                <div className="rounded-lg overflow-hidden border border-border aspect-[2/1]">
-                                  <img src={coverPreview} alt="" className="w-full h-full object-cover" style={{ objectPosition: coverPosition ?? "50% 25%" }} />
-                                </div>
-                                <p className="text-[10px] text-muted-foreground mt-1 text-center">Class card (mobile)</p>
-                              </div>
-                              <div className="w-24 flex-shrink-0">
-                                <div className="rounded-lg overflow-hidden border border-border aspect-square">
-                                  <img src={coverPreview} alt="" className="w-full h-full object-cover" style={{ objectPosition: coverPosition ?? "50% 25%" }} />
-                                </div>
-                                <p className="text-[10px] text-muted-foreground mt-1 text-center">Thumbnail</p>
-                              </div>
+                          <p className="text-[10px] text-muted-foreground -mt-1 text-center">Class card (mobile)</p>
+
+                          <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
+                            <div>
+                              <Label className="text-sm font-medium">Fit whole image (no crop)</Label>
+                              <p className="text-xs text-muted-foreground">Best for logos — nothing gets cut off.</p>
                             </div>
+                            <Switch checked={coverFit === "contain"} onCheckedChange={(v) => setCoverFit(v ? "contain" : "cover")} />
+                          </div>
+
+                          {coverFit === "cover" && (
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-xs">Zoom</Label>
+                                <span className="text-xs text-muted-foreground tabular-nums">{coverZoom.toFixed(2)}×</span>
+                              </div>
+                              <input
+                                type="range"
+                                min="1"
+                                max="3"
+                                step="0.05"
+                                value={coverZoom}
+                                onChange={(e) => setCoverZoom(parseFloat(e.target.value))}
+                                className="w-full accent-primary"
+                              />
+                            </div>
+                          )}
+
+                          <div className="flex items-end justify-between gap-3">
+                            <div className="w-24 flex-shrink-0">
+                              <div className="rounded-lg overflow-hidden border border-border bg-black/40 aspect-square">
+                                {coverFit === "contain" ? (
+                                  <img src={coverPreview} alt="" className="w-full h-full object-contain" />
+                                ) : (
+                                  <img
+                                    src={coverPreview}
+                                    alt=""
+                                    className="w-full h-full object-cover"
+                                    style={{
+                                      objectPosition: coverPosition ?? "50% 25%",
+                                      ...(coverZoom > 1 ? { transform: `scale(${coverZoom})`, transformOrigin: coverPosition ?? "50% 25%" } : {}),
+                                    }}
+                                  />
+                                )}
+                              </div>
+                              <p className="text-[10px] text-muted-foreground mt-1 text-center">Thumbnail</p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs"
+                              onClick={() => { setCoverPosition(null); setCoverZoom(1); setCoverFit("cover"); }}
+                            >
+                              Reset framing
+                            </Button>
                           </div>
                         </div>
                       ) : (
@@ -532,7 +628,7 @@ const AdminWorkshops = () => {
               <div className="flex gap-4 p-4">
                 {w.cover_image ? (
                   <div className="w-24 h-24 rounded-lg overflow-hidden shrink-0 bg-secondary">
-                    <img src={getMediaUrl(w.cover_image)} alt={w.name} className="w-full h-full object-cover" style={{ objectPosition: w.cover_position ?? "50% 25%" }} />
+                    <WorkshopCover src={getMediaUrl(w.cover_image)} alt={w.name} cover_position={w.cover_position} cover_zoom={w.cover_zoom} cover_fit={w.cover_fit} />
                   </div>
                 ) : (
                   <div className={`w-24 h-24 rounded-lg shrink-0 flex items-center justify-center ${isAdult ? "bg-accent/10" : "bg-primary/10"}`}>

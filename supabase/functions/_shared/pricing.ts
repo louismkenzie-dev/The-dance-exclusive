@@ -175,19 +175,31 @@ export interface MonthlyItemInput {
   additionalMonthly: number;
 }
 
+/** A child's memberships from PREVIOUS checkouts, counted so a class booked
+ *  later still gets the additional-class rate and the £110 cap. */
+export interface ExistingEnrolment {
+  /** Live monthly memberships the child already holds. */
+  count: number;
+  /** Their combined monthly amount as billed (feeds the £110 cap). */
+  monthlyTotal: number;
+}
+
 /**
  * Given every monthly-membership item in the basket, price each one: a child's
  * most expensive class is charged at the full rate and every further class at
  * the additional-class rate, with the combined total per child capped at the
  * £110 Unlimited price. Items for different children are independent.
  *
- * NOTE: this is per-basket. Memberships a child already holds from a previous
- * checkout are not counted, so a second membership bought separately pays the
- * full rate rather than the additional-class rate (a known launch limitation —
- * cross-checkout state sync was deliberately avoided to prevent client/server
- * divergence hard-blocking checkout).
+ * `existingByStudent` carries each child's LIVE memberships from previous
+ * checkouts: if a child already holds one, every class in this basket is an
+ * additional class, and the existing monthly total counts towards the £110
+ * cap. Client and server both derive it from the same memberships rows, so
+ * the two engines stay in lockstep.
  */
-export const priceMonthlyItems = (items: MonthlyItemInput[]): Map<string, number> => {
+export const priceMonthlyItems = (
+  items: MonthlyItemInput[],
+  existingByStudent?: Map<string, ExistingEnrolment>,
+): Map<string, number> => {
   const result = new Map<string, number>();
   const byChild = new Map<string, MonthlyItemInput[]>();
   for (const item of items) {
@@ -203,9 +215,11 @@ export const priceMonthlyItems = (items: MonthlyItemInput[]): Map<string, number
     const sorted = [...group].sort(
       (a, b) => b.fullMonthly - a.fullMonthly || a.classId.localeCompare(b.classId),
     );
-    let total = 0;
+    const existing = (group[0].studentId && existingByStudent?.get(group[0].studentId)) || null;
+    const rankOffset = existing?.count ?? 0;
+    let total = round2(existing?.monthlyTotal ?? 0);
     sorted.forEach((item, index) => {
-      let amount = index === 0 ? item.fullMonthly : item.additionalMonthly;
+      let amount = index + rankOffset === 0 ? item.fullMonthly : item.additionalMonthly;
       // Cap the child's combined monthly total at the Unlimited price.
       if (total + amount > UNLIMITED_MONTHLY_CAP) {
         amount = round2(Math.max(0, UNLIMITED_MONTHLY_CAP - total));
@@ -236,8 +250,15 @@ export interface YearlyItemInput {
  * child, the most expensive class is charged at the full yearly rate and
  * every further class at the additional-class yearly rate. (No Unlimited
  * cap — that is a monthly-membership product only.)
+ *
+ * `existingCountByStudent` counts the child's confirmed pay-yearly bookings
+ * from earlier checkouts in the SAME dance year, so a later class still gets
+ * the additional-class rate.
  */
-export const priceYearlyItems = (items: YearlyItemInput[]): Map<string, number> => {
+export const priceYearlyItems = (
+  items: YearlyItemInput[],
+  existingCountByStudent?: Map<string, number>,
+): Map<string, number> => {
   const result = new Map<string, number>();
   const byChild = new Map<string, YearlyItemInput[]>();
   for (const item of items) {
@@ -251,8 +272,9 @@ export const priceYearlyItems = (items: YearlyItemInput[]): Map<string, number> 
     const sorted = [...group].sort(
       (a, b) => b.fullYearly - a.fullYearly || a.classId.localeCompare(b.classId),
     );
+    const rankOffset = (group[0].studentId && existingCountByStudent?.get(group[0].studentId)) || 0;
     sorted.forEach((item, index) => {
-      result.set(item.id, index === 0 ? item.fullYearly : item.additionalYearly);
+      result.set(item.id, index + rankOffset === 0 ? item.fullYearly : item.additionalYearly);
     });
   }
 

@@ -13,6 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ADULT_PASSES, type AdultPassType } from "@/lib/pricing";
+import MoveMembershipDialog, { type MoveMembershipTarget } from "@/components/admin/MoveMembershipDialog";
 
 interface Booking {
   id: string;
@@ -203,6 +204,9 @@ interface PlanRow {
   nextCharge: string | null;
   ends: string | null;
   live: boolean;
+  /** Set on monthly rows — enables the admin "Move" (class transfer) action. */
+  membershipId: string | null;
+  classId: string | null;
 }
 
 const planMeta: Record<PlanKind, { label: string; className: string }> = {
@@ -240,13 +244,15 @@ const MembershipsTab = () => {
   const [planFilter, setPlanFilter] = useState<"all" | PlanKind>("all");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [moveTarget, setMoveTarget] = useState<MoveMembershipTarget | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const fetchPlans = async () => {
       const [membershipsRes, bookingsRes] = await Promise.all([
         supabase
           .from("memberships")
-          .select("id, user_id, monthly_amount, status, started_at, current_period_end, cancel_at, students(first_name, last_name), classes(name, day_of_week, start_time)")
+          .select("id, user_id, class_id, monthly_amount, status, started_at, current_period_end, cancel_at, students(first_name, last_name), classes(name, day_of_week, start_time)")
           .order("created_at", { ascending: false }),
         supabase
           .from("bookings")
@@ -296,6 +302,8 @@ const MembershipsTab = () => {
           nextCharge: m.status !== "cancelled" ? m.current_period_end : null,
           ends: m.cancel_at,
           live: isLive(m.status),
+          membershipId: m.id,
+          classId: (m as any).class_id ?? null,
         };
       });
 
@@ -318,6 +326,8 @@ const MembershipsTab = () => {
           nextCharge: null,
           ends: null,
           live: true,
+          membershipId: null,
+          classId: null,
         };
       });
 
@@ -335,7 +345,7 @@ const MembershipsTab = () => {
       setLoading(false);
     };
     fetchPlans();
-  }, []);
+  }, [refreshKey]);
 
   const counts = PLAN_ORDER.reduce((acc, p) => {
     acc[p] = rows.filter((r) => r.plan === p).length;
@@ -512,6 +522,7 @@ const MembershipsTab = () => {
                               <TableHead>Started</TableHead>
                               <TableHead>Next charge</TableHead>
                               <TableHead>Ends</TableHead>
+                              <TableHead />
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -531,6 +542,24 @@ const MembershipsTab = () => {
                                 <TableCell>{format(new Date(r.started), "d MMM yyyy")}</TableCell>
                                 <TableCell>{r.nextCharge ? format(new Date(r.nextCharge), "d MMM yyyy") : "—"}</TableCell>
                                 <TableCell>{r.ends ? format(new Date(r.ends), "d MMM yyyy") : "—"}</TableCell>
+                                <TableCell className="text-right">
+                                  {r.membershipId && (r.statusLabel === "Active" || r.statusLabel === "Paused") && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 px-2 text-xs"
+                                      onClick={() => setMoveTarget({
+                                        membershipId: r.membershipId!,
+                                        parentName: r.parentName,
+                                        childName: r.childName,
+                                        className: r.className,
+                                        classId: r.classId,
+                                      })}
+                                    >
+                                      Move
+                                    </Button>
+                                  )}
+                                </TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
@@ -610,6 +639,12 @@ const MembershipsTab = () => {
               ))}
             </div>
           )}
+
+          <MoveMembershipDialog
+            target={moveTarget}
+            onOpenChange={(o) => { if (!o) setMoveTarget(null); }}
+            onMoved={() => setRefreshKey((k) => k + 1)}
+          />
 
           {showOneOff && oneOffSorted.length > 0 && (
             <div className="space-y-3">

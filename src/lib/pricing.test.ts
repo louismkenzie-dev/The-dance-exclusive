@@ -151,6 +151,35 @@ describe("priceMonthlyItems", () => {
     expect(serverOrder.get("0")).toBe(30.6);
     expect(serverOrder.get("1")).toBe(26.35);
   });
+
+  it("prices a later-booked class at the additional rate when the child already has a membership", () => {
+    // Becky's case: Charlotte already on Tuesdays (£30.60/mo from an earlier
+    // checkout), now booking Thursdays separately — additional rate applies
+    // automatically.
+    const prices = priceMonthlyItems(
+      [{ id: "new", classId: "cls-thu", studentId: "charlotte", fullMonthly: 30.6, additionalMonthly: 26.35 }],
+      new Map([["charlotte", { count: 1, monthlyTotal: 30.6 }]]),
+    );
+    expect(prices.get("new")).toBe(26.35);
+  });
+
+  it("counts existing memberships towards the £110 cap", () => {
+    // Child already paying £109.65/mo — the next class only costs the 35p to
+    // the cap, exactly as if everything had been booked together.
+    const prices = priceMonthlyItems(
+      [{ id: "new", classId: "cls-x", studentId: "child1", fullMonthly: 30.6, additionalMonthly: 26.35 }],
+      new Map([["child1", { count: 4, monthlyTotal: 109.65 }]]),
+    );
+    expect(prices.get("new")).toBe(0.35);
+  });
+
+  it("ignores existing enrolments for other children", () => {
+    const prices = priceMonthlyItems(
+      [{ id: "new", classId: "cls-x", studentId: "child2", fullMonthly: 30.6, additionalMonthly: 26.35 }],
+      new Map([["child1", { count: 2, monthlyTotal: 57.8 }]]),
+    );
+    expect(prices.get("new")).toBe(30.6);
+  });
 });
 
 describe("computeSiblingDiscount", () => {
@@ -316,5 +345,13 @@ describe("priceYearlyItems", () => {
     ]);
     expect(result.get("b")).toBe(307.8); // "aaa" sorts first → full rate
     expect(result.get("a")).toBe(265.05);
+  });
+
+  it("prices a later yearly booking at the additional rate when the child already has one this dance year", () => {
+    const result = priceYearlyItems(
+      [yearlyItem("new", "child1")],
+      new Map([["child1", 1]]),
+    );
+    expect(result.get("new")).toBe(265.05);
   });
 });

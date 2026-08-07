@@ -10,13 +10,14 @@ import {
 } from "../_shared/stripe.ts";
 import { validateAndCompute } from "../_shared/coupon.ts";
 import { getActiveStripeEnv } from "../_shared/paymentsMode.ts";
-import { chargesFirstMonthAtSignup, firstBillingAnchor, freeMonthFor } from "../_shared/billing.ts";
+import { chargesFirstMonthAtSignup, firstBillingAnchor, freeMonthFor, londonYMD } from "../_shared/billing.ts";
 import {
   ADULT_PASSES,
   type AdultPassType,
   additionalMonthlyPrice,
   additionalYearlyPrice,
   computeSiblingDiscount,
+  type ExistingEnrolment,
   monthlyPrice,
   priceMonthlyItems,
   priceYearlyItems,
@@ -276,7 +277,6 @@ serve(async (req) => {
           : null;
       })
       .filter(Boolean) as { id: string; classId: string; studentId: string | null; fullMonthly: number; additionalMonthly: number }[];
-    const monthlyPrices = priceMonthlyItems(monthlyInputs);
 
     // Pay-yearly items get the same additional-class treatment: a child's
     // most expensive class at the full yearly rate, further classes at the
@@ -297,7 +297,52 @@ serve(async (req) => {
           : null;
       })
       .filter(Boolean) as { id: string; classId: string; studentId: string | null; fullYearly: number; additionalYearly: number }[];
-    const yearlyPrices = priceYearlyItems(yearlyInputs);
+
+    // Cross-checkout multi-class discount: classes a child ALREADY holds from
+    // previous checkouts count towards the additional-class rate and the £110
+    // cap, so booking a second class later costs the same as booking both at
+    // once. The client mirrors these queries (own-rows RLS) so both engines
+    // price identically.
+    const existingMonthlyByStudent = new Map<string, ExistingEnrolment>();
+    const existingYearlyByStudent = new Map<string, number>();
+    {
+      const enrolledStudentIds = [...new Set(
+        [...monthlyInputs, ...yearlyInputs].map((i) => i.studentId).filter(Boolean),
+      )] as string[];
+      if (userId && enrolledStudentIds.length > 0) {
+        const { data: liveRows } = await supabaseAdmin
+          .from("memberships")
+          .select("student_id, monthly_amount")
+          .eq("user_id", userId)
+          .eq("stripe_env", env)
+          .in("status", ["active", "paused", "past_due", "cancel_scheduled"])
+          .in("student_id", enrolledStudentIds);
+        for (const r of liveRows ?? []) {
+          if (!r.student_id) continue;
+          const g = existingMonthlyByStudent.get(r.student_id) ?? { count: 0, monthlyTotal: 0 };
+          g.count += 1;
+          g.monthlyTotal = round2(g.monthlyTotal + Number(r.monthly_amount || 0));
+          existingMonthlyByStudent.set(r.student_id, g);
+        }
+        // Pay-yearly plans reset each dance year (Aug–Jul).
+        const { y: nowY, m: nowM } = londonYMD(new Date());
+        const danceYearStart = `${nowM >= 8 ? nowY : nowY - 1}-08-01`;
+        const { data: yearlyRows } = await supabaseAdmin
+          .from("bookings")
+          .select("student_id")
+          .eq("parent_id", userId)
+          .eq("booking_type", "yearly")
+          .eq("status", "confirmed")
+          .gte("booked_at", danceYearStart)
+          .in("student_id", enrolledStudentIds);
+        for (const r of yearlyRows ?? []) {
+          if (!r.student_id) continue;
+          existingYearlyByStudent.set(r.student_id, (existingYearlyByStudent.get(r.student_id) ?? 0) + 1);
+        }
+      }
+    }
+    const monthlyPrices = priceMonthlyItems(monthlyInputs, existingMonthlyByStudent);
+    const yearlyPrices = priceYearlyItems(yearlyInputs, existingYearlyByStudent);
 
     const expectedPrices: number[] = [];
     for (const [index, item] of cartItems.entries()) {

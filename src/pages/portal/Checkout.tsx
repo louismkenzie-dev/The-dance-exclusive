@@ -38,6 +38,7 @@ import {
   additionalMonthlyPrice,
   additionalYearlyPrice,
   computeSiblingDiscount,
+  type ExistingEnrolment,
   monthlyPrice,
   priceMonthlyItems,
   priceYearlyItems,
@@ -433,6 +434,11 @@ const CheckoutPage = () => {
     camps: Map<string, { sibling_discount_enabled: boolean }>;
     selfIds: Set<string>;
     priorBookedChildIds: string[];
+    /** Live monthly memberships each child already holds (cross-checkout
+     *  additional-class rate + £110 cap) — mirrors the server's query. */
+    existingMonthlyByStudent: Map<string, ExistingEnrolment>;
+    /** Confirmed pay-yearly bookings per child this dance year. */
+    existingYearlyByStudent: Map<string, number>;
   }
   const [pricingCtx, setPricingCtx] = useState<PricingContext | null>(null);
 
@@ -447,7 +453,7 @@ const CheckoutPage = () => {
     (async () => {
       const classIds = [...new Set(items.filter((i) => cartItemKind(i) === "class" && i.classId).map((i) => i.classId as string))];
       const campIds = [...new Set(items.filter((i) => cartItemKind(i) === "camp" && i.campId).map((i) => i.campId as string))];
-      const [classRes, campRes, studentsRes, bookingsRes] = await Promise.all([
+      const [classRes, campRes, studentsRes, bookingsRes, envRes] = await Promise.all([
         classIds.length
           ? supabase.from("classes").select("id, class_type, start_time, end_time, price_per_session, price_per_term, price_per_month, price_per_year, sibling_discount_enabled").in("id", classIds)
           : Promise.resolve({ data: [] as any[] }),
@@ -460,7 +466,32 @@ const CheckoutPage = () => {
         user?.id
           ? supabase.from("bookings").select("student_id").eq("parent_id", user.id).eq("status", "confirmed").not("student_id", "is", null)
           : Promise.resolve({ data: [] as any[] }),
+        user?.id ? getPaymentsEnvironment().catch(() => "live") : Promise.resolve("live"),
       ]);
+      // Cross-checkout multi-class discount inputs — the same queries the
+      // server runs, over this parent's own rows.
+      const paymentsEnv = envRes as string;
+      const [membershipsRes, yearlyRes] = user?.id
+        ? await Promise.all([
+          supabase
+            .from("memberships")
+            .select("student_id, monthly_amount")
+            .eq("user_id", user.id)
+            .eq("stripe_env", paymentsEnv)
+            .in("status", ["active", "paused", "past_due", "cancel_scheduled"]),
+          (() => {
+            const now = new Date();
+            const y = now.getMonth() + 1 >= 8 ? now.getFullYear() : now.getFullYear() - 1;
+            return supabase
+              .from("bookings")
+              .select("student_id")
+              .eq("parent_id", user.id)
+              .eq("booking_type", "yearly")
+              .eq("status", "confirmed")
+              .gte("booked_at", `${y}-08-01`);
+          })(),
+        ])
+        : [{ data: [] as any[] }, { data: [] as any[] }];
       if (cancelled) return;
       const selfIds = new Set(((studentsRes.data as any[]) ?? []).filter((s) => s.is_self).map((s) => s.id as string));
       const priorBookedChildIds = [...new Set(
@@ -468,11 +499,26 @@ const CheckoutPage = () => {
           .map((b) => b.student_id as string)
           .filter((id) => id && !selfIds.has(id))),
       )];
+      const existingMonthlyByStudent = new Map<string, ExistingEnrolment>();
+      for (const r of (membershipsRes.data as any[]) ?? []) {
+        if (!r.student_id) continue;
+        const g = existingMonthlyByStudent.get(r.student_id) ?? { count: 0, monthlyTotal: 0 };
+        g.count += 1;
+        g.monthlyTotal = round2(g.monthlyTotal + Number(r.monthly_amount || 0));
+        existingMonthlyByStudent.set(r.student_id, g);
+      }
+      const existingYearlyByStudent = new Map<string, number>();
+      for (const r of (yearlyRes.data as any[]) ?? []) {
+        if (!r.student_id) continue;
+        existingYearlyByStudent.set(r.student_id, (existingYearlyByStudent.get(r.student_id) ?? 0) + 1);
+      }
       setPricingCtx({
         classes: new Map(((classRes.data as any[]) ?? []).map((c) => [c.id, c])),
         camps: new Map(((campRes.data as any[]) ?? []).map((c) => [c.id, c])),
         selfIds,
         priorBookedChildIds,
+        existingMonthlyByStudent,
+        existingYearlyByStudent,
       });
     })();
     return () => { cancelled = true; };
@@ -497,7 +543,7 @@ const CheckoutPage = () => {
             additionalMonthly: additionalMonthlyPrice(cls),
           };
         });
-      const monthlyCharges = priceMonthlyItems(monthlyInputs);
+      const monthlyCharges = priceMonthlyItems(monthlyInputs, pricingCtx.existingMonthlyByStudent);
       for (const [id, amount] of monthlyCharges) charges.set(id, amount);
 
       // Pay-yearly gets the same additional-class treatment (no cap).
@@ -513,7 +559,7 @@ const CheckoutPage = () => {
             additionalYearly: additionalYearlyPrice(cls),
           };
         });
-      const yearlyCharges = priceYearlyItems(yearlyInputs);
+      const yearlyCharges = priceYearlyItems(yearlyInputs, pricingCtx.existingYearlyByStudent);
       for (const [id, amount] of yearlyCharges) charges.set(id, amount);
     }
     const adjustedSubtotal = round2([...charges.values()].reduce((s, v) => s + v, 0));
@@ -549,13 +595,14 @@ const CheckoutPage = () => {
     const byChild = new Map<string, number>();
     for (const i of items) {
       if (i.pricingPlan !== "monthly" || i.classType !== "children" || !i.studentId) continue;
-      byChild.set(
-        i.studentId,
-        (byChild.get(i.studentId) ?? 0) + (adjusted.charges.get(i.id) ?? i.totalPrice),
-      );
+      // Memberships the child already holds count towards the cap too.
+      const base = byChild.get(i.studentId)
+        ?? pricingCtx?.existingMonthlyByStudent.get(i.studentId)?.monthlyTotal
+        ?? 0;
+      byChild.set(i.studentId, base + (adjusted.charges.get(i.id) ?? i.totalPrice));
     }
     return [...byChild.values()].some((total) => total >= UNLIMITED_MONTHLY_CAP - 0.005);
-  }, [items, adjusted]);
+  }, [items, adjusted, pricingCtx]);
   // Client estimate for instant feedback; replaced by the server's authoritative
   // amount once the PaymentIntent is created.
   const estimatedTotal = Math.max(

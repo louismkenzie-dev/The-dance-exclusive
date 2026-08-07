@@ -77,13 +77,26 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
+    // Owners manage their own memberships; admins (Amie moving a family who
+    // booked the wrong class) can manage anyone's.
     const { data: membership } = await supabase
       .from("memberships")
       .select("*")
       .eq("id", membershipId)
-      .eq("user_id", user.id)
       .maybeSingle();
     if (!membership) return jsonResponse({ error: "Membership not found" }, 404);
+    if (membership.user_id !== user.id) {
+      const { data: adminRole } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "admin")
+        .maybeSingle();
+      if (!adminRole) return jsonResponse({ error: "Membership not found" }, 404);
+    }
+    // All family-scoped reads/writes below belong to the membership's OWNER,
+    // which is the caller for parents and the family for admin calls.
+    const ownerId: string = membership.user_id;
     if (membership.status === "cancelled") {
       return jsonResponse({ error: "This membership has already ended" }, 400);
     }
@@ -136,7 +149,7 @@ serve(async (req) => {
     const { data: profile } = await supabase
       .from("profiles")
       .select("email, full_name")
-      .eq("user_id", user.id)
+      .eq("user_id", ownerId)
       .maybeSingle();
 
     // ────────────────────────────────────────────────────────────────────
@@ -258,7 +271,7 @@ serve(async (req) => {
     let clashQuery = supabase
       .from("memberships")
       .select("id")
-      .eq("user_id", user.id)
+      .eq("user_id", ownerId)
       .eq("class_id", newClassId)
       .in("status", ["incomplete", "active", "past_due", "paused", "cancel_scheduled"]);
     clashQuery = membership.student_id
@@ -316,7 +329,7 @@ serve(async (req) => {
     const { data: priorBookings } = await supabase
       .from("bookings")
       .select("student_id, students(is_self)")
-      .eq("parent_id", user.id)
+      .eq("parent_id", ownerId)
       .eq("status", "confirmed")
       .not("student_id", "is", null);
     for (const b of priorBookings ?? []) {
@@ -399,7 +412,7 @@ serve(async (req) => {
       let q = supabase
         .from("bookings")
         .select("id, notes")
-        .eq("parent_id", user.id)
+        .eq("parent_id", ownerId)
         .eq("class_id", classId)
         .eq("status", "confirmed")
         .eq("booking_type", "monthly");
@@ -432,7 +445,7 @@ serve(async (req) => {
         class_id: newClassId,
         camp_id: null,
         student_id: membership.student_id,
-        parent_id: user.id,
+        parent_id: ownerId,
         status: "confirmed",
         booking_type: "monthly",
         amount: switchedAmount,

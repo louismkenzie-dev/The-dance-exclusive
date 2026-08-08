@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getStripe } from "@/lib/stripe";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { SplatVideo } from "@/components/BrandLoader";
 import {
   CheckCircle2,
   XCircle,
@@ -282,7 +283,7 @@ const CheckoutReturn = () => {
     return (
       <div className="min-h-[60vh] flex items-center justify-center px-4">
         <div className="text-center space-y-4">
-          <Loader2 className="w-12 h-12 text-primary mx-auto animate-spin" />
+          <SplatVideo className="w-44 h-44 mx-auto" />
           <h1 className="text-xl font-bold text-foreground">
             Confirming your payment…
           </h1>

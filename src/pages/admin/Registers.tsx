@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { addDays, differenceInYears, format, parseISO } from "date-fns";
 import StudentProfileDrawer from "@/components/staff/StudentProfileDrawer";
 import VenueFilterChips from "@/components/VenueFilterChips";
+import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
 
 const formatDay = (d: string) => d.charAt(0).toUpperCase() + d.slice(1);
 
@@ -86,7 +87,7 @@ const AdminRegisters = () => {
     const [{ data: bks }, { data: att }, { data: unpaidRows }] = await Promise.all([
       supabase
         .from("bookings")
-        .select(`id, student_id, parent_id, notes, students:student_id ( id, first_name, last_name, preferred_name, profile_photo, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info, photo_consent )`)
+        .select(`id, student_id, parent_id, notes, students:student_id ( id, first_name, last_name, preferred_name, profile_photo, avatar_url, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info, photo_consent )`)
         .eq("class_id", session.class_id)
         .eq("status", "confirmed"),
       supabase
@@ -409,13 +410,15 @@ const AdminRegisters = () => {
                           <TableRow key={b.id} className={`cursor-pointer ${status.row}`} onClick={() => setProfileBooking({ booking: b, sessionId: selectedSession.id, classId: selectedSession.class_id })}>
                             <TableCell>
                               <div className="flex items-center gap-3">
-                                {student?.profile_photo ? (
-                                  <img src={student.profile_photo} alt="" className="w-9 h-9 rounded-full object-cover" />
-                                ) : (
-                                  <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold flex-shrink-0">
-                                    {student?.first_name?.[0] ?? "?"}
-                                  </div>
-                                )}
+                                {/* Safeguarding view — the real photo stays the primary circle */}
+                                <PhotoAvatarDuo
+                                  photoUrl={student?.profile_photo}
+                                  avatarUrl={student?.avatar_url}
+                                  initials={student?.first_name?.[0] ?? "?"}
+                                  size="sm"
+                                  photoPrimary
+                                  expandable
+                                />
                                 <div className="min-w-0">
                                   <p className="font-medium text-sm hover:underline flex items-center gap-1.5">
                                     {student ? `${student.first_name} ${student.last_name}` : "Adult attendee"}

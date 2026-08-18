@@ -415,6 +415,7 @@ const StaffRegisters = () => {
                                   avatarUrl={student?.avatar_url}
                                   initials={student?.first_name?.[0] ?? "?"}
                                   size="sm"
+                                  expandable
                                 />
                                 <div className="min-w-0">
                                   <p className="font-medium text-sm flex items-center gap-1.5">

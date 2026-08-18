@@ -129,6 +129,7 @@ const FamilyCheckInSheet = ({
                     avatarUrl={s?.avatar_url}
                     initials={s?.first_name?.[0] ?? "A"}
                     size="sm"
+                    expandable
                   />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate flex items-center gap-1.5">

@@ -24,6 +24,7 @@ import { ClassPassesPanel } from "@/components/portal/ClassPassesPanel";
 import ChangeClassDialog from "@/components/portal/ChangeClassDialog";
 import MoveSessionDialog from "@/components/portal/MoveSessionDialog";
 import WorkshopCover from "@/components/WorkshopCover";
+import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
 
 /** Cover images are stored as workshop-media storage paths — resolve to a URL. */
 const getWorkshopImageUrl = (path: string | null | undefined) => {
@@ -122,7 +123,7 @@ const MyBookings = () => {
           venues(name, address_line1, city, postcode),
           workshops(name, cover_image, cover_position, cover_zoom, cover_fit)
         ),
-        students(first_name, last_name, preferred_name, profile_photo)`)
+        students(first_name, last_name, preferred_name, profile_photo, avatar_url)`)
       .eq("parent_id", user.id)
       .order("booked_at", { ascending: false });
     if (data) setBookings(data);
@@ -374,11 +375,18 @@ const MyBookings = () => {
                             </p>
                           )}
 
-                          {/* Student info */}
+                          {/* Student info — avatar leads on parent-facing cards, tap to enlarge */}
                           {student && (
-                            <div className="flex items-center gap-2 mt-1">
-                              {student.profile_photo ? (
-                                <img src={student.profile_photo} alt="" className="w-5 h-5 rounded-full object-cover" />
+                            <div className="flex items-center gap-2 mt-1.5">
+                              {student.profile_photo || student.avatar_url ? (
+                                <PhotoAvatarDuo
+                                  photoUrl={student.profile_photo}
+                                  avatarUrl={student.avatar_url}
+                                  initials={student.first_name?.[0]}
+                                  size="sm"
+                                  photoPrimary={false}
+                                  expandable
+                                />
                               ) : (
                                 <Users className="w-3.5 h-3.5 text-muted-foreground" />
                               )}

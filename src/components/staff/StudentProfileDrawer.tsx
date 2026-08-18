@@ -174,6 +174,7 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
                   initials={student.first_name?.[0]}
                   size="md"
                   photoPrimary
+                  expandable
                 />
                 <div>
                   <SheetTitle>{student.first_name} {student.last_name}</SheetTitle>

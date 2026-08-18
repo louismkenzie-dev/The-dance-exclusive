@@ -354,3 +354,31 @@ body.theme-children,
     0 6px 16px -4px hsl(210 40% 20% / 0.08),
     0 16px 40px -12px hsl(210 40% 20% / 0.08);
 }
+
+/* Leaflet (admin customer map) — dark-theme popups + the count bubbles
+   drawn on venue circles. */
+.leaflet-container {
+  background: hsl(220 20% 8%);
+  font-family: var(--font-body);
+}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: hsl(220 20% 10%);
+  color: hsl(0 0% 98%);
+  border: 1px solid hsl(220 15% 22%);
+}
+.leaflet-container a.leaflet-popup-close-button { color: hsl(0 0% 70%); }
+.leaflet-control-attribution {
+  background: hsl(220 20% 8% / 0.8) !important;
+  color: hsl(0 0% 60%);
+}
+.leaflet-control-attribution a { color: hsl(193 100% 44%); }
+.tde-map-count {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+}
+.tde-map-count::before { display: none; }

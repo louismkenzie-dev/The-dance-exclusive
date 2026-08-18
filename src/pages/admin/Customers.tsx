@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import CustomerMap, { type MapCustomer } from "@/components/admin/CustomerMap";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Search, ChevronDown, ChevronRight, Mail, Phone, Baby, ExternalLink, MapPin, Calendar, ShoppingBag, ShieldCheck, Pencil, ArrowUpDown } from "lucide-react";
+import { Users, Search, ChevronDown, ChevronRight, Mail, Phone, Baby, ExternalLink, MapPin, Calendar, ShoppingBag, ShieldCheck, Pencil, ArrowUpDown, Map as MapIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
@@ -35,6 +36,7 @@ const AdminCustomers = () => {
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<any | null>(null);
   const [editingChild, setEditingChild] = useState<any | null>(null);
+  const [showMap, setShowMap] = useState(false);
 
   const { data: profiles, isLoading: loadingProfiles, refetch: refetchProfiles } = useQuery({
     queryKey: ["admin-customers"],
@@ -66,7 +68,28 @@ const AdminCustomers = () => {
   const { data: bookings } = useQuery({
     queryKey: ["admin-customers-bookings"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("bookings").select("id, parent_id, status, amount, booked_at");
+      const { data, error } = await supabase
+        .from("bookings")
+        .select("id, parent_id, student_id, class_id, status, amount, booked_at");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  // Classes → venues, for the customer map's catchment view.
+  const { data: mapClasses } = useQuery({
+    queryKey: ["admin-customers-map-classes"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("classes").select("id, venue_id, class_type");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const { data: mapVenues } = useQuery({
+    queryKey: ["admin-customers-map-venues"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("venues").select("id, name, latitude, longitude").order("name");
       if (error) throw error;
       return data as any[];
     },
@@ -153,6 +176,44 @@ const AdminCustomers = () => {
     return [p.address_line1, p.address_line2, p.city, p.county, p.postcode].filter(Boolean).join(", ");
   };
 
+  // ── Customer map data: who dances (children vs adults) and where they train ──
+  const mapData: MapCustomer[] = useMemo(() => {
+    const classById = new Map((mapClasses || []).map((c: any) => [c.id, c]));
+    const studentById = new Map((students || []).map((s: any) => [s.id, s]));
+
+    return (profiles || []).map((p) => {
+      const theirBookings = (bookings || []).filter(
+        (b) => b.parent_id === p.user_id && b.status === "confirmed",
+      );
+      const venueIds = new Set<string>();
+      let hasChildDancer = false;
+      let hasAdultDancer = false;
+
+      for (const b of theirBookings) {
+        const cls = b.class_id ? classById.get(b.class_id) : null;
+        if (cls?.venue_id) venueIds.add(cls.venue_id);
+        // Prefer the attendee record (a child booked onto an adult-ages class
+        // is still a child); fall back to the class audience.
+        const student = b.student_id ? studentById.get(b.student_id) : null;
+        if (student) {
+          if (student.is_self) hasAdultDancer = true;
+          else hasChildDancer = true;
+        } else if (cls?.class_type === "adult") {
+          hasAdultDancer = true;
+        }
+      }
+
+      return {
+        userId: p.user_id,
+        name: p.full_name,
+        postcode: p.postcode,
+        hasChildDancer,
+        hasAdultDancer,
+        venueIds: [...venueIds],
+      };
+    }).filter((c) => c.venueIds.length > 0 || c.postcode);
+  }, [profiles, bookings, students, mapClasses]);
+
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -193,7 +254,18 @@ const AdminCustomers = () => {
             <SelectItem value="oldest">Oldest customers first</SelectItem>
           </SelectContent>
         </Select>
+        <Button
+          variant={showMap ? "default" : "outline"}
+          size="sm"
+          onClick={() => setShowMap((v) => !v)}
+          className="gap-1.5 ml-auto"
+        >
+          <MapIcon className="h-4 w-4" />
+          {showMap ? "Hide map" : "Customer map"}
+        </Button>
       </div>
+
+      {showMap && <CustomerMap customers={mapData} venues={mapVenues || []} />}
 
       <Card>
         <CardContent className="p-0">

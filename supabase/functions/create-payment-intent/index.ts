@@ -143,6 +143,30 @@ serve(async (req) => {
     }
 
     // ------------------------------------------------------------------
+    // Home address: required for everyone booking with the studio (part of
+    // the membership agreement — registers, emergency records and billing).
+    // Enforced here as well as in the UI so it can't be skipped.
+    // ------------------------------------------------------------------
+    if (userId) {
+      const { data: addrProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("address_line1, city, postcode")
+        .eq("user_id", userId)
+        .maybeSingle();
+      const ukPostcode = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
+      const addressComplete =
+        (addrProfile?.address_line1 ?? "").trim().length > 1 &&
+        (addrProfile?.city ?? "").trim().length > 1 &&
+        ukPostcode.test((addrProfile?.postcode ?? "").trim());
+      if (!addressComplete) {
+        return jsonResponse({
+          error: "Please add your home address before booking — we keep one on file for every family.",
+          code: "address_required",
+        }, 400);
+      }
+    }
+
+    // ------------------------------------------------------------------
     // Load the products being bought so every price is re-computed
     // server-side. The client's totals are validated, never trusted.
     // ------------------------------------------------------------------

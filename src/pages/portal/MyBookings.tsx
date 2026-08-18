@@ -25,6 +25,7 @@ import ChangeClassDialog from "@/components/portal/ChangeClassDialog";
 import MoveSessionDialog from "@/components/portal/MoveSessionDialog";
 import WorkshopCover from "@/components/WorkshopCover";
 import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
+import AddressPrompt from "@/components/portal/AddressPrompt";
 import { initialsOf } from "@/lib/initials";
 
 /** Cover images are stored as workshop-media storage paths — resolve to a URL. */
@@ -240,6 +241,10 @@ const MyBookings = () => {
           </Link>
         </Button>
       </div>
+
+      {/* Home address — required for every family, prompted here for members
+          who joined before it was collected at checkout. */}
+      <AddressPrompt />
 
       {/* Active-pass prompt: visible on both tabs while credits remain */}
       {passCredits > 0 && (

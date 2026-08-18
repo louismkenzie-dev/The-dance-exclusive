@@ -12,6 +12,7 @@ import { getPaymentsEnvironment, getStripe } from "@/lib/stripe";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart, cartItemKind, type CartItem, type PricingPlan } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
+import CustomerAddressCard from "@/components/portal/CustomerAddressCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -180,11 +181,13 @@ const PaymentForm = ({
   customerEmail,
   clientSecret,
   subscriptionId,
+  userId,
 }: {
   totalAmount: number;
   customerEmail?: string | null;
   clientSecret: string;
   subscriptionId?: string | null;
+  userId?: string | null;
 }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -198,10 +201,16 @@ const PaymentForm = ({
   // Mandatory Terms & Conditions acceptance before payment.
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
+  // Home address is required before any booking is taken.
+  const [addressValid, setAddressValid] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stripe || !elements) return;
+    if (!addressValid) {
+      setError("Please add and save your home address before paying.");
+      return;
+    }
     if (!termsAccepted) {
       setError("Please confirm you have read and accepted the Terms & Conditions.");
       return;
@@ -301,6 +310,8 @@ const PaymentForm = ({
         />
       </div>
 
+      {userId && <CustomerAddressCard userId={userId} onValidChange={setAddressValid} />}
+
       <div>
         <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
           Payment method
@@ -346,7 +357,7 @@ const PaymentForm = ({
       <Button
         type="submit"
         size="lg"
-        disabled={!stripe || !elements || submitting || !termsAccepted}
+        disabled={!stripe || !elements || submitting || !termsAccepted || !addressValid}
         className="w-full font-bold uppercase tracking-wider"
       >
         {submitting ? (
@@ -833,6 +844,7 @@ const CheckoutPage = () => {
                     customerEmail={user?.email || profile?.email}
                     clientSecret={clientSecret}
                     subscriptionId={subscriptionId}
+                    userId={user?.id}
                   />
                 </Elements>
               )}

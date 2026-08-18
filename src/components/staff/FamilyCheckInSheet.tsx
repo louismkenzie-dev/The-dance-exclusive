@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { AlertTriangle, LogIn, LogOut, ShieldCheck, Users } from "lucide-react";
 import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
+import { initialsOf } from "@/lib/initials";
 
 interface FamilyRow {
   id: string; // booking id
@@ -127,7 +128,7 @@ const FamilyCheckInSheet = ({
                   <PhotoAvatarDuo
                     photoUrl={s?.profile_photo}
                     avatarUrl={s?.avatar_url}
-                    initials={s?.first_name?.[0] ?? "A"}
+                    initials={initialsOf(s?.first_name, s?.last_name)}
                     size="sm"
                     expandable
                   />

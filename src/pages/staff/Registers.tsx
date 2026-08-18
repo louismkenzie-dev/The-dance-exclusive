@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { initialsOf } from "@/lib/initials";
 
 const StaffRegisters = () => {
   const { staff } = useStaffMember();
@@ -413,7 +414,7 @@ const StaffRegisters = () => {
                                 <PhotoAvatarDuo
                                   photoUrl={student?.profile_photo}
                                   avatarUrl={student?.avatar_url}
-                                  initials={student?.first_name?.[0] ?? "?"}
+                                  initials={initialsOf(student?.first_name, student?.last_name)}
                                   size="sm"
                                   expandable
                                 />

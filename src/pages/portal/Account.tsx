@@ -20,6 +20,7 @@ import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
 import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 import getCroppedImg from "@/lib/cropImage";
+import { initialsOf } from "@/lib/initials";
 
 const ABILITY_LEVELS = [
   { value: "newcomer", label: "Newcomer — Never danced before" },
@@ -773,7 +774,7 @@ const Account = () => {
                   <PhotoAvatarDuo
                     photoUrl={selfProfile.profile_photo}
                     avatarUrl={selfProfile.avatar_url}
-                    initials={`${selfProfile.first_name?.[0] ?? ""}${selfProfile.last_name?.[0] ?? ""}`}
+                    initials={initialsOf(selfProfile.first_name, selfProfile.last_name)}
                     size="sm"
                     photoPrimary={false}
                     expandable
@@ -837,7 +838,7 @@ const Account = () => {
                         <PhotoAvatarDuo
                           photoUrl={c.profile_photo}
                           avatarUrl={c.avatar_url}
-                          initials={`${c.first_name?.[0] ?? ""}${c.last_name?.[0] ?? ""}`}
+                          initials={initialsOf(c.first_name, c.last_name)}
                           size="md"
                           photoPrimary={false}
                           expandable

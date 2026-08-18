@@ -9,6 +9,7 @@ import { format, differenceInYears } from "date-fns";
 import { QRCodeSVG } from "qrcode.react";
 import { getOrCreateBookingQrToken, buildQrPayload } from "@/lib/qrTokens";
 import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
+import { initialsOf } from "@/lib/initials";
 
 interface Props {
   open: boolean;
@@ -171,7 +172,7 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
                 <PhotoAvatarDuo
                   photoUrl={student.profile_photo}
                   avatarUrl={student.avatar_url}
-                  initials={student.first_name?.[0]}
+                  initials={initialsOf(student.first_name, student.last_name)}
                   size="md"
                   photoPrimary
                   expandable

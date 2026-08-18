@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { differenceInYears, format } from "date-fns";
 import { Search, Users, Pencil, User as UserIcon, Eye, Phone, Mail } from "lucide-react";
 import StudentProfileDrawer from "@/components/staff/StudentProfileDrawer";
+import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
+import { initialsOf } from "@/lib/initials";
 import { ChildFormDialog } from "@/components/portal/ChildFormDialog";
 import CustomerEditDialog from "@/components/admin/CustomerEditDialog";
 
@@ -90,17 +92,15 @@ const AdminStudents = () => {
               <Card key={s.id} className="animate-fade-in hover:border-primary/50 transition-colors">
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
-                    {s.profile_photo ? (
-                      <img
-                        src={s.profile_photo}
-                        alt={`${s.first_name} ${s.last_name}`}
-                        className="w-14 h-14 rounded-full object-cover border border-border flex-shrink-0"
-                      />
-                    ) : (
-                      <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center text-base font-bold flex-shrink-0">
-                        {s.first_name?.[0]}{s.last_name?.[0]}
-                      </div>
-                    )}
+                    {/* Photo + Dance Exclusive avatar — tap either to see both large */}
+                    <PhotoAvatarDuo
+                      photoUrl={s.profile_photo}
+                      avatarUrl={s.avatar_url}
+                      initials={initialsOf(s.first_name, s.last_name)}
+                      size="md"
+                      photoPrimary
+                      expandable
+                    />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">

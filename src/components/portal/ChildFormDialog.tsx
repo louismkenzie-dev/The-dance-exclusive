@@ -296,11 +296,15 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
       // the insert will still be rejected safely if the token is truly invalid.
     }
 
+    // Trim names on the way in — stray spaces broke initials on register
+    // circles and pushed those students to the top of A–Z lists.
+    const trimmed = (v: string) => (typeof v === "string" ? v.trim() : v);
+
     const payload = {
       parent_id: authedId,
-      first_name: form.first_name,
-      last_name: form.last_name,
-      preferred_name: form.preferred_name || null,
+      first_name: trimmed(form.first_name),
+      last_name: trimmed(form.last_name),
+      preferred_name: trimmed(form.preferred_name) || null,
       date_of_birth: form.date_of_birth,
       gender: form.gender || null,
       medical_info: form.medical_info || null,

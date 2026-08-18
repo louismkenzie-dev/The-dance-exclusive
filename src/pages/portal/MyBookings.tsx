@@ -25,6 +25,7 @@ import ChangeClassDialog from "@/components/portal/ChangeClassDialog";
 import MoveSessionDialog from "@/components/portal/MoveSessionDialog";
 import WorkshopCover from "@/components/WorkshopCover";
 import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
+import { initialsOf } from "@/lib/initials";
 
 /** Cover images are stored as workshop-media storage paths — resolve to a URL. */
 const getWorkshopImageUrl = (path: string | null | undefined) => {
@@ -382,7 +383,7 @@ const MyBookings = () => {
                                 <PhotoAvatarDuo
                                   photoUrl={student.profile_photo}
                                   avatarUrl={student.avatar_url}
-                                  initials={student.first_name?.[0]}
+                                  initials={initialsOf(student.first_name, student.last_name)}
                                   size="sm"
                                   photoPrimary={false}
                                   expandable

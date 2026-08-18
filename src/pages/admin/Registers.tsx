@@ -13,6 +13,7 @@ import { addDays, differenceInYears, format, parseISO } from "date-fns";
 import StudentProfileDrawer from "@/components/staff/StudentProfileDrawer";
 import VenueFilterChips from "@/components/VenueFilterChips";
 import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
+import { initialsOf } from "@/lib/initials";
 
 const formatDay = (d: string) => d.charAt(0).toUpperCase() + d.slice(1);
 
@@ -414,7 +415,7 @@ const AdminRegisters = () => {
                                 <PhotoAvatarDuo
                                   photoUrl={student?.profile_photo}
                                   avatarUrl={student?.avatar_url}
-                                  initials={student?.first_name?.[0] ?? "?"}
+                                  initials={initialsOf(student?.first_name, student?.last_name)}
                                   size="sm"
                                   photoPrimary
                                   expandable

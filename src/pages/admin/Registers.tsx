@@ -7,12 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, LogIn, LogOut, AlertTriangle, CameraOff, Check, MapPin, Users, History, CalendarDays, Star } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, LogIn, LogOut, AlertTriangle, CameraOff, Check, MapPin, Users, History, CalendarDays, Star, QrCode } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { addDays, differenceInYears, format, parseISO } from "date-fns";
 import StudentProfileDrawer from "@/components/staff/StudentProfileDrawer";
 import VenueFilterChips from "@/components/VenueFilterChips";
 import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
+import QrScannerDialog from "@/components/staff/QrScannerDialog";
 import { initialsOf } from "@/lib/initials";
 
 const formatDay = (d: string) => d.charAt(0).toUpperCase() + d.slice(1);
@@ -28,6 +29,7 @@ const AdminRegisters = () => {
   const [profileBooking, setProfileBooking] = useState<{ booking: any; sessionId: string; classId: string } | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [venueFilter, setVenueFilter] = useState<string>("all");
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   const isPast = date < todayIso;
   const isToday = date === todayIso;
@@ -124,6 +126,77 @@ const AdminRegisters = () => {
     if (!error) return false;
     toast({ title: "Couldn't update register", description: error.message, variant: "destructive" });
     return true;
+  };
+
+  /**
+   * QR check-in. The scanner previously lived only on the staff register, so
+   * admins (who run the door at most venues) couldn't scan at all. Resolves
+   * the code to its booking, finds which of the selected day's sessions it
+   * belongs to, switches the register to that session and checks them in.
+   */
+  const handleScannedToken = async (token: string) => {
+    setScannerOpen(false);
+    const { data: t } = await supabase
+      .from("booking_qr_tokens")
+      .select("booking_id, valid_until")
+      .eq("token", token)
+      .maybeSingle();
+    if (!t) {
+      toast({ title: "Code not recognised", description: "Ask the parent to refresh their QR code.", variant: "destructive" });
+      return;
+    }
+    if (new Date(t.valid_until) < new Date()) {
+      toast({ title: "Code expired", description: "Ask the parent to open a fresh code.", variant: "destructive" });
+      return;
+    }
+
+    const { data: booking } = await supabase
+      .from("bookings")
+      .select("id, class_id, student_id, status, notes, students:student_id ( first_name, last_name, preferred_name )")
+      .eq("id", t.booking_id)
+      .maybeSingle();
+    if (!booking || booking.status !== "confirmed") {
+      toast({ title: "Booking not active", description: "That code belongs to a booking that isn't confirmed.", variant: "destructive" });
+      return;
+    }
+
+    // Which of this day's sessions does the booking belong to?
+    const session = sessions.find((s) => s.class_id === booking.class_id);
+    if (!session) {
+      toast({
+        title: "Not on this day's register",
+        description: "The code is valid, but that booking isn't scheduled in any class on this date.",
+        variant: "destructive",
+      });
+      return;
+    }
+    // Date-pinned bookings (pay-as-you-go, passes) only count on their own day.
+    const pinned = /session (\d{4}-\d{2}-\d{2})/.exec(booking.notes || "");
+    if (pinned && pinned[1] !== session.session_date) {
+      toast({
+        title: "Different date",
+        description: `That booking is for ${pinned[1]}, not ${session.session_date}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (session.id !== selectedSessionId) setSelectedSessionId(session.id);
+
+    const now = new Date().toISOString();
+    const { error } = await supabase.from("attendance").upsert({
+      booking_id: booking.id, class_id: session.class_id, class_session_id: session.id,
+      student_id: booking.student_id ?? null, session_date: session.session_date,
+      status: "present", checked_in_at: now, checked_out_at: null, check_in_method: "qr",
+    }, { onConflict: "booking_id,class_session_id" });
+    if (writeFailed(error)) return;
+
+    const st = (booking as any).students;
+    toast({
+      title: `${st ? st.preferred_name || st.first_name : "Attendee"} checked in ✓`,
+      description: `${session.classes?.name ?? "Class"} · ${session.start_time?.slice(0, 5)}`,
+    });
+    void loadRegister();
   };
 
   // student_id may be null on legacy adult self-bookings — still markable.
@@ -257,6 +330,9 @@ const AdminRegisters = () => {
             className="gap-1.5"
           >
             <CalendarDays className="w-4 h-4" /> Pick a date
+          </Button>
+          <Button onClick={() => setScannerOpen(true)} className="gap-1.5">
+            <QrCode className="w-4 h-4" /> Scan QR
           </Button>
           <Button
             variant={isPast ? "default" : "outline"}
@@ -491,6 +567,8 @@ const AdminRegisters = () => {
           )}
         </>
       )}
+
+      <QrScannerDialog open={scannerOpen} onOpenChange={setScannerOpen} onScanned={handleScannedToken} />
 
       <StudentProfileDrawer
         open={!!profileBooking}

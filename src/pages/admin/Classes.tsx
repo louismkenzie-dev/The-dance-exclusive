@@ -738,7 +738,7 @@ const AdminClasses = () => {
     setDeleteId(null);
   };
 
-  const canProceedStep1 = !!workshopId && !!abilityLevel;
+  const canProceedStep1 = !!workshopId;
   const canProceedStep2 = selectedDays.length > 0 && selectedTermIds.length > 0;
   const canProceedStep3 = sessions.length > 0;
   // Pricing step has no hard requirement; you can always continue to staffing
@@ -908,10 +908,14 @@ const AdminClasses = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Ability Level (minimum) *</Label>
-                    <Select value={abilityLevel} onValueChange={setAbilityLevel}>
-                      <SelectTrigger><SelectValue placeholder="Select ability level" /></SelectTrigger>
+                    <Label>Ability Level (minimum)</Label>
+                    <Select
+                      value={abilityLevel || "none"}
+                      onValueChange={(v) => setAbilityLevel(v === "none" ? "" : v)}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Any ability" /></SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="none">Any ability (not set)</SelectItem>
                         {ABILITY_LEVELS.map(level => (
                           <SelectItem key={level} value={level}>{level}</SelectItem>
                         ))}

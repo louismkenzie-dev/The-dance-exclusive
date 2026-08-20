@@ -9,6 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { Camera, Loader2, User } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { DANCE_STYLES } from "@/lib/danceStyles";
 import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 import getCroppedImg from "@/lib/cropImage";
@@ -43,6 +45,7 @@ const StaffProfile = () => {
       next_of_kin_relationship: staff.next_of_kin_relationship || "",
       description: staff.description || "",
       profile_photo: staff.profile_photo || "",
+      dance_skills: staff.dance_skills || [],
     });
   }, [staff?.id]);
 
@@ -169,6 +172,32 @@ const StaffProfile = () => {
           <div className="space-y-1.5"><Label>Date of Birth</Label><Input type="date" value={form.date_of_birth} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} /></div>
 
           <div className="space-y-1.5"><Label>Bio</Label><Textarea rows={4} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="A short bio for parents and students..." /></div>
+
+          <div className="pt-3 border-t border-border space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Dance styles</h3>
+            <p className="text-xs text-muted-foreground">Tick every style you can teach — these show on your Meet the Crew profile.</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {DANCE_STYLES.map((style) => {
+                const selected = (form.dance_skills || []).includes(style);
+                return (
+                  <label key={style} className="flex items-center gap-2.5 rounded-lg border border-border px-3 py-2 cursor-pointer hover:bg-accent/50 transition-colors">
+                    <Checkbox
+                      checked={selected}
+                      onCheckedChange={() =>
+                        setForm({
+                          ...form,
+                          dance_skills: selected
+                            ? (form.dance_skills || []).filter((s: string) => s !== style)
+                            : [...(form.dance_skills || []), style],
+                        })
+                      }
+                    />
+                    <span className="text-sm">{style}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
 
           <div className="pt-3 border-t border-border space-y-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Address</h3>

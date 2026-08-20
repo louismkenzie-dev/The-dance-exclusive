@@ -22,6 +22,7 @@ import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 import getCroppedImg from "@/lib/cropImage";
 import StaffInviteLinks from "@/components/admin/StaffInviteLinks";
+import { DANCE_STYLES } from "@/lib/danceStyles";
 
 type DocType = "paediatric_first_aid" | "other_first_aid" | "safeguarding" | "pli";
 
@@ -59,8 +60,6 @@ const expiryStatus = (date: string | null): "expired" | "expiring" | "ok" | null
   if (diffDays <= 30) return "expiring";
   return "ok";
 };
-
-const DANCE_STYLES = ["Tap", "Modern", "Jazz", "Hip Hop", "Ballet", "Contemporary", "Lyrical", "Street", "Musical Theatre", "Adult Fitness", "Acro", "Commercial", "Popping", "Locking", "Breaking", "Whacking", "Afro", "House", "Crew Choreography", "Lite Feet", "Private Lessons"];
 
 interface StaffMember {
   id: string;

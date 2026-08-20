@@ -38,8 +38,9 @@ export const BRAND = {
 
   appUrl: "https://app.thedanceexclusive.co.uk",
   supportEmail: "hello@thedanceexclusive.co.uk",
-  /** Public export of the splat logo (light-on-dark variant), served from the site. */
-  logoUrl: "https://the-dance-exclusive-louis-mckenzies-projects.vercel.app/brand/email-logo.png",
+  // Must live on the custom domain: vercel.app hosts sit behind Vercel
+  // Authentication, so mail clients get a 401 instead of the image.
+  logoUrl: "https://app.thedanceexclusive.co.uk/brand/email-logo.png",
 };
 
 export const FONT_BODY = "'Inter','Segoe UI',Arial,sans-serif";
@@ -94,7 +95,7 @@ export function renderLayout({ title, preheader, body }: LayoutOpts): string {
             <!-- Logo on the stage -->
             <tr>
               <td align="center" bgcolor="${BRAND.band}" class="band" style="background:${BRAND.band};border:1px solid ${BRAND.panelBorder};border-bottom:0;border-radius:18px 18px 0 0;padding:34px 32px 24px 32px;">
-                <a href="https://the-dance-exclusive.vercel.app" target="_blank" style="text-decoration:none;">
+                <a href="${BRAND.appUrl}" target="_blank" style="text-decoration:none;">
                   <img src="${BRAND.logoUrl}" width="170" alt="The Dance Exclusive" style="display:block;width:170px;max-width:60%;height:auto;border:0;" />
                 </a>
                 <div style="margin-top:16px;font-family:${FONT_DISPLAY};font-weight:600;font-size:12px;line-height:16px;letter-spacing:6px;color:${BRAND.blue};text-transform:uppercase;">

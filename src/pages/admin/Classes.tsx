@@ -15,6 +15,7 @@ import { Plus, Edit, Trash2, CalendarDays, ChevronRight, ChevronLeft, ListChecks
 import SessionManager from "@/components/admin/SessionManager";
 import { AssignStaffDialog } from "@/components/admin/AssignStaffDialog";
 import WorkshopCover from "@/components/WorkshopCover";
+import TermSessionGroups from "@/components/TermSessionGroups";
 import { format, addDays, parseISO, eachDayOfInterval, getDay, isBefore, isWithinInterval } from "date-fns";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
@@ -1241,40 +1242,48 @@ const AdminClasses = () => {
                 </div>
 
                 <div className="max-h-[400px] overflow-y-auto space-y-2 pr-1">
-                  {sessions.map((s, i) => (
-                    <div key={s.date} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card/50">
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm font-medium text-foreground">{s.dayLabel}</span>
-                      </div>
-                      <Input
-                        type="time"
-                        value={s.start_time}
-                        onChange={e => updateSessionTime(i, "start_time", e.target.value)}
-                        className="w-28"
-                      />
-                      <span className="text-muted-foreground text-sm">–</span>
-                      <Input
-                        type="time"
-                        value={s.end_time}
-                        onChange={e => updateSessionTime(i, "end_time", e.target.value)}
-                        onBlur={() => validateSessionEnd(i)}
-                        className={`w-28 ${minutesBetween(s.start_time, s.end_time) <= 0 ? "border-destructive" : ""}`}
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="flex-shrink-0"
-                        onClick={() => {
-                          // Remember the removal so regeneration (step nav,
-                          // time changes, later edits) doesn't bring it back.
-                          setRemovedDates(prev => new Set(prev).add(s.date));
-                          setSessions(prev => prev.filter((_, idx) => idx !== i));
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </div>
-                  ))}
+                  <TermSessionGroups
+                    sessions={sessions}
+                    dateOf={(s) => s.date}
+                    className="space-y-2"
+                    renderSession={(s) => {
+                      const i = sessions.indexOf(s);
+                      return (
+                        <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card/50">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-medium text-foreground">{s.dayLabel}</span>
+                          </div>
+                          <Input
+                            type="time"
+                            value={s.start_time}
+                            onChange={e => updateSessionTime(i, "start_time", e.target.value)}
+                            className="w-28"
+                          />
+                          <span className="text-muted-foreground text-sm">–</span>
+                          <Input
+                            type="time"
+                            value={s.end_time}
+                            onChange={e => updateSessionTime(i, "end_time", e.target.value)}
+                            onBlur={() => validateSessionEnd(i)}
+                            className={`w-28 ${minutesBetween(s.start_time, s.end_time) <= 0 ? "border-destructive" : ""}`}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="flex-shrink-0"
+                            onClick={() => {
+                              // Remember the removal so regeneration (step nav,
+                              // time changes, later edits) doesn't bring it back.
+                              setRemovedDates(prev => new Set(prev).add(s.date));
+                              setSessions(prev => prev.filter((_, idx) => idx !== i));
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </div>
+                      );
+                    }}
+                  />
                 </div>
 
                 {sessions.length === 0 && (

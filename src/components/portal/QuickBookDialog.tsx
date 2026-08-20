@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { isAttendeeProfileComplete } from "@/lib/attendeeProfile";
 import { isChildAgeEligible } from "@/lib/classAudience";
 import { ChildFormDialog } from "@/components/portal/ChildFormDialog";
+import TermSessionGroups from "@/components/TermSessionGroups";
 import {
   MONTHLY_MEMBERSHIP_NOTICE,
   MONTHLY_PAYMENT_INFO,
@@ -582,45 +583,50 @@ export function QuickBookDialog({
                   {selSessions.length === sessions.length ? "Deselect all" : "Select all"}
                 </button>
               </div>
-              <div className="grid gap-1.5 max-h-48 overflow-y-auto pr-1">
-                {sessions.map(s => {
-                  const isSel = selSessions.includes(s.id);
-                  // Inline hint: only show "in basket" if relevant for the user's current selection.
-                  // Children: show when EVERY selected kid already has this session.
-                  // Adults: show when this session is in the adult cart.
-                  let inBasketForSelection = false;
-                  if (c.class_type === "children") {
-                    if (selKids.length > 0) {
-                      inBasketForSelection = selKids.every(kid => childSessionsInBasket(kid).has(s.id));
+              <div className="max-h-56 overflow-y-auto pr-1">
+                <TermSessionGroups
+                  sessions={sessions}
+                  dateOf={(s) => s.session_date}
+                  className="grid gap-1.5"
+                  renderSession={(s) => {
+                    const isSel = selSessions.includes(s.id);
+                    // Inline hint: only show "in basket" if relevant for the user's current selection.
+                    // Children: show when EVERY selected kid already has this session.
+                    // Adults: show when this session is in the adult cart.
+                    let inBasketForSelection = false;
+                    if (c.class_type === "children") {
+                      if (selKids.length > 0) {
+                        inBasketForSelection = selKids.every(kid => childSessionsInBasket(kid).has(s.id));
+                      }
+                    } else {
+                      inBasketForSelection = adultSessionsInBasket().has(s.id);
                     }
-                  } else {
-                    inBasketForSelection = adultSessionsInBasket().has(s.id);
-                  }
-                  return (
-                    <label
-                      key={s.id}
-                      className={`flex items-center gap-2.5 p-2 rounded-lg border text-sm transition-all cursor-pointer ${
-                        isSel
-                          ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-                          : "border-border/50 bg-background/50 hover:border-border"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSel}
-                        onChange={() => toggleSession(s.id)}
-                        className="rounded border-border accent-primary w-4 h-4"
-                      />
-                      <CalendarDays className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                      <span className="flex-1 text-foreground font-medium">{format(parseISO(s.session_date), "EEE d MMM yyyy")}</span>
-                      {inBasketForSelection ? (
-                        <span className="text-[10px] text-muted-foreground italic">in basket</span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">{s.start_time?.slice(0, 5)} – {s.end_time?.slice(0, 5)}</span>
-                      )}
-                    </label>
-                  );
-                })}
+                    return (
+                      <label
+                        key={s.id}
+                        className={`flex items-center gap-2.5 p-2 rounded-lg border text-sm transition-all cursor-pointer ${
+                          isSel
+                            ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                            : "border-border/50 bg-background/50 hover:border-border"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSel}
+                          onChange={() => toggleSession(s.id)}
+                          className="rounded border-border accent-primary w-4 h-4"
+                        />
+                        <CalendarDays className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                        <span className="flex-1 text-foreground font-medium">{format(parseISO(s.session_date), "EEE d MMM yyyy")}</span>
+                        {inBasketForSelection ? (
+                          <span className="text-[10px] text-muted-foreground italic">in basket</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">{s.start_time?.slice(0, 5)} – {s.end_time?.slice(0, 5)}</span>
+                        )}
+                      </label>
+                    );
+                  }}
+                />
               </div>
             </div>
           )}
@@ -629,43 +635,48 @@ export function QuickBookDialog({
           {plan === "trial" && sessions.length > 0 && (
             <div className="space-y-2 pt-2 border-t border-border/30">
               <p className="text-[11px] text-muted-foreground font-medium">Pick your trial session:</p>
-              <div className="grid gap-1.5 max-h-48 overflow-y-auto pr-1">
-                {sessions.map(s => {
-                  const isSel = selSessions.includes(s.id);
-                  let inBasketForSelection = false;
-                  if (c.class_type === "children") {
-                    if (selKids.length > 0) {
-                      inBasketForSelection = selKids.every(kid => childSessionsInBasket(kid).has(s.id));
+              <div className="max-h-56 overflow-y-auto pr-1">
+                <TermSessionGroups
+                  sessions={sessions}
+                  dateOf={(s) => s.session_date}
+                  className="grid gap-1.5"
+                  renderSession={(s) => {
+                    const isSel = selSessions.includes(s.id);
+                    let inBasketForSelection = false;
+                    if (c.class_type === "children") {
+                      if (selKids.length > 0) {
+                        inBasketForSelection = selKids.every(kid => childSessionsInBasket(kid).has(s.id));
+                      }
+                    } else {
+                      inBasketForSelection = adultSessionsInBasket().has(s.id);
                     }
-                  } else {
-                    inBasketForSelection = adultSessionsInBasket().has(s.id);
-                  }
-                  return (
-                    <label
-                      key={s.id}
-                      className={`flex items-center gap-2.5 p-2 rounded-lg border text-sm transition-all cursor-pointer ${
-                        isSel
-                          ? "border-green-500 bg-green-500/10 ring-1 ring-green-500/30"
-                          : "border-border/50 bg-background/50 hover:border-border"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name={`qb-trial-${c.id}`}
-                        checked={isSel}
-                        onChange={() => setSelSessions([s.id])}
-                        className="accent-green-500 w-4 h-4"
-                      />
-                      <CalendarDays className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
-                      <span className="flex-1 text-foreground font-medium">{format(parseISO(s.session_date), "EEE d MMM yyyy")}</span>
-                      {inBasketForSelection ? (
-                        <span className="text-[10px] text-muted-foreground italic">in basket</span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">{s.start_time?.slice(0, 5)} – {s.end_time?.slice(0, 5)}</span>
-                      )}
-                    </label>
-                  );
-                })}
+                    return (
+                      <label
+                        key={s.id}
+                        className={`flex items-center gap-2.5 p-2 rounded-lg border text-sm transition-all cursor-pointer ${
+                          isSel
+                            ? "border-green-500 bg-green-500/10 ring-1 ring-green-500/30"
+                            : "border-border/50 bg-background/50 hover:border-border"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name={`qb-trial-${c.id}`}
+                          checked={isSel}
+                          onChange={() => setSelSessions([s.id])}
+                          className="accent-green-500 w-4 h-4"
+                        />
+                        <CalendarDays className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+                        <span className="flex-1 text-foreground font-medium">{format(parseISO(s.session_date), "EEE d MMM yyyy")}</span>
+                        {inBasketForSelection ? (
+                          <span className="text-[10px] text-muted-foreground italic">in basket</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">{s.start_time?.slice(0, 5)} – {s.end_time?.slice(0, 5)}</span>
+                        )}
+                      </label>
+                    );
+                  }}
+                />
               </div>
             </div>
           )}

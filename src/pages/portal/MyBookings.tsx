@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,6 +27,7 @@ import WorkshopCover from "@/components/WorkshopCover";
 import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
 import AddressPrompt from "@/components/portal/AddressPrompt";
 import { initialsOf } from "@/lib/initials";
+import { UNLIMITED_MONTHLY_CAP } from "@/lib/pricing";
 
 /** Cover images are stored as workshop-media storage paths — resolve to a URL. */
 const getWorkshopImageUrl = (path: string | null | undefined) => {
@@ -69,6 +70,7 @@ interface Membership {
   id: string;
   status: string;
   class_id: string | null;
+  student_id: string | null;
   monthly_amount: number;
   started_at: string;
   current_period_end: string | null;
@@ -149,7 +151,7 @@ const MyBookings = () => {
     if (!user) { setMemberships([]); return; }
     const { data } = await supabase
       .from("memberships")
-      .select("id, status, class_id, monthly_amount, started_at, current_period_end, final_payment_date, cancel_at, cancelled_at, free_month, students(first_name, last_name, date_of_birth), classes(name, day_of_week, start_time)")
+      .select("id, status, class_id, student_id, monthly_amount, started_at, current_period_end, final_payment_date, cancel_at, cancelled_at, free_month, students(first_name, last_name, date_of_birth), classes(name, day_of_week, start_time)")
       .eq("user_id", user.id)
       .neq("status", "incomplete") // never surface half-created subscriptions
       .order("created_at", { ascending: false });
@@ -157,6 +159,24 @@ const MyBookings = () => {
     setMembershipsLoading(false);
   }, [user]);
   useEffect(() => { fetchMemberships(); }, [fetchMemberships]);
+
+  // Per-child live monthly totals. A £0 membership only happens when the
+  // £110 Unlimited cap absorbed the class — the card should say that, not
+  // "£0.00/month", which reads like a billing mistake.
+  const liveMonthlyByStudent = useMemo(() => {
+    const live = new Set(["active", "paused", "past_due", "cancel_scheduled"]);
+    const totals = new Map<string, number>();
+    for (const m of memberships) {
+      if (!m.student_id || !live.has(m.status)) continue;
+      totals.set(m.student_id, (totals.get(m.student_id) ?? 0) + Number(m.monthly_amount));
+    }
+    return totals;
+  }, [memberships]);
+
+  const isCapIncluded = (m: Membership) =>
+    Number(m.monthly_amount) === 0 &&
+    !!m.student_id &&
+    (liveMonthlyByStudent.get(m.student_id) ?? 0) >= UNLIMITED_MONTHLY_CAP - 0.01;
 
   // Email deep-link: /account/bookings?qr=<bookingId> auto-opens the sign-in QR
   // dialog for that booking once, then clears the param so it can't re-trigger.
@@ -545,14 +565,24 @@ const MyBookings = () => {
                           {m.status === "active" && m.current_period_end && (
                             <div className="pt-1 space-y-0.5">
                               <p className="text-sm">
-                                Valid until <span className="font-medium">{format(new Date(m.current_period_end), "d MMM yyyy")}</span>
+                                Paid up until <span className="font-medium">{format(new Date(m.current_period_end), "d MMM yyyy")}</span>
                               </p>
-                              <p className="text-sm text-muted-foreground">
-                                Next payment: {format(new Date(m.current_period_end), "d MMM yyyy")}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                You pay 11 months a year — {freeMonthName(m.free_month)} is your free month.
-                              </p>
+                              {isCapIncluded(m) ? (
+                                <p className="text-sm text-muted-foreground">
+                                  Nothing extra to pay — this class is included in{" "}
+                                  {m.students?.first_name ?? "your child"}&#39;s £{UNLIMITED_MONTHLY_CAP} Unlimited.
+                                </p>
+                              ) : (
+                                <>
+                                  <p className="text-sm text-muted-foreground">
+                                    Next payment: {format(new Date(m.current_period_end), "d MMM yyyy")} — this
+                                    covers {format(new Date(m.current_period_end), "MMMM")}&#39;s classes.
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    You pay 11 months a year — {freeMonthName(m.free_month)} is your free month.
+                                  </p>
+                                </>
+                              )}
                             </div>
                           )}
 
@@ -602,10 +632,17 @@ const MyBookings = () => {
                         </div>
 
                         <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                          <span className="text-xl font-bold">
-                            £{Number(m.monthly_amount).toFixed(2)}
-                            <span className="text-sm font-normal text-muted-foreground">/month</span>
-                          </span>
+                          {isCapIncluded(m) ? (
+                            <span className="text-right">
+                              <span className="block text-xl font-bold text-primary">Included</span>
+                              <span className="block text-xs text-muted-foreground">£{UNLIMITED_MONTHLY_CAP} Unlimited</span>
+                            </span>
+                          ) : (
+                            <span className="text-xl font-bold">
+                              £{Number(m.monthly_amount).toFixed(2)}
+                              <span className="text-sm font-normal text-muted-foreground">/month</span>
+                            </span>
+                          )}
                           {(m.status === "active" || m.status === "paused") && (
                             <Button size="sm" variant="outline" onClick={() => setChangeTarget(m)}>
                               <Repeat className="w-3.5 h-3.5 mr-1.5" /> Change class
@@ -681,13 +718,20 @@ const MyBookings = () => {
                   <strong>{cancelTarget?.classes?.name ?? "this class"}</strong>
                   {cancelTarget?.students && ` (${cancelTarget.students.first_name})`}.
                 </p>
-                <p>
-                  Your final payment of <strong>£{Number(cancelTarget?.monthly_amount ?? 0).toFixed(2)}</strong> will
-                  still be taken
-                  {cancelTarget?.current_period_end
-                    ? <> on <strong>{format(new Date(cancelTarget.current_period_end), "d MMM yyyy")}</strong></>
-                    : " on your next charge date"}.
-                </p>
+                {Number(cancelTarget?.monthly_amount ?? 0) === 0 ? (
+                  <p>
+                    This class is included free under the £{UNLIMITED_MONTHLY_CAP} Unlimited cap,
+                    so there&#39;s no final payment to take for it.
+                  </p>
+                ) : (
+                  <p>
+                    Your final payment of <strong>£{Number(cancelTarget?.monthly_amount ?? 0).toFixed(2)}</strong> will
+                    still be taken
+                    {cancelTarget?.current_period_end
+                      ? <> on <strong>{format(new Date(cancelTarget.current_period_end), "d MMM yyyy")}</strong></>
+                      : " on your next charge date"}.
+                  </p>
+                )}
                 <p>
                   The membership stays active until one month after that payment, then ends
                   automatically — classes continue as normal until then.

@@ -30,7 +30,17 @@ export const hasCompleteAddress = (a: CustomerAddress | null | undefined): boole
   (a.city ?? "").trim().length > 1 &&
   isValidUkPostcode(a.postcode);
 
+/**
+ * UK phone number, tolerant of spaces, dashes and parens: 0xxxxxxxxxx or
+ * +44xxxxxxxxx(x). Mirrors the server-side check in create-payment-intent.
+ */
+export const isValidUkPhone = (phone: string | null | undefined): boolean => {
+  if (!phone) return false;
+  const digits = phone.replace(/[^\d+]/g, "");
+  return /^(\+44\d{9,10}|0\d{9,10})$/.test(digits);
+};
+
 /** Why we ask — shown at the point of collection. */
 export const ADDRESS_REQUIRED_REASON =
-  "We keep a home address on file for everyone who books with us — it's part of your " +
-  "agreement with the studio, and we need it for our registers, emergency records and billing.";
+  "We keep a home address and phone number on file for everyone who books with us — it's part " +
+  "of your agreement with the studio, and we need them for our registers, emergency records and billing.";

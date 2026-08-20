@@ -3,11 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Check, Loader2, MapPin, Pencil } from "lucide-react";
+import { Check, Loader2, MapPin, Pencil, Phone } from "lucide-react";
 import {
   ADDRESS_REQUIRED_REASON,
   formatPostcode,
   hasCompleteAddress,
+  isValidUkPhone,
   isValidUkPostcode,
   type CustomerAddress,
 } from "@/lib/customerAddress";
@@ -33,7 +34,9 @@ const empty: CustomerAddress = {
  */
 const CustomerAddressCard = ({ userId, onValidChange }: CustomerAddressCardProps) => {
   const [form, setForm] = useState<CustomerAddress>(empty);
+  const [phone, setPhone] = useState("");
   const [saved, setSaved] = useState<CustomerAddress | null>(null);
+  const [savedPhone, setSavedPhone] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -44,17 +47,20 @@ const CustomerAddressCard = ({ userId, onValidChange }: CustomerAddressCardProps
     let cancelled = false;
     supabase
       .from("profiles")
-      .select("address_line1, address_line2, city, county, postcode")
+      .select("address_line1, address_line2, city, county, postcode, phone")
       .eq("user_id", userId)
       .maybeSingle()
       .then(({ data }) => {
         if (cancelled) return;
-        const current = (data as CustomerAddress) ?? empty;
+        const current = (data ?? {}) as CustomerAddress & { phone?: string | null };
         setForm({ ...empty, ...current });
-        const complete = hasCompleteAddress(current);
-        setSaved(complete ? current : null);
-        setEditing(!complete);
-        onValidChange(complete);
+        setPhone(current.phone ?? "");
+        const addressOk = hasCompleteAddress(current);
+        const phoneOk = isValidUkPhone(current.phone);
+        setSaved(addressOk ? current : null);
+        setSavedPhone(phoneOk ? (current.phone ?? null) : null);
+        setEditing(!(addressOk && phoneOk));
+        onValidChange(addressOk && phoneOk);
         setLoading(false);
       });
     return () => {
@@ -102,19 +108,26 @@ const CustomerAddressCard = ({ userId, onValidChange }: CustomerAddressCardProps
       );
       return;
     }
+    const cleanedPhone = phone.trim();
+    if (!isValidUkPhone(cleanedPhone)) {
+      setError("Please enter a valid UK phone number (e.g. 07123 456789).");
+      return;
+    }
     setSaving(true);
     setError(null);
     const { error: saveError } = await supabase
       .from("profiles")
-      .update(cleaned)
+      .update({ ...cleaned, phone: cleanedPhone })
       .eq("user_id", userId);
     setSaving(false);
     if (saveError) {
-      setError("Couldn't save your address — please try again.");
+      setError("Couldn't save your details — please try again.");
       return;
     }
     setForm({ ...empty, ...cleaned });
+    setPhone(cleanedPhone);
     setSaved(cleaned);
+    setSavedPhone(cleanedPhone);
     setEditing(false);
     onValidChange(true);
   };
@@ -130,18 +143,26 @@ const CustomerAddressCard = ({ userId, onValidChange }: CustomerAddressCardProps
   return (
     <div>
       <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
-        Home address
+        Home address &amp; phone
       </p>
 
       {saved && !editing ? (
         <div className="flex items-start justify-between gap-3 p-3 rounded-lg border border-border bg-background/50">
-          <div className="flex items-start gap-2.5 min-w-0">
-            <MapPin className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-            <p className="text-sm text-foreground leading-relaxed">
-              {[saved.address_line1, saved.address_line2, saved.city, saved.county, saved.postcode]
-                .filter(Boolean)
-                .join(", ")}
-            </p>
+          <div className="min-w-0 space-y-1.5">
+            <div className="flex items-start gap-2.5">
+              <MapPin className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+              <p className="text-sm text-foreground leading-relaxed">
+                {[saved.address_line1, saved.address_line2, saved.city, saved.county, saved.postcode]
+                  .filter(Boolean)
+                  .join(", ")}
+              </p>
+            </div>
+            {savedPhone && (
+              <div className="flex items-center gap-2.5">
+                <Phone className="w-4 h-4 text-primary shrink-0" />
+                <p className="text-sm text-foreground">{savedPhone}</p>
+              </div>
+            )}
           </div>
           <Button
             type="button"
@@ -215,6 +236,18 @@ const CustomerAddressCard = ({ userId, onValidChange }: CustomerAddressCardProps
                 value={form.county ?? ""}
                 onChange={(e) => setForm((f) => ({ ...f, county: e.target.value }))}
                 autoComplete="address-level1"
+                className="h-10"
+              />
+            </div>
+            <div className="col-span-2">
+              <Label htmlFor="addr-phone" className="text-xs">Phone number *</Label>
+              <Input
+                id="addr-phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="07123 456789"
+                autoComplete="tel"
                 className="h-10"
               />
             </div>

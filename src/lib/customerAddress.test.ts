@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { formatPostcode, hasCompleteAddress, isValidUkPostcode } from "./customerAddress";
+import { formatPostcode, hasCompleteAddress, isValidUkPhone, isValidUkPostcode } from "./customerAddress";
+
+describe("isValidUkPhone", () => {
+  it("accepts UK mobiles and landlines in common formats", () => {
+    for (const p of ["07789 740354", "07789740354", "+44 7789 740354", "+447789740354", "01376 550123", "(01376) 550-123"]) {
+      expect(isValidUkPhone(p)).toBe(true);
+    }
+  });
+
+  it("rejects rubbish and non-UK shapes", () => {
+    for (const p of ["", "  ", "123", "hello", "999", "0778", "+1 555 0100", null, undefined]) {
+      expect(isValidUkPhone(p as string)).toBe(false);
+    }
+  });
+});
 
 describe("isValidUkPostcode", () => {
   it("accepts real Essex postcodes in any casing/spacing", () => {

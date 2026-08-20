@@ -143,14 +143,14 @@ serve(async (req) => {
     }
 
     // ------------------------------------------------------------------
-    // Home address: required for everyone booking with the studio (part of
-    // the membership agreement — registers, emergency records and billing).
-    // Enforced here as well as in the UI so it can't be skipped.
+    // Home address + phone: required for everyone booking with the studio
+    // (part of the membership agreement — registers, emergency records and
+    // billing). Enforced here as well as in the UI so it can't be skipped.
     // ------------------------------------------------------------------
     if (userId) {
       const { data: addrProfile } = await supabaseAdmin
         .from("profiles")
-        .select("address_line1, city, postcode")
+        .select("address_line1, city, postcode, phone")
         .eq("user_id", userId)
         .maybeSingle();
       const ukPostcode = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
@@ -162,6 +162,13 @@ serve(async (req) => {
         return jsonResponse({
           error: "Please add your home address before booking — we keep one on file for every family.",
           code: "address_required",
+        }, 400);
+      }
+      const phoneDigits = (addrProfile?.phone ?? "").replace(/[^\d+]/g, "");
+      if (!/^(\+44\d{9,10}|0\d{9,10})$/.test(phoneDigits)) {
+        return jsonResponse({
+          error: "Please add a contact phone number before booking — we need a way to reach you about your classes.",
+          code: "phone_required",
         }, 400);
       }
     }

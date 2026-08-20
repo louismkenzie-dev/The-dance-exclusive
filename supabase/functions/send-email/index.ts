@@ -64,6 +64,14 @@ import {
   renderOneToOneInvite,
   type OneToOneInviteData,
 } from "../_shared/email-templates/one-to-one-invite.ts";
+import {
+  renderPartyInquiryAdmin,
+  type PartyInquiryAdminData,
+} from "../_shared/email-templates/party-inquiry-admin.ts";
+import {
+  renderPartyResponse,
+  type PartyResponseData,
+} from "../_shared/email-templates/party-response.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -123,7 +131,9 @@ type Payload =
   | { template: "trial_reminder"; to: string; data: TrialReminderData }
   | { template: "waitlist_space"; to: string; data: WaitlistSpaceData }
   | { template: "birthday"; to: string; data: BirthdayData }
-  | { template: "one_to_one_invite"; to: string; data: OneToOneInviteData };
+  | { template: "one_to_one_invite"; to: string; data: OneToOneInviteData }
+  | { template: "party_inquiry_admin"; to: string; data: PartyInquiryAdminData }
+  | { template: "party_response"; to: string; data: PartyResponseData };
 
 function buildEmail(payload: Payload): { subject: string; html: string } {
   switch (payload.template) {
@@ -159,6 +169,10 @@ function buildEmail(payload: Payload): { subject: string; html: string } {
       return renderBirthday(payload.data);
     case "one_to_one_invite":
       return renderOneToOneInvite(payload.data);
+    case "party_inquiry_admin":
+      return renderPartyInquiryAdmin(payload.data);
+    case "party_response":
+      return renderPartyResponse(payload.data);
     default:
       throw new Error(`Unknown template: ${(payload as any).template}`);
   }

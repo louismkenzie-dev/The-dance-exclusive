@@ -2,7 +2,8 @@ import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { PartyPopper, Plus, Pencil, Trash2, GripVertical, Package, Gift, Image, Video, Youtube, Upload, X } from "lucide-react";
+import { PartyPopper, Plus, Pencil, Trash2, GripVertical, Package, Gift, Image, Video, Youtube, Upload, X, Inbox } from "lucide-react";
+import PartyEnquiries from "@/components/admin/PartyEnquiries";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -105,6 +106,19 @@ const AdminParties = () => {
         .order("display_order");
       if (error) throw error;
       return data as PartyPackage[];
+    },
+  });
+
+  // Unanswered enquiries — badged on the tab so they can't be missed.
+  const { data: newEnquiryCount = 0 } = useQuery({
+    queryKey: ["party-enquiries-new-count"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("party_inquiries")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "new");
+      if (error) throw error;
+      return count ?? 0;
     },
   });
 
@@ -415,8 +429,14 @@ const AdminParties = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="packages">
+      <Tabs defaultValue="enquiries">
         <TabsList>
+          <TabsTrigger value="enquiries" className="gap-2">
+            <Inbox className="h-4 w-4" /> Enquiries
+            {newEnquiryCount > 0 && (
+              <Badge className="ml-1 bg-pink-600 text-white px-1.5 py-0 text-[10px]">{newEnquiryCount}</Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="packages" className="gap-2">
             <Package className="h-4 w-4" /> Packages
           </TabsTrigger>
@@ -424,6 +444,11 @@ const AdminParties = () => {
             <Gift className="h-4 w-4" /> Optional Extras
           </TabsTrigger>
         </TabsList>
+
+        {/* ENQUIRIES TAB */}
+        <TabsContent value="enquiries" className="mt-4">
+          <PartyEnquiries />
+        </TabsContent>
 
         {/* PACKAGES TAB */}
         <TabsContent value="packages" className="space-y-4 mt-4">

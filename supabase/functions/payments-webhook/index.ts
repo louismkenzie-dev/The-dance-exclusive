@@ -38,6 +38,9 @@ serve(async (req) => {
       case "payment_intent.succeeded":
         await handlePaymentIntentSucceeded(event.data.object, env);
         break;
+      case "invoice.paid":
+        await handlePartyInvoicePaid(event.data.object);
+        break;
       default:
         console.log("Unhandled event:", event.type);
     }
@@ -51,6 +54,38 @@ serve(async (req) => {
     return new Response("Webhook error", { status: 400 });
   }
 });
+
+// Party deposit/balance invoices carry their enquiry in metadata. Membership
+// renewal invoices don't, and are fulfilled through the PaymentIntent path.
+async function handlePartyInvoicePaid(invoice: any) {
+  const inquiryId = invoice?.metadata?.party_inquiry_id;
+  if (!inquiryId) return;
+
+  const { data: payment, error } = await supabase
+    .from("party_payments")
+    .update({ status: "paid", paid_at: new Date().toISOString() })
+    .eq("stripe_invoice_id", invoice.id)
+    .select("kind")
+    .maybeSingle();
+  if (error) {
+    console.error("party invoice paid update failed:", error);
+    return;
+  }
+  if (!payment) {
+    console.warn("Paid party invoice has no matching record:", invoice.id);
+    return;
+  }
+
+  // A paid deposit is what actually secures the date.
+  if (payment.kind === "deposit") {
+    await supabase
+      .from("party_inquiries")
+      .update({ status: "confirmed" })
+      .eq("id", inquiryId)
+      .neq("status", "confirmed");
+  }
+  console.log("Party invoice paid:", invoice.id, payment.kind);
+}
 
 // Legacy embedded Checkout Session flow — kept for any in-flight sessions.
 async function handleCheckoutCompleted(session: any) {

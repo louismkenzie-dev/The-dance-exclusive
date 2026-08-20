@@ -1549,6 +1549,10 @@ export type Database = {
       }
       party_inquiries: {
         Row: {
+          admin_notes: string | null
+          agreed_date: string | null
+          agreed_time: string | null
+          agreed_venue: string | null
           birthday_child_age: number | null
           birthday_child_name: string
           created_at: string
@@ -1561,12 +1565,18 @@ export type Database = {
           phone: string | null
           preferred_date: string | null
           preferred_time: string | null
+          quoted_total: number | null
+          responded_at: string | null
           selected_extras: string[]
           status: string
           updated_at: string
           venue_preference: string | null
         }
         Insert: {
+          admin_notes?: string | null
+          agreed_date?: string | null
+          agreed_time?: string | null
+          agreed_venue?: string | null
           birthday_child_age?: number | null
           birthday_child_name: string
           created_at?: string
@@ -1579,12 +1589,18 @@ export type Database = {
           phone?: string | null
           preferred_date?: string | null
           preferred_time?: string | null
+          quoted_total?: number | null
+          responded_at?: string | null
           selected_extras?: string[]
           status?: string
           updated_at?: string
           venue_preference?: string | null
         }
         Update: {
+          admin_notes?: string | null
+          agreed_date?: string | null
+          agreed_time?: string | null
+          agreed_venue?: string | null
           birthday_child_age?: number | null
           birthday_child_name?: string
           created_at?: string
@@ -1597,6 +1613,8 @@ export type Database = {
           phone?: string | null
           preferred_date?: string | null
           preferred_time?: string | null
+          quoted_total?: number | null
+          responded_at?: string | null
           selected_extras?: string[]
           status?: string
           updated_at?: string
@@ -1705,6 +1723,59 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      party_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          due_date: string | null
+          hosted_invoice_url: string | null
+          id: string
+          inquiry_id: string
+          kind: string
+          paid_at: string | null
+          sent_at: string
+          status: string
+          stripe_env: string
+          stripe_invoice_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          due_date?: string | null
+          hosted_invoice_url?: string | null
+          id?: string
+          inquiry_id: string
+          kind: string
+          paid_at?: string | null
+          sent_at?: string
+          status?: string
+          stripe_env?: string
+          stripe_invoice_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          due_date?: string | null
+          hosted_invoice_url?: string | null
+          id?: string
+          inquiry_id?: string
+          kind?: string
+          paid_at?: string | null
+          sent_at?: string
+          status?: string
+          stripe_env?: string
+          stripe_invoice_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "party_payments_inquiry_id_fkey"
+            columns: ["inquiry_id"]
+            isOneToOne: false
+            referencedRelation: "party_inquiries"
             referencedColumns: ["id"]
           },
         ]

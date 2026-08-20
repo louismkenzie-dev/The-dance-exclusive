@@ -115,29 +115,46 @@ const Parties = () => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const { error } = await supabase.from("party_inquiries").insert({
-        parent_name: form.parent_name,
-        email: form.email,
-        phone: form.phone || null,
-        preferred_date: form.preferred_date || null,
-        preferred_time: form.preferred_time || null,
-        party_package_id:
-          form.party_package_id && form.party_package_id !== NO_PACKAGE
-            ? form.party_package_id
+      // Goes through the edge function rather than a direct insert so the
+      // studio is emailed the moment an enquiry lands (and the family gets
+      // their acknowledgement).
+      const { data, error } = await supabase.functions.invoke("submit-party-inquiry", {
+        body: {
+          parent_name: form.parent_name,
+          email: form.email,
+          phone: form.phone || null,
+          preferred_date: form.preferred_date || null,
+          preferred_time: form.preferred_time || null,
+          party_package_id:
+            form.party_package_id && form.party_package_id !== NO_PACKAGE
+              ? form.party_package_id
+              : null,
+          guest_count: form.guest_count ? Number(form.guest_count) : null,
+          venue_preference: form.venue_preference || null,
+          birthday_child_name: form.birthday_child_name,
+          birthday_child_age: form.birthday_child_age
+            ? Number(form.birthday_child_age)
             : null,
-        guest_count: form.guest_count ? Number(form.guest_count) : null,
-        venue_preference: form.venue_preference || null,
-        birthday_child_name: form.birthday_child_name,
-        birthday_child_age: form.birthday_child_age
-          ? Number(form.birthday_child_age)
-          : null,
-        notes: form.notes || null,
+          notes: form.notes || null,
+        },
       });
-      if (error) throw error;
+      let message = data?.error || error?.message;
+      const ctx = (error as { context?: Response } | null)?.context;
+      if (ctx && typeof ctx.json === "function") {
+        try {
+          const errBody = await ctx.json();
+          if (errBody?.error) message = errBody.error;
+        } catch { /* keep generic */ }
+      }
+      if (error || !data?.success) throw new Error(message || "Enquiry failed");
       toast.success("Thanks — we'll be in touch within 24 hours");
       setForm(emptyForm);
-    } catch {
-      toast.error("Something went wrong — please try again or email us directly.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error && err.message && !err.message.includes("Enquiry failed")
+          ? err.message
+          : "Something went wrong — please try again or email us directly.",
+      );
     } finally {
       setSubmitting(false);
     }

@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Search, ChevronDown, ChevronRight, Mail, Phone, Baby, ExternalLink, MapPin, Calendar, ShoppingBag, ShieldCheck, Pencil, ArrowUpDown, Map as MapIcon } from "lucide-react";
+import { Users, Search, ChevronDown, ChevronRight, Mail, Phone, Baby, ExternalLink, MapPin, Calendar, ShoppingBag, ShieldCheck, Pencil, ArrowUpDown, Map as MapIcon, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
@@ -113,6 +113,19 @@ const AdminCustomers = () => {
     },
   });
 
+  // Real check-ins only — a booked-but-absent session doesn't count as attended.
+  const { data: checkIns } = useQuery({
+    queryKey: ["admin-customers-checkins"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("attendance")
+        .select("booking_id, student_id")
+        .not("checked_in_at", "is", null);
+      if (error) throw error;
+      return data as { booking_id: string; student_id: string | null }[];
+    },
+  });
+
   const studentsByParent = (students || []).reduce<Record<string, any[]>>((acc, s) => {
     if (!acc[s.parent_id]) acc[s.parent_id] = [];
     acc[s.parent_id].push(s);
@@ -131,19 +144,38 @@ const AdminCustomers = () => {
     return acc;
   }, {});
 
-  // Total actually paid this calendar year: confirmed bookings + class passes.
-  const currentYear = new Date().getFullYear();
-  const paidThisYearByParent: Record<string, number> = {};
+  // Total actually paid, all time: confirmed bookings + class passes.
+  const paidByParent: Record<string, number> = {};
   for (const b of bookings || []) {
     if (b.status !== "confirmed" || !b.parent_id) continue;
-    if (b.booked_at && new Date(b.booked_at).getFullYear() !== currentYear) continue;
-    paidThisYearByParent[b.parent_id] = (paidThisYearByParent[b.parent_id] || 0) + Number(b.amount || 0);
+    paidByParent[b.parent_id] = (paidByParent[b.parent_id] || 0) + Number(b.amount || 0);
   }
   for (const p of passes || []) {
     if (!p.user_id) continue;
-    if (p.created_at && new Date(p.created_at).getFullYear() !== currentYear) continue;
-    paidThisYearByParent[p.user_id] = (paidThisYearByParent[p.user_id] || 0) + Number(p.amount_paid || 0);
+    paidByParent[p.user_id] = (paidByParent[p.user_id] || 0) + Number(p.amount_paid || 0);
   }
+
+  // Classes attended (check-ins) per family and per student. The per-student
+  // count drives the 100-class milestone flag for adult dancers.
+  const bookingById: Record<string, any> = {};
+  for (const b of bookings || []) bookingById[b.id] = b;
+  const attendedByParent: Record<string, number> = {};
+  const attendedByStudent: Record<string, number> = {};
+  for (const a of checkIns || []) {
+    const b = bookingById[a.booking_id];
+    if (b?.parent_id) attendedByParent[b.parent_id] = (attendedByParent[b.parent_id] || 0) + 1;
+    const sid = a.student_id || b?.student_id;
+    if (sid) attendedByStudent[sid] = (attendedByStudent[sid] || 0) + 1;
+  }
+  /** Adults (is_self profiles) at 100+ attended classes — Amie buys them a present. */
+  const milestoneAdultFor = (userId: string): { name: string; count: number } | null => {
+    for (const s of studentsByParent[userId] || []) {
+      if (!s.is_self) continue;
+      const count = attendedByStudent[s.id] || 0;
+      if (count >= 100) return { name: s.first_name, count };
+    }
+    return null;
+  };
 
   const filtered = (profiles || [])
     .filter((p) => {
@@ -157,7 +189,7 @@ const AdminCustomers = () => {
     .sort((a, b) => {
       switch (sortMode) {
         case "paid_desc":
-          return (paidThisYearByParent[b.user_id] || 0) - (paidThisYearByParent[a.user_id] || 0);
+          return (paidByParent[b.user_id] || 0) - (paidByParent[a.user_id] || 0);
         case "newest":
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         case "oldest":
@@ -249,7 +281,7 @@ const AdminCustomers = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="name">Name (A–Z)</SelectItem>
-            <SelectItem value="paid_desc">Total paid this year (high → low)</SelectItem>
+            <SelectItem value="paid_desc">Total paid all time (high → low)</SelectItem>
             <SelectItem value="newest">Newest customers first</SelectItem>
             <SelectItem value="oldest">Oldest customers first</SelectItem>
           </SelectContent>
@@ -283,7 +315,8 @@ const AdminCustomers = () => {
                   <TableHead>Phone</TableHead>
                   <TableHead className="text-center">Children</TableHead>
                   <TableHead className="text-center">Bookings</TableHead>
-                  <TableHead className="text-right">Paid ({currentYear})</TableHead>
+                  <TableHead className="text-center">Attended</TableHead>
+                  <TableHead className="text-right">Paid (all time)</TableHead>
                   <TableHead>Joined</TableHead>
                 </TableRow>
               </TableHeader>
@@ -304,7 +337,22 @@ const AdminCustomers = () => {
                         <TableCell className="w-8 pr-0">
                           {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                         </TableCell>
-                        <TableCell className="font-medium">{customer.full_name}</TableCell>
+                        <TableCell className="font-medium">
+                          <span className="flex items-center gap-2">
+                            {customer.full_name}
+                            {(() => {
+                              const m = milestoneAdultFor(customer.user_id);
+                              return m ? (
+                                <Badge
+                                  className="bg-amber-500 hover:bg-amber-600 text-white gap-1"
+                                  title={`${m.name} has attended ${m.count} classes — time for a present!`}
+                                >
+                                  <Gift className="h-3 w-3" /> 100 club
+                                </Badge>
+                              ) : null;
+                            })()}
+                          </span>
+                        </TableCell>
                         <TableCell>
                           <span className="flex items-center gap-1.5 text-sm">
                             <Mail className="h-3.5 w-3.5 text-muted-foreground" />
@@ -331,9 +379,18 @@ const AdminCustomers = () => {
                             {custBookings.length}
                           </Badge>
                         </TableCell>
+                        <TableCell className="text-center">
+                          {(attendedByParent[customer.user_id] || 0) > 0 ? (
+                            <Badge variant="outline" className="min-w-[2rem] tabular-nums">
+                              {attendedByParent[customer.user_id]}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">—</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right font-medium">
-                          {(paidThisYearByParent[customer.user_id] || 0) > 0
-                            ? `£${(paidThisYearByParent[customer.user_id] || 0).toFixed(2)}`
+                          {(paidByParent[customer.user_id] || 0) > 0
+                            ? `£${(paidByParent[customer.user_id] || 0).toFixed(2)}`
                             : <span className="text-muted-foreground font-normal">—</span>}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
@@ -344,7 +401,7 @@ const AdminCustomers = () => {
                       {isExpanded && (
                         <TableRow key={`${customer.id}-detail`} className="bg-muted/20 hover:bg-muted/20">
                           <TableCell></TableCell>
-                          <TableCell colSpan={7} className="py-4">
+                          <TableCell colSpan={8} className="py-4">
                             <div className="space-y-5">
                               {/* Contact & Address */}
                               <div className="grid grid-cols-2 gap-6">

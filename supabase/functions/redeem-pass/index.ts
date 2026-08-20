@@ -4,11 +4,11 @@
 //  - the pass must belong to the caller, be unexpired and have credits left
 //  - sessions must be upcoming, scheduled, and belong to ADULT classes
 //  - week_2 passes: both sessions must fall in the same calendar week (Mon–Sun)
-//  - birthday: caller's self-profile birthday must be within the last 10 days,
-//    one free class per year
+//  - birthday: open from 7 days before the caller's birthday to 10 days
+//    after it, one free class per year
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { BIRTHDAY_CLASS_WINDOW_DAYS } from "../_shared/pricing.ts";
+import { BIRTHDAY_CLASS_EARLY_DAYS, BIRTHDAY_CLASS_WINDOW_DAYS } from "../_shared/pricing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -99,17 +99,25 @@ serve(async (req) => {
       if (sessions.length !== 1) {
         return jsonResponse({ error: "The birthday offer covers one class" }, 400);
       }
-      // Birthday must have occurred within the last BIRTHDAY_CLASS_WINDOW_DAYS.
+      // The offer is open from BIRTHDAY_CLASS_EARLY_DAYS before the birthday
+      // to BIRTHDAY_CLASS_WINDOW_DAYS after it — so the class in their actual
+      // birthday week qualifies even when it falls just before the day.
       const dob = new Date(`${selfStudent.date_of_birth}T00:00:00Z`);
       const now = new Date();
-      const thisYearBirthday = new Date(Date.UTC(now.getUTCFullYear(), dob.getUTCMonth(), dob.getUTCDate()));
-      const lastBirthday = thisYearBirthday > now
-        ? new Date(Date.UTC(now.getUTCFullYear() - 1, dob.getUTCMonth(), dob.getUTCDate()))
+      const DAY_MS = 24 * 60 * 60 * 1000;
+      const todayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+      const thisYearBirthday = Date.UTC(now.getUTCFullYear(), dob.getUTCMonth(), dob.getUTCDate());
+      const lastBirthday = thisYearBirthday > todayUTC
+        ? Date.UTC(now.getUTCFullYear() - 1, dob.getUTCMonth(), dob.getUTCDate())
         : thisYearBirthday;
-      const daysSince = Math.floor((now.getTime() - lastBirthday.getTime()) / (24 * 60 * 60 * 1000));
-      if (daysSince > BIRTHDAY_CLASS_WINDOW_DAYS) {
+      const nextBirthday = thisYearBirthday >= todayUTC
+        ? thisYearBirthday
+        : Date.UTC(now.getUTCFullYear() + 1, dob.getUTCMonth(), dob.getUTCDate());
+      const daysSince = Math.floor((todayUTC - lastBirthday) / DAY_MS);
+      const daysUntil = Math.round((nextBirthday - todayUTC) / DAY_MS);
+      if (daysSince > BIRTHDAY_CLASS_WINDOW_DAYS && daysUntil > BIRTHDAY_CLASS_EARLY_DAYS) {
         return jsonResponse({
-          error: `The free birthday class is valid for ${BIRTHDAY_CLASS_WINDOW_DAYS} days from your birthday.`,
+          error: `The free birthday class can be claimed from ${BIRTHDAY_CLASS_EARLY_DAYS} days before your birthday to ${BIRTHDAY_CLASS_WINDOW_DAYS} days after it.`,
         }, 400);
       }
       // One free birthday class per year.

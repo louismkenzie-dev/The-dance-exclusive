@@ -12,6 +12,7 @@ import { PassRedeemDialog, type SessionOption } from "@/components/portal/PassRe
 import {
   ADULT_PASSES,
   BIRTHDAY_CLASS_WINDOW_DAYS,
+  BIRTHDAY_CLASS_EARLY_DAYS,
   type AdultPassType,
 } from "@/lib/pricing";
 
@@ -44,6 +45,18 @@ const daysSinceLastBirthday = (dob: string): number | null => {
   return Math.floor((now.getTime() - last.getTime()) / 86400000);
 };
 
+const daysUntilNextBirthday = (dob: string): number | null => {
+  const birth = new Date(`${dob}T00:00:00Z`);
+  if (Number.isNaN(birth.getTime())) return null;
+  const now = new Date();
+  const todayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const thisYear = Date.UTC(now.getUTCFullYear(), birth.getUTCMonth(), birth.getUTCDate());
+  const next = thisYear >= todayUTC
+    ? thisYear
+    : Date.UTC(now.getUTCFullYear() + 1, birth.getUTCMonth(), birth.getUTCDate());
+  return Math.round((next - todayUTC) / 86400000);
+};
+
 /** Adult multi-class passes: buy 2/4/6/8-class bundles, redeem them against
  *  any adult classes, and claim the free birthday class. */
 export function AdultPassesCard({ sessionOptions, selfStudent, onRedeemed }: AdultPassesCardProps) {
@@ -69,7 +82,14 @@ export function AdultPassesCard({ sessionOptions, selfStudent, onRedeemed }: Adu
   const birthdayDays = selfStudent?.date_of_birth
     ? daysSinceLastBirthday(selfStudent.date_of_birth)
     : null;
-  const birthdayEligible = birthdayDays != null && birthdayDays <= BIRTHDAY_CLASS_WINDOW_DAYS;
+  const birthdayCountdown = selfStudent?.date_of_birth
+    ? daysUntilNextBirthday(selfStudent.date_of_birth)
+    : null;
+  // Open from a week before the birthday to 10 days after, so the class in
+  // their actual birthday week always qualifies.
+  const birthdayEligible =
+    (birthdayDays != null && birthdayDays <= BIRTHDAY_CLASS_WINDOW_DAYS) ||
+    (birthdayCountdown != null && birthdayCountdown <= BIRTHDAY_CLASS_EARLY_DAYS);
 
   const buyPass = (type: AdultPassType) => {
     if (!user) { navigate("/auth"); return; }
@@ -168,9 +188,12 @@ export function AdultPassesCard({ sessionOptions, selfStudent, onRedeemed }: Adu
               <div className="flex items-center gap-2">
                 <Gift className="w-4 h-4 text-green-400 shrink-0" />
                 <div>
-                  <span className="text-sm font-semibold text-foreground">Happy birthday! 🎂</span>
+                  <span className="text-sm font-semibold text-foreground">
+                    {birthdayDays != null && birthdayDays <= BIRTHDAY_CLASS_WINDOW_DAYS ? "Happy birthday! 🎂" : "Birthday coming up! 🎂"}
+                  </span>
                   <span className="block text-[10px] text-muted-foreground">
-                    One free class, valid for {BIRTHDAY_CLASS_WINDOW_DAYS} days from your birthday.
+                    One free class on us — claim from {BIRTHDAY_CLASS_EARLY_DAYS} days before your
+                    birthday to {BIRTHDAY_CLASS_WINDOW_DAYS} days after.
                   </span>
                 </div>
               </div>

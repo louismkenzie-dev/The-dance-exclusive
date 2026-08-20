@@ -70,6 +70,9 @@ export const ADULT_PASSES: Record<AdultPassType, {
 
 /** Days after an adult's birthday during which their free birthday class is valid. */
 export const BIRTHDAY_CLASS_WINDOW_DAYS = 10;
+/** Days BEFORE the birthday the offer opens — so the class in their actual
+ *  birthday week qualifies even when it falls just before the day itself. */
+export const BIRTHDAY_CLASS_EARLY_DAYS = 7;
 
 export interface PricedClass {
   class_type: "children" | "adult";

@@ -7,9 +7,11 @@
 //    standing place (confirmed monthly/term/yearly bookings < capacity)
 //    triggers a "space has opened up" email; entries are stamped notified_at
 //    so each parent is emailed once per opening (they re-join to hear again).
-// 3. birthdays: every child (with at least one confirmed booking) whose
-//    birthday is TODAY gets a happy-birthday email to the parent's inbox.
-//    Idempotent via the birthday_emails (student_id, year) claim table.
+// 3. birthdays: every dancer (with at least one confirmed booking) whose
+//    birthday is TODAY gets a happy-birthday email — children's wishes go to
+//    the parent's inbox; adult dancers are emailed directly with a reminder
+//    of their free birthday-week class. Idempotent via the birthday_emails
+//    (student_id, year) claim table.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -161,35 +163,34 @@ serve(async (_req) => {
     }
   }
 
-  // ---- Birthdays: wish every child a happy birthday on the day ----
+  // ---- Birthdays: wish every dancer a happy birthday on the day ----
   const [todayYear, todayMonth, todayDay] = todayLondon.split("-").map(Number);
-  const { data: allChildren } = await supabase
+  const { data: allDancers } = await supabase
     .from("students")
-    .select("id, parent_id, first_name, last_name, preferred_name, date_of_birth")
-    .eq("is_self", false)
+    .select("id, parent_id, first_name, last_name, preferred_name, date_of_birth, is_self")
     .not("date_of_birth", "is", null);
-  const birthdayChildren = (allChildren ?? []).filter((s: any) => {
+  const birthdayDancers = (allDancers ?? []).filter((s: any) => {
     const [, m, d] = String(s.date_of_birth).split("-").map(Number);
     return m === todayMonth && d === todayDay;
   });
 
-  if (birthdayChildren.length > 0) {
-    // Only real customers — the child needs at least one confirmed booking.
+  if (birthdayDancers.length > 0) {
+    // Only real customers — the dancer needs at least one confirmed booking.
     const { data: confirmed } = await supabase
       .from("bookings")
       .select("student_id")
-      .in("student_id", birthdayChildren.map((s: any) => s.id))
+      .in("student_id", birthdayDancers.map((s: any) => s.id))
       .eq("status", "confirmed");
     const bookedIds = new Set((confirmed ?? []).map((b: any) => b.student_id));
 
-    for (const child of birthdayChildren) {
-      if (!bookedIds.has(child.id)) continue;
+    for (const dancer of birthdayDancers) {
+      if (!bookedIds.has(dancer.id)) continue;
       try {
         // Claim this year's send first — a re-run can never double-send.
         const { data: claim, error: claimErr } = await supabase
           .from("birthday_emails")
           .upsert(
-            { student_id: child.id, year: todayYear },
+            { student_id: dancer.id, year: todayYear },
             { onConflict: "student_id,year", ignoreDuplicates: true },
           )
           .select("student_id");
@@ -199,20 +200,27 @@ serve(async (_req) => {
         const { data: profile } = await supabase
           .from("profiles")
           .select("email, full_name")
-          .eq("user_id", child.parent_id)
+          .eq("user_id", dancer.parent_id)
           .maybeSingle();
         if (!profile?.email) continue;
 
-        const birthYear = Number(String(child.date_of_birth).slice(0, 4));
+        const birthYear = Number(String(dancer.date_of_birth).slice(0, 4));
         const { error } = await supabase.functions.invoke("send-email", {
           headers: { "x-internal-auth": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
           body: {
             template: "birthday",
             to: profile.email,
             data: {
-              childName: child.preferred_name || child.first_name,
+              childName: dancer.preferred_name || dancer.first_name,
               parentName: profile.full_name,
               age: Number.isFinite(birthYear) ? todayYear - birthYear : null,
+              ...(dancer.is_self && {
+                audience: "adult",
+                freeClassNote:
+                  "Birthday treat: one adult class is on us! Claim your free " +
+                  "class from the Adult Classes page — the offer is open from a " +
+                  "week before your birthday to 10 days after.",
+              }),
             },
           },
         });
@@ -222,14 +230,14 @@ serve(async (_req) => {
           await supabase
             .from("birthday_emails")
             .delete()
-            .eq("student_id", child.id)
+            .eq("student_id", dancer.id)
             .eq("year", todayYear);
           throw error;
         }
         summary.birthdayEmails++;
       } catch (e) {
         summary.errors++;
-        console.error("Birthday email failed for student", child.id, e);
+        console.error("Birthday email failed for student", dancer.id, e);
       }
     }
   }

@@ -65,7 +65,7 @@ const StaffRegisters = () => {
 
     const { data: explicit } = await supabase
       .from("session_instructors")
-      .select(`class_sessions!inner ( id, session_date, start_time, end_time, class_id, classes:class_id ( name, class_type, venues:venue_id ( name ) ) )`)
+      .select(`class_sessions!inner ( id, session_date, start_time, end_time, class_id, classes:class_id ( name, class_type, location_note, venues:venue_id ( name ) ) )`)
       .eq("staff_id", staff.id);
 
     const { data: classAssignments } = await supabase
@@ -78,7 +78,7 @@ const StaffRegisters = () => {
     if (classIds.length > 0) {
       const { data } = await supabase
         .from("class_sessions")
-        .select(`id, session_date, start_time, end_time, class_id, classes:class_id ( name, class_type, venues:venue_id ( name ) )`)
+        .select(`id, session_date, start_time, end_time, class_id, classes:class_id ( name, class_type, location_note, venues:venue_id ( name ) )`)
         .in("class_id", classIds)
         .eq("session_date", date);
       const { data: overrides } = await supabase.from("session_instructors").select("session_id").in("session_id", (data ?? []).map((s) => s.id));
@@ -366,7 +366,7 @@ const StaffRegisters = () => {
                   <div>
                     <h3 className="font-semibold text-lg">{s.classes?.name}</h3>
                     <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                      <Clock className="w-3 h-3" /> {s.start_time.slice(0, 5)} – {s.end_time.slice(0, 5)} • {s.classes?.venues?.name || "Venue TBC"}
+                      <Clock className="w-3 h-3" /> {s.start_time.slice(0, 5)} – {s.end_time.slice(0, 5)} • {s.classes?.venues?.name || s.classes?.location_note || "Venue TBC"}
                     </p>
                   </div>
                   <Badge variant="outline">{(attendance[s.id] || []).length} students</Badge>

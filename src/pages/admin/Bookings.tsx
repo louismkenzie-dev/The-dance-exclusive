@@ -919,10 +919,13 @@ const AdminBookings = () => {
                   <p className="text-sm text-muted-foreground mt-1">
                     {b.students ? `${b.students.first_name} ${b.students.last_name}` : "Adult booking"}
                     {b.profiles && ` — Parent: ${b.profiles.full_name}`}
-                    {b.amount && ` — £${b.amount}`}
+                    {b.amount != null && ` — £${Number(b.amount).toFixed(2)}`}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Booked: {new Date(b.booked_at).toLocaleDateString("en-GB")}
+                    Booked: {new Date(b.booked_at).toLocaleString("en-GB", {
+                      day: "2-digit", month: "2-digit", year: "numeric",
+                      hour: "2-digit", minute: "2-digit",
+                    })}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">

@@ -168,6 +168,32 @@ export type Database = {
           },
         ]
       }
+      birthday_emails: {
+        Row: {
+          sent_at: string
+          student_id: string
+          year: number
+        }
+        Insert: {
+          sent_at?: string
+          student_id: string
+          year: number
+        }
+        Update: {
+          sent_at?: string
+          student_id?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "birthday_emails_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       booking_qr_tokens: {
         Row: {
           booking_id: string
@@ -679,6 +705,54 @@ export type Database = {
           },
         ]
       }
+      class_invites: {
+        Row: {
+          class_id: string
+          created_at: string
+          id: string
+          invited_by: string | null
+          parent_id: string
+          price: number
+          status: string
+          student_id: string
+        }
+        Insert: {
+          class_id: string
+          created_at?: string
+          id?: string
+          invited_by?: string | null
+          parent_id: string
+          price: number
+          status?: string
+          student_id: string
+        }
+        Update: {
+          class_id?: string
+          created_at?: string
+          id?: string
+          invited_by?: string | null
+          parent_id?: string
+          price?: number
+          status?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_invites_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_invites_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_passes: {
         Row: {
           amount_paid: number
@@ -862,6 +936,7 @@ export type Database = {
           instructor_id: string | null
           invite_only: boolean
           is_active: boolean
+          location_note: string | null
           monthly_discount_percent: number | null
           name: string
           price_per_month: number | null
@@ -907,6 +982,7 @@ export type Database = {
           instructor_id?: string | null
           invite_only?: boolean
           is_active?: boolean
+          location_note?: string | null
           monthly_discount_percent?: number | null
           name: string
           price_per_month?: number | null
@@ -952,6 +1028,7 @@ export type Database = {
           instructor_id?: string | null
           invite_only?: boolean
           is_active?: boolean
+          location_note?: string | null
           monthly_discount_percent?: number | null
           name?: string
           price_per_month?: number | null

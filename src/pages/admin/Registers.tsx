@@ -52,7 +52,7 @@ const AdminRegisters = () => {
       .from("class_sessions")
       .select(`
         id, session_date, start_time, end_time, class_id,
-        classes:class_id ( id, name, day_of_week, venue_id, venues:venue_id ( name ) ),
+        classes:class_id ( id, name, day_of_week, venue_id, location_note, venues:venue_id ( name ) ),
         session_instructors ( staff:staff_id ( id, first_name, last_name, full_name ) )
       `)
       .eq("session_date", date)
@@ -405,7 +405,10 @@ const AdminRegisters = () => {
                       </div>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{selectedSession.start_time?.slice(0,5)}–{selectedSession.end_time?.slice(0,5)}</span>
-                        <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{selectedSession.classes?.venues?.name ?? "Venue TBC"}</span>
+                        <span className="flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />
+                        {selectedSession.classes?.venues?.name ?? selectedSession.classes?.location_note ?? "Venue TBC"}
+                      </span>
                         {selectedSession.instructors?.length > 0 && (
                           <span className="flex items-center gap-1"><Users className="w-3 h-3" />{selectedSession.instructors.map((s: any) => s.first_name || s.full_name).join(", ")}</span>
                         )}
@@ -439,7 +442,10 @@ const AdminRegisters = () => {
                     <p className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap mt-1">
                       <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{selectedSession.start_time?.slice(0,5)}–{selectedSession.end_time?.slice(0,5)}</span>
                       <span>•</span>
-                      <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{selectedSession.classes?.venues?.name ?? "Venue TBC"}</span>
+                      <span className="flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />
+                        {selectedSession.classes?.venues?.name ?? selectedSession.classes?.location_note ?? "Venue TBC"}
+                      </span>
                       {selectedSession.instructors?.length > 0 && (
                         <>
                           <span>•</span>

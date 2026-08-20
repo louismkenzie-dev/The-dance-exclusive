@@ -7,6 +7,9 @@
 //    standing place (confirmed monthly/term/yearly bookings < capacity)
 //    triggers a "space has opened up" email; entries are stamped notified_at
 //    so each parent is emailed once per opening (they re-join to hear again).
+// 3. birthdays: every child (with at least one confirmed booking) whose
+//    birthday is TODAY gets a happy-birthday email to the parent's inbox.
+//    Idempotent via the birthday_emails (student_id, year) claim table.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -24,8 +27,9 @@ serve(async (_req) => {
     day: "2-digit",
   });
   const tomorrow = fmt.format(new Date(Date.now() + 24 * 60 * 60 * 1000));
+  const todayLondon = fmt.format(new Date());
 
-  const summary = { date: tomorrow, trialReminders: 0, waitlistNotified: 0, errors: 0 };
+  const summary = { date: tomorrow, trialReminders: 0, waitlistNotified: 0, birthdayEmails: 0, errors: 0 };
 
   const { data: bookings } = await supabase
     .from("bookings")
@@ -153,6 +157,79 @@ serve(async (_req) => {
       } catch (e) {
         summary.errors++;
         console.error("Waitlist notification failed for entry", entry.id, e);
+      }
+    }
+  }
+
+  // ---- Birthdays: wish every child a happy birthday on the day ----
+  const [todayYear, todayMonth, todayDay] = todayLondon.split("-").map(Number);
+  const { data: allChildren } = await supabase
+    .from("students")
+    .select("id, parent_id, first_name, last_name, preferred_name, date_of_birth")
+    .eq("is_self", false)
+    .not("date_of_birth", "is", null);
+  const birthdayChildren = (allChildren ?? []).filter((s: any) => {
+    const [, m, d] = String(s.date_of_birth).split("-").map(Number);
+    return m === todayMonth && d === todayDay;
+  });
+
+  if (birthdayChildren.length > 0) {
+    // Only real customers — the child needs at least one confirmed booking.
+    const { data: confirmed } = await supabase
+      .from("bookings")
+      .select("student_id")
+      .in("student_id", birthdayChildren.map((s: any) => s.id))
+      .eq("status", "confirmed");
+    const bookedIds = new Set((confirmed ?? []).map((b: any) => b.student_id));
+
+    for (const child of birthdayChildren) {
+      if (!bookedIds.has(child.id)) continue;
+      try {
+        // Claim this year's send first — a re-run can never double-send.
+        const { data: claim, error: claimErr } = await supabase
+          .from("birthday_emails")
+          .upsert(
+            { student_id: child.id, year: todayYear },
+            { onConflict: "student_id,year", ignoreDuplicates: true },
+          )
+          .select("student_id");
+        if (claimErr) throw claimErr;
+        if (!claim || claim.length === 0) continue; // already sent this year
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("email, full_name")
+          .eq("user_id", child.parent_id)
+          .maybeSingle();
+        if (!profile?.email) continue;
+
+        const birthYear = Number(String(child.date_of_birth).slice(0, 4));
+        const { error } = await supabase.functions.invoke("send-email", {
+          headers: { "x-internal-auth": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
+          body: {
+            template: "birthday",
+            to: profile.email,
+            data: {
+              childName: child.preferred_name || child.first_name,
+              parentName: profile.full_name,
+              age: Number.isFinite(birthYear) ? todayYear - birthYear : null,
+            },
+          },
+        });
+        if (error) {
+          // Release the claim so tomorrow's retry (still their birthday-year)
+          // can send — a missed greeting is worse than a repeated attempt.
+          await supabase
+            .from("birthday_emails")
+            .delete()
+            .eq("student_id", child.id)
+            .eq("year", todayYear);
+          throw error;
+        }
+        summary.birthdayEmails++;
+      } catch (e) {
+        summary.errors++;
+        console.error("Birthday email failed for student", child.id, e);
       }
     }
   }

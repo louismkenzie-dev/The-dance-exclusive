@@ -56,6 +56,10 @@ import {
   renderWaitlistSpace,
   type WaitlistSpaceData,
 } from "../_shared/email-templates/waitlist-space.ts";
+import {
+  renderBirthday,
+  type BirthdayData,
+} from "../_shared/email-templates/birthday.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -113,7 +117,8 @@ type Payload =
   | { template: "staff_class_assigned"; to: string; data: StaffClassAssignedData }
   | { template: "admin_trial_booked"; to: string; data: AdminTrialBookedData }
   | { template: "trial_reminder"; to: string; data: TrialReminderData }
-  | { template: "waitlist_space"; to: string; data: WaitlistSpaceData };
+  | { template: "waitlist_space"; to: string; data: WaitlistSpaceData }
+  | { template: "birthday"; to: string; data: BirthdayData };
 
 function buildEmail(payload: Payload): { subject: string; html: string } {
   switch (payload.template) {
@@ -145,6 +150,8 @@ function buildEmail(payload: Payload): { subject: string; html: string } {
       return renderTrialReminder(payload.data);
     case "waitlist_space":
       return renderWaitlistSpace(payload.data);
+    case "birthday":
+      return renderBirthday(payload.data);
     default:
       throw new Error(`Unknown template: ${(payload as any).template}`);
   }

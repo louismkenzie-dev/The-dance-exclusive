@@ -417,17 +417,38 @@ serve(async (req) => {
       }
       // Mirror the public bookability gate server-side so a crafted request
       // can't book a hidden, draft, invite-only or booking-disabled class.
-      if (!cls.is_active || cls.status !== "confirmed" || !cls.publicly_visible || !cls.booking_enabled || cls.invite_only) {
+      if (!cls.is_active || cls.status !== "confirmed" || !cls.booking_enabled) {
         return jsonResponse({
           error: `${cls.name} is not open for booking. Please remove it from your basket.`,
           code: "not_bookable",
         }, 400);
       }
+      if (!cls.publicly_visible || cls.invite_only) {
+        // Private / one-to-one classes are bookable only by a family holding
+        // a live invite for this exact child.
+        const { data: invite } = userId && item.studentId
+          ? await supabaseAdmin
+            .from("class_invites")
+            .select("id")
+            .eq("class_id", cls.id)
+            .eq("parent_id", userId)
+            .eq("student_id", item.studentId)
+            .eq("status", "pending")
+            .maybeSingle()
+          : { data: null };
+        if (!invite) {
+          return jsonResponse({
+            error: `${cls.name} is not open for booking. Please remove it from your basket.`,
+            code: "not_bookable",
+          }, 400);
+        }
+      }
 
       const plan = item.pricingPlan;
-      // Plan availability rules: children have no drop-ins; adults pay as
+      // Plan availability rules: children have no drop-ins (except invited
+      // one-to-ones, which are pay-per-session by nature); adults pay as
       // they go (or use passes) rather than memberships.
-      if (cls.class_type === "children" && plan === "session") {
+      if (cls.class_type === "children" && plan === "session" && !cls.invite_only) {
         return jsonResponse({
           error: `${cls.name} is a children's class — drop-in sessions aren't available for children. Choose a trial, monthly membership, termly or yearly plan instead.`,
           code: "plan_not_allowed",

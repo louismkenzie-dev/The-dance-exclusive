@@ -60,6 +60,10 @@ import {
   renderBirthday,
   type BirthdayData,
 } from "../_shared/email-templates/birthday.ts";
+import {
+  renderOneToOneInvite,
+  type OneToOneInviteData,
+} from "../_shared/email-templates/one-to-one-invite.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -118,7 +122,8 @@ type Payload =
   | { template: "admin_trial_booked"; to: string; data: AdminTrialBookedData }
   | { template: "trial_reminder"; to: string; data: TrialReminderData }
   | { template: "waitlist_space"; to: string; data: WaitlistSpaceData }
-  | { template: "birthday"; to: string; data: BirthdayData };
+  | { template: "birthday"; to: string; data: BirthdayData }
+  | { template: "one_to_one_invite"; to: string; data: OneToOneInviteData };
 
 function buildEmail(payload: Payload): { subject: string; html: string } {
   switch (payload.template) {
@@ -152,6 +157,8 @@ function buildEmail(payload: Payload): { subject: string; html: string } {
       return renderWaitlistSpace(payload.data);
     case "birthday":
       return renderBirthday(payload.data);
+    case "one_to_one_invite":
+      return renderOneToOneInvite(payload.data);
     default:
       throw new Error(`Unknown template: ${(payload as any).template}`);
   }

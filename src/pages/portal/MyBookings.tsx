@@ -26,6 +26,7 @@ import MoveSessionDialog from "@/components/portal/MoveSessionDialog";
 import WorkshopCover from "@/components/WorkshopCover";
 import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
 import AddressPrompt from "@/components/portal/AddressPrompt";
+import OneToOneInvites from "@/components/portal/OneToOneInvites";
 import { initialsOf } from "@/lib/initials";
 import { UNLIMITED_MONTHLY_CAP } from "@/lib/pricing";
 
@@ -265,6 +266,7 @@ const MyBookings = () => {
       {/* Home address — required for every family, prompted here for members
           who joined before it was collected at checkout. */}
       <AddressPrompt />
+      <OneToOneInvites />
 
       {/* Active-pass prompt: visible on both tabs while credits remain */}
       {passCredits > 0 && (

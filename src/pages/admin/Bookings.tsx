@@ -14,6 +14,7 @@ import { ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ADULT_PASSES, type AdultPassType } from "@/lib/pricing";
 import MoveMembershipDialog, { type MoveMembershipTarget } from "@/components/admin/MoveMembershipDialog";
+import OneToOneTab from "@/components/admin/OneToOneTab";
 
 interface Booking {
   id: string;
@@ -882,6 +883,7 @@ const AdminBookings = () => {
       <Tabs defaultValue="bookings">
         <TabsList className="mb-6">
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
+          <TabsTrigger value="one-to-ones">One-to-ones</TabsTrigger>
           <TabsTrigger value="passes">Class Passes</TabsTrigger>
           <TabsTrigger value="memberships">Memberships & Plans</TabsTrigger>
         </TabsList>
@@ -949,6 +951,10 @@ const AdminBookings = () => {
           ))}
         </div>
       )}
+        </TabsContent>
+
+        <TabsContent value="one-to-ones">
+          <OneToOneTab />
         </TabsContent>
 
         <TabsContent value="passes">

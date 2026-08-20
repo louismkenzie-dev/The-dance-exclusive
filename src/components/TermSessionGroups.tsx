@@ -77,8 +77,17 @@ export function TermSessionGroups<S>({
       {groups.map((group, gi) => (
         <div key={`${group.label}-${gi}`} className="space-y-1.5">
           <div className="flex items-baseline justify-between pt-2 first:pt-0">
-            <span className="text-[11px] font-bold uppercase tracking-widest text-primary">
+            <span
+              className={`text-[11px] font-bold uppercase tracking-widest ${
+                group.inHoliday ? "text-pink-400" : "text-primary"
+              }`}
+            >
               {group.label}
+              {group.inHoliday && (
+                <span className="ml-1.5 font-normal normal-case tracking-normal text-muted-foreground">
+                  (runs through the holiday)
+                </span>
+              )}
             </span>
             <span className="text-[10px] text-muted-foreground">
               {group.total} {group.total === 1 ? "class" : "classes"}

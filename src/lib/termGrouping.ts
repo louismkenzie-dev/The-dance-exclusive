@@ -24,9 +24,12 @@ export interface SessionBlock<S> {
 }
 
 export interface TermGroup<S> {
-  /** "Autumn Term 2026" — or "Outside term dates" when no term matches. */
+  /** "Autumn, term 1" — the holiday's name for sessions that run during a
+   *  school holiday, or "Outside term dates" when neither matches. */
   label: string;
   inTerm: boolean;
+  /** True when these sessions run during a school holiday (some classes do). */
+  inHoliday: boolean;
   total: number;
   blocks: SessionBlock<S>[];
 }
@@ -36,8 +39,12 @@ export const OUTSIDE_TERM_LABEL = "Outside term dates";
 /**
  * Groups date-sorted sessions by the school term containing them, splitting
  * each term into blocks wherever a school holiday falls between two
- * consecutive sessions. Sessions outside every term share an "outside"
- * group (also holiday-split, so summer workshops still read sensibly).
+ * consecutive sessions.
+ *
+ * Not every class stops for the holidays — several run right through half
+ * term — so sessions landing inside a holiday are grouped under that
+ * holiday's own name ("Autumn half term · 2 classes") rather than being
+ * lumped into a bare "Outside term dates" group, which reads like a mistake.
  */
 export function groupSessionsByTerm<S>(
   sessions: S[],
@@ -49,6 +56,8 @@ export function groupSessionsByTerm<S>(
   const sortedTerms = [...terms].sort((a, b) => a.start_date.localeCompare(b.start_date));
   const termFor = (d: string) =>
     sortedTerms.find((t) => d >= t.start_date && d <= t.end_date) ?? null;
+  const holidayFor = (d: string) =>
+    holidays.find((h) => d >= h.start_date && d <= h.end_date) ?? null;
   /** Holidays intersecting the open gap between two session dates. */
   const holidaysBetween = (d1: string, d2: string) =>
     holidays
@@ -61,12 +70,18 @@ export function groupSessionsByTerm<S>(
   for (const s of sorted) {
     const d = dateOf(s);
     const term = termFor(d);
-    const key = term ? `term:${term.name}|${term.start_date}` : "outside";
+    const holiday = term ? null : holidayFor(d);
+    const key = term
+      ? `term:${term.name}|${term.start_date}`
+      : holiday
+        ? `holiday:${holiday.name}|${holiday.start_date}`
+        : "outside";
 
     if (key !== currentKey || groups.length === 0) {
       groups.push({
-        label: term?.name ?? OUTSIDE_TERM_LABEL,
+        label: term?.name ?? holiday?.name ?? OUTSIDE_TERM_LABEL,
         inTerm: !!term,
+        inHoliday: !!holiday,
         total: 0,
         blocks: [{ sessions: [], breakAfter: null }],
       });
@@ -75,7 +90,9 @@ export function groupSessionsByTerm<S>(
       const group = groups[groups.length - 1];
       const block = group.blocks[group.blocks.length - 1];
       const prev = block.sessions[block.sessions.length - 1];
-      if (prev) {
+      // Sessions grouped UNDER a holiday must not be split by that same
+      // holiday — a class running Mon/Wed/Fri of half term is one block.
+      if (prev && !group.inHoliday) {
         const between = holidaysBetween(dateOf(prev), d);
         if (between.length > 0) {
           block.breakAfter = [...new Set(between.map((h) => h.name))].join(" · ");

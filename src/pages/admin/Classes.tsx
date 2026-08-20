@@ -1741,7 +1741,11 @@ const AdminClasses = () => {
                     {sessionsForClass.length === 0 ? (
                       <p className="text-xs text-muted-foreground py-2">No sessions found.</p>
                     ) : (
-                      sessionsForClass.map(session => {
+                      <TermSessionGroups
+                        sessions={sessionsForClass}
+                        dateOf={(s) => s.session_date}
+                        className="space-y-1"
+                        renderSession={(session) => {
                         const defaultInstructor = c.staff ? (c.staff as any).full_name : null;
                         const instructor = session.staff?.full_name || defaultInstructor;
                         return (
@@ -1769,7 +1773,8 @@ const AdminClasses = () => {
                             </Badge>
                           </div>
                         );
-                      })
+                        }}
+                      />
                     )}
                   </div>
                 )}

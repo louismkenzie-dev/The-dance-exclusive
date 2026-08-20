@@ -61,6 +61,61 @@ describe("groupSessionsByTerm", () => {
     expect(groups[0].blocks).toHaveLength(1);
   });
 
+  // Essex splits each term either side of half term, and some Dance
+  // Exclusive classes keep running through the break.
+  const ESSEX_TERMS = [
+    { name: "Autumn, term 1", start_date: "2026-09-01", end_date: "2026-10-23" },
+    { name: "Autumn, term 2", start_date: "2026-11-02", end_date: "2026-12-18" },
+  ];
+  const ESSEX_HOLIDAYS = [
+    { name: "Autumn half term", start_date: "2026-10-26", end_date: "2026-10-30" },
+  ];
+
+  it("names the holiday for classes that run through it", () => {
+    const groups = groupSessionsByTerm(
+      dates(["2026-10-19", "2026-10-26", "2026-11-02"]),
+      dateOf,
+      ESSEX_TERMS,
+      ESSEX_HOLIDAYS,
+    );
+    expect(groups.map((g) => g.label)).toEqual([
+      "Autumn, term 1",
+      "Autumn half term",
+      "Autumn, term 2",
+    ]);
+    expect(groups[1].inHoliday).toBe(true);
+    expect(groups[1].inTerm).toBe(false);
+    expect(groups[1].total).toBe(1);
+    // Term groups are never flagged as holiday ones.
+    expect(groups[0].inHoliday).toBe(false);
+    expect(groups[2].inHoliday).toBe(false);
+  });
+
+  it("keeps a run of holiday sessions together", () => {
+    const groups = groupSessionsByTerm(
+      dates(["2026-10-26", "2026-10-28", "2026-10-30"]),
+      dateOf,
+      ESSEX_TERMS,
+      ESSEX_HOLIDAYS,
+    );
+    expect(groups).toHaveLength(1);
+    expect(groups[0].label).toBe("Autumn half term");
+    expect(groups[0].total).toBe(3);
+    expect(groups[0].blocks).toHaveLength(1);
+  });
+
+  it("still shows the break when a class stops for half term", () => {
+    const groups = groupSessionsByTerm(
+      dates(["2026-10-19", "2026-11-02"]),
+      dateOf,
+      // A single term spanning the break, as some schools publish it.
+      [{ name: "Autumn Term", start_date: "2026-09-01", end_date: "2026-12-18" }],
+      ESSEX_HOLIDAYS,
+    );
+    expect(groups).toHaveLength(1);
+    expect(groups[0].blocks[0].breakAfter).toBe("Autumn half term");
+  });
+
   it("handles unsorted input and empty lists", () => {
     expect(groupSessionsByTerm([], dateOf, TERMS, HOLIDAYS)).toEqual([]);
     const groups = groupSessionsByTerm(

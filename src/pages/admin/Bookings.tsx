@@ -713,6 +713,58 @@ const AdminBookings = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
+  // Admin refund: pick any card-paid booking, choose the amount, and the
+  // money goes back to the parent's card via Stripe.
+  const [refundBooking, setRefundBooking] = useState<Booking | null>(null);
+  const [refundAmount, setRefundAmount] = useState("");
+  const [refundReason, setRefundReason] = useState("");
+  const [refunding, setRefunding] = useState(false);
+
+  const openRefund = (b: Booking) => {
+    setRefundBooking(b);
+    setRefundAmount(b.amount ? Number(b.amount).toFixed(2) : "");
+    setRefundReason("");
+  };
+
+  const submitRefund = async () => {
+    if (!refundBooking) return;
+    const pounds = Number(refundAmount);
+    if (!Number.isFinite(pounds) || pounds <= 0) {
+      toast({ title: "Enter a refund amount", description: "The amount must be more than £0.", variant: "destructive" });
+      return;
+    }
+    setRefunding(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-refund", {
+        body: {
+          bookingId: refundBooking.id,
+          amountPence: Math.round(pounds * 100),
+          reason: refundReason.trim() || undefined,
+        },
+      });
+      let message = data?.error || error?.message;
+      const ctx = (error as { context?: Response } | null)?.context;
+      if (ctx && typeof ctx.json === "function") {
+        try {
+          const body = await ctx.json();
+          if (body?.error) message = body.error;
+        } catch { /* keep generic */ }
+      }
+      if (error || !data?.success) {
+        toast({ title: "Refund failed", description: message || "Please try again.", variant: "destructive" });
+        return;
+      }
+      toast({
+        title: `Refunded £${pounds.toFixed(2)}`,
+        description: "The money is on its way back to the parent's card (usually 5–10 working days).",
+      });
+      setRefundBooking(null);
+      fetchBookings();
+    } finally {
+      setRefunding(false);
+    }
+  };
+
   // "Paid for the wrong class" fix: move a booking to another class in place,
   // keeping the child and the payment.
   const [moveBooking, setMoveBooking] = useState<Booking | null>(null);
@@ -878,6 +930,16 @@ const AdminBookings = () => {
                   {b.status === "confirmed" && b.class_id && MOVABLE_TYPES.includes(b.booking_type) && (
                     <Button size="sm" variant="outline" onClick={() => openMove(b)}>Move class</Button>
                   )}
+                  {Number(b.amount) > 0 && /pi_[A-Za-z0-9]+/.test(b.notes || "") && !/refunded £/.test(b.notes || "") && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => openRefund(b)}
+                    >
+                      Refund
+                    </Button>
+                  )}
                   {b.status !== "cancelled" && (
                     <Button size="sm" variant="outline" onClick={() => updateStatus(b.id, "cancelled")}>Cancel</Button>
                   )}
@@ -897,6 +959,54 @@ const AdminBookings = () => {
           <MembershipsTab />
         </TabsContent>
       </Tabs>
+
+      {/* Refund a card-paid booking (partial or full) */}
+      <Dialog open={!!refundBooking} onOpenChange={(o) => { if (!o && !refunding) setRefundBooking(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Refund this booking</DialogTitle>
+            <DialogDescription>
+              {refundBooking?.classes?.name || "Booking"}
+              {refundBooking?.students && ` — ${refundBooking.students.first_name} ${refundBooking.students.last_name}`}
+              {refundBooking?.profiles && ` (${refundBooking.profiles.full_name})`}.
+              The money goes straight back to the card that paid.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium">Amount to refund (£)</p>
+              <Input
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={refundAmount}
+                onChange={(e) => setRefundAmount(e.target.value)}
+                placeholder="0.00"
+              />
+              {refundBooking?.amount != null && (
+                <p className="text-xs text-muted-foreground">
+                  This booking cost £{Number(refundBooking.amount).toFixed(2)} — you can refund part
+                  or all of it.
+                </p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium">Reason <span className="text-muted-foreground font-normal">(optional, kept on the payment record)</span></p>
+              <Input
+                value={refundReason}
+                onChange={(e) => setRefundReason(e.target.value)}
+                placeholder="e.g. cancelled 1:1 session"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" disabled={refunding} onClick={() => setRefundBooking(null)}>Cancel</Button>
+            <Button variant="destructive" disabled={refunding} onClick={submitRefund}>
+              {refunding ? "Refunding…" : `Refund £${Number(refundAmount || 0) > 0 ? Number(refundAmount).toFixed(2) : "0.00"}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Move a paid booking to another class (wrong-class fix) */}
       <Dialog open={!!moveBooking} onOpenChange={(o) => !o && setMoveBooking(null)}>

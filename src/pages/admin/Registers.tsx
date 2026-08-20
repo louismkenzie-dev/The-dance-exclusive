@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, LogIn, LogOut, AlertTriangle, CameraOff, Check, MapPin, Users, History, CalendarDays, Star, QrCode } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, LogIn, LogOut, AlertTriangle, CameraOff, Check, MapPin, Users, History, CalendarDays, Star, QrCode, Cake } from "lucide-react";
+import { birthdayInWeekOf, birthdayLabel } from "@/lib/birthdays";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { addDays, differenceInYears, format, parseISO } from "date-fns";
 import StudentProfileDrawer from "@/components/staff/StudentProfileDrawer";
@@ -463,8 +464,12 @@ const AdminRegisters = () => {
                         <TableHead>Student</TableHead>
                         <TableHead className="w-[80px]">Age</TableHead>
                         <TableHead className="w-[90px] text-center">Medical</TableHead>
-                        <TableHead className="w-[70px] text-center" title="Dancer of the Week">
-                          <Star className="w-4 h-4 inline text-amber-400" />
+                        <TableHead className="w-[70px] text-center">SEND</TableHead>
+                        <TableHead className="w-[96px] text-center">
+                          <span className="inline-flex flex-col items-center gap-0.5 py-1">
+                            <Star className="w-4 h-4 text-amber-400" />
+                            <span className="text-[9px] font-semibold uppercase tracking-wide leading-tight whitespace-nowrap">Dancer of<br />the Week</span>
+                          </span>
                         </TableHead>
                         <TableHead>Arrival / Departure</TableHead>
                         <TableHead className="text-right w-[140px]">Status</TableHead>
@@ -502,11 +507,22 @@ const AdminRegisters = () => {
                                     {student && student.photo_consent === false && (
                                       <CameraOff className="w-3.5 h-3.5 text-destructive flex-shrink-0" aria-label="No photo consent" />
                                     )}
+                                    {student?.date_of_birth && (() => {
+                                      const bd = birthdayInWeekOf(student.date_of_birth, selectedSession.session_date);
+                                      if (!bd) return null;
+                                      const label = bd === "today"
+                                        ? `It's ${student.first_name}'s birthday today! 🎂`
+                                        : `${student.first_name}'s birthday is this week (${birthdayLabel(student.date_of_birth, selectedSession.session_date)}) 🎂`;
+                                      return (
+                                        <span title={label} aria-label={label}>
+                                          <Cake className={`w-4 h-4 flex-shrink-0 ${bd === "today" ? "text-pink-500" : "text-pink-400/70"}`} />
+                                        </span>
+                                      );
+                                    })()}
                                   </p>
                                   <div className="flex gap-1 mt-0.5">
                                     {b.unpaid && <Badge variant="destructive" className="text-[10px]">Unpaid</Badge>}
                                     {student?.is_self && <Badge variant="outline" className="text-[10px]">Adult</Badge>}
-                                    {student?.has_send && <Badge className="text-[10px] bg-amber-500 hover:bg-amber-600">SEND</Badge>}
                                     {!student && <Badge variant="outline" className="text-[10px] text-muted-foreground">No profile</Badge>}
                                   </div>
                                 </div>
@@ -522,6 +538,13 @@ const AdminRegisters = () => {
                                 ) : (
                                   <Check className="w-4 h-4 inline text-success" />
                                 )
+                              ) : (
+                                <span className="text-muted-foreground/50">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {student?.has_send ? (
+                                <Badge className="text-[10px] bg-amber-500 hover:bg-amber-600">SEND</Badge>
                               ) : (
                                 <span className="text-muted-foreground/50">—</span>
                               )}

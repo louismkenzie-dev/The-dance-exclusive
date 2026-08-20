@@ -8,8 +8,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarDays, Clock, MapPin, Plus, User, X, Users } from "lucide-react";
+import { CalendarDays, Check, ChevronsUpDown, Clock, MapPin, Plus, User, X } from "lucide-react";
 import TimeSelect, { addMinutes, prettyTime } from "@/components/TimeSelect";
 
 interface InviteRow {
@@ -68,7 +70,9 @@ const OneToOneTab = () => {
   const [students, setStudents] = useState<StudentOption[]>([]);
   const [venues, setVenues] = useState<VenueOption[]>([]);
   const [staff, setStaff] = useState<StaffOption[]>([]);
-  const [studentSearch, setStudentSearch] = useState("");
+  const [dancerOpen, setDancerOpen] = useState(false);
+  /** Parent name per student, for telling apart dancers with the same name. */
+  const [studentParent, setStudentParent] = useState<Record<string, string>>({});
   const [dates, setDates] = useState<string[]>([""]);
   const [form, setForm] = useState({
     studentId: "", startTime: "", endTime: "", venueId: "", locationNote: "",
@@ -114,23 +118,28 @@ const OneToOneTab = () => {
       staffId: "", price: "", title: "",
     });
     setDates([""]);
-    setStudentSearch("");
+    setDancerOpen(false);
     setOpen(true);
-    const [{ data: studentRows }, { data: venueRows }, { data: staffRows }] = await Promise.all([
+    const [{ data: studentRows }, { data: venueRows }, { data: staffRows }, { data: profileRows }] = await Promise.all([
       supabase.from("students").select("id, first_name, last_name, is_self, parent_id").order("first_name"),
       supabase.from("venues").select("id, name, postcode").order("name"),
       supabase.from("staff").select("id, first_name, last_name, full_name").eq("is_active", true).order("first_name"),
+      supabase.from("profiles").select("user_id, full_name"),
     ]);
-    setStudents(((studentRows as any[]) ?? []) as StudentOption[]);
+    const rows = ((studentRows as any[]) ?? []) as StudentOption[];
+    setStudents(rows);
     setVenues(((venueRows as any[]) ?? []) as VenueOption[]);
     setStaff(((staffRows as any[]) ?? []) as StaffOption[]);
+    const byUser = Object.fromEntries(((profileRows as any[]) ?? []).map((p) => [p.user_id, p.full_name]));
+    setStudentParent(Object.fromEntries(rows.map((s) => [s.id, byUser[s.parent_id] ?? ""])));
   };
 
-  const filteredStudents = useMemo(() => {
-    const q = studentSearch.toLowerCase().trim();
-    if (!q) return students;
-    return students.filter((s) => `${s.first_name} ${s.last_name}`.toLowerCase().includes(q));
-  }, [students, studentSearch]);
+  const selectedStudent = useMemo(
+    () => students.find((s) => s.id === form.studentId) ?? null,
+    [students, form.studentId],
+  );
+  const dancerLabel = (s: StudentOption) =>
+    `${s.first_name} ${s.last_name}${s.is_self ? " (adult)" : ""}`;
 
   /** Filled-in dates, de-duplicated, in order. */
   const cleanDates = useMemo(
@@ -307,51 +316,89 @@ const OneToOneTab = () => {
       )}
 
       <Dialog open={open} onOpenChange={(o) => { if (!saving) setOpen(o); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        {/* Capped height with an internally scrolling body: the form is long,
+            and on a laptop or phone the header and buttons must stay in view. */}
+        <DialogContent className="max-w-md max-h-[88dvh] flex flex-col gap-0 p-0 sm:p-0">
+          <DialogHeader className="shrink-0 px-5 pt-5 pb-3 text-left">
             <DialogTitle>New one-to-one invite</DialogTitle>
             <DialogDescription>
               The parent books and pays in their portal — nothing is charged until they do.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-4 space-y-3">
             <div className="space-y-1.5">
               <Label>Who is it for?</Label>
-              <Input
-                placeholder="Search dancers…"
-                value={studentSearch}
-                onChange={(e) => setStudentSearch(e.target.value)}
-              />
-              <Select value={form.studentId} onValueChange={(v) => setForm((f) => ({ ...f, studentId: v }))}>
-                <SelectTrigger><SelectValue placeholder="Choose a dancer" /></SelectTrigger>
-                <SelectContent>
-                  {filteredStudents.slice(0, 60).map((st) => (
-                    <SelectItem key={st.id} value={st.id}>
-                      {st.first_name} {st.last_name}{st.is_self ? " (adult)" : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={dancerOpen} onOpenChange={setDancerOpen} modal>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={dancerOpen}
+                    className="w-full justify-between font-normal"
+                  >
+                    {selectedStudent ? dancerLabel(selectedStudent) : "Search & choose a dancer…"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" align="start">
+                  <Command>
+                    <CommandInput placeholder="Type a name…" />
+                    <CommandList className="max-h-64">
+                      <CommandEmpty>No dancer found.</CommandEmpty>
+                      <CommandGroup>
+                        {students.map((st) => (
+                          <CommandItem
+                            key={st.id}
+                            // Search matches the dancer's AND the parent's name.
+                            value={`${st.first_name} ${st.last_name} ${studentParent[st.id] ?? ""}`}
+                            onSelect={() => {
+                              setForm((f) => ({ ...f, studentId: st.id }));
+                              setDancerOpen(false);
+                            }}
+                          >
+                            <Check className={`mr-2 h-4 w-4 ${form.studentId === st.id ? "opacity-100" : "opacity-0"}`} />
+                            <span className="flex-1 min-w-0 truncate">{dancerLabel(st)}</span>
+                            {studentParent[st.id] && !st.is_self && (
+                              <span className="ml-2 text-xs text-muted-foreground truncate">{studentParent[st.id]}</span>
+                            )}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
-            <div className="space-y-1.5">
-              <Label>With which coach?</Label>
-              <Select value={form.staffId} onValueChange={(v) => setForm((f) => ({ ...f, staffId: v }))}>
-                <SelectTrigger><SelectValue placeholder="Choose a staff member (optional)" /></SelectTrigger>
-                <SelectContent>
-                  {staff.map((st) => (
-                    <SelectItem key={st.id} value={st.id}>
-                      {st.full_name || `${st.first_name} ${st.last_name}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                They&#39;re added to the session&#39;s register and named in the session title.
-              </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Coach <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <Select value={form.staffId} onValueChange={(v) => setForm((f) => ({ ...f, staffId: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Choose" /></SelectTrigger>
+                  <SelectContent>
+                    {staff.map((st) => (
+                      <SelectItem key={st.id} value={st.id}>
+                        {st.full_name || `${st.first_name} ${st.last_name}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Price per session (£)</Label>
+                <Input type="number" min="0.30" step="0.01" placeholder="25.00" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} />
+              </div>
             </div>
 
             <div className="space-y-2">
-              <Label>Date{cleanDates.length > 1 ? "s" : ""}</Label>
+              <Label>
+                Date{cleanDates.length > 1 ? "s" : ""}
+                {cleanDates.length > 1 && (
+                  <span className="ml-1.5 font-normal text-muted-foreground">
+                    · {cleanDates.length} sessions, same time each week
+                  </span>
+                )}
+              </Label>
               {dates.map((d, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <Input type="date" value={d} onChange={(e) => setDateAt(i, e.target.value)} className="flex-1" />
@@ -371,9 +418,6 @@ const OneToOneTab = () => {
               <Button type="button" variant="outline" size="sm" onClick={addDate} className="w-full">
                 <Plus className="w-3.5 h-3.5 mr-1.5" /> Add another date
               </Button>
-              <p className="text-xs text-muted-foreground">
-                Same time and place each week — the parent pays for all of them in one go.
-              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -419,24 +463,21 @@ const OneToOneTab = () => {
             </div>
 
             <div className="space-y-1.5">
-              <Label>Price per session (£)</Label>
-              <Input type="number" min="0.30" step="0.01" placeholder="25.00" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} />
-              {cleanDates.length > 1 && perSession > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {cleanDates.length} sessions × £{perSession.toFixed(2)} ={" "}
-                  <span className="font-semibold text-foreground">£{total.toFixed(2)}</span> total
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
               <Label>Session name <span className="text-muted-foreground font-normal">(optional)</span></Label>
-              <Input placeholder="1:1 Session — automatically named after the dancer" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+              <Input placeholder="Named after the dancer automatically" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" disabled={saving} onClick={() => setOpen(false)}>Cancel</Button>
-            <Button disabled={saving} onClick={submit}>{saving ? "Creating…" : "Create & send invite"}</Button>
+          <DialogFooter className="shrink-0 items-center gap-2 border-t bg-background px-5 py-4 rounded-b-xl sm:justify-between">
+            {cleanDates.length > 1 && perSession > 0 ? (
+              <span className="text-xs text-muted-foreground sm:mr-auto">
+                {cleanDates.length} × £{perSession.toFixed(2)} ={" "}
+                <span className="font-semibold text-foreground">£{total.toFixed(2)}</span>
+              </span>
+            ) : <span className="hidden sm:block" />}
+            <div className="flex gap-2">
+              <Button variant="outline" disabled={saving} onClick={() => setOpen(false)}>Cancel</Button>
+              <Button disabled={saving} onClick={submit}>{saving ? "Creating…" : "Create & send invite"}</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Elements,
@@ -427,9 +427,22 @@ const CheckoutPage = () => {
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
   const [firstPaymentDate, setFirstPaymentDate] = useState<string | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
+  const [initErrorCode, setInitErrorCode] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(true);
+  // Bumped when the family fixes what the server complained about, so the
+  // payment intent is created again without a page reload.
+  const [retryKey, setRetryKey] = useState(0);
+  // Belt and braces: never let a server that keeps refusing turn the retry
+  // into a hot loop against Stripe.
+  const contactRetries = useRef(0);
   // Attendee-profile errors get an actionable "Add attendee details" button.
   const needsProfile = !!initError && /attendee profile|arrival\/departure|profile is missing|attendee's profile/i.test(initError);
+  // The server won't quote a price until we hold a home address and phone —
+  // and the form that collects them lives inside the payment form, which
+  // never renders while the server is refusing. Show it here instead so the
+  // family can fix it in place rather than hitting a dead end.
+  const needsContactDetails =
+    initErrorCode === "address_required" || initErrorCode === "phone_required";
 
   // Coupon state
   const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
@@ -635,6 +648,7 @@ const CheckoutPage = () => {
 
     (async () => {
       setInitError(null);
+      setInitErrorCode(null);
       setInitializing(true);
       setClientSecret(null);
       setServerTotal(null);
@@ -677,16 +691,19 @@ const CheckoutPage = () => {
           // "Edge Function returned a non-2xx status code".
           let message =
             data?.error || error?.message || "Failed to initialise payment";
+          let code: string | null = data?.code ?? null;
           const ctx = (error as { context?: Response } | null)?.context;
           if (ctx && typeof ctx.json === "function") {
             try {
               const body = await ctx.json();
               if (body?.error) message = body.error;
+              if (body?.code) code = body.code;
             } catch {
               // keep the generic message
             }
           }
           setInitError(message);
+          setInitErrorCode(code);
         } else if (
           data.environment &&
           data.environment !== (await getPaymentsEnvironment().catch(() => data.environment))
@@ -721,7 +738,7 @@ const CheckoutPage = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHydrating, itemsKey, pricingCtx, user, profile, coupon]);
+  }, [isHydrating, itemsKey, pricingCtx, user, profile, coupon, retryKey]);
 
   const handleApplyCoupon = async () => {
     const code = couponInput.trim();
@@ -825,14 +842,31 @@ const CheckoutPage = () => {
 
               {initError && !initializing && (
                 <div className="p-6 space-y-4">
-                  <Alert variant="destructive">
-                    <AlertTitle>{needsProfile ? "Attendee details needed" : "Checkout unavailable"}</AlertTitle>
+                  <Alert variant={needsContactDetails ? "default" : "destructive"}>
+                    <AlertTitle>
+                      {needsProfile
+                        ? "Attendee details needed"
+                        : needsContactDetails
+                          ? "One more thing before you pay"
+                          : "Checkout unavailable"}
+                    </AlertTitle>
                     <AlertDescription>{initError}</AlertDescription>
                   </Alert>
                   {needsProfile && (
                     <Button onClick={() => navigate("/account")} className="w-full gap-1.5">
                       <UserPlus className="w-4 h-4" /> Add attendee details
                     </Button>
+                  )}
+                  {needsContactDetails && user?.id && (
+                    <CustomerAddressCard
+                      userId={user.id}
+                      onValidChange={(valid) => {
+                        // Saved and complete — build the payment form again.
+                        if (!valid || contactRetries.current >= 3) return;
+                        contactRetries.current += 1;
+                        setRetryKey((k) => k + 1);
+                      }}
+                    />
                   )}
                 </div>
               )}

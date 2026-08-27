@@ -41,20 +41,31 @@ export const isValidAgeRange = (min: number | null, max: number | null): boolean
   min == null || max == null || min <= max;
 
 /** Months of early-booking grace before the minimum age: a child whose
- *  (age_min)th birthday falls within this window may book (Amie's rule —
- *  "allow access to parents whose kids' bdays are within 6 months"). */
-export const AGE_MIN_GRACE_MONTHS = 6;
+ *  (age_min)th birthday falls within this window may book. Amie's rule,
+ *  originally 6 months and widened to a full year — so any 7-year-old can
+ *  join an 8+ class, which in practice lowers every children's minimum by
+ *  one year. */
+export const AGE_MIN_GRACE_MONTHS = 12;
 
-/** True when the child is at/above the class minimum age, or reaches it
- *  within the grace window. */
-export const meetsMinAgeWithGrace = (dob: string | Date, ageMin: number | null | undefined): boolean => {
+/**
+ * True when the child is at/above the class minimum age, or reaches it
+ * within the grace window.
+ *
+ * Adult classes get NO grace: their minimum is a real floor (a 16+ class
+ * shouldn't admit 15-year-olds), so pass the class type where it's known.
+ */
+export const meetsMinAgeWithGrace = (
+  dob: string | Date,
+  ageMin: number | null | undefined,
+  classType?: "children" | "adult" | null,
+): boolean => {
   if (ageMin == null) return true;
   const birth = new Date(dob);
   if (Number.isNaN(birth.getTime())) return false;
   const birthday = new Date(birth);
   birthday.setFullYear(birth.getFullYear() + ageMin);
   const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() + AGE_MIN_GRACE_MONTHS);
+  cutoff.setMonth(cutoff.getMonth() + (classType === "adult" ? 0 : AGE_MIN_GRACE_MONTHS));
   return birthday <= cutoff;
 };
 
@@ -64,7 +75,9 @@ export const isChildAgeEligible = (
   ageMin: number | null | undefined,
   ageMax: number | null | undefined,
   currentAge: number,
-): boolean => meetsMinAgeWithGrace(dob, ageMin) && (ageMax == null || currentAge <= ageMax);
+  classType?: "children" | "adult" | null,
+): boolean =>
+  meetsMinAgeWithGrace(dob, ageMin, classType) && (ageMax == null || currentAge <= ageMax);
 
 /**
  * Human-readable audience text. The stored audience_label always wins — it

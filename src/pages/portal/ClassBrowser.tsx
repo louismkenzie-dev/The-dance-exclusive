@@ -437,12 +437,18 @@ const ClassBrowser = () => {
     return age;
   };
 
-  // Which children match a class's age range? (6-month grace before the
+  // Which children match a class's age range? (A year's grace before the
   // minimum age — kids whose birthday is coming up can book early.)
-  const getMatchingChildren = (c: { age_min: number | null; age_max: number | null }) => {
+  const getMatchingChildren = (c: {
+    age_min: number | null;
+    age_max: number | null;
+    class_type?: "children" | "adult" | null;
+  }) => {
     if (!children.length) return [];
     return children.filter(child =>
-      isChildAgeEligible(child.date_of_birth, c.age_min, c.age_max, getAge(child.date_of_birth)),
+      isChildAgeEligible(
+        child.date_of_birth, c.age_min, c.age_max, getAge(child.date_of_birth), c.class_type,
+      ),
     );
   };
 
@@ -1213,7 +1219,7 @@ const ClassBrowser = () => {
                                   const age = getChildAge(ch.date_of_birth);
                                   const alreadyAdded = cartItems.some(ci => ci.classId === c.id && ci.studentId === ch.id);
                                   // 6-month grace: nearly-old-enough kids can book early.
-                                  return { ...ch, age, eligible: isChildAgeEligible(ch.date_of_birth, c.age_min, c.age_max, age), alreadyAdded };
+                                  return { ...ch, age, eligible: isChildAgeEligible(ch.date_of_birth, c.age_min, c.age_max, age, c.class_type), alreadyAdded };
                                 });
                                 const hasEligible = eligibleChildren.some(ch => ch.eligible);
                                 const selected = selectedChildren[c.id] || [];

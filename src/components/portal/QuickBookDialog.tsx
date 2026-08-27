@@ -205,7 +205,7 @@ export function QuickBookDialog({
       ci.classId === c.id && ci.studentId === ch.id && (ci.pricingPlan === "term" || ci.pricingPlan === "monthly" || ci.pricingPlan === "yearly")
     );
     // 6-month grace before the minimum age; the maximum stays strict.
-    return { ...ch, age, eligible: isChildAgeEligible(ch.date_of_birth, c.age_min, c.age_max, age), hasFullPlanItem };
+    return { ...ch, age, eligible: isChildAgeEligible(ch.date_of_birth, c.age_min, c.age_max, age, c.class_type), hasFullPlanItem };
   });
   const hasEligible = eligibleChildren.some(ch => ch.eligible);
 

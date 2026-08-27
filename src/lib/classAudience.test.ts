@@ -118,14 +118,28 @@ describe("age eligibility with 6-month grace", () => {
     expect(meetsMinAgeWithGrace(dobForAge(8, 1), 8)).toBe(true);
   });
 
-  it("allows a child who turns the minimum age within 6 months", () => {
+  it("allows a child who turns the minimum age within the year's grace", () => {
     // 7 years 10 months old → 8th birthday in ~2 months
     expect(meetsMinAgeWithGrace(dobForAge(7, 10), 8)).toBe(true);
+    // 7 years 2 months old → 8th birthday in ~10 months, still inside a year
+    expect(meetsMinAgeWithGrace(dobForAge(7, 2), 8)).toBe(true);
+    // Any 7-year-old can join an 8+ class — the point of the year's grace.
+    expect(meetsMinAgeWithGrace(dobForAge(7), 8)).toBe(true);
   });
 
-  it("blocks a child whose birthday is more than 6 months away", () => {
-    // 7 years 2 months old → 8th birthday in ~10 months
-    expect(meetsMinAgeWithGrace(dobForAge(7, 2), 8)).toBe(false);
+  it("blocks a child more than a year under the minimum", () => {
+    // 6 years 6 months old → 8th birthday ~18 months away
+    expect(meetsMinAgeWithGrace(dobForAge(6, 6), 8)).toBe(false);
+  });
+
+  it("gives adult classes no grace at all", () => {
+    // A 15-year-old must not slip into a 16+ adult class.
+    expect(meetsMinAgeWithGrace(dobForAge(15), 16, "adult")).toBe(false);
+    expect(isChildAgeEligible(dobForAge(15), 16, null, 15, "adult")).toBe(false);
+    // The same child does get the grace on a children's 16+ class.
+    expect(meetsMinAgeWithGrace(dobForAge(15), 16, "children")).toBe(true);
+    // At the real minimum, adults are fine.
+    expect(meetsMinAgeWithGrace(dobForAge(16, 1), 16, "adult")).toBe(true);
   });
 
   it("treats a null minimum as no restriction", () => {

@@ -1,12 +1,16 @@
 import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { classBrowserPath } from "@/lib/classLinks";
 
 /**
- * Legacy deep-link route (/book/:classId). It used to insert unpaid
- * pending_payment bookings directly, bypassing payment, the duplicate-booking
- * guard and attendee-profile requirements. Nothing in the app links here any
- * more — redirect old links into the real booking flow instead.
+ * /book/:classId — the shareable link for a single class, so the studio can
+ * send a family straight to it. It resolves which browser tab the class
+ * lives on and opens that class there.
+ *
+ * It began as a legacy route that inserted unpaid bookings directly,
+ * bypassing payment, the duplicate-booking guard and attendee-profile
+ * requirements; old links now land in the real booking flow.
  */
 const BookClass = () => {
   const { classId } = useParams();
@@ -15,16 +19,20 @@ const BookClass = () => {
   useEffect(() => {
     let cancelled = false;
     const redirect = async () => {
-      let type: string = "children";
+      let target = "/classes/children";
       if (classId) {
         const { data } = await supabase
           .from("classes")
-          .select("class_type")
+          .select("id, class_type")
           .eq("id", classId)
           .maybeSingle();
-        if (data?.class_type) type = data.class_type;
+        // An unknown id lands on the children's browser rather than a dead
+        // end — the link may be old, or the class since removed.
+        if (data) {
+          target = classBrowserPath(data.id, data.class_type as "children" | "adult");
+        }
       }
-      if (!cancelled) navigate(`/classes/${type}`, { replace: true });
+      if (!cancelled) navigate(target, { replace: true });
     };
     void redirect();
     return () => {

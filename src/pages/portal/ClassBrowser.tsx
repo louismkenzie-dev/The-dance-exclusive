@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart, type PricingPlan } from "@/contexts/CartContext";
@@ -149,6 +149,9 @@ const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
 
 const ClassBrowser = () => {
   const { type } = useParams<{ type: string }>();
+  // ?class=<id> — a link the studio sent a family, pointing at one class.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const linkedClassId = searchParams.get("class");
   const { profile, user } = useAuth();
   const { addItem, items: cartItems } = useCart();
   const navigate = useNavigate();
@@ -452,6 +455,28 @@ const ClassBrowser = () => {
     );
   };
 
+  // A shared class link opens that class, clears any filter that would hide
+  // it, and scrolls it into view — then drops the parameter so a later
+  // filter change doesn't keep yanking the page back.
+  useEffect(() => {
+    if (!linkedClassId || loading) return;
+    const target = classes.find(c => c.id === linkedClassId);
+    if (!target) return;
+    setActiveSection("classes");
+    setVenueFilter("all");
+    setExpandedId(linkedClassId);
+    const timer = window.setTimeout(() => {
+      document
+        .getElementById(`class-${linkedClassId}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 150);
+    const next = new URLSearchParams(searchParams);
+    next.delete("class");
+    setSearchParams(next, { replace: true });
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkedClassId, loading, classes]);
+
   // Effective coords: manual search overrides home coords
   const effectiveCoords = searchCoords || homeCoords;
 
@@ -733,6 +758,7 @@ const ClassBrowser = () => {
               return (
                 <Card
                   key={c.id}
+                  id={`class-${c.id}`}
                   className="card-elevated animate-fade-in rounded-xl overflow-hidden border-border/50 bg-card/80 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-300 group"
                   style={{ animationDelay: `${i * 0.05}s` }}
                 >

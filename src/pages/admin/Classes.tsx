@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, CalendarDays, ChevronRight, ChevronLeft, ListChecks, ChevronDown, ChevronUp, Clock, User, Archive, X, Copy, Flag, AlertTriangle } from "lucide-react";
+import { Plus, Edit, Trash2, CalendarDays, ChevronRight, ChevronLeft, ListChecks, ChevronDown, ChevronUp, Clock, User, Archive, X, Copy, Flag, AlertTriangle, Link as LinkIcon } from "lucide-react";
+import { classShareUrl } from "@/lib/classLinks";
 import SessionManager from "@/components/admin/SessionManager";
 import { AssignStaffDialog } from "@/components/admin/AssignStaffDialog";
 import WorkshopCover from "@/components/WorkshopCover";
@@ -730,6 +731,22 @@ const AdminClasses = () => {
   };
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  // Per-class shareable link: "Copy link" flips to "Copied!" briefly.
+  const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
+
+  const copyClassLink = async (c: ClassData) => {
+    const url = classShareUrl(c.id);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedLinkId(c.id);
+      toast({ title: "Link copied", description: `Send this to a parent to open ${c.name} directly.` });
+      window.setTimeout(() => setCopiedLinkId((id) => (id === c.id ? null : id)), 2000);
+    } catch {
+      // Clipboard blocked (older browsers, insecure context) — show it so it
+      // can still be copied by hand.
+      toast({ title: "Copy this link", description: url });
+    }
+  };
 
   const confirmDelete = async () => {
     if (!deleteId) return;
@@ -1714,6 +1731,12 @@ const AdminClasses = () => {
                       <Button variant="ghost" size="sm" className="flex flex-col items-center gap-0 h-auto py-1 px-2" onClick={() => setStaffDialogClass({ id: c.id, name: c.name })}>
                         <User className="w-4 h-4" />
                         <span className="text-[9px] text-muted-foreground">Staff</span>
+                      </Button>
+                      <Button variant="ghost" size="sm" className="flex flex-col items-center gap-0 h-auto py-1 px-2" onClick={() => copyClassLink(c)}>
+                        <LinkIcon className={`w-4 h-4 ${copiedLinkId === c.id ? "text-success" : ""}`} />
+                        <span className="text-[9px] text-muted-foreground">
+                          {copiedLinkId === c.id ? "Copied!" : "Copy link"}
+                        </span>
                       </Button>
                       <Button variant="ghost" size="sm" className="flex flex-col items-center gap-0 h-auto py-1 px-2" onClick={() => openClone(c)}>
                         <Copy className="w-4 h-4" />

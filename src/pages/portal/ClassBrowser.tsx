@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -455,25 +455,45 @@ const ClassBrowser = () => {
     );
   };
 
-  // A shared class link opens that class, clears any filter that would hide
-  // it, and scrolls it into view — then drops the parameter so a later
-  // filter change doesn't keep yanking the page back.
+  // A shared class link (/book/<id>) opens that class: expand it, clear any
+  // filter that would hide it, highlight it and scroll to it. The card can
+  // render a beat after the classes arrive, so we look for it a few times
+  // rather than once, and only drop the parameter once we've actually got
+  // there — otherwise a slow render loses the link's intent entirely.
+  const handledLinkRef = useRef<string | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!linkedClassId || loading) return;
-    const target = classes.find(c => c.id === linkedClassId);
-    if (!target) return;
+    if (handledLinkRef.current === linkedClassId) return;
+    if (!classes.some(c => c.id === linkedClassId)) return;
+
+    handledLinkRef.current = linkedClassId;
     setActiveSection("classes");
     setVenueFilter("all");
     setExpandedId(linkedClassId);
-    const timer = window.setTimeout(() => {
-      document
-        .getElementById(`class-${linkedClassId}`)
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 150);
-    const next = new URLSearchParams(searchParams);
-    next.delete("class");
-    setSearchParams(next, { replace: true });
-    return () => window.clearTimeout(timer);
+    setHighlightId(linkedClassId);
+
+    let attempts = 0;
+    let timer = 0;
+    const findAndScroll = () => {
+      const el = document.getElementById(`class-${linkedClassId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        const next = new URLSearchParams(searchParams);
+        next.delete("class");
+        setSearchParams(next, { replace: true });
+        return;
+      }
+      if (attempts++ < 20) timer = window.setTimeout(findAndScroll, 120);
+    };
+    timer = window.setTimeout(findAndScroll, 120);
+    const fade = window.setTimeout(() => setHighlightId(null), 4000);
+
+    return () => {
+      window.clearTimeout(timer);
+      window.clearTimeout(fade);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkedClassId, loading, classes]);
 
@@ -759,7 +779,7 @@ const ClassBrowser = () => {
                 <Card
                   key={c.id}
                   id={`class-${c.id}`}
-                  className="card-elevated animate-fade-in rounded-xl overflow-hidden border-border/50 bg-card/80 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-300 group"
+                  className={`card-elevated animate-fade-in rounded-xl overflow-hidden border-border/50 bg-card/80 ${highlightId === c.id ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""} hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-300 group`}
                   style={{ animationDelay: `${i * 0.05}s` }}
                 >
                   {/* Workshop/venue photo header */}

@@ -119,6 +119,7 @@ const AddBookingDialog = ({ open, onOpenChange, onDone }: Props) => {
     const effectiveMode = what === "pass" ? "record" : mode;
     if (!form.userId) { toast.error("Choose the customer this is for."); return; }
     if (what === "class" && !form.classId) { toast.error("Choose a class."); return; }
+    if (what === "class" && !form.studentId) { toast.error("Choose who the class is for."); return; }
     if (needsDates && effectiveMode === "record" && dates.length === 0) {
       toast.error("Pick which date(s) they're coming to.");
       return;

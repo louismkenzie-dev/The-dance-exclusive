@@ -127,6 +127,11 @@ serve(async (req) => {
     if (!classId || typeof classId !== "string") {
       return jsonResponse({ error: "Choose a class" }, 400);
     }
+    // Every class place belongs to a dancer — adults have their own "self"
+    // profile, so there is always one to pick.
+    if (!student) {
+      return jsonResponse({ error: "Choose who the class is for" }, 400);
+    }
     if (!ALL_PLANS.includes(plan)) {
       return jsonResponse({ error: `Unknown plan "${plan}"` }, 400);
     }
@@ -170,7 +175,7 @@ serve(async (req) => {
       // fulfils them, so registers and the 24-hour move rule behave normally.
       const rows = (dates.length > 0 ? dates : [null]).map((date, i, all) => ({
         class_id: classId,
-        student_id: studentId ?? null,
+        student_id: studentId,
         parent_id: userId,
         status: "confirmed",
         booking_type: plan,
@@ -200,7 +205,7 @@ serve(async (req) => {
         .from("class_invites")
         .insert({
           class_id: classId,
-          student_id: studentId ?? null,
+          student_id: studentId,
           parent_id: userId,
           invited_by: user.id,
           price: Number.isFinite(price) && price >= 0 ? price : 0,

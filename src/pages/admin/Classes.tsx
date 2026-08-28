@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit, Trash2, CalendarDays, ChevronRight, ChevronLeft, ListChecks, ChevronDown, ChevronUp, Clock, User, Archive, X, Copy, Flag, AlertTriangle, Link as LinkIcon } from "lucide-react";
 import { classShareUrl } from "@/lib/classLinks";
+import { termsForRange } from "@/lib/termMatching";
 import SessionManager from "@/components/admin/SessionManager";
 import { AssignStaffDialog } from "@/components/admin/AssignStaffDialog";
 import WorkshopCover from "@/components/WorkshopCover";
@@ -168,6 +169,9 @@ const AdminClasses = () => {
   const [classInstructors, setClassInstructors] = useState<Record<string, string[]>>({});
   const [classInstructorDetails, setClassInstructorDetails] = useState<Record<string, { staff_id: string; instructor_role: string; pay_per_hour_override: number | null }[]>>({});
   const [selectedTermIds, setSelectedTermIds] = useState<string[]>([]);
+  // Set while opening an existing class, so hydrating the term tick-boxes
+  // doesn't overwrite that class's stored start/end dates.
+  const hydratingTermsRef = useRef(false);
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [termStart, setTermStart] = useState("");
   const [termEnd, setTermEnd] = useState("");
@@ -283,6 +287,8 @@ const AdminClasses = () => {
   useEffect(() => { fetchData(); }, []);
 
   const resetForm = () => {
+    // A fresh form derives its dates from whatever terms get ticked.
+    hydratingTermsRef.current = false;
     setClassType("children");
     setWorkshopId("");
     setAbilityLevel("");
@@ -365,8 +371,16 @@ const AdminClasses = () => {
     return new Set(bankHolidays.map(bh => bh.start_date));
   }, [bankHolidays]);
 
-  // Compute effective term start/end from selected terms
+  // Compute effective term start/end from selected terms. Skipped for the
+  // tick-boxes we set when opening an existing class: that class already has
+  // real dates (its first class day, not the term's first calendar day), and
+  // widening them to the term boundaries on an edit nobody asked for would
+  // move the class's advertised start.
   useEffect(() => {
+    if (hydratingTermsRef.current) {
+      hydratingTermsRef.current = false;
+      return;
+    }
     if (selectedTermIds.length === 0) {
       setTermStart("");
       setTermEnd("");
@@ -471,15 +485,11 @@ const AdminClasses = () => {
     });
     setInstructorPayOverrides(payMap);
     setSelectedDays(c.days_of_week?.length ? c.days_of_week : [c.day_of_week]);
-    // Try to match existing term dates to school terms
-    if (c.term_start && c.term_end) {
-      const matchingTerms = schoolTerms.filter(t =>
-        t.start_date >= c.term_start! && t.end_date <= c.term_end!
-      );
-      setSelectedTermIds(matchingTerms.map(t => t.id));
-    } else {
-      setSelectedTermIds([]);
-    }
+    // Tick every term this class overlaps. A class's term_start is its first
+    // CLASS day, not the term's first calendar day, so anything stricter than
+    // an overlap test drops the term the class actually belongs to.
+    hydratingTermsRef.current = true;
+    setSelectedTermIds(termsForRange(schoolTerms, c.term_start, c.term_end).map(t => t.id));
     setTermStart(c.term_start || "");
     setTermEnd(c.term_end || "");
     const startT = c.start_time?.slice(0, 5) || "09:00";
@@ -522,9 +532,7 @@ const AdminClasses = () => {
     {
       const days = c.days_of_week?.length ? c.days_of_week : [c.day_of_week];
       const dayIdx = days.map(d => DAY_INDEX_MAP[d]);
-      const matchedTerms = c.term_start && c.term_end
-        ? schoolTerms.filter(t => t.start_date >= c.term_start! && t.end_date <= c.term_end!)
-        : [];
+      const matchedTerms = termsForRange(schoolTerms, c.term_start, c.term_end);
       if (matchedTerms.length > 0) {
         void supabase
           .from("class_sessions")
@@ -1691,12 +1699,7 @@ const AdminClasses = () => {
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
                           {(() => {
                             // Match class date range to school terms
-                            const matchedTerms = c.term_start && c.term_end
-                              ? schoolTerms.filter(t =>
-                                  parseISO(t.start_date) >= parseISO(c.term_start!) && parseISO(t.end_date) <= parseISO(c.term_end!)
-                                  || (parseISO(t.start_date) <= parseISO(c.term_end!) && parseISO(t.end_date) >= parseISO(c.term_start!))
-                                )
-                              : [];
+                            const matchedTerms = termsForRange(schoolTerms, c.term_start, c.term_end);
                             return matchedTerms.length > 0 ? (
                               matchedTerms.map(t => (
                                 <Badge key={t.id} variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-500/40 bg-emerald-500/10 text-emerald-400">

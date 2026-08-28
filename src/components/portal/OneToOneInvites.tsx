@@ -8,18 +8,24 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { CalendarDays, Clock, MapPin, Sparkles } from "lucide-react";
+import { classBrowserPath } from "@/lib/classLinks";
 
 interface PortalInvite {
   id: string;
   class_id: string;
   student_id: string;
   price: number;
+  /** trial | session | term | yearly | monthly — set when an admin books it. */
+  plan: string;
+  /** Dates the admin picked for a dated plan. */
+  session_dates: string[] | null;
   classes: {
     name: string;
     class_type: "children" | "adult";
     day_of_week: string;
     start_time: string;
     end_time: string;
+    invite_only: boolean;
     location_note: string | null;
     venues: { name: string } | null;
   } | null;
@@ -31,10 +37,20 @@ interface InviteSessions {
   dates: string[];
 }
 
+/** How each plan reads on the card and in the basket. */
+const PLAN_LABEL: Record<string, string> = {
+  trial: "Trial class",
+  session: "Pay as you go",
+  term: "Full term",
+  yearly: "Full year",
+  monthly: "Monthly membership",
+};
+
 /**
- * "You're invited" cards on My Bookings: private one-to-one sessions Amie
- * has created for this family. Book & pay drops the session into the
- * basket and goes straight to checkout.
+ * Cards on My Bookings for places the studio has set up for this family —
+ * a private one-to-one, or any class an admin booked them onto. Book & pay
+ * drops it into the basket and goes straight to checkout, so the ordinary
+ * flow takes the payment (and, for a membership, the card).
  */
 const OneToOneInvites = () => {
   const { user } = useAuth();
@@ -46,7 +62,7 @@ const OneToOneInvites = () => {
   const load = useCallback(async () => {
     if (!user) { setInvites([]); return; }
     const { data } = await (supabase as any).from("class_invites")
-      .select("id, class_id, student_id, price, classes:class_id(name, class_type, day_of_week, start_time, end_time, is_active, location_note, venues:venue_id(name)), students:student_id(first_name, last_name)")
+      .select("id, class_id, student_id, price, plan, session_dates, classes:class_id(name, class_type, day_of_week, start_time, end_time, is_active, invite_only, location_note, venues:venue_id(name)), students:student_id(first_name, last_name)")
       .eq("parent_id", user.id)
       .eq("status", "pending");
     const rows = ((data ?? []) as any[]).filter((r) => r.classes?.is_active !== false) as PortalInvite[];
@@ -80,6 +96,15 @@ const OneToOneInvites = () => {
     const session = sessions[invite.class_id];
     const cls = invite.classes;
     if (!session?.ids.length || !cls) return;
+
+    // A place an admin set up on an ordinary class: open the class itself so
+    // the usual booking flow prices it — sibling discounts, the £110 cap and
+    // the membership card setup all belong to that flow, and a price we
+    // guessed here would just be rejected at checkout.
+    if (!cls.invite_only) {
+      navigate(classBrowserPath(invite.class_id, cls.class_type));
+      return;
+    }
     if (!items.some((i) => i.classId === invite.class_id && i.studentId === invite.student_id)) {
       addItem({
         id: `invite-${invite.id}`,
@@ -119,8 +144,15 @@ const OneToOneInvites = () => {
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
                   <Sparkles className="w-4 h-4 text-pink-400" />
-                  {invite.students?.first_name ?? "Your dancer"} is invited: {cls?.name}
+                  {cls?.invite_only
+                    ? `${invite.students?.first_name ?? "Your dancer"} is invited: ${cls?.name}`
+                    : `We've saved ${invite.students?.first_name ?? "you"} a place: ${cls?.name}`}
                 </p>
+                {!cls?.invite_only && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {PLAN_LABEL[invite.plan] ?? "Booking"} — confirm it to secure the place
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground mt-1 flex items-center gap-3 flex-wrap">
                   {session && (
                     <span className="flex items-center gap-1">
@@ -141,14 +173,16 @@ const OneToOneInvites = () => {
                     </span>
                   )}
                 </p>
-                {session && session.dates.length > 1 && (
+                {cls?.invite_only && session && session.dates.length > 1 && (
                   <p className="text-xs text-muted-foreground mt-1">
                     £{Number(invite.price).toFixed(2)} per session
                   </p>
                 )}
               </div>
               <Button size="sm" className="bg-pink-600 hover:bg-pink-700 text-white" onClick={() => bookInvite(invite)}>
-                Book &amp; pay £{(Number(invite.price) * Math.max(1, session?.ids.length ?? 1)).toFixed(2)}
+                {cls?.invite_only
+                  ? `Book & pay £${(Number(invite.price) * Math.max(1, session?.ids.length ?? 1)).toFixed(2)}`
+                  : "Confirm & pay"}
               </Button>
             </CardContent>
           </Card>

@@ -72,6 +72,10 @@ import {
   renderPartyResponse,
   type PartyResponseData,
 } from "../_shared/email-templates/party-response.ts";
+import {
+  renderAdminBookingReady,
+  type AdminBookingReadyData,
+} from "../_shared/email-templates/admin-booking-ready.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -133,7 +137,8 @@ type Payload =
   | { template: "birthday"; to: string; data: BirthdayData }
   | { template: "one_to_one_invite"; to: string; data: OneToOneInviteData }
   | { template: "party_inquiry_admin"; to: string; data: PartyInquiryAdminData }
-  | { template: "party_response"; to: string; data: PartyResponseData };
+  | { template: "party_response"; to: string; data: PartyResponseData }
+  | { template: "admin_booking_ready"; to: string; data: AdminBookingReadyData };
 
 function buildEmail(payload: Payload): { subject: string; html: string } {
   switch (payload.template) {
@@ -173,6 +178,8 @@ function buildEmail(payload: Payload): { subject: string; html: string } {
       return renderPartyInquiryAdmin(payload.data);
     case "party_response":
       return renderPartyResponse(payload.data);
+    case "admin_booking_ready":
+      return renderAdminBookingReady(payload.data);
     default:
       throw new Error(`Unknown template: ${(payload as any).template}`);
   }

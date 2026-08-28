@@ -10,11 +10,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ADULT_PASSES, type AdultPassType } from "@/lib/pricing";
 import MoveMembershipDialog, { type MoveMembershipTarget } from "@/components/admin/MoveMembershipDialog";
 import OneToOneTab from "@/components/admin/OneToOneTab";
+import TrialsTab from "@/components/admin/TrialsTab";
+import AddBookingDialog from "@/components/admin/AddBookingDialog";
 
 interface Booking {
   id: string;
@@ -712,6 +714,7 @@ const AdminBookings = () => {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [addOpen, setAddOpen] = useState(false);
   const { toast } = useToast();
 
   // Admin refund: pick any card-paid booking, choose the amount, and the
@@ -875,14 +878,20 @@ const AdminBookings = () => {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold">Bookings</h1>
-        <p className="text-muted-foreground mt-1">Manage all bookings</p>
+      <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-3xl font-display font-bold">Bookings</h1>
+          <p className="text-muted-foreground mt-1">Manage all bookings</p>
+        </div>
+        <Button onClick={() => setAddOpen(true)}>
+          <Plus className="w-4 h-4 mr-1.5" /> Add booking
+        </Button>
       </div>
 
       <Tabs defaultValue="bookings">
         <TabsList className="mb-6">
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
+          <TabsTrigger value="trials">Trials</TabsTrigger>
           <TabsTrigger value="one-to-ones">One-to-ones</TabsTrigger>
           <TabsTrigger value="passes">Class Passes</TabsTrigger>
           <TabsTrigger value="memberships">Memberships & Plans</TabsTrigger>
@@ -956,6 +965,10 @@ const AdminBookings = () => {
       )}
         </TabsContent>
 
+        <TabsContent value="trials">
+          <TrialsTab />
+        </TabsContent>
+
         <TabsContent value="one-to-ones">
           <OneToOneTab />
         </TabsContent>
@@ -968,6 +981,10 @@ const AdminBookings = () => {
           <MembershipsTab />
         </TabsContent>
       </Tabs>
+
+      {/* Put someone on a class by hand: record a Gymcatch/cash purchase, or
+          set the place up and email them a link to pay for it. */}
+      <AddBookingDialog open={addOpen} onOpenChange={setAddOpen} onDone={fetchBookings} />
 
       {/* Refund a card-paid booking (partial or full) */}
       <Dialog open={!!refundBooking} onOpenChange={(o) => { if (!o && !refunding) setRefundBooking(null); }}>

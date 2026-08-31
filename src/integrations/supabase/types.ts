@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -926,7 +926,10 @@ export type Database = {
           ability_level: string | null
           age_max: number | null
           age_min: number | null
+          allow_monthly: boolean
+          allow_termly: boolean
           allow_trial: boolean
+          allow_yearly: boolean
           audience_label: string | null
           booking_enabled: boolean
           capacity: number
@@ -972,7 +975,10 @@ export type Database = {
           ability_level?: string | null
           age_max?: number | null
           age_min?: number | null
+          allow_monthly?: boolean
+          allow_termly?: boolean
           allow_trial?: boolean
+          allow_yearly?: boolean
           audience_label?: string | null
           booking_enabled?: boolean
           capacity?: number
@@ -1018,7 +1024,10 @@ export type Database = {
           ability_level?: string | null
           age_max?: number | null
           age_min?: number | null
+          allow_monthly?: boolean
+          allow_termly?: boolean
           allow_trial?: boolean
+          allow_yearly?: boolean
           audience_label?: string | null
           booking_enabled?: boolean
           capacity?: number

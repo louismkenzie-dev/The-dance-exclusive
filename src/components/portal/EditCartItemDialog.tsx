@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { offersMonthly, offersTermly, offersYearly, type PlanFlags } from "@/lib/classPlans";
 import { useCart, cartItemKind, type CartItem, type PricingPlan } from "@/contexts/CartContext";
 import {
   MONTHLY_MEMBERSHIP_NOTICE,
@@ -46,7 +47,7 @@ export function EditCartItemDialog({ open, onOpenChange, item }: EditCartItemDia
   const { updateItem } = useCart();
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [selSessions, setSelSessions] = useState<string[]>([]);
-  const [classRow, setClassRow] = useState<PricedClass | null>(null);
+  const [classRow, setClassRow] = useState<(PricedClass & PlanFlags) | null>(null);
   const [plan, setPlan] = useState<PricingPlan>("monthly");
   const [monthlyNoticeOpen, setMonthlyNoticeOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -69,7 +70,7 @@ export function EditCartItemDialog({ open, onOpenChange, item }: EditCartItemDia
         item.classId
           ? supabase
               .from("classes")
-              .select("class_type, start_time, end_time, price_per_session, price_per_term, price_per_month, price_per_year")
+              .select("class_type, start_time, end_time, price_per_session, price_per_term, price_per_month, price_per_year, allow_monthly, allow_termly, allow_yearly")
               .eq("id", item.classId)
               .maybeSingle()
           : Promise.resolve({ data: null }),
@@ -78,7 +79,7 @@ export function EditCartItemDialog({ open, onOpenChange, item }: EditCartItemDia
       const upcoming = ((sessionsRes.data as any[]) ?? []).filter((s: any) => s.status !== "cancelled");
       setSessions(upcoming);
       setSelSessions(item.selectedSessionIds ?? []);
-      setClassRow((classRes.data as PricedClass | null) ?? null);
+      setClassRow((classRes.data as (PricedClass & PlanFlags) | null) ?? null);
       setPlan(item.pricingPlan);
       setLoading(false);
     };
@@ -232,7 +233,7 @@ export function EditCartItemDialog({ open, onOpenChange, item }: EditCartItemDia
                   <Tag className="w-3 h-3" /> Choose Your Plan
                 </p>
                 <div className="grid gap-2">
-                  {priceMonthly != null && planButton(
+                  {priceMonthly != null && (offersMonthly(classRow) || item.pricingPlan === "monthly") && planButton(
                     "monthly",
                     "Monthly Membership",
                     "Rolling monthly · billed on the 5th · 12th month free",
@@ -241,7 +242,7 @@ export function EditCartItemDialog({ open, onOpenChange, item }: EditCartItemDia
                       <span className="text-[10px] font-normal text-muted-foreground">/mo</span>
                     </span>,
                   )}
-                  {priceTerm != null && remaining > 0 && planButton(
+                  {priceTerm != null && remaining > 0 && (offersTermly(classRow) || item.pricingPlan === "term") && planButton(
                     "term",
                     "Pay Termly",
                     `All ${remaining} sessions this term, upfront`,
@@ -250,7 +251,7 @@ export function EditCartItemDialog({ open, onOpenChange, item }: EditCartItemDia
                       <Badge className="ml-1.5 bg-green-500/20 text-green-400 border-green-500/30 text-[9px]">SAVE {termSavings}%</Badge>
                     </>,
                   )}
-                  {priceYearly != null && planButton(
+                  {priceYearly != null && (offersYearly(classRow) || item.pricingPlan === "yearly") && planButton(
                     "yearly",
                     "Pay Yearly",
                     "Sept–July upfront · all 38 dance weeks",

@@ -29,6 +29,7 @@ import {
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { audienceText, isChildAgeEligible, isClassBookable } from "@/lib/classAudience";
+import { defaultChildPlan, offersMonthly, offersTermly, offersYearly } from "@/lib/classPlans";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -107,6 +108,10 @@ interface ClassItem {
   term_start: string | null;
   term_end: string | null;
   allow_trial: boolean;
+  /** Which plans this class offers (admin switches; default all on). */
+  allow_monthly: boolean | null;
+  allow_termly: boolean | null;
+  allow_yearly: boolean | null;
   school_term_id: string | null;
   is_active: boolean;
   school_year_min: number | null;
@@ -1074,7 +1079,8 @@ const ClassBrowser = () => {
                         {(() => {
                           const remaining = sessionCounts[c.id] || 0;
                           const isChildrenClass = c.class_type === "children";
-                          const plan = selectedPlans[c.id] || (isChildrenClass ? "monthly" : "session");
+                          const plan = selectedPlans[c.id]
+                            || (isChildrenClass ? defaultChildPlan(c, remaining > 0) : "session");
                           // Prices from the shared pricing engine (admin-set
                           // values win, otherwise derived from class duration).
                           const priceSess = sessionPrice(c);
@@ -1129,7 +1135,7 @@ const ClassBrowser = () => {
                                 )}
 
                                 {/* Children: monthly membership */}
-                                {isChildrenClass && (
+                                {isChildrenClass && offersMonthly(c) && (
                                   <button
                                     onClick={() => { setSelectedPlans(p => ({ ...p, [c.id]: "monthly" })); setSelectedSessions(p => ({ ...p, [c.id]: sessions.map(s => s.id) })); }}
                                     className={`flex items-center justify-between p-3 rounded-lg border text-left text-sm transition-all ${
@@ -1150,7 +1156,7 @@ const ClassBrowser = () => {
                                 )}
 
                                 {/* Children: pay termly */}
-                                {isChildrenClass && priceTrm != null && remaining > 0 && (
+                                {isChildrenClass && offersTermly(c) && priceTrm != null && remaining > 0 && (
                                   <button
                                     onClick={() => selectAllSessions()}
                                     className={`flex items-center justify-between p-3 rounded-lg border text-left text-sm transition-all ${
@@ -1173,7 +1179,7 @@ const ClassBrowser = () => {
                                 )}
 
                                 {/* Children: pay yearly — best deal */}
-                                {isChildrenClass && (
+                                {isChildrenClass && offersYearly(c) && (
                                   <button
                                     onClick={() => { setSelectedPlans(p => ({ ...p, [c.id]: "yearly" })); setSelectedSessions(p => ({ ...p, [c.id]: sessions.map(s => s.id) })); }}
                                     className={`relative flex items-center justify-between p-3 rounded-lg border text-left text-sm transition-all ${

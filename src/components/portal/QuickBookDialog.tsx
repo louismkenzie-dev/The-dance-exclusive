@@ -21,6 +21,7 @@ import { useCart, type PricingPlan } from "@/contexts/CartContext";
 import { supabase } from "@/integrations/supabase/client";
 import { isAttendeeProfileComplete } from "@/lib/attendeeProfile";
 import { isChildAgeEligible } from "@/lib/classAudience";
+import { defaultChildPlan, offersMonthly, offersTermly, offersYearly } from "@/lib/classPlans";
 import { ChildFormDialog } from "@/components/portal/ChildFormDialog";
 import TermSessionGroups from "@/components/TermSessionGroups";
 import {
@@ -70,6 +71,10 @@ export interface QuickBookClass {
   term_discount_percent: number | null;
   monthly_discount_percent: number | null;
   allow_trial: boolean;
+  /** Which plans this class offers (admin switches; default all on). */
+  allow_monthly?: boolean | null;
+  allow_termly?: boolean | null;
+  allow_yearly?: boolean | null;
   venues: { name: string } | null;
   workshops: { cover_image: string | null } | null;
 }
@@ -127,7 +132,8 @@ export function QuickBookDialog({
   const [childDialog, setChildDialog] = useState<{ editing: any | null; selfMode: boolean } | null>(null);
 
   // Reset selections when class changes / dialog opens.
-  // Children: trial → monthly membership (no drop-ins). Adults: pay as you go.
+  // Children: trial → the class's first offered plan (no drop-ins).
+  // Adults: pay as you go.
   useEffect(() => {
     if (open && classData) {
       setSelSessions([]);
@@ -137,10 +143,10 @@ export function QuickBookDialog({
       } else if (classData.allow_trial && hasExistingBookings === false) {
         setPlan("trial");
       } else {
-        setPlan("monthly");
+        setPlan(defaultChildPlan(classData, sessions.length > 0));
       }
     }
-  }, [open, classData, hasExistingBookings]);
+  }, [open, classData, hasExistingBookings, sessions.length]);
 
   // Auto-select sessions for whole-plan purchases (must run before any early return)
   useEffect(() => {
@@ -433,7 +439,7 @@ export function QuickBookDialog({
                   <span className="font-bold text-foreground">£{priceSession}<span className="text-[10px] font-normal text-muted-foreground">/class</span></span>
                 </button>
               )}
-              {isChildren && (
+              {isChildren && offersMonthly(c) && (
                 <button
                   onClick={() => setPlan("monthly")}
                   className={`flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
@@ -452,7 +458,7 @@ export function QuickBookDialog({
                   </span>
                 </button>
               )}
-              {isChildren && priceTerm != null && remaining > 0 && (
+              {isChildren && offersTermly(c) && priceTerm != null && remaining > 0 && (
                 <button
                   onClick={() => setPlan("term")}
                   className={`flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
@@ -471,7 +477,7 @@ export function QuickBookDialog({
                   </div>
                 </button>
               )}
-              {isChildren && (
+              {isChildren && offersYearly(c) && (
                 <button
                   onClick={() => setPlan("yearly")}
                   className={`relative flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${

@@ -98,6 +98,11 @@ const AdminCamps = () => {
   const [capacity, setCapacity] = useState("20");
   const [pricePerDay, setPricePerDay] = useState("");
   const [priceTotal, setPriceTotal] = useState("");
+  // How the event is sold. "whole" = parents must book and pay for every day
+  // together (one total price); "per_day" = they pick days at the day rate.
+  // Stored as: whole ⇔ price_per_day is null — the rule the booking dialog
+  // and the payment server already share.
+  const [sellingMode, setSellingMode] = useState<"whole" | "per_day">("whole");
   const [siblingDiscountEnabled, setSiblingDiscountEnabled] = useState(true);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   // Per-day staffing overrides keyed by DATE (not list index — deleting a day
@@ -198,6 +203,7 @@ const AdminCamps = () => {
     setCapacity("20");
     setPricePerDay("");
     setPriceTotal("");
+    setSellingMode("whole");
     setSiblingDiscountEnabled(true);
     setSessions([]);
     setSessionStaffing({});
@@ -310,6 +316,7 @@ const AdminCamps = () => {
     setCapacity(c.capacity.toString());
     setPricePerDay(c.price_per_day?.toString() || "");
     setPriceTotal(c.price_total?.toString() || "");
+    setSellingMode(c.price_per_day != null && Number(c.price_per_day) > 0 ? "per_day" : "whole");
     setSiblingDiscountEnabled(c.sibling_discount_enabled ?? true);
     setEditing(isEdit ? c : null);
     setSelectedHolidayId(null);
@@ -390,8 +397,11 @@ const AdminCamps = () => {
       start_time: defaultStartTime,
       end_time: defaultEndTime,
       capacity: parseInt(capacity) || 20,
-      price_per_day: pricePerDay ? parseFloat(pricePerDay) : null,
-      price_total: priceTotal ? parseFloat(priceTotal) : null,
+      // The selling mode IS the price shape: per-day price set = parents pick
+      // days; per-day null = whole event only at the total price. The unused
+      // one is cleared so the stored prices always say which mode applies.
+      price_per_day: sellingMode === "per_day" && pricePerDay ? parseFloat(pricePerDay) : null,
+      price_total: sellingMode === "whole" && priceTotal ? parseFloat(priceTotal) : null,
       sibling_discount_enabled: siblingDiscountEnabled,
     };
 
@@ -629,15 +639,52 @@ const AdminCamps = () => {
 
                 <div className="space-y-3">
                   <Label className="text-sm font-semibold">Pricing</Label>
+                  <div className="grid gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSellingMode("whole")}
+                      className={`flex items-start gap-3 p-3 rounded-lg border text-left text-sm transition-colors ${
+                        sellingMode === "whole"
+                          ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                          : "border-border bg-card hover:border-primary/30"
+                      }`}
+                    >
+                      <div>
+                        <span className="font-semibold text-foreground">Whole event only</span>
+                        <span className="block text-xs text-muted-foreground mt-0.5">
+                          One price covers every day — parents can't pick individual days, they book and pay for it all.
+                        </span>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSellingMode("per_day")}
+                      className={`flex items-start gap-3 p-3 rounded-lg border text-left text-sm transition-colors ${
+                        sellingMode === "per_day"
+                          ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                          : "border-border bg-card hover:border-primary/30"
+                      }`}
+                    >
+                      <div>
+                        <span className="font-semibold text-foreground">Priced per day</span>
+                        <span className="block text-xs text-muted-foreground mt-0.5">
+                          Parents choose which days to attend and pay for just those.
+                        </span>
+                      </div>
+                    </button>
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-xs">Per Day (£)</Label>
-                      <Input type="number" step="0.01" value={pricePerDay} onChange={e => setPricePerDay(e.target.value)} placeholder="e.g. 35" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs">Total / Full Camp (£)</Label>
-                      <Input type="number" step="0.01" value={priceTotal} onChange={e => setPriceTotal(e.target.value)} placeholder="e.g. 150" />
-                    </div>
+                    {sellingMode === "per_day" ? (
+                      <div className="space-y-2">
+                        <Label className="text-xs">Per Day (£)</Label>
+                        <Input type="number" step="0.01" value={pricePerDay} onChange={e => setPricePerDay(e.target.value)} placeholder="e.g. 35" />
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Label className="text-xs">Whole Event (£, per child)</Label>
+                        <Input type="number" step="0.01" value={priceTotal} onChange={e => setPriceTotal(e.target.value)} placeholder="e.g. 150" />
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center justify-between rounded-lg border border-border p-4">
                     <div className="space-y-1">

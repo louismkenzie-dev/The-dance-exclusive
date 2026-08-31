@@ -203,6 +203,12 @@ const AdminClasses = () => {
   const [publiclyVisible, setPubliclyVisible] = useState(true);
   const [bookingEnabled, setBookingEnabled] = useState(true);
   const [siblingDiscountEnabled, setSiblingDiscountEnabled] = useState(true);
+  // Which payment plans parents are offered on a children's class. Leaving a
+  // price box blank never hides a plan (prices are derived from the class
+  // duration), so hiding one is an explicit choice.
+  const [allowMonthly, setAllowMonthly] = useState(true);
+  const [allowTermly, setAllowTermly] = useState(true);
+  const [allowYearly, setAllowYearly] = useState(true);
   const [whatsappGroupUrl, setWhatsappGroupUrl] = useState("");
 
   const filteredWorkshops = useMemo(() => 
@@ -325,6 +331,9 @@ const AdminClasses = () => {
     setPubliclyVisible(true);
     setBookingEnabled(true);
     setSiblingDiscountEnabled(true);
+    setAllowMonthly(true);
+    setAllowTermly(true);
+    setAllowYearly(true);
     setWhatsappGroupUrl("");
     setEditing(null);
     setStep(1);
@@ -522,6 +531,9 @@ const AdminClasses = () => {
     setPubliclyVisible((c as any).publicly_visible ?? true);
     setBookingEnabled((c as any).booking_enabled ?? true);
     setSiblingDiscountEnabled((c as any).sibling_discount_enabled ?? true);
+    setAllowMonthly((c as any).allow_monthly ?? true);
+    setAllowTermly((c as any).allow_termly ?? true);
+    setAllowYearly((c as any).allow_yearly ?? true);
     setWhatsappGroupUrl((c as any).whatsapp_group_url || "");
     setSessionStaffing({});
     // Seed removed-dates from reality: any date this schedule WOULD generate
@@ -606,6 +618,9 @@ const AdminClasses = () => {
       // Invite-only sessions must never behave like open-enrolment classes.
       booking_enabled: inviteOnly ? false : bookingEnabled,
       sibling_discount_enabled: siblingDiscountEnabled,
+      allow_monthly: allowMonthly,
+      allow_termly: allowTermly,
+      allow_yearly: allowYearly,
       whatsapp_group_url: whatsappGroupUrl.trim() || null,
     };
 
@@ -1411,6 +1426,39 @@ const AdminClasses = () => {
                     </div>
                     <Switch checked={siblingDiscountEnabled} onCheckedChange={setSiblingDiscountEnabled} />
                   </div>
+
+                  {classType === "children" && (
+                    <div className="rounded-lg border border-border p-4 space-y-3">
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">Plans parents can choose</p>
+                        <p className="text-xs text-muted-foreground">
+                          Turn off any plan you don't want offered on this class — e.g. keep only Pay Termly.
+                          Leaving a price box blank doesn't hide a plan (the price is worked out from the
+                          class length); these switches do.
+                        </p>
+                      </div>
+                      {([
+                        ["Monthly Membership", allowMonthly, setAllowMonthly] as const,
+                        ["Pay Termly", allowTermly, setAllowTermly] as const,
+                        ["Pay Yearly", allowYearly, setAllowYearly] as const,
+                      ]).map(([label, value, setValue]) => {
+                        const lastOneOn = value && [allowMonthly, allowTermly, allowYearly].filter(Boolean).length === 1;
+                        return (
+                          <div key={label} className="flex items-center justify-between">
+                            <span className="text-sm">{label}</span>
+                            <Switch
+                              checked={value}
+                              disabled={lastOneOn}
+                              onCheckedChange={setValue}
+                            />
+                          </div>
+                        );
+                      })}
+                      <p className="text-[11px] text-muted-foreground">
+                        At least one plan must stay on, or the class couldn't be booked at all.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-between">

@@ -83,6 +83,7 @@ const AdminCamps = () => {
   const [campSessionCounts, setCampSessionCounts] = useState<Record<string, number>>({});
   const [showPast, setShowPast] = useState(false);
   const [schoolHolidays, setSchoolHolidays] = useState<{ id: string; name: string; start_date: string; end_date: string; academic_year: string; holiday_type: string }[]>([]);
+  const [schoolTerms, setSchoolTerms] = useState<{ id: string; name: string; start_date: string; end_date: string }[]>([]);
   const { toast } = useToast();
 
   // Form state
@@ -119,6 +120,7 @@ const AdminCamps = () => {
   const [campInstructors, setCampInstructors] = useState<Record<string, string[]>>({});
   const [campInstructorDetails, setCampInstructorDetails] = useState<Record<string, { staff_id: string; instructor_role: string; pay_per_hour_override: number | null }[]>>({});
   const [selectedHolidayId, setSelectedHolidayId] = useState<string | null>(null);
+  const [selectedTermId, setSelectedTermId] = useState<string | null>(null);
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
 
   const filteredWorkshops = useMemo(() =>
@@ -137,12 +139,13 @@ const AdminCamps = () => {
   }, [camps, showPast]);
 
   const fetchData = async () => {
-    const [campsRes, venuesRes, staffRes, workshopsRes, holidaysRes] = await Promise.all([
+    const [campsRes, venuesRes, staffRes, workshopsRes, holidaysRes, termsRes] = await Promise.all([
       supabase.from("camps").select("*, venues(name), workshops(name, cover_image, cover_position, cover_zoom, cover_fit)").order("created_at", { ascending: false }),
       supabase.from("venues").select("id, name, capacity").eq("is_active", true),
       supabase.from("staff").select("id, full_name, pay_per_hour").eq("is_active", true),
       supabase.from("workshops").select("id, name, description, theme, dance_style, class_type, age_min, age_max, cover_image, cover_position, cover_zoom, cover_fit, capacity").eq("is_active", true),
       supabase.from("school_holidays").select("*").neq("holiday_type", "bank_holiday").order("start_date"),
+      supabase.from("school_terms").select("id, name, start_date, end_date").order("start_date"),
     ]);
 
     if (campsRes.data) setCamps(campsRes.data as any);
@@ -150,6 +153,7 @@ const AdminCamps = () => {
     if (staffRes.data) setStaffList(staffRes.data);
     if (workshopsRes.data) setWorkshops(workshopsRes.data as any);
     if (holidaysRes.data) setSchoolHolidays(holidaysRes.data);
+    if (termsRes.data) setSchoolTerms(termsRes.data as any);
 
     // Fetch session counts
     if (campsRes.data) {
@@ -213,6 +217,7 @@ const AdminCamps = () => {
     setEditing(null);
     setStep(1);
     setSelectedHolidayId(null);
+    setSelectedTermId(null);
     setSelectedDates(new Set());
   };
 
@@ -253,7 +258,7 @@ const AdminCamps = () => {
     if (!datesDirty.current) return;
     if (step === 2 && selectedDates.size > 0) {
       generateSessions();
-    } else if (step === 2 && startDate && endDate && selectedDates.size === 0 && !selectedHolidayId) {
+    } else if (step === 2 && startDate && endDate && selectedDates.size === 0 && !selectedHolidayId && !selectedTermId) {
       generateSessions();
     }
   }, [startDate, endDate, step, selectedDates, rangeWeekdays]);
@@ -271,11 +276,35 @@ const AdminCamps = () => {
       return;
     }
     setSelectedHolidayId(holiday.id);
+    setSelectedTermId(null);
     const days = eachDayOfInterval({ start: parseISO(holiday.start_date), end: parseISO(holiday.end_date) });
     const weekdays = days.filter(d => !isWeekend(d)).map(d => format(d, "yyyy-MM-dd"));
     setSelectedDates(new Set(weekdays));
     setStartDate(holiday.start_date);
     setEndDate(holiday.end_date);
+  };
+
+  // Term-time window for weekly things like 1:1 lessons: nothing pre-selected
+  // (a term event is a handful of chosen dates, not every school day), and
+  // switching between terms keeps the dates already picked so a lesson can
+  // run across both halves of a split term.
+  const selectTerm = (term: typeof schoolTerms[0]) => {
+    datesDirty.current = true;
+    if (selectedTermId === term.id) {
+      // Collapse the calendar but keep the picked dates and their sessions.
+      setSelectedTermId(null);
+      return;
+    }
+    if (selectedHolidayId || selectedDates.size === 0) {
+      // Coming from a holiday quick-pick (weekdays pre-selected) or a typed
+      // date range (sessions generated from it): start term picking clean.
+      setSelectedHolidayId(null);
+      setSelectedDates(new Set());
+      setSessions([]);
+      setStartDate("");
+      setEndDate("");
+    }
+    setSelectedTermId(term.id);
   };
 
   const toggleDate = (dateStr: string) => {
@@ -321,6 +350,7 @@ const AdminCamps = () => {
     setSiblingDiscountEnabled(c.sibling_discount_enabled ?? true);
     setEditing(isEdit ? c : null);
     setSelectedHolidayId(null);
+    setSelectedTermId(null);
     setSelectedDates(new Set());
     setStep(1);
     setOpen(true);
@@ -752,12 +782,46 @@ const AdminCamps = () => {
                   </div>
                 )}
 
-                {/* Visual date calendar when a holiday is selected */}
-                {selectedHolidayId && (() => {
-                  const holiday = schoolHolidays.find(h => h.id === selectedHolidayId);
-                  if (!holiday) return null;
-                  const holidayStart = parseISO(holiday.start_date);
-                  const holidayEnd = parseISO(holiday.end_date);
+                {/* Term quick picks: for events running through term time —
+                    weekly 1:1 lessons, crew training — where the dates are a
+                    handful of hand-picked days, not a solid block. */}
+                {schoolTerms.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Quick Pick: Term Time</Label>
+                    <p className="text-xs text-muted-foreground">For term-time sessions like weekly 1:1 lessons — choose a term, then tap each date it runs</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[160px] overflow-y-auto pr-1">
+                      {schoolTerms.filter(t => !isBefore(parseISO(t.end_date), today)).map(t => {
+                        const isSelected = selectedTermId === t.id;
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => selectTerm(t)}
+                            className={`text-left p-3 rounded-lg border transition-colors ${
+                              isSelected
+                                ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                                : 'border-border bg-card/50 hover:border-primary/50 hover:bg-primary/5'
+                            }`}
+                          >
+                            <span className="text-sm font-medium text-foreground block">{t.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {format(parseISO(t.start_date), "d MMM")} – {format(parseISO(t.end_date), "d MMM yyyy")}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Visual date calendar over the chosen window (holiday or term) */}
+                {(selectedHolidayId || selectedTermId) && (() => {
+                  const dateWindow = selectedHolidayId
+                    ? schoolHolidays.find(h => h.id === selectedHolidayId)
+                    : schoolTerms.find(t => t.id === selectedTermId);
+                  if (!dateWindow) return null;
+                  const holidayStart = parseISO(dateWindow.start_date);
+                  const holidayEnd = parseISO(dateWindow.end_date);
                   const allDays = eachDayOfInterval({ start: holidayStart, end: holidayEnd });
                   // Build a calendar grid month by month
                   const months: Date[] = [];
@@ -773,7 +837,7 @@ const AdminCamps = () => {
                   return (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <Label className="text-sm font-semibold">Select Camp Dates</Label>
+                        <Label className="text-sm font-semibold">Select Dates</Label>
                         <div className="flex items-center gap-2">
                           <Badge className="bg-primary/15 text-primary border-primary/30">
                             {selectedDates.size} days selected
@@ -858,22 +922,22 @@ const AdminCamps = () => {
 
                 <div className="border-t border-border pt-4">
                   <Label className="text-sm font-semibold mb-3 block">
-                    {selectedHolidayId ? "Or Use Custom Dates" : "Custom Dates"}
+                    {selectedHolidayId || selectedTermId ? "Or Use Custom Dates" : "Custom Dates"}
                   </Label>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">Start Date *</Label>
-                      <Input type="date" value={startDate} onChange={e => { datesDirty.current = true; setStartDate(e.target.value); setSelectedHolidayId(null); setSelectedDates(new Set()); }} />
+                      <Input type="date" value={startDate} onChange={e => { datesDirty.current = true; setStartDate(e.target.value); setSelectedHolidayId(null); setSelectedTermId(null); setSelectedDates(new Set()); }} />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs text-muted-foreground">End Date *</Label>
-                      <Input type="date" value={endDate} onChange={e => { datesDirty.current = true; setEndDate(e.target.value); setSelectedHolidayId(null); setSelectedDates(new Set()); }} />
+                      <Input type="date" value={endDate} onChange={e => { datesDirty.current = true; setEndDate(e.target.value); setSelectedHolidayId(null); setSelectedTermId(null); setSelectedDates(new Set()); }} />
                     </div>
                   </div>
 
                   {/* Which days of the week the camp runs on — a weekly session
                       like crew training picks one day, not every date between */}
-                  {!selectedHolidayId && selectedDates.size === 0 && (
+                  {!selectedHolidayId && !selectedTermId && selectedDates.size === 0 && (
                     <div className="space-y-2 mt-4">
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <Label className="text-xs text-muted-foreground">Runs on these days</Label>

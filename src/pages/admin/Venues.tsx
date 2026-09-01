@@ -374,7 +374,7 @@ const AdminVenues = () => {
 
       {/* Venue dialog with tabs */}
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { if (editing) autosave.flush(); resetForm(); } }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-dialog overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between gap-3 pr-8">
               <span>{editing ? `Edit: ${editing.name}` : "New Venue"}</span>

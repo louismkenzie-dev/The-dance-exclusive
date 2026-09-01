@@ -189,7 +189,7 @@ const MoveSessionDialog = ({ open, onOpenChange, booking, onMoved }: MoveSession
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!submitting) onOpenChange(o); }}>
-      <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-md max-h-dialog flex flex-col p-0 gap-0">
         <DialogHeader className="px-6 pt-6 pb-3 border-b border-border/50">
           <DialogTitle className="text-lg font-display">Move session</DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">

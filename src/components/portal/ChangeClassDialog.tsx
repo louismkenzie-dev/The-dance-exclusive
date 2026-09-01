@@ -136,7 +136,7 @@ const ChangeClassDialog = ({ open, onOpenChange, membership, onSwitched }: Chang
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!switching) onOpenChange(o); }}>
-      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-lg max-h-dialog flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Repeat className="w-5 h-5" /> Change class

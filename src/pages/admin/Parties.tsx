@@ -460,7 +460,7 @@ const AdminParties = () => {
               <DialogTrigger asChild>
                 <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Add Package</Button>
               </DialogTrigger>
-              <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+              <DialogContent className="max-w-lg max-h-dialog overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>{editingPackage ? "Edit" : "Add"} Party Package</DialogTitle>
                 </DialogHeader>
@@ -693,7 +693,7 @@ const AdminParties = () => {
 
       {/* MEDIA MANAGER DIALOG */}
       <Dialog open={mediaDialogOpen} onOpenChange={(open) => { setMediaDialogOpen(open); if (!open) setMediaPackageId(null); }}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-dialog overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Image className="h-5 w-5" />

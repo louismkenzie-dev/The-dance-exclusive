@@ -901,7 +901,7 @@ const AdminCalendar = () => {
 
       {/* Day detail dialog (month view only) */}
       <Dialog open={!!selectedDay && !sessionFormOpen && viewMode === "month"} onOpenChange={(open) => !open && setSelectedDay(null)}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-dialog overflow-y-auto">
           {selectedDay && (
             <>
               <DialogHeader>

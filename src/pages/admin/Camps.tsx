@@ -514,7 +514,7 @@ const AdminCamps = () => {
           <DialogTrigger asChild>
             <Button className="self-start md:self-auto"><Plus className="w-4 h-4 mr-2" /> Add Camp</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl max-h-dialog overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editing ? "Edit Camp" : "New Camp"}</DialogTitle>
             </DialogHeader>

@@ -623,7 +623,7 @@ const Merchandise = () => {
 
       {/* ─── Variants Dialog ─────────────────────── */}
       <Dialog open={variantDialogOpen} onOpenChange={setVariantDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-dialog overflow-y-auto">
           <DialogHeader><DialogTitle>Sizes & Stock — {selectedItemForVariants?.name}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             {/* Add variant form */}
@@ -668,7 +668,7 @@ const Merchandise = () => {
 
       {/* ─── Media Dialog ────────────────────────── */}
       <Dialog open={mediaDialogOpen} onOpenChange={setMediaDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-dialog overflow-y-auto">
           <DialogHeader><DialogTitle>Gallery — {selectedItemForMedia?.name}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
@@ -794,7 +794,7 @@ const Merchandise = () => {
 
       {/* ─── Bundle Items Dialog ─────────────────── */}
       <Dialog open={bundleItemsDialogOpen} onOpenChange={setBundleItemsDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-dialog overflow-y-auto">
           <DialogHeader><DialogTitle>Bundle Items — {selectedBundle?.name}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             {/* Current items in bundle */}

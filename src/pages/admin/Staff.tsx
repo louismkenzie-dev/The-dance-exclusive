@@ -633,7 +633,7 @@ const AdminStaff = () => {
         <StaffInviteLinks onStaffAdded={fetchStaff} />
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
           <DialogTrigger asChild><Button><Plus className="w-4 h-4 mr-2" /> Add Staff</Button></DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+          <DialogContent className="max-w-2xl max-h-dialog flex flex-col overflow-hidden">
             <DialogHeader><DialogTitle>{editing ? "Edit Staff Member" : "New Staff Member"}</DialogTitle></DialogHeader>
             <div className="flex-1 min-h-0 overflow-y-auto pr-4">
               <form id="staff-form" onSubmit={handleSubmit} className="space-y-6 pb-4">

@@ -68,7 +68,7 @@ const CustomerEditDialog = ({ open, onOpenChange, profile, onSaved }: Props) => 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0">
+      <DialogContent className="max-w-lg max-h-dialog flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle>Edit customer</DialogTitle>
         </DialogHeader>

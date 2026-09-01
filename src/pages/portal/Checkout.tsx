@@ -373,7 +373,7 @@ const PaymentForm = ({
 
       {/* Full T&C text */}
       <Dialog open={termsOpen} onOpenChange={setTermsOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-dialog overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Terms and Conditions — The Dance Exclusive</DialogTitle>
           </DialogHeader>

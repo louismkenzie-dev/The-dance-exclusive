@@ -213,7 +213,7 @@ export function EditCartItemDialog({ open, onOpenChange, item }: EditCartItemDia
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-md max-h-dialog flex flex-col p-0 gap-0">
         <DialogHeader className="px-6 pt-6 pb-3 border-b border-border/50">
           <DialogTitle className="text-lg font-display">{canSwitchPlan ? "Change plan" : "Edit dates"}</DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">

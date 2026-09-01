@@ -172,7 +172,7 @@ export function CampBookDialog({ open, onOpenChange, camp, children, onNeedChild
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0 gap-0 theme-children">
+      <DialogContent className="max-w-lg max-h-dialog flex flex-col p-0 gap-0 theme-children">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50">
           <DialogTitle className="text-xl font-display">{camp.name}</DialogTitle>
           <DialogDescription className="text-xs uppercase tracking-widest text-muted-foreground">

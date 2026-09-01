@@ -312,7 +312,7 @@ const AdminWorkshops = () => {
         <div className="flex flex-wrap items-center gap-2">
           <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
             <DialogTrigger asChild><Button size="sm" className="md:h-10 md:px-4 md:text-sm"><Plus className="w-4 h-4 mr-2" /> Add Type of Class</Button></DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+          <DialogContent className="max-w-2xl max-h-dialog flex flex-col overflow-hidden">
             <DialogHeader><DialogTitle>{editing ? "Edit Type of Class" : "New Type of Class"}</DialogTitle></DialogHeader>
             <div className="flex-1 min-h-0 overflow-y-auto pr-4">
               <form id="workshop-form" onSubmit={handleSubmit} className="space-y-6 pb-4">

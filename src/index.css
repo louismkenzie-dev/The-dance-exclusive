@@ -212,6 +212,21 @@
    Immersive "AFTER DARK" motion + texture kit
    ─────────────────────────────────────────────── */
 @layer utilities {
+  /* Height cap for dialogs. iOS Safari's vh unit measures the viewport with
+     the browser toolbars HIDDEN, so a 90vh dialog centred on screen can push
+     its bottom action bar behind the toolbar — unreachable, because the
+     dialog body scrolls internally and the page doesn't scroll at all. A
+     parent stood at checkout with no visible "Add to Basket" because of
+     this. dvh tracks the visible viewport; old browsers keep the vh cap. */
+  .max-h-dialog {
+    max-height: 80vh;
+  }
+  @supports (height: 1dvh) {
+    .max-h-dialog {
+      max-height: 88dvh;
+    }
+  }
+
   .text-stroke {
     -webkit-text-stroke: 1.5px hsl(var(--primary) / 0.55);
     color: transparent;

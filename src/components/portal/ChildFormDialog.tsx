@@ -375,7 +375,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn("max-w-2xl max-h-[90vh] flex flex-col p-0", themeClass)}>
+      <DialogContent className={cn("max-w-2xl max-h-dialog flex flex-col p-0", themeClass)}>
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle>
             {selfMode ? (editing ? "Edit Your Attendee Profile" : "Create Your Attendee Profile") : `${editing ? "Edit" : "Add"} Child`}

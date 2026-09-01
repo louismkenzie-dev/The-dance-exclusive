@@ -190,7 +190,7 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] p-0 flex flex-col gap-0 overflow-hidden">
+      <DialogContent className="max-w-2xl max-h-dialog p-0 flex flex-col gap-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border shrink-0">
           <DialogTitle>{coupon ? "Edit coupon" : "New coupon"}</DialogTitle>
           <DialogDescription>

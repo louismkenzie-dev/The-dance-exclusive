@@ -211,6 +211,19 @@
 /* ───────────────────────────────────────────────
    Immersive "AFTER DARK" motion + texture kit
    ─────────────────────────────────────────────── */
+@layer base {
+  /* App feel on phones: no grey flash on taps, and no sideways wiggle when a
+     decorative element (blur washes, wide shadows) pokes past the viewport.
+     `clip` blocks the overflow without creating a scroll container. */
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  html,
+  body {
+    overflow-x: clip;
+  }
+}
+
 @layer utilities {
   /* Height cap for dialogs. iOS Safari's vh unit measures the viewport with
      the browser toolbars HIDDEN, so a 90vh dialog centred on screen can push

@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import ScrollToTop from "@/components/ScrollToTop";
 import PortalLayout from "@/components/layouts/PortalLayout";
 import AdminLayout from "@/components/layouts/AdminLayout";
 import StaffLayout from "@/components/layouts/StaffLayout";
@@ -82,6 +83,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <ScrollToTop />
         <AuthProvider>
           <CartProvider>
           <Suspense fallback={<PageLoading />}>

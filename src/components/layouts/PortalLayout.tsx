@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { User, LogOut, CalendarDays, Sparkles, Heart, Menu, Instagram, Facebook, Mail } from "lucide-react";
 import CartButton from "@/components/portal/CartButton";
+import MobileBottomNav from "@/components/portal/MobileBottomNav";
 import CartDrawer from "@/components/portal/CartDrawer";
 import AttendeeOnboarding from "@/components/portal/AttendeeOnboarding";
 import logo from "@/assets/logo.png";
@@ -52,7 +53,7 @@ const PortalLayout = () => {
   };
 
   return (
-    <div className={`min-h-screen bg-background ${themeClass}`}>
+    <div className={`min-h-screen bg-background pb-16 md:pb-0 ${themeClass}`}>
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-md transition-colors duration-500">
         <div className="container flex h-16 md:h-28 items-center justify-between">
@@ -265,6 +266,7 @@ const PortalLayout = () => {
       </main>
       <CartDrawer />
       <AttendeeOnboarding />
+      <MobileBottomNav />
 
       <footer className="relative border-t border-border mt-20 overflow-hidden transition-colors duration-500">
         <div className="absolute inset-0 stage-light-duo opacity-25 pointer-events-none" />

@@ -80,7 +80,7 @@ const DateOfBirthPicker = ({ value, onChange, minYear, maxYear, id, className, p
   return (
     <div className={cn("grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1.2fr)] gap-2", className)}>
       <Select value={parts.day != null ? String(parts.day) : ""} onValueChange={(v) => setPart({ day: Number(v) })}>
-        <SelectTrigger id={id} aria-label="Day of birth">
+        <SelectTrigger id={id} aria-label="Day of birth" className="px-2.5">
           <SelectValue placeholder="Day" />
         </SelectTrigger>
         <SelectContent className={popoverClassName}>
@@ -88,7 +88,7 @@ const DateOfBirthPicker = ({ value, onChange, minYear, maxYear, id, className, p
         </SelectContent>
       </Select>
       <Select value={parts.month != null ? String(parts.month) : ""} onValueChange={(v) => setPart({ month: Number(v) })}>
-        <SelectTrigger aria-label="Month of birth">
+        <SelectTrigger aria-label="Month of birth" className="px-2.5">
           <SelectValue placeholder="Month" />
         </SelectTrigger>
         <SelectContent className={popoverClassName}>
@@ -96,7 +96,7 @@ const DateOfBirthPicker = ({ value, onChange, minYear, maxYear, id, className, p
         </SelectContent>
       </Select>
       <Select value={parts.year != null ? String(parts.year) : ""} onValueChange={(v) => setPart({ year: Number(v) })}>
-        <SelectTrigger aria-label="Year of birth">
+        <SelectTrigger aria-label="Year of birth" className="px-2.5">
           <SelectValue placeholder="Year" />
         </SelectTrigger>
         <SelectContent className={popoverClassName}>

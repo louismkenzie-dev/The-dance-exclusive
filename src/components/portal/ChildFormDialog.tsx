@@ -388,7 +388,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
           )}
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-6">
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 pt-1">
           <div className="space-y-4 pb-6">
             {/* ═══ PROFILE PHOTO ═══ */}
             <div className="flex flex-col items-center gap-3">
@@ -494,7 +494,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                     <Label>Preferred Name / Nickname</Label>
                     <Input value={form.preferred_name} onChange={(e) => update("preferred_name", e.target.value)} placeholder="What do they like to be called?" />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="dob-day">Date of Birth *</Label>
                       <DateOfBirthPicker

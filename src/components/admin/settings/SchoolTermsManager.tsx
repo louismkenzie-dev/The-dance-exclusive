@@ -14,6 +14,7 @@ import {
   Calendar, Loader2, Plus, Trash2, Edit2, GraduationCap, Palmtree, Flag, ExternalLink
 } from "lucide-react";
 import { format, parseISO, differenceInWeeks } from "date-fns";
+import HolidaySessionSweep from "@/components/admin/settings/HolidaySessionSweep";
 
 const currentYear = new Date().getFullYear();
 const currentMonth = new Date().getMonth();
@@ -315,6 +316,11 @@ export const SchoolTermsManager = () => {
                     <Plus className="h-3 w-3 mr-1" /> Add Holiday
                   </Button>
                 </div>
+                {schoolHolidays.length > 0 && (
+                  <div className="mb-3">
+                    <HolidaySessionSweep holidays={schoolHolidays} />
+                  </div>
+                )}
                 {schoolHolidays.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-4 text-center">
                     No school holidays configured. Import from Essex CC or add manually.

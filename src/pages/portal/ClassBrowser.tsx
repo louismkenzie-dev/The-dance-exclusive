@@ -168,6 +168,7 @@ const ClassBrowser = () => {
   const showBothEqual = !customerType || customerType === "both";
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [camps, setCamps] = useState<any[]>([]);
+  const [campsLoaded, setCampsLoaded] = useState(false);
   const [shows, setShows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -387,6 +388,7 @@ const ClassBrowser = () => {
 
   // Fetch camps
   useEffect(() => {
+    setCampsLoaded(false);
     const today = new Date().toISOString().split("T")[0];
     supabase
       .from("camps")
@@ -395,7 +397,7 @@ const ClassBrowser = () => {
       .eq("class_type", classType as any)
       .gte("end_date", today)
       .order("start_date")
-      .then(({ data }) => { if (data) setCamps(data); });
+      .then(({ data }) => { if (data) setCamps(data); setCampsLoaded(true); });
   }, [classType]);
 
   // Fetch shows
@@ -509,18 +511,25 @@ const ClassBrowser = () => {
   const handledCampRef = useRef<string | null>(null);
   useEffect(() => {
     if (!linkedCampId || handledCampRef.current === linkedCampId) return;
-    if (!camps.some((cp: any) => cp.id === linkedCampId)) return;
+    const found = camps.some((cp: any) => cp.id === linkedCampId);
+    if (!found && !campsLoaded) return; // still loading — keep the link alive
     handledCampRef.current = linkedCampId;
-    setActiveSection("camps");
-    setBookCampId(linkedCampId);
     const next = new URLSearchParams(searchParams);
     next.delete("camp");
     setSearchParams(next, { replace: true });
+    if (!found) {
+      // The fetch only returns active, not-yet-ended events, so a shared
+      // link can outlive the event it points at.
+      toast.info("That event has finished or is no longer open for booking.");
+      return;
+    }
+    setActiveSection("camps");
+    setBookCampId(linkedCampId);
     window.setTimeout(() => {
       document.getElementById("section-camps")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 150);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [linkedCampId, camps]);
+  }, [linkedCampId, camps, campsLoaded]);
 
   // Effective coords: manual search overrides home coords
   const effectiveCoords = searchCoords || homeCoords;
@@ -1506,9 +1515,11 @@ const ClassBrowser = () => {
           ) : (
             <div className="grid gap-6 md:grid-cols-2">
               {[...camps].sort((a: any, b: any) => {
-                const aMatch = getMatchingChildren(a).length > 0 ? 0 : 1;
-                const bMatch = getMatchingChildren(b).length > 0 ? 0 : 1;
-                if (aMatch !== bMatch) return aMatch - bMatch;
+                if (!isAdult) {
+                  const aMatch = getMatchingChildren(a).length > 0 ? 0 : 1;
+                  const bMatch = getMatchingChildren(b).length > 0 ? 0 : 1;
+                  if (aMatch !== bMatch) return aMatch - bMatch;
+                }
                 if (!effectiveCoords) return 0;
                 const aDist = a.venues?.latitude && a.venues?.longitude ? haversineDistance(effectiveCoords.lat, effectiveCoords.lon, a.venues.latitude, a.venues.longitude) : 9999;
                 const bDist = b.venues?.latitude && b.venues?.longitude ? haversineDistance(effectiveCoords.lat, effectiveCoords.lon, b.venues.latitude, b.venues.longitude) : 9999;
@@ -1516,7 +1527,9 @@ const ClassBrowser = () => {
               }).map((camp: any) => {
                 const workshopImage = getWorkshopImageUrl(camp.workshops?.cover_image);
                 const venue = camp.venues;
-                const campMatchedChildren = getMatchingChildren(camp);
+                // Child-match banners are a children's-page thing: adults
+                // book themselves, so "Perfect for Tilly!" would mislead.
+                const campMatchedChildren = isAdult ? [] : getMatchingChildren(camp);
                 const campChildNames = campMatchedChildren.map((ch: any) => ch.preferred_name || ch.first_name);
                 return (
                   <Card key={camp.id} className="card-elevated rounded-xl overflow-hidden border-border/50 bg-card/80 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-300">

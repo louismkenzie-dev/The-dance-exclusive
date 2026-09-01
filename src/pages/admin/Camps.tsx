@@ -1243,10 +1243,15 @@ const AdminCamps = () => {
                   <div className="flex items-center gap-2 lg:gap-3 flex-wrap justify-end border-t lg:border-t-0 border-border/40 pt-3 lg:pt-0">
                     {c.price_per_day && <span className="text-sm font-medium">£{c.price_per_day}/day</span>}
                     {c.price_total && <span className="text-sm text-muted-foreground">£{c.price_total} total</span>}
-                    <Button variant="ghost" size="sm" className="flex flex-col items-center gap-0 h-auto py-1 px-2" onClick={() => copyCampLink(c)}>
-                      <LinkIcon className="w-4 h-4" />
-                      <span className="text-[9px] text-muted-foreground">Copy link</span>
-                    </Button>
+                    {/* Only linkable camps get a link: the parent-facing fetch
+                        skips inactive/finished events, so a link to one would
+                        land on nothing. */}
+                    {!showPast && c.is_active && (
+                      <Button variant="ghost" size="sm" className="flex flex-col items-center gap-0 h-auto py-1 px-2" onClick={() => copyCampLink(c)}>
+                        <LinkIcon className="w-4 h-4" />
+                        <span className="text-[9px] text-muted-foreground">Copy link</span>
+                      </Button>
+                    )}
                     <Button variant="ghost" size="sm" className="flex flex-col items-center gap-0 h-auto py-1 px-2" onClick={() => openClone(c)}>
                       <Copy className="w-4 h-4" />
                       <span className="text-[9px] text-muted-foreground">Clone</span>

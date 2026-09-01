@@ -804,7 +804,7 @@ const AdminBookings = () => {
   // Amie doesn't have to know it lives on the Memberships & Plans tab.
   const [bookingMoveTarget, setBookingMoveTarget] = useState<MoveMembershipTarget | null>(null);
   const openMonthlyMove = async (b: Booking) => {
-    const { data } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from("memberships")
       .select("id, class_id, status")
       .eq("class_id", b.class_id)
@@ -813,10 +813,19 @@ const AdminBookings = () => {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (error) {
+      toast({
+        title: "Couldn't look up the membership",
+        description: `${error.message} — please try again.`,
+        variant: "destructive",
+      });
+      return;
+    }
     if (!data) {
       toast({
-        title: "No live membership found",
-        description: "This monthly booking has no active membership behind it — check the Memberships & Plans tab.",
+        title: "No active or paused membership found",
+        description:
+          "The membership behind this booking may have a payment issue or have ended — check the Memberships & Plans tab.",
         variant: "destructive",
       });
       return;

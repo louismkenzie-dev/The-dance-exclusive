@@ -314,7 +314,7 @@ const PartyEnquiries = () => {
       )}
 
       <Dialog open={!!target} onOpenChange={(o) => { if (!o && !saving) setTarget(null); }}>
-        <DialogContent className="max-w-lg max-h-[88dvh] flex flex-col">
+        <DialogContent className="max-w-lg max-h-dialog flex flex-col">
           <DialogHeader>
             <DialogTitle>
               Reply about {target?.birthday_child_name}&#39;s party

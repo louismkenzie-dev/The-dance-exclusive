@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,53 +11,12 @@ import PortalLayout from "@/components/layouts/PortalLayout";
 import AdminLayout from "@/components/layouts/AdminLayout";
 import StaffLayout from "@/components/layouts/StaffLayout";
 
-// Pages
+// The booking journey stays in the main bundle: a parent on a phone gets the
+// landing page, class browser and checkout without any further downloads.
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
-import StaffOnboarding from "./pages/StaffOnboarding";
-
-// Admin pages
-import AdminDashboard from "./pages/admin/Dashboard";
-import AdminClasses from "./pages/admin/Classes";
-import AdminCamps from "./pages/admin/Camps";
-import AdminBookings from "./pages/admin/Bookings";
-import AdminRegisters from "./pages/admin/Registers";
-import AdminAdmins from "./pages/admin/Admins";
-import AdminCustomers from "./pages/admin/Customers";
-import AdminStudents from "./pages/admin/Students";
-import AdminVenues from "./pages/admin/Venues";
-import AdminStaff from "./pages/admin/Staff";
-import AdminWorkshops from "./pages/admin/Workshops";
-import AdminCalendar from "./pages/admin/Calendar";
-import AdminParties from "./pages/admin/Parties";
-import AdminMerchandise from "./pages/admin/Merchandise";
-import AdminCoupons from "./pages/admin/Coupons";
-import AdminSettings from "./pages/admin/Settings";
-import SettingsCompany from "./pages/admin/SettingsCompany";
-import SettingsTermDates from "./pages/admin/SettingsTermDates";
-import SettingsNavigation from "./pages/admin/SettingsNavigation";
-
-// Staff pages
-import StaffDashboard from "./pages/staff/Dashboard";
-import StaffMyClasses from "./pages/staff/MyClasses";
-import StaffRegisters from "./pages/staff/Registers";
-import StaffDocuments from "./pages/staff/Documents";
-import StaffProfile from "./pages/staff/Profile";
-
-// Marketing pages
-import About from "./pages/marketing/About";
-import Team from "./pages/marketing/Team";
-import Results from "./pages/marketing/Results";
-import Gallery from "./pages/marketing/Gallery";
-import Venues from "./pages/marketing/Venues";
-import ParentInfo from "./pages/marketing/ParentInfo";
-import Contact from "./pages/marketing/Contact";
-import Shop from "./pages/marketing/Shop";
-import Parties from "./pages/marketing/Parties";
-
-// Portal pages
 import ClassBrowser from "./pages/portal/ClassBrowser";
 import Timetable from "./pages/portal/Timetable";
 import BookClass from "./pages/portal/BookClass";
@@ -65,7 +25,56 @@ import MyBookings from "./pages/portal/MyBookings";
 import Checkout from "./pages/portal/Checkout";
 import CheckoutReturn from "./pages/portal/CheckoutReturn";
 
+// Everything else loads on demand, so parents never download the admin or
+// staff areas at all — a large cut to the bundle phones fetch on 4G.
+const StaffOnboarding = lazy(() => import("./pages/StaffOnboarding"));
+
+// Admin pages
+const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
+const AdminClasses = lazy(() => import("./pages/admin/Classes"));
+const AdminCamps = lazy(() => import("./pages/admin/Camps"));
+const AdminBookings = lazy(() => import("./pages/admin/Bookings"));
+const AdminRegisters = lazy(() => import("./pages/admin/Registers"));
+const AdminAdmins = lazy(() => import("./pages/admin/Admins"));
+const AdminCustomers = lazy(() => import("./pages/admin/Customers"));
+const AdminStudents = lazy(() => import("./pages/admin/Students"));
+const AdminVenues = lazy(() => import("./pages/admin/Venues"));
+const AdminStaff = lazy(() => import("./pages/admin/Staff"));
+const AdminWorkshops = lazy(() => import("./pages/admin/Workshops"));
+const AdminCalendar = lazy(() => import("./pages/admin/Calendar"));
+const AdminParties = lazy(() => import("./pages/admin/Parties"));
+const AdminMerchandise = lazy(() => import("./pages/admin/Merchandise"));
+const AdminCoupons = lazy(() => import("./pages/admin/Coupons"));
+const AdminSettings = lazy(() => import("./pages/admin/Settings"));
+const SettingsCompany = lazy(() => import("./pages/admin/SettingsCompany"));
+const SettingsTermDates = lazy(() => import("./pages/admin/SettingsTermDates"));
+const SettingsNavigation = lazy(() => import("./pages/admin/SettingsNavigation"));
+
+// Staff pages
+const StaffDashboard = lazy(() => import("./pages/staff/Dashboard"));
+const StaffMyClasses = lazy(() => import("./pages/staff/MyClasses"));
+const StaffRegisters = lazy(() => import("./pages/staff/Registers"));
+const StaffDocuments = lazy(() => import("./pages/staff/Documents"));
+const StaffProfile = lazy(() => import("./pages/staff/Profile"));
+
+// Marketing pages
+const About = lazy(() => import("./pages/marketing/About"));
+const Team = lazy(() => import("./pages/marketing/Team"));
+const Results = lazy(() => import("./pages/marketing/Results"));
+const Gallery = lazy(() => import("./pages/marketing/Gallery"));
+const Venues = lazy(() => import("./pages/marketing/Venues"));
+const ParentInfo = lazy(() => import("./pages/marketing/ParentInfo"));
+const Contact = lazy(() => import("./pages/marketing/Contact"));
+const Shop = lazy(() => import("./pages/marketing/Shop"));
+const Parties = lazy(() => import("./pages/marketing/Parties"));
+
 const queryClient = new QueryClient();
+
+const PageLoading = () => (
+  <div className="min-h-[50vh] flex items-center justify-center">
+    <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" aria-label="Loading" />
+  </div>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -75,6 +84,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <CartProvider>
+          <Suspense fallback={<PageLoading />}>
           <Routes>
             {/* Auth */}
             <Route path="/auth" element={<Auth />} />
@@ -138,6 +148,7 @@ const App = () => (
 
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
           </CartProvider>
         </AuthProvider>
       </BrowserRouter>

@@ -318,7 +318,7 @@ const OneToOneTab = () => {
       <Dialog open={open} onOpenChange={(o) => { if (!saving) setOpen(o); }}>
         {/* Capped height with an internally scrolling body: the form is long,
             and on a laptop or phone the header and buttons must stay in view. */}
-        <DialogContent className="max-w-md max-h-[88dvh] flex flex-col gap-0 p-0 sm:p-0">
+        <DialogContent className="max-w-md max-h-dialog flex flex-col gap-0 p-0 sm:p-0">
           <DialogHeader className="shrink-0 px-5 pt-5 pb-3 text-left">
             <DialogTitle>New one-to-one invite</DialogTitle>
             <DialogDescription>

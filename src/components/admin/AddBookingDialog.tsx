@@ -178,7 +178,7 @@ const AddBookingDialog = ({ open, onOpenChange, onDone }: Props) => {
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!saving) { if (!o) reset(); onOpenChange(o); } }}>
-      <DialogContent className="max-w-lg max-h-[88dvh] flex flex-col">
+      <DialogContent className="max-w-lg max-h-dialog flex flex-col">
         <DialogHeader>
           <DialogTitle>Add a booking</DialogTitle>
           <DialogDescription>

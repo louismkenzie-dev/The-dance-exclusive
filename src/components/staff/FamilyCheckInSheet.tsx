@@ -69,7 +69,7 @@ const FamilyCheckInSheet = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto">
+      <DialogContent className="max-w-md max-h-dialog overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-primary" /> QR Scanned — Family Check-In

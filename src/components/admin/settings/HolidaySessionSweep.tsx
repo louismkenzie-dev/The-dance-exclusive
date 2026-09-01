@@ -169,7 +169,7 @@ export const HolidaySessionSweep = ({ holidays }: Props) => {
       )}
 
       <Dialog open={!!reviewHoliday} onOpenChange={(o) => { if (!o && !deleting) setReviewHoliday(null); }}>
-        <DialogContent className="max-w-lg max-h-[85dvh] flex flex-col">
+        <DialogContent className="max-w-lg max-h-dialog flex flex-col">
           <DialogHeader>
             <DialogTitle>Sessions during {reviewHoliday?.name}</DialogTitle>
             <DialogDescription>

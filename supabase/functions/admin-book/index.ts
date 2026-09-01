@@ -122,6 +122,53 @@ serve(async (req) => {
     }
 
     // ---------------------------------------------------------------
+    // Holiday camps / crew events — record-only: a scholarship place,
+    // cash at the door, or a top-up the studio collected outside Stripe.
+    // ---------------------------------------------------------------
+    if (body.campId && typeof body.campId === "string") {
+      if (mode !== "record") {
+        return jsonResponse({ error: "Camp places can only be recorded as already paid" }, 400);
+      }
+      if (!student) {
+        return jsonResponse({ error: "Choose who the place is for" }, 400);
+      }
+      const { data: camp } = await supabase
+        .from("camps")
+        .select("id, name, is_active")
+        .eq("id", body.campId)
+        .maybeSingle();
+      if (!camp || !camp.is_active) {
+        return jsonResponse({ error: "That camp isn't available" }, 400);
+      }
+      const campAmount = Number(body.amount);
+      if (!Number.isFinite(campAmount) || campAmount < 0) {
+        return jsonResponse({ error: "Set the amount they paid (0 for a free place)" }, 400);
+      }
+      const campReason = typeof note === "string" && note.trim()
+        ? note.trim().slice(0, 200)
+        : "Added by admin";
+      const { data: created, error } = await supabase
+        .from("bookings")
+        .insert({
+          camp_id: camp.id,
+          class_id: null,
+          student_id: studentId,
+          parent_id: userId,
+          status: "confirmed",
+          booking_type: "camp",
+          amount: campAmount,
+          notes: campReason,
+        })
+        .select("id")
+        .single();
+      if (error || !created) {
+        console.error("admin-book camp insert failed:", error);
+        return jsonResponse({ error: "Could not create the camp booking" }, 500);
+      }
+      return jsonResponse({ success: true, bookingIds: [created.id] });
+    }
+
+    // ---------------------------------------------------------------
     // Class bookings.
     // ---------------------------------------------------------------
     if (!classId || typeof classId !== "string") {

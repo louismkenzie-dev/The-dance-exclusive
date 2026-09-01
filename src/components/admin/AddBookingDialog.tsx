@@ -29,6 +29,7 @@ interface ClassOption {
   day_of_week: string | null; start_time: string | null;
   venues: { name: string } | null;
 }
+interface CampOption { id: string; name: string; start_date: string | null; end_date: string | null }
 
 const PLANS = [
   { value: "trial", label: "Trial class", dated: true },
@@ -47,15 +48,16 @@ const AddBookingDialog = ({ open, onOpenChange, onDone }: Props) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [classes, setClasses] = useState<ClassOption[]>([]);
+  const [camps, setCamps] = useState<CampOption[]>([]);
   const [sessions, setSessions] = useState<{ id: string; session_date: string }[]>([]);
   const [customerOpen, setCustomerOpen] = useState(false);
   const [classOpen, setClassOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const [what, setWhat] = useState<"class" | "pass">("class");
+  const [what, setWhat] = useState<"class" | "pass" | "camp">("class");
   const [mode, setMode] = useState<"record" | "invite">("record");
   const [form, setForm] = useState({
-    userId: "", studentId: "", classId: "", plan: "session",
+    userId: "", studentId: "", classId: "", campId: "", plan: "session",
     passType: "pack_4" as AdultPassType, sessionsRemaining: "", amount: "", note: "",
   });
   const [dates, setDates] = useState<string[]>([]);
@@ -63,16 +65,20 @@ const AddBookingDialog = ({ open, onOpenChange, onDone }: Props) => {
   useEffect(() => {
     if (!open) return;
     void (async () => {
-      const [{ data: profs }, { data: studs }, { data: cls }] = await Promise.all([
+      const [{ data: profs }, { data: studs }, { data: cls }, { data: cmp }] = await Promise.all([
         supabase.from("profiles").select("user_id, full_name, email").order("full_name"),
         supabase.from("students").select("id, first_name, last_name, parent_id, is_self").order("first_name"),
         supabase.from("classes")
           .select("id, name, class_type, day_of_week, start_time, venues:venue_id(name)")
           .eq("is_active", true).eq("invite_only", false).order("name"),
+        supabase.from("camps")
+          .select("id, name, start_date, end_date")
+          .eq("is_active", true).order("start_date"),
       ]);
       setCustomers(((profs as any[]) ?? []) as Customer[]);
       setStudents(((studs as any[]) ?? []) as Student[]);
       setClasses(((cls as any[]) ?? []) as ClassOption[]);
+      setCamps(((cmp as any[]) ?? []) as CampOption[]);
     })();
   }, [open]);
 
@@ -105,7 +111,7 @@ const AddBookingDialog = ({ open, onOpenChange, onDone }: Props) => {
 
   const reset = () => {
     setForm({
-      userId: "", studentId: "", classId: "", plan: "session",
+      userId: "", studentId: "", classId: "", campId: "", plan: "session",
       passType: "pack_4", sessionsRemaining: "", amount: "", note: "",
     });
     setDates([]);
@@ -114,12 +120,13 @@ const AddBookingDialog = ({ open, onOpenChange, onDone }: Props) => {
   };
 
   const submit = async () => {
-    // Class packs are always a record of something already bought — there's
-    // no "send a link" flow for them.
-    const effectiveMode = what === "pass" ? "record" : mode;
+    // Class packs and camp places are always a record of something already
+    // sorted — there is no send-a-link flow for them.
+    const effectiveMode = what === "class" ? mode : "record";
     if (!form.userId) { toast.error("Choose the customer this is for."); return; }
     if (what === "class" && !form.classId) { toast.error("Choose a class."); return; }
-    if (what === "class" && !form.studentId) { toast.error("Choose who the class is for."); return; }
+    if (what === "camp" && !form.campId) { toast.error("Choose a camp or event."); return; }
+    if (what !== "pass" && !form.studentId) { toast.error("Choose who the place is for."); return; }
     if (needsDates && effectiveMode === "record" && dates.length === 0) {
       toast.error("Pick which date(s) they're coming to.");
       return;
@@ -140,11 +147,13 @@ const AddBookingDialog = ({ open, onOpenChange, onDone }: Props) => {
               passType: form.passType,
               sessionsRemaining: form.sessionsRemaining ? Number(form.sessionsRemaining) : null,
             }
-            : {
-              classId: form.classId,
-              plan: form.plan,
-              sessionDates: dates,
-            }),
+            : what === "camp"
+              ? { campId: form.campId }
+              : {
+                classId: form.classId,
+                plan: form.plan,
+                sessionDates: dates,
+              }),
           amount: form.amount ? Number(form.amount) : 0,
           note: form.note || null,
         },
@@ -163,7 +172,8 @@ const AddBookingDialog = ({ open, onOpenChange, onDone }: Props) => {
       }
       toast.success(
         effectiveMode === "record"
-          ? what === "pass" ? "Class pack added to their account" : "Booking added"
+          ? what === "pass" ? "Class pack added to their account"
+            : what === "camp" ? "Camp place added" : "Booking added"
           : data.emailSent
             ? "Set up — they've been emailed a link to pay"
             : "Set up — but the email didn't send, so let them know it's waiting in their account",
@@ -250,6 +260,7 @@ const AddBookingDialog = ({ open, onOpenChange, onDone }: Props) => {
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="class">A place on a class</SelectItem>
+                <SelectItem value="camp">A place on a camp / event</SelectItem>
                 <SelectItem value="pass">An adult class pack</SelectItem>
               </SelectContent>
             </Select>
@@ -341,6 +352,27 @@ const AddBookingDialog = ({ open, onOpenChange, onDone }: Props) => {
             </>
           )}
 
+          {what === "camp" && (
+            <div className="space-y-1.5">
+              <Label>Which camp / event?</Label>
+              <Select value={form.campId} onValueChange={(v) => setForm((f) => ({ ...f, campId: v }))}>
+                <SelectTrigger><SelectValue placeholder="Choose a camp or event" /></SelectTrigger>
+                <SelectContent>
+                  {camps.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                      {c.start_date ? ` — ${format(parseISO(c.start_date), "d MMM")}${c.end_date ? ` to ${format(parseISO(c.end_date), "d MMM")}` : ""}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Recorded as already paid (or free) — use this for scholarship places, cash,
+                or a top-up you've collected outside the site.
+              </p>
+            </div>
+          )}
+
           {what === "class" && (
             <div className="space-y-1.5">
               <Label>How is it being paid?</Label>
@@ -388,7 +420,7 @@ const AddBookingDialog = ({ open, onOpenChange, onDone }: Props) => {
             </div>
           )}
 
-          {(mode === "record" || what === "pass") && (
+          {(what !== "class" || mode === "record") && (
             <div className="space-y-1.5">
               <Label>Amount they paid (£)</Label>
               <Input

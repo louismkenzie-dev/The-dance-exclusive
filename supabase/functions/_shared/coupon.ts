@@ -100,8 +100,15 @@ export async function validateAndCompute(
   discountAmount = Math.round(discountAmount * 100) / 100;
   const finalTotal = Math.max(0, Math.round((cartSubtotal - discountAmount) * 100) / 100);
 
-  if (finalTotal > 0 && finalTotal < 0.30) {
-    return { error: "Discounted total is below the £0.30 minimum charge" };
+  // Card payments can't be £0 (or under Stripe's 30p minimum), so a code
+  // covering the full cost cannot go through checkout at all. Say so in
+  // plain words — the studio books full-scholarship places in directly.
+  if (finalTotal < 0.30) {
+    return {
+      error:
+        "This code covers the full cost, so there's nothing to pay — the studio will " +
+        "book this in for you directly. Please drop them a message and they'll sort it.",
+    };
   }
 
   return {

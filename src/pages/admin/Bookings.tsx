@@ -798,6 +798,38 @@ const AdminBookings = () => {
     }
   };
 
+  // Monthly memberships are Stripe subscriptions, so the plain "move booking"
+  // can't touch them — but the proper membership move can. Look the live
+  // membership up from the booking row and open that flow right here, so
+  // Amie doesn't have to know it lives on the Memberships & Plans tab.
+  const [bookingMoveTarget, setBookingMoveTarget] = useState<MoveMembershipTarget | null>(null);
+  const openMonthlyMove = async (b: Booking) => {
+    const { data } = await (supabase as any)
+      .from("memberships")
+      .select("id, class_id, status")
+      .eq("class_id", b.class_id)
+      .eq("student_id", (b as any).student_id)
+      .in("status", ["active", "paused"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!data) {
+      toast({
+        title: "No live membership found",
+        description: "This monthly booking has no active membership behind it — check the Memberships & Plans tab.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setBookingMoveTarget({
+      membershipId: data.id,
+      parentName: b.profiles?.full_name ?? "Unknown",
+      childName: b.students ? `${b.students.first_name} ${b.students.last_name}` : "—",
+      className: b.classes?.name ?? "—",
+      classId: data.class_id ?? b.class_id,
+    });
+  };
+
   // "Paid for the wrong class" fix: move a booking to another class in place,
   // keeping the child and the payment.
   const [moveBooking, setMoveBooking] = useState<Booking | null>(null);
@@ -982,6 +1014,9 @@ const AdminBookings = () => {
                     {b.status === "confirmed" && b.class_id && MOVABLE_TYPES.includes(b.booking_type) && (
                       <Button size="sm" variant="outline" onClick={() => openMove(b)}>Move class</Button>
                     )}
+                    {b.status === "confirmed" && b.class_id && b.booking_type === "monthly" && (
+                      <Button size="sm" variant="outline" onClick={() => openMonthlyMove(b)}>Move class</Button>
+                    )}
                     {Number(b.amount) > 0 && /pi_[A-Za-z0-9]+/.test(b.notes || "") && !/refunded £/.test(b.notes || "") && (
                       <Button
                         size="sm"
@@ -1032,6 +1067,13 @@ const AdminBookings = () => {
       {/* Put someone on a class by hand: record a Gymcatch/cash purchase, or
           set the place up and email them a link to pay for it. */}
       <AddBookingDialog open={addOpen} onOpenChange={setAddOpen} onDone={fetchBookings} />
+
+      {/* Move a monthly membership to another class, straight from its booking row */}
+      <MoveMembershipDialog
+        target={bookingMoveTarget}
+        onOpenChange={(o) => { if (!o) setBookingMoveTarget(null); }}
+        onMoved={fetchBookings}
+      />
 
       {/* Refund a card-paid booking (partial or full) */}
       <Dialog open={!!refundBooking} onOpenChange={(o) => { if (!o && !refunding) setRefundBooking(null); }}>

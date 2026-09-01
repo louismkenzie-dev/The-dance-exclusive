@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import WorkshopCover from "@/components/WorkshopCover";
 
-const DANCE_STYLES = ["Tap", "Modern", "Jazz", "Hip Hop", "Ballet", "Contemporary", "Lyrical", "Street", "Musical Theatre", "Acro", "Commercial", "Popping", "Locking", "Breaking", "Whacking", "Afro", "House", "Crew Choreography", "Lite Feet", "Private Lessons", "Mixed"];
+const DANCE_STYLES = ["Tap", "Modern", "Jazz", "Hip Hop", "Ballet", "Contemporary", "Lyrical", "Street", "Musical Theatre", "Acro", "Commercial", "Heels", "Popping", "Locking", "Breaking", "Whacking", "Afro", "House", "Crew Choreography", "Lite Feet", "Private Lessons", "Mixed"];
 
 type PlatformInfo = { label: string; Icon: typeof Globe; className: string };
 

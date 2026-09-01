@@ -10,9 +10,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, X, Copy, MapPin, Calendar, Users, Clock } from "lucide-react";
+import { Plus, Edit, Trash2, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, X, Copy, MapPin, Calendar, Users, Clock, Link as LinkIcon } from "lucide-react";
 import { format, parseISO, eachDayOfInterval, isBefore, isWeekend, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameMonth, isSameDay, getDay } from "date-fns";
 import WorkshopCover from "@/components/WorkshopCover";
+import { campShareUrl } from "@/lib/classLinks";
 
 interface WorkshopOption {
   id: string;
@@ -378,6 +379,17 @@ const AdminCamps = () => {
 
   const openEdit = (c: CampData) => { void populateForm(c, true); };
   const openClone = (c: CampData) => { void populateForm(c, false); };
+
+  // Shareable link straight to this camp's booking dialog, for WhatsApp.
+  const copyCampLink = async (c: CampData) => {
+    const url = campShareUrl(c.id, c.class_type as "children" | "adult");
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({ title: "Link copied", description: url });
+    } catch {
+      toast({ title: "Copy this link", description: url });
+    }
+  };
 
   const handleSubmit = async () => {
     if (!selectedWorkshop) return;
@@ -1231,6 +1243,10 @@ const AdminCamps = () => {
                   <div className="flex items-center gap-2 lg:gap-3 flex-wrap justify-end border-t lg:border-t-0 border-border/40 pt-3 lg:pt-0">
                     {c.price_per_day && <span className="text-sm font-medium">£{c.price_per_day}/day</span>}
                     {c.price_total && <span className="text-sm text-muted-foreground">£{c.price_total} total</span>}
+                    <Button variant="ghost" size="sm" className="flex flex-col items-center gap-0 h-auto py-1 px-2" onClick={() => copyCampLink(c)}>
+                      <LinkIcon className="w-4 h-4" />
+                      <span className="text-[9px] text-muted-foreground">Copy link</span>
+                    </Button>
                     <Button variant="ghost" size="sm" className="flex flex-col items-center gap-0 h-auto py-1 px-2" onClick={() => openClone(c)}>
                       <Copy className="w-4 h-4" />
                       <span className="text-[9px] text-muted-foreground">Clone</span>

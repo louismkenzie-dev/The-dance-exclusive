@@ -157,6 +157,8 @@ const ClassBrowser = () => {
   // ?class=<id> — a link the studio sent a family, pointing at one class.
   const [searchParams, setSearchParams] = useSearchParams();
   const linkedClassId = searchParams.get("class");
+  // ?camp=<id> — a shared link straight to one camp/event's booking dialog.
+  const linkedCampId = searchParams.get("camp");
   const { profile, user } = useAuth();
   const { addItem, items: cartItems } = useCart();
   const navigate = useNavigate();
@@ -502,6 +504,24 @@ const ClassBrowser = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkedClassId, loading, classes]);
 
+  // A shared camp link opens the Events section with that camp's booking
+  // dialog ready. Camps load in their own effect, so wait for them.
+  const handledCampRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!linkedCampId || handledCampRef.current === linkedCampId) return;
+    if (!camps.some((cp: any) => cp.id === linkedCampId)) return;
+    handledCampRef.current = linkedCampId;
+    setActiveSection("camps");
+    setBookCampId(linkedCampId);
+    const next = new URLSearchParams(searchParams);
+    next.delete("camp");
+    setSearchParams(next, { replace: true });
+    window.setTimeout(() => {
+      document.getElementById("section-camps")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 150);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkedCampId, camps]);
+
   // Effective coords: manual search overrides home coords
   const effectiveCoords = searchCoords || homeCoords;
 
@@ -692,7 +712,7 @@ const ClassBrowser = () => {
         <div className="flex flex-wrap gap-2 justify-center mb-10">
           {[
             { key: "classes" as const, label: "Classes", icon: CalendarDays, count: sortedClasses.length },
-            ...(!isAdult ? [{ key: "camps" as const, label: "School Holiday & Weekend Events", icon: Music, count: camps.length }] : []),
+            { key: "camps" as const, label: isAdult ? "Workshops & Events" : "School Holiday & Weekend Events", icon: Music, count: camps.length },
             { key: "shows" as const, label: "Shows & Performances", icon: Ticket, count: shows.length },
           ].map(({ key, label, icon: Icon, count }) => (
             <button
@@ -1473,8 +1493,9 @@ const ClassBrowser = () => {
         )}
         </div>
 
-        {/* CAMPS SECTION — children only */}
-        {!isAdult && <div id="section-camps" className={activeSection !== "camps" ? "hidden" : ""}>
+        {/* CAMPS / EVENTS SECTION — both audiences (the fetch already
+            filters camps to this page's class_type) */}
+        <div id="section-camps" className={activeSection !== "camps" ? "hidden" : ""}>
           {camps.length === 0 ? (
             <Card className="card-elevated border-border/50">
               <CardContent className="py-16 text-center text-muted-foreground">
@@ -1577,7 +1598,7 @@ const ClassBrowser = () => {
               })}
             </div>
           )}
-        </div>}
+        </div>
 
         {/* SHOWS SECTION */}
         <div id="section-shows" className={activeSection !== "shows" ? "hidden" : ""}>
@@ -1703,16 +1724,25 @@ const ClassBrowser = () => {
       />
 
       {/* Book a holiday workshop (camp) — priced per drop-in day */}
-      <CampBookDialog
-        open={!!bookCampId}
-        onOpenChange={(o) => { if (!o) setBookCampId(null); }}
-        camp={bookCampId ? (camps.find((cp: any) => cp.id === bookCampId) as any) : null}
-        children={children}
-        onNeedChild={(child) => {
-          if (child) setProfileNudge(child);
-          else setAddChildOpen(true);
-        }}
-      />
+      {(() => {
+        const bookingCamp = bookCampId ? (camps.find((cp: any) => cp.id === bookCampId) as any) : null;
+        const campIsAdult = bookingCamp?.class_type === "adult";
+        return (
+          <CampBookDialog
+            open={!!bookCampId}
+            onOpenChange={(o) => { if (!o) setBookCampId(null); }}
+            camp={bookingCamp}
+            // Adult events are booked for the account holder's own attendee
+            // profile; children's camps offer the family's kids.
+            children={campIsAdult ? (selfStudent ? [selfStudent] : []) : children}
+            onNeedChild={(child) => {
+              if (campIsAdult) { setSelfDialogOpen(true); return; }
+              if (child) setProfileNudge(child);
+              else setAddChildOpen(true);
+            }}
+          />
+        );
+      })()}
 
       {/* Monthly membership cancellation notice — acknowledged before basket add */}
       <AlertDialog open={!!monthlyNotice} onOpenChange={(o) => { if (!o) setMonthlyNotice(null); }}>

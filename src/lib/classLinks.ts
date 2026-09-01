@@ -25,3 +25,20 @@ export const classBrowserPath = (
   classId: string,
   classType: "children" | "adult" | null | undefined,
 ): string => `/classes/${classType === "adult" ? "adult" : "children"}?class=${classId}`;
+
+/**
+ * Shareable camp/event links. Camps live inside the class browser's Events
+ * section, so the link opens the right audience page with that camp's booking
+ * dialog ready to go.
+ */
+export const campBrowserPath = (
+  campId: string,
+  classType: "children" | "adult" | null | undefined,
+): string => `/classes/${classType === "adult" ? "adult" : "children"}?camp=${campId}`;
+
+/** Full https link to one camp, for pasting into WhatsApp or an email. */
+export const campShareUrl = (
+  campId: string,
+  classType: "children" | "adult" | null | undefined,
+  origin: string = typeof window !== "undefined" ? window.location.origin : "",
+): string => `${origin.replace(/\/$/, "")}${campBrowserPath(campId, classType)}`;

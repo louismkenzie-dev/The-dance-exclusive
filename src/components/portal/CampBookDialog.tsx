@@ -93,6 +93,7 @@ export function CampBookDialog({ open, onOpenChange, camp, children, onNeedChild
 
   if (!camp) return null;
 
+  const isAdultCamp = camp.class_type === "adult";
   const perDay = camp.price_per_day != null && Number(camp.price_per_day) > 0
     ? Number(camp.price_per_day)
     : null;
@@ -172,11 +173,11 @@ export function CampBookDialog({ open, onOpenChange, camp, children, onNeedChild
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-dialog flex flex-col p-0 gap-0 theme-children">
+      <DialogContent className={`max-w-lg max-h-dialog flex flex-col p-0 gap-0 ${camp.class_type === "adult" ? "theme-adult" : "theme-children"}`}>
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50">
           <DialogTitle className="text-xl font-display">{camp.name}</DialogTitle>
           <DialogDescription className="text-xs uppercase tracking-widest text-muted-foreground">
-            Holiday Workshop
+            {isAdultCamp ? "Workshop / Event" : "Holiday Workshop"}
             {camp.venues && <> · {camp.venues.name}</>}
             {perDay != null && <> · £{perDay}/day</>}
           </DialogDescription>
@@ -185,16 +186,16 @@ export function CampBookDialog({ open, onOpenChange, camp, children, onNeedChild
         <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
           {user && children.length === 0 && (
             <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/5 text-sm space-y-2">
-              <p>Add your child's details to book them in.</p>
+              <p>{isAdultCamp ? "Complete your attendee profile to book on." : "Add your child's details to book them in."}</p>
               <Button size="sm" onClick={() => onNeedChild(null)} className="gap-1.5">
-                <UserPlus className="w-3.5 h-3.5" /> Add a Child
+                <UserPlus className="w-3.5 h-3.5" /> {isAdultCamp ? "Complete Profile" : "Add a Child"}
               </Button>
             </div>
           )}
 
           {user && children.length > 0 && (
             <div className="space-y-1.5">
-              <p className="text-[11px] text-muted-foreground font-medium">Select who to book on:</p>
+              <p className="text-[11px] text-muted-foreground font-medium">{isAdultCamp ? "Booking for:" : "Select who to book on:"}</p>
               {eligibleChildren.map((ch) => (
                 <label
                   key={ch.id}
@@ -266,7 +267,7 @@ export function CampBookDialog({ open, onOpenChange, camp, children, onNeedChild
 
           {wholeCampOnly && (
             <p className="text-xs text-muted-foreground">
-              Booked as the whole event{sessions.length > 1 ? ` (${sessions.length} days)` : ""} — £{Number(camp.price_total || 0).toFixed(2)} per child.
+              Booked as the whole event{sessions.length > 1 ? ` (${sessions.length} days)` : ""} — £{Number(camp.price_total || 0).toFixed(2)} per {isAdultCamp ? "person" : "child"}.
             </p>
           )}
         </div>
@@ -278,7 +279,7 @@ export function CampBookDialog({ open, onOpenChange, camp, children, onNeedChild
                 £{total.toFixed(2).replace(/\.00$/, "")}
                 {!wholeCampOnly && dayCount > 0 && (
                   <span className="text-xs font-normal text-muted-foreground ml-1">
-                    {dayCount} day{dayCount === 1 ? "" : "s"}{selKids.length > 1 ? ` × ${selKids.length} children` : ""}
+                    {dayCount} day{dayCount === 1 ? "" : "s"}{selKids.length > 1 ? ` × ${selKids.length} ${isAdultCamp ? "people" : "children"}` : ""}
                   </span>
                 )}
               </span>
@@ -295,7 +296,7 @@ export function CampBookDialog({ open, onOpenChange, camp, children, onNeedChild
             style={{ background: "hsl(193, 100%, 44%)" }}
           >
             <ShoppingCart className="w-3.5 h-3.5" />
-            {!user ? "Sign In to Book" : children.length === 0 ? "Add a Child" : noKids ? "Select child" : noDays ? "Select days" : "Add to Basket"}
+            {!user ? "Sign In to Book" : children.length === 0 ? (isAdultCamp ? "Complete Profile" : "Add a Child") : noKids ? (isAdultCamp ? "Select attendee" : "Select child") : noDays ? "Select days" : "Add to Basket"}
           </Button>
         </div>
       </DialogContent>

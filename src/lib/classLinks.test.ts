@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classBrowserPath, classLinkPath, classShareUrl } from "./classLinks";
+import { campBrowserPath, campShareUrl, classBrowserPath, classLinkPath, classShareUrl } from "./classLinks";
 
 const ID = "8f3a1c2e-0000-4000-8000-000000000001";
 
@@ -34,5 +34,18 @@ describe("classBrowserPath", () => {
 
   it("falls back to children when the type is unknown", () => {
     expect(classBrowserPath(ID, null)).toBe(`/classes/children?class=${ID}`);
+  });
+});
+
+describe("camp links", () => {
+  it("opens the camp on the right audience page", () => {
+    expect(campBrowserPath(ID, "children")).toBe(`/classes/children?camp=${ID}`);
+    expect(campBrowserPath(ID, "adult")).toBe(`/classes/adult?camp=${ID}`);
+  });
+
+  it("builds a full share link without doubling slashes", () => {
+    expect(campShareUrl(ID, "adult", "https://app.thedanceexclusive.co.uk/")).toBe(
+      `https://app.thedanceexclusive.co.uk/classes/adult?camp=${ID}`,
+    );
   });
 });

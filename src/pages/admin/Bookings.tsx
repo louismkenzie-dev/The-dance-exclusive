@@ -17,18 +17,31 @@ import MoveMembershipDialog, { type MoveMembershipTarget } from "@/components/ad
 import OneToOneTab from "@/components/admin/OneToOneTab";
 import TrialsTab from "@/components/admin/TrialsTab";
 import AddBookingDialog from "@/components/admin/AddBookingDialog";
+import BookingBreakdown, { type PaymentSibling } from "@/components/admin/BookingBreakdown";
+import { paymentRefOf } from "@/lib/bookingBreakdown";
 
 interface Booking {
   id: string;
   status: string;
   booking_type: string;
   class_id: string | null;
+  camp_id?: string | null;
   amount: number | null;
   booked_at: string;
   notes: string | null;
-  classes: { name: string; class_type: string } | null;
+  classes: {
+    name: string;
+    class_type: "children" | "adult";
+    start_time: string | null;
+    end_time: string | null;
+    price_per_session: number | null;
+    price_per_term: number | null;
+    price_per_month: number | null;
+    price_per_year: number | null;
+    term_end: string | null;
+  } | null;
   students: { first_name: string; last_name: string } | null;
-  profiles: { full_name: string; email: string } | null;
+  profiles: { full_name: string; email: string; phone?: string | null } | null;
 }
 
 /** Booking types the admin can move to another class in place. Monthly
@@ -715,7 +728,23 @@ const AdminBookings = () => {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
+  // Which booking's "what did they pay for?" panel is open.
+  const [breakdownId, setBreakdownId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Every booking paid in the same Stripe payment as this one — so the panel
+  // can show the whole checkout (both siblings, all classes) in one place.
+  const paymentSiblings = (b: Booking): PaymentSibling[] => {
+    const ref = paymentRefOf(b.notes);
+    const group = ref ? bookings.filter((o) => paymentRefOf(o.notes) === ref) : [b];
+    return group.map((o) => ({
+      id: o.id,
+      studentName: o.students ? `${o.students.first_name} ${o.students.last_name}` : "Adult",
+      className: o.classes?.name ?? "Booking",
+      plan: o.booking_type,
+      amount: Number(o.amount ?? 0),
+    }));
+  };
 
   // Admin refund: pick any card-paid booking, choose the amount, and the
   // money goes back to the parent's card via Stripe.
@@ -840,7 +869,7 @@ const AdminBookings = () => {
   const fetchBookings = async () => {
     let query = supabase
       .from("bookings")
-      .select("*, classes(name, class_type), students(first_name, last_name)")
+      .select("*, classes(name, class_type, start_time, end_time, price_per_session, price_per_term, price_per_month, price_per_year, term_end), students(first_name, last_name)")
       .order("booked_at", { ascending: false });
 
     if (filter !== "all") query = query.eq("status", filter as "confirmed" | "pending_payment" | "cancelled");
@@ -849,9 +878,9 @@ const AdminBookings = () => {
     if (data) {
       // Fetch parent profiles separately
       const parentIds = [...new Set(data.map((b: any) => b.parent_id))];
-      const { data: profiles } = await supabase.from("profiles").select("user_id, full_name, email").in("user_id", parentIds);
+      const { data: profiles } = await supabase.from("profiles").select("user_id, full_name, email, phone").in("user_id", parentIds);
       const profileMap = new Map(profiles?.map((p) => [p.user_id, p]) || []);
-      
+
       setBookings(data.map((b: any) => ({ ...b, profiles: profileMap.get(b.parent_id) || null })));
     }
     setLoading(false);
@@ -919,45 +948,63 @@ const AdminBookings = () => {
         <div className="space-y-3">
           {filtered.map((b) => (
             <Card key={b.id} className="animate-fade-in">
-              <CardContent className="flex items-center justify-between py-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">{b.classes?.name || "Unknown class"}</span>
-                    <Badge variant={statusColors[b.status] || "secondary"}>{b.status.replace("_", " ")}</Badge>
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">{b.classes?.name || "Unknown class"}</span>
+                      <Badge variant={statusColors[b.status] || "secondary"}>{b.status.replace("_", " ")}</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {b.students ? `${b.students.first_name} ${b.students.last_name}` : "Adult booking"}
+                      {b.profiles && ` — Parent: ${b.profiles.full_name}`}
+                      {b.amount != null && ` — £${Number(b.amount).toFixed(2)}`}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Booked: {new Date(b.booked_at).toLocaleString("en-GB", {
+                        day: "2-digit", month: "2-digit", year: "numeric",
+                        hour: "2-digit", minute: "2-digit",
+                      })}
+                    </p>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {b.students ? `${b.students.first_name} ${b.students.last_name}` : "Adult booking"}
-                    {b.profiles && ` — Parent: ${b.profiles.full_name}`}
-                    {b.amount != null && ` — £${Number(b.amount).toFixed(2)}`}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Booked: {new Date(b.booked_at).toLocaleString("en-GB", {
-                      day: "2-digit", month: "2-digit", year: "numeric",
-                      hour: "2-digit", minute: "2-digit",
-                    })}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {b.status === "pending_payment" && (
-                    <Button size="sm" onClick={() => updateStatus(b.id, "confirmed")}>Confirm</Button>
-                  )}
-                  {b.status === "confirmed" && b.class_id && MOVABLE_TYPES.includes(b.booking_type) && (
-                    <Button size="sm" variant="outline" onClick={() => openMove(b)}>Move class</Button>
-                  )}
-                  {Number(b.amount) > 0 && /pi_[A-Za-z0-9]+/.test(b.notes || "") && !/refunded £/.test(b.notes || "") && (
+                  <div className="flex items-center gap-2">
                     <Button
                       size="sm"
-                      variant="outline"
-                      className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => openRefund(b)}
+                      variant={breakdownId === b.id ? "secondary" : "outline"}
+                      onClick={() => setBreakdownId(breakdownId === b.id ? null : b.id)}
                     >
-                      Refund
+                      Breakdown
+                      <ChevronDown className={`w-3.5 h-3.5 ml-1 transition-transform ${breakdownId === b.id ? "rotate-180" : ""}`} />
                     </Button>
-                  )}
-                  {b.status !== "cancelled" && (
-                    <Button size="sm" variant="outline" onClick={() => updateStatus(b.id, "cancelled")}>Cancel</Button>
-                  )}
+                    {b.status === "pending_payment" && (
+                      <Button size="sm" onClick={() => updateStatus(b.id, "confirmed")}>Confirm</Button>
+                    )}
+                    {b.status === "confirmed" && b.class_id && MOVABLE_TYPES.includes(b.booking_type) && (
+                      <Button size="sm" variant="outline" onClick={() => openMove(b)}>Move class</Button>
+                    )}
+                    {Number(b.amount) > 0 && /pi_[A-Za-z0-9]+/.test(b.notes || "") && !/refunded £/.test(b.notes || "") && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => openRefund(b)}
+                      >
+                        Refund
+                      </Button>
+                    )}
+                    {b.status !== "cancelled" && (
+                      <Button size="sm" variant="outline" onClick={() => updateStatus(b.id, "cancelled")}>Cancel</Button>
+                    )}
+                  </div>
                 </div>
+
+                {breakdownId === b.id && (
+                  <BookingBreakdown
+                    booking={b as any}
+                    parent={b.profiles}
+                    samePayment={paymentSiblings(b)}
+                  />
+                )}
               </CardContent>
             </Card>
           ))}

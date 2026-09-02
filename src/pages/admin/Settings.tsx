@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, GraduationCap, ChevronRight, Settings as SettingsIcon, Menu } from "lucide-react";
 import ChangePasswordCard from "@/components/ChangePasswordCard";
+import ClassPassManager from "@/components/admin/settings/ClassPassManager";
 
 const settingsSections = [
   {
@@ -53,6 +54,8 @@ const AdminSettings = () => {
           </Link>
         ))}
       </div>
+
+      <ClassPassManager />
 
       <ChangePasswordCard />
     </div>

@@ -132,6 +132,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
   const [form, setForm] = useState<any>({
     first_name: "", last_name: "", preferred_name: "", date_of_birth: "", gender: "",
     medical_info: "", allergies: "", emergency_contact_name: "", emergency_contact_phone: "",
+    emergency_contact_2_name: "", emergency_contact_2_phone: "", emergency_contact_2_relationship: "",
     medical_conditions_list: [] as string[],
     has_inhaler: false, has_epipen: false,
     allergies_list: [] as string[],
@@ -156,6 +157,9 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
         allergies: editing.allergies || "",
         emergency_contact_name: editing.emergency_contact_name || "",
         emergency_contact_phone: editing.emergency_contact_phone || "",
+        emergency_contact_2_name: editing.emergency_contact_2_name || "",
+        emergency_contact_2_phone: editing.emergency_contact_2_phone || "",
+        emergency_contact_2_relationship: editing.emergency_contact_2_relationship || "",
         medical_conditions_list: editing.medical_conditions_list || [],
         has_inhaler: editing.has_inhaler || false,
         has_epipen: editing.has_epipen || false,
@@ -186,6 +190,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
       setForm({
         first_name: "", last_name: "", preferred_name: "", date_of_birth: "", gender: "",
         medical_info: "", allergies: "", emergency_contact_name: "", emergency_contact_phone: "",
+        emergency_contact_2_name: "", emergency_contact_2_phone: "", emergency_contact_2_relationship: "",
         medical_conditions_list: [], has_inhaler: false, has_epipen: false,
         allergies_list: [], has_send: false, send_conditions_list: [], send_details: "",
         send_triggers_coping: {}, ehcp_in_place: false, one_to_one_required: false,
@@ -311,6 +316,9 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
       allergies: form.allergies || null,
       emergency_contact_name: form.emergency_contact_name || null,
       emergency_contact_phone: form.emergency_contact_phone || null,
+      emergency_contact_2_name: form.emergency_contact_2_name || null,
+      emergency_contact_2_phone: form.emergency_contact_2_phone || null,
+      emergency_contact_2_relationship: form.emergency_contact_2_relationship || null,
       profile_photo: uploadedPhotoUrl || null,
       medical_conditions_list: form.medical_conditions_list,
       has_inhaler: form.has_inhaler,
@@ -348,7 +356,11 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: editing ? "Child updated!" : "Child added!" });
+      toast({
+        title: selfMode
+          ? (editing ? "Profile updated!" : "Your profile is ready!")
+          : (editing ? "Child updated!" : "Child added!"),
+      });
       onOpenChange(false);
       onSaved();
     }
@@ -525,6 +537,27 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
                     <div className="space-y-2">
                       <Label>Emergency Contact Phone{!selfMode && " *"}</Label>
                       <Input type="tel" value={form.emergency_contact_phone} onChange={(e) => update("emergency_contact_phone", e.target.value)} required={!selfMode} placeholder="e.g. 07700 900123" />
+                    </div>
+                  </div>
+                  {/* Backup contact: the studio needs someone else to try when
+                      the first contact can't be reached. */}
+                  <div className="space-y-2 pt-1">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Second emergency contact <span className="font-normal normal-case tracking-normal">(optional, but recommended)</span>
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Name</Label>
+                        <Input value={form.emergency_contact_2_name} onChange={(e) => update("emergency_contact_2_name", e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Phone</Label>
+                        <Input type="tel" value={form.emergency_contact_2_phone} onChange={(e) => update("emergency_contact_2_phone", e.target.value)} placeholder="e.g. 07700 900123" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Relationship {selfMode ? "to you" : "to the child"}</Label>
+                      <Input value={form.emergency_contact_2_relationship} onChange={(e) => update("emergency_contact_2_relationship", e.target.value)} placeholder="e.g. Grandparent, Auntie, Childminder" />
                     </div>
                   </div>
                   {!selfMode && !emergencyContactOk && (

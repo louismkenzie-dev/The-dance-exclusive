@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { ADULT_PASSES, type AdultPassType } from "@/lib/pricing";
+import { passLabelOf, usePassCatalog } from "@/lib/passCatalog";
 import MoveMembershipDialog, { type MoveMembershipTarget } from "@/components/admin/MoveMembershipDialog";
 import OneToOneTab from "@/components/admin/OneToOneTab";
 import TrialsTab from "@/components/admin/TrialsTab";
@@ -86,6 +86,7 @@ const passStatusBadge: Record<PassStatus, { label: string; variant: "default" | 
 const ClassPassesTab = () => {
   const [passes, setPasses] = useState<ClassPass[]>([]);
   const [loading, setLoading] = useState(true);
+  const { passes: passCatalog } = usePassCatalog();
 
   useEffect(() => {
     const fetchPasses = async () => {
@@ -152,7 +153,7 @@ const ClassPassesTab = () => {
                       <span className="font-medium">{p.profile?.full_name || "Unknown"}</span>
                       <span className="block text-xs text-muted-foreground">{p.profile?.email || "—"}</span>
                     </TableCell>
-                    <TableCell>{ADULT_PASSES[p.pass_type as AdultPassType]?.label ?? p.pass_type}</TableCell>
+                    <TableCell>{passLabelOf(passCatalog, p.pass_type)}</TableCell>
                     <TableCell>
                       <span className="font-semibold">{p.sessions_remaining}</span>
                       <span className="text-muted-foreground"> of {p.sessions_total}</span>

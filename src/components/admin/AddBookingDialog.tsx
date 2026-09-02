@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Check, ChevronsUpDown } from "lucide-react";
-import { ADULT_PASSES, type AdultPassType } from "@/lib/pricing";
+import { usePassCatalog } from "@/lib/passCatalog";
 
 interface Props {
   open: boolean;
@@ -54,12 +54,14 @@ const AddBookingDialog = ({ open, onOpenChange, onDone }: Props) => {
   const [classOpen, setClassOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const { passes: passCatalog } = usePassCatalog();
   const [what, setWhat] = useState<"class" | "pass" | "camp">("class");
   const [mode, setMode] = useState<"record" | "invite">("record");
   const [form, setForm] = useState({
     userId: "", studentId: "", classId: "", campId: "", plan: "session",
-    passType: "pack_4" as AdultPassType, sessionsRemaining: "", amount: "", note: "",
+    passType: "pack_4", sessionsRemaining: "", amount: "", note: "",
   });
+  const selectedPass = passCatalog.find((p) => p.code === form.passType) ?? passCatalog[0] ?? null;
   const [dates, setDates] = useState<string[]>([]);
 
   useEffect(() => {
@@ -325,13 +327,13 @@ const AddBookingDialog = ({ open, onOpenChange, onDone }: Props) => {
                 <Label>Which pack?</Label>
                 <Select
                   value={form.passType}
-                  onValueChange={(v) => setForm((f) => ({ ...f, passType: v as AdultPassType }))}
+                  onValueChange={(v) => setForm((f) => ({ ...f, passType: v }))}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {(Object.keys(ADULT_PASSES) as AdultPassType[]).map((k) => (
-                      <SelectItem key={k} value={k}>
-                        {ADULT_PASSES[k].label} — £{ADULT_PASSES[k].price}
+                    {passCatalog.map((p) => (
+                      <SelectItem key={p.code} value={p.code}>
+                        {p.label} — £{p.price}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -340,8 +342,8 @@ const AddBookingDialog = ({ open, onOpenChange, onDone }: Props) => {
               <div className="space-y-1.5">
                 <Label>Classes left <span className="text-muted-foreground font-normal">(optional)</span></Label>
                 <Input
-                  type="number" min="1" max={ADULT_PASSES[form.passType].sessions}
-                  placeholder={`Defaults to all ${ADULT_PASSES[form.passType].sessions}`}
+                  type="number" min="1" max={selectedPass?.sessions}
+                  placeholder={selectedPass ? `Defaults to all ${selectedPass.sessions}` : "All of them"}
                   value={form.sessionsRemaining}
                   onChange={(e) => setForm((f) => ({ ...f, sessionsRemaining: e.target.value }))}
                 />

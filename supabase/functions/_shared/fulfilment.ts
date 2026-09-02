@@ -3,7 +3,7 @@
 // redemptions, and sends the confirmation email. Used by both
 // payments-webhook (event-driven) and get-payment-intent-status (fallback
 // polling) — both paths are idempotent.
-import { ADULT_PASSES, type AdultPassType } from "./pricing.ts";
+import { loadPasses } from "./pricing.ts";
 
 export interface FulfilmentItem {
   kind: "class" | "camp" | "pass";
@@ -74,10 +74,12 @@ export async function fulfillItems(
   items: FulfilmentItem[],
 ): Promise<number> {
   let totalAmount = 0;
+  // Only paid for if the basket holds a pass — keeps the common path untouched.
+  const passCatalog = items.some((i) => i.kind === "pass") ? await loadPasses(supabase) : {};
 
   for (const item of items) {
     if (item.kind === "pass") {
-      const pass = ADULT_PASSES[item.passType as AdultPassType];
+      const pass = passCatalog[item.passType as string];
       if (!pass) {
         console.error("Unknown pass type in metadata:", item.passType);
         continue;
@@ -416,6 +418,9 @@ export async function sendBookingConfirmationEmail(
     return;
   }
 
+  // Pass names for the receipt — only looked up when a pass was bought.
+  const passCatalog = (passes ?? []).length > 0 ? await loadPasses(supabase) : {};
+
   const emailPayload = {
     template: "booking_confirmation",
     to: profile.email,
@@ -441,7 +446,7 @@ export async function sendBookingConfirmationEmail(
         })),
         ...(passes ?? []).map((p: any) => ({
           id: null, // passes are not bookings — no entrance QR
-          className: ADULT_PASSES[p.pass_type as AdultPassType]?.label || "Class Pass",
+          className: passCatalog[p.pass_type as string]?.label || "Class Pass",
           studentName: null,
           dayOfWeek: null,
           startTime: null,

@@ -779,6 +779,48 @@ export type Database = {
           },
         ]
       }
+      class_pass_types: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          label: string
+          price: number
+          sessions: number
+          sort_order: number
+          updated_at: string
+          window_days: number | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          price: number
+          sessions: number
+          sort_order?: number
+          updated_at?: string
+          window_days?: number | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          price?: number
+          sessions?: number
+          sort_order?: number
+          updated_at?: string
+          window_days?: number | null
+        }
+        Relationships: []
+      }
       class_passes: {
         Row: {
           amount_paid: number
@@ -2403,6 +2445,9 @@ export type Database = {
           dance_style_preference: string | null
           date_of_birth: string
           ehcp_in_place: boolean
+          emergency_contact_2_name: string | null
+          emergency_contact_2_phone: string | null
+          emergency_contact_2_relationship: string | null
           emergency_contact_name: string | null
           emergency_contact_phone: string | null
           expected_arrival_time: string | null
@@ -2444,6 +2489,9 @@ export type Database = {
           dance_style_preference?: string | null
           date_of_birth: string
           ehcp_in_place?: boolean
+          emergency_contact_2_name?: string | null
+          emergency_contact_2_phone?: string | null
+          emergency_contact_2_relationship?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           expected_arrival_time?: string | null
@@ -2485,6 +2533,9 @@ export type Database = {
           dance_style_preference?: string | null
           date_of_birth?: string
           ehcp_in_place?: boolean
+          emergency_contact_2_name?: string | null
+          emergency_contact_2_phone?: string | null
+          emergency_contact_2_relationship?: string | null
           emergency_contact_name?: string | null
           emergency_contact_phone?: string | null
           expected_arrival_time?: string | null

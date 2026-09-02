@@ -291,6 +291,15 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
                 </Section>
               )}
 
+              {/* Backup contact — who to try when the first one doesn't pick up */}
+              {((student as any).emergency_contact_2_name || (student as any).emergency_contact_2_phone) && (
+                <Section title="Second emergency contact" icon={Phone}>
+                  <Row label="Name" value={(student as any).emergency_contact_2_name} />
+                  <Row label="Phone" value={(student as any).emergency_contact_2_phone} />
+                  <Row label="Relationship" value={(student as any).emergency_contact_2_relationship} />
+                </Section>
+              )}
+
               {/* Authorized collectors */}
               {collectors.length > 0 && (
                 <Section title="Authorized collectors" icon={Users}>

@@ -11,7 +11,7 @@
 //            Stripe subscription have to be created by that same flow.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { ADULT_PASSES, type AdultPassType } from "../_shared/pricing.ts";
+import { loadPasses } from "../_shared/pricing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -84,7 +84,7 @@ serve(async (req) => {
     // Adult class packs (a Gymcatch package carried over).
     // ---------------------------------------------------------------
     if (passType) {
-      const pass = ADULT_PASSES[passType as AdultPassType];
+      const pass = (await loadPasses(supabase))[passType as string];
       if (!pass) return jsonResponse({ error: "Unknown class pass" }, 400);
       if (mode !== "record") {
         return jsonResponse({ error: "Class packs can only be recorded as already paid" }, 400);

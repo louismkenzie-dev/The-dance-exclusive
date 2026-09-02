@@ -12,8 +12,7 @@ import { validateAndCompute } from "../_shared/coupon.ts";
 import { getActiveStripeEnv } from "../_shared/paymentsMode.ts";
 import { chargesFirstMonthAtSignup, firstBillingAnchor, freeMonthFor, londonYMD } from "../_shared/billing.ts";
 import {
-  ADULT_PASSES,
-  type AdultPassType,
+  loadPasses,
   additionalMonthlyPrice,
   additionalYearlyPrice,
   computeSiblingDiscount,
@@ -374,13 +373,15 @@ serve(async (req) => {
     }
     const monthlyPrices = priceMonthlyItems(monthlyInputs, existingMonthlyByStudent);
     const yearlyPrices = priceYearlyItems(yearlyInputs, existingYearlyByStudent);
+    // The studio's own pass list, falling back to the published packs.
+    const passCatalog = await loadPasses(supabaseAdmin);
 
     const expectedPrices: number[] = [];
     for (const [index, item] of cartItems.entries()) {
       const kind = kindOf(item);
 
       if (kind === "pass") {
-        const pass = ADULT_PASSES[item.passType as AdultPassType];
+        const pass = passCatalog[item.passType as string];
         if (!pass) return jsonResponse({ error: "Unknown class pass in your basket. Please remove it and re-add." }, 400);
         expectedPrices.push(pass.price);
         continue;

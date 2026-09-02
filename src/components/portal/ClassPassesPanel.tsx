@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { PassRedeemDialog, type SessionOption } from "@/components/portal/PassRedeemDialog";
-import { ADULT_PASSES, type AdultPassType } from "@/lib/pricing";
+import { passLabelOf, usePassCatalog } from "@/lib/passCatalog";
 
 interface PassRow {
   id: string;
@@ -26,9 +26,6 @@ interface ClassPassesPanelProps {
   onPassesChanged?: () => void;
 }
 
-const passLabel = (type: string) =>
-  ADULT_PASSES[type as AdultPassType]?.label ?? "Class Pass";
-
 /** A pass still holds bookable credit: sessions left AND not yet expired. */
 const isActivePass = (p: PassRow) =>
   p.sessions_remaining > 0 && new Date(p.expires_at).getTime() >= Date.now();
@@ -42,6 +39,8 @@ export function ClassPassesPanel({ onPassesChanged }: ClassPassesPanelProps) {
   const [loadError, setLoadError] = useState(false);
   const [sessionOptions, setSessionOptions] = useState<SessionOption[]>([]);
   const [redeemPass, setRedeemPass] = useState<PassRow | null>(null);
+  const { passes: catalog } = usePassCatalog();
+  const passLabel = (type: string) => passLabelOf(catalog, type);
 
   const fetchPasses = useCallback(async () => {
     if (!user) { setPasses([]); setLoading(false); return; }

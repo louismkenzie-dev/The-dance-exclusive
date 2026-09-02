@@ -59,6 +59,50 @@ export const ADULT_PASSES: Record<AdultPassType, {
   },
 };
 
+export interface PassDef {
+  sessions: number;
+  price: number;
+  windowDays: number | null;
+  label: string;
+  description: string;
+}
+
+/**
+ * The passes on sale: the four published packs above, with whatever the studio
+ * has set up in class_pass_types layered over the top (a row can change a
+ * built-in pack or add a new one; is_active = false withdraws it).
+ *
+ * The built-in list stays the fallback on purpose — if the lookup fails, a
+ * parent's checkout still prices the standard packs correctly instead of
+ * rejecting their basket.
+ */
+export async function loadPasses(supabase: any): Promise<Record<string, PassDef>> {
+  const passes: Record<string, PassDef> = { ...ADULT_PASSES };
+  try {
+    const { data, error } = await supabase
+      .from("class_pass_types")
+      .select("code, label, description, sessions, price, window_days, is_active");
+    if (error) throw error;
+    for (const row of (data ?? [])) {
+      if (!row?.code) continue;
+      if (row.is_active === false) {
+        delete passes[row.code];
+        continue;
+      }
+      passes[row.code] = {
+        sessions: Number(row.sessions),
+        price: Number(row.price),
+        windowDays: row.window_days == null ? null : Number(row.window_days),
+        label: row.label,
+        description: row.description ?? "",
+      };
+    }
+  } catch (e) {
+    console.error("loadPasses: falling back to the built-in pass list:", e);
+  }
+  return passes;
+}
+
 /** Days after an adult's birthday during which their free birthday class is valid. */
 export const BIRTHDAY_CLASS_WINDOW_DAYS = 10;
 /** Days BEFORE the birthday the offer opens — so the class in their actual

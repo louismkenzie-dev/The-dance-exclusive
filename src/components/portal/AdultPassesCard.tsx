@@ -10,11 +10,10 @@ import { useCart } from "@/contexts/CartContext";
 import { supabase } from "@/integrations/supabase/client";
 import { PassRedeemDialog, type SessionOption } from "@/components/portal/PassRedeemDialog";
 import {
-  ADULT_PASSES,
   BIRTHDAY_CLASS_WINDOW_DAYS,
   BIRTHDAY_CLASS_EARLY_DAYS,
-  type AdultPassType,
 } from "@/lib/pricing";
+import { passLabelOf, usePassCatalog, type PassDef } from "@/lib/passCatalog";
 
 interface PassRow {
   id: string;
@@ -32,7 +31,7 @@ interface AdultPassesCardProps {
   onRedeemed?: () => void;
 }
 
-const PASS_ORDER: AdultPassType[] = ["week_2", "pack_4", "pack_6", "pack_8"];
+// The sale list now comes from the studio's own pass catalogue.
 
 const daysSinceLastBirthday = (dob: string): number | null => {
   const birth = new Date(`${dob}T00:00:00Z`);
@@ -64,6 +63,7 @@ export function AdultPassesCard({ sessionOptions, selfStudent, onRedeemed }: Adu
   const { addItem, items: cartItems } = useCart();
   const navigate = useNavigate();
   const [passes, setPasses] = useState<PassRow[]>([]);
+  const { passes: catalog } = usePassCatalog();
   const [redeeming, setRedeeming] = useState<{ mode: "pass" | "birthday"; pass?: PassRow } | null>(null);
 
   const fetchPasses = useCallback(() => {
@@ -91,9 +91,9 @@ export function AdultPassesCard({ sessionOptions, selfStudent, onRedeemed }: Adu
     (birthdayDays != null && birthdayDays <= BIRTHDAY_CLASS_WINDOW_DAYS) ||
     (birthdayCountdown != null && birthdayCountdown <= BIRTHDAY_CLASS_EARLY_DAYS);
 
-  const buyPass = (type: AdultPassType) => {
+  const buyPass = (pass: PassDef) => {
     if (!user) { navigate("/auth"); return; }
-    const pass = ADULT_PASSES[type];
+    const type = pass.code;
     if (cartItems.some((ci) => ci.itemKind === "pass" && ci.passType === type)) {
       toast.info("That pass is already in your basket");
       return;
@@ -136,18 +136,18 @@ export function AdultPassesCard({ sessionOptions, selfStudent, onRedeemed }: Adu
             <Ticket className="w-4 h-4 text-primary" /> Class Passes
           </CardTitle>
           <p className="text-sm text-muted-foreground" style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}>
-            Mix and match any adult classes. Passes are valid for 6 weeks from purchase
-            (the 2-class pass covers one calendar week, Mon–Sun).
+            Mix and match any adult classes — each pass shows how many classes it
+            covers and how long you have to use them.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {PASS_ORDER.map((type) => {
-              const pass = ADULT_PASSES[type];
+            {catalog.map((pass) => {
+              const type = pass.code;
               return (
                 <button
                   key={type}
-                  onClick={() => buyPass(type)}
+                  onClick={() => buyPass(pass)}
                   className="p-3 rounded-lg border border-border/50 bg-background/50 hover:border-primary/50 text-left transition-all group"
                 >
                   <span className="block font-semibold text-foreground text-sm">{pass.label}</span>
@@ -165,7 +165,7 @@ export function AdultPassesCard({ sessionOptions, selfStudent, onRedeemed }: Adu
             <div className="space-y-2 pt-2 border-t border-border/30">
               <p className="text-[11px] uppercase tracking-widest text-muted-foreground/70 font-semibold">Your active passes</p>
               {passes.map((p) => {
-                const label = ADULT_PASSES[p.pass_type as AdultPassType]?.label ?? "Class Pass";
+                const label = passLabelOf(catalog, p.pass_type);
                 return (
                   <div key={p.id} className="flex items-center justify-between gap-3 p-2.5 rounded-lg border border-primary/30 bg-primary/5">
                     <div>

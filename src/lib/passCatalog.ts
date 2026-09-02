@@ -18,6 +18,10 @@ export interface PassDef {
   label: string;
   description: string;
   sortOrder: number;
+  /** Class lengths in minutes the pass covers; empty = any length. */
+  durations: number[];
+  /** Specific classes the pass covers; empty = all adult classes. */
+  classIds: string[];
 }
 
 const BUILT_IN: PassDef[] = Object.entries(ADULT_PASSES).map(([code, p], i) => ({
@@ -28,6 +32,8 @@ const BUILT_IN: PassDef[] = Object.entries(ADULT_PASSES).map(([code, p], i) => (
   label: p.label,
   description: p.description,
   sortOrder: i + 1,
+  durations: [],
+  classIds: [],
 }));
 
 export const passLabelOf = (passes: PassDef[], code: string): string =>
@@ -39,7 +45,7 @@ export const passLabelOf = (passes: PassDef[], code: string): string =>
 export async function fetchPasses(): Promise<PassDef[]> {
   const { data, error } = await supabase
     .from("class_pass_types")
-    .select("code, label, description, sessions, price, window_days, is_active, sort_order");
+    .select("code, label, description, sessions, price, window_days, is_active, sort_order, applies_to_durations, applies_to_class_ids");
   if (error || !data) return BUILT_IN;
 
   const byCode = new Map(BUILT_IN.map((p) => [p.code, p]));
@@ -57,6 +63,8 @@ export async function fetchPasses(): Promise<PassDef[]> {
       label: row.label,
       description: row.description ?? "",
       sortOrder: Number(row.sort_order ?? 0),
+      durations: (row.applies_to_durations ?? []).map(Number),
+      classIds: row.applies_to_class_ids ?? [],
     });
   }
   return [...byCode.values()].sort((a, b) => a.sortOrder - b.sortOrder || a.price - b.price);

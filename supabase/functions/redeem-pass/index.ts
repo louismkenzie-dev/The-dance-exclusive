@@ -22,6 +22,17 @@ const jsonResponse = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
+/** Class length in whole minutes, or null when the times are unusable.
+ *  Mirrors src/lib/passEligibility.ts. */
+const classMinutes = (start: string | null, end: string | null): number | null => {
+  if (!start || !end) return null;
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return null;
+  const mins = eh * 60 + em - (sh * 60 + sm);
+  return mins > 0 ? mins : null;
+};
+
 /** Monday 00:00 of the week containing the given date (ISO date string). */
 const mondayOfWeek = (isoDate: string): string => {
   const d = new Date(`${isoDate}T00:00:00Z`);
@@ -77,7 +88,7 @@ serve(async (req) => {
     const today = new Date().toISOString().split("T")[0];
     const { data: sessions } = await supabase
       .from("class_sessions")
-      .select("id, class_id, session_date, status, classes:class_id (id, name, class_type, is_active, status, publicly_visible, booking_enabled, invite_only)")
+      .select("id, class_id, session_date, status, classes:class_id (id, name, class_type, start_time, end_time, is_active, status, publicly_visible, booking_enabled, invite_only)")
       .in("id", [...new Set(sessionIds)]);
     if (!sessions || sessions.length !== new Set(sessionIds).size) {
       return jsonResponse({ error: "One of the chosen sessions no longer exists" }, 400);
@@ -167,6 +178,39 @@ serve(async (req) => {
       return jsonResponse({
         error: `This pass has ${pass.sessions_remaining} class${pass.sessions_remaining === 1 ? "" : "es"} left`,
       }, 400);
+    }
+
+    // A pass can be limited to certain class lengths or specific classes —
+    // a 4-class pass priced at 4 x £10 must not buy £12 classes. Both lists
+    // are optional; empty means no restriction on that axis.
+    {
+      const { data: passType } = await supabase
+        .from("class_pass_types")
+        .select("applies_to_durations, applies_to_class_ids")
+        .eq("code", pass.pass_type)
+        .maybeSingle();
+      const durations: number[] = ((passType as any)?.applies_to_durations ?? []).map(Number);
+      const allowedClassIds: string[] = (passType as any)?.applies_to_class_ids ?? [];
+      if (durations.length > 0 || allowedClassIds.length > 0) {
+        for (const s of sessions as any[]) {
+          const cls = s.classes;
+          if (allowedClassIds.length > 0 && !allowedClassIds.includes(cls?.id)) {
+            return jsonResponse({
+              error: `${cls?.name || "That class"} isn't covered by this pass.`,
+              code: "pass_not_valid_here",
+            }, 400);
+          }
+          if (durations.length > 0) {
+            const mins = classMinutes(cls?.start_time ?? null, cls?.end_time ?? null);
+            if (mins == null || !durations.includes(mins)) {
+              return jsonResponse({
+                error: `This pass covers ${durations.sort((a, b) => a - b).join(" & ")} minute classes, and ${cls?.name || "that class"} isn't one of them.`,
+                code: "pass_not_valid_here",
+              }, 400);
+            }
+          }
+        }
+      }
     }
 
     // week_2 passes: every session (including any already redeemed) must fall

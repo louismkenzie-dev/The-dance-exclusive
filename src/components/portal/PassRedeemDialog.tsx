@@ -7,6 +7,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePassCatalog } from "@/lib/passCatalog";
+import { passCoverageLabel, passCoversClass } from "@/lib/passEligibility";
 
 export interface SessionOption {
   id: string;
@@ -43,6 +45,7 @@ export function PassRedeemDialog({
   onRedeemed,
 }: PassRedeemDialogProps) {
   const { user } = useAuth();
+  const { passes: catalog } = usePassCatalog();
   const [selSessions, setSelSessions] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [venueFilter, setVenueFilter] = useState<string>("all");
@@ -125,18 +128,39 @@ export function PassRedeemDialog({
     }
   };
 
+  // A pass can be limited to certain class lengths or classes (a 4-class pass
+  // priced at 4 x £10 shouldn't buy £12 classes). Only offer what it covers —
+  // the redeem function enforces the same rule server-side. The birthday
+  // class is unrestricted.
+  const passDef = mode === "pass" && pass
+    ? catalog.find((p) => p.code === pass.pass_type)
+    : undefined;
+  const eligible = useMemo(() => {
+    if (!passDef) return sessionOptions;
+    return sessionOptions.filter((s) =>
+      passCoversClass(
+        { durations: passDef.durations, classIds: passDef.classIds },
+        { id: s.classId, start_time: s.start_time, end_time: s.end_time },
+      ));
+  }, [sessionOptions, passDef]);
+
   const venues = useMemo(
-    () => [...new Set(sessionOptions.map((s) => s.venueName).filter(Boolean))] as string[],
-    [sessionOptions],
+    () => [...new Set(eligible.map((s) => s.venueName).filter(Boolean))] as string[],
+    [eligible],
   );
 
   const upcoming = useMemo(
     () =>
-      [...sessionOptions]
+      [...eligible]
         .filter((s) => venueFilter === "all" || s.venueName === venueFilter)
         .sort((a, b) => a.session_date.localeCompare(b.session_date)),
-    [sessionOptions, venueFilter],
+    [eligible, venueFilter],
   );
+
+  // Told plainly, so "where are my classes?" never becomes a support message.
+  const coverageNote = passDef && (passDef.durations.length > 0 || passDef.classIds.length > 0)
+    ? `This pass covers ${passCoverageLabel({ durations: passDef.durations, classIds: passDef.classIds })}.`
+    : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -166,11 +190,18 @@ export function PassRedeemDialog({
           )}
         </DialogHeader>
         <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-1.5">
+          {coverageNote && (
+            <p className="text-xs text-muted-foreground pb-2" style={{ textTransform: "none", letterSpacing: "normal" }}>
+              {coverageNote}
+            </p>
+          )}
           {upcoming.length === 0 && (
             <p className="text-sm text-muted-foreground py-8 text-center">
-              {venueFilter === "all"
-                ? "No upcoming adult classes right now."
-                : "No upcoming classes at this venue."}
+              {venueFilter !== "all"
+                ? "No upcoming classes at this venue."
+                : coverageNote
+                  ? "No upcoming classes this pass covers right now."
+                  : "No upcoming adult classes right now."}
             </p>
           )}
           {upcoming.map((s) => {

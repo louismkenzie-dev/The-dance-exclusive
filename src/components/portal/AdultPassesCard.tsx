@@ -14,6 +14,7 @@ import {
   BIRTHDAY_CLASS_EARLY_DAYS,
 } from "@/lib/pricing";
 import { passLabelOf, usePassCatalog, type PassDef } from "@/lib/passCatalog";
+import { passCoverageLabel } from "@/lib/passEligibility";
 
 interface PassRow {
   id: string;
@@ -152,6 +153,11 @@ export function AdultPassesCard({ sessionOptions, selfStudent, onRedeemed }: Adu
                 >
                   <span className="block font-semibold text-foreground text-sm">{pass.label}</span>
                   <span className="block text-[10px] text-muted-foreground mt-0.5">{pass.description}</span>
+                  {(pass.durations.length > 0 || pass.classIds.length > 0) && (
+                    <span className="block text-[10px] text-primary/80 mt-0.5">
+                      {passCoverageLabel({ durations: pass.durations, classIds: pass.classIds })} only
+                    </span>
+                  )}
                   <span className="flex items-center justify-between mt-2">
                     <span className="font-bold text-foreground">£{pass.price}</span>
                     <ShoppingCart className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary" />

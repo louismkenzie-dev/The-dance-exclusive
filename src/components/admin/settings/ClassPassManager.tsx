@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Ticket, Pencil } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { classDurationMinutes, passCoverageLabel } from "@/lib/passEligibility";
 
 interface PassRow {
   id: string;
@@ -22,6 +24,18 @@ interface PassRow {
   window_days: number | null;
   is_active: boolean;
   sort_order: number;
+  applies_to_durations: number[] | null;
+  applies_to_class_ids: string[] | null;
+}
+
+interface AdultClass {
+  id: string;
+  name: string;
+  day_of_week: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  venueName: string | null;
+  minutes: number | null;
 }
 
 const blankForm = {
@@ -32,6 +46,8 @@ const blankForm = {
   windowDays: "42",
   sameWeek: false,
   isActive: true,
+  durations: [] as number[],
+  classIds: [] as string[],
 };
 
 /** A stable code for a new pass, derived from its name. */
@@ -45,6 +61,7 @@ const codeFrom = (label: string) =>
 const ClassPassManager = () => {
   const { toast } = useToast();
   const [rows, setRows] = useState<PassRow[]>([]);
+  const [adultClasses, setAdultClasses] = useState<AdultClass[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PassRow | null>(null);
@@ -52,14 +69,42 @@ const ClassPassManager = () => {
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("class_pass_types")
-      .select("id, code, label, description, sessions, price, window_days, is_active, sort_order")
-      .order("sort_order");
+    const [{ data, error }, { data: clsRows }] = await Promise.all([
+      supabase
+        .from("class_pass_types")
+        .select("id, code, label, description, sessions, price, window_days, is_active, sort_order, applies_to_durations, applies_to_class_ids")
+        .order("sort_order"),
+      // Passes are an adult product, so only adult classes can be picked.
+      supabase
+        .from("classes")
+        .select("id, name, day_of_week, start_time, end_time, venues:venue_id(name)")
+        .eq("class_type", "adult")
+        .eq("is_active", true)
+        .order("name"),
+    ]);
     if (!error) setRows(((data as any[]) ?? []) as PassRow[]);
+    setAdultClasses(((clsRows as any[]) ?? []).map((c) => ({
+      id: c.id,
+      name: c.name,
+      day_of_week: c.day_of_week,
+      start_time: c.start_time,
+      end_time: c.end_time,
+      venueName: c.venues?.name ?? null,
+      minutes: classDurationMinutes(c.start_time, c.end_time),
+    })));
     setLoading(false);
   }, []);
   useEffect(() => { void load(); }, [load]);
+
+  /** Class lengths that actually exist, so the options match the timetable. */
+  const availableDurations = useMemo(
+    () => [...new Set(adultClasses.map((c) => c.minutes).filter((m): m is number => m != null))].sort((a, b) => a - b),
+    [adultClasses],
+  );
+  const classNameById = useMemo(
+    () => new Map(adultClasses.map((c) => [c.id, c.name])),
+    [adultClasses],
+  );
 
   const openNew = () => {
     setEditing(null);
@@ -77,9 +122,27 @@ const ClassPassManager = () => {
       windowDays: row.window_days == null ? "42" : String(row.window_days),
       sameWeek: row.window_days == null,
       isActive: row.is_active,
+      durations: (row.applies_to_durations ?? []).map(Number),
+      classIds: row.applies_to_class_ids ?? [],
     });
     setOpen(true);
   };
+
+  const toggleDuration = (mins: number) =>
+    setForm((f) => ({
+      ...f,
+      durations: f.durations.includes(mins)
+        ? f.durations.filter((d) => d !== mins)
+        : [...f.durations, mins],
+    }));
+
+  const toggleClassId = (id: string) =>
+    setForm((f) => ({
+      ...f,
+      classIds: f.classIds.includes(id)
+        ? f.classIds.filter((c) => c !== id)
+        : [...f.classIds, id],
+    }));
 
   const save = async () => {
     const sessions = Number(form.sessions);
@@ -109,6 +172,9 @@ const ClassPassManager = () => {
       price,
       window_days: form.sameWeek ? null : Math.round(windowDays),
       is_active: form.isActive,
+      // Empty arrays mean "no restriction" — stored as null to keep that plain.
+      applies_to_durations: form.durations.length > 0 ? [...form.durations].sort((a, b) => a - b) : null,
+      applies_to_class_ids: form.classIds.length > 0 ? form.classIds : null,
       updated_at: new Date().toISOString(),
     };
     const { error } = editing
@@ -181,6 +247,12 @@ const ClassPassManager = () => {
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {row.sessions} classes · £{Number(row.price).toFixed(2)} · valid {validityLabel(row)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Use on: {passCoverageLabel(
+                  { durations: row.applies_to_durations, classIds: row.applies_to_class_ids },
+                  classNameById,
+                )}
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -261,6 +333,79 @@ const ClassPassManager = () => {
                 </div>
               )}
             </div>
+            {/* Which classes it can be spent on. Leaving both empty means any
+                adult class, which is how the original packs work. */}
+            <div className="rounded-lg border border-border/60 p-3 space-y-3">
+              <div>
+                <Label className="text-sm">What can it be used on?</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Leave both empty for any adult class. Currently: <span className="font-medium text-foreground">
+                    {passCoverageLabel({ durations: form.durations, classIds: form.classIds }, classNameById)}
+                  </span>
+                </p>
+              </div>
+
+              {availableDurations.length > 1 && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Only these class lengths</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {availableDurations.map((mins) => (
+                      <button
+                        key={mins}
+                        type="button"
+                        onClick={() => toggleDuration(mins)}
+                        className={`px-3 py-1.5 rounded-full border text-xs transition-colors ${
+                          form.durations.includes(mins)
+                            ? "border-primary bg-primary/10 text-foreground font-medium"
+                            : "border-border bg-background hover:border-primary/50"
+                        }`}
+                      >
+                        {mins} min
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Handy when lengths are priced differently — a pass sold at the
+                    60-minute rate shouldn't cover dearer 75-minute classes.
+                  </p>
+                </div>
+              )}
+
+              {adultClasses.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Or only these specific classes</Label>
+                  <div className="max-h-40 overflow-y-auto rounded-md border p-2 space-y-1">
+                    {adultClasses.map((c) => (
+                      <label key={c.id} className="flex items-center gap-2 text-sm py-0.5 cursor-pointer">
+                        <Checkbox
+                          checked={form.classIds.includes(c.id)}
+                          onCheckedChange={() => toggleClassId(c.id)}
+                        />
+                        <span className="min-w-0 truncate">
+                          {c.name}
+                          <span className="text-xs text-muted-foreground">
+                            {c.day_of_week ? ` · ${c.day_of_week.slice(0, 3)}` : ""}
+                            {c.start_time ? ` ${c.start_time.slice(0, 5)}` : ""}
+                            {c.minutes ? ` · ${c.minutes} min` : ""}
+                            {c.venueName ? ` · ${c.venueName}` : ""}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  {form.classIds.length > 0 && (
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground underline"
+                      onClick={() => setForm((f) => ({ ...f, classIds: [] }))}
+                    >
+                      Clear class selection
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center justify-between gap-3">
               <Label className="text-sm">On sale</Label>
               <Switch

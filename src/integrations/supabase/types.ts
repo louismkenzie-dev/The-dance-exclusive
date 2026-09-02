@@ -781,6 +781,8 @@ export type Database = {
       }
       class_pass_types: {
         Row: {
+          applies_to_class_ids: string[] | null
+          applies_to_durations: number[] | null
           code: string
           created_at: string
           description: string | null
@@ -794,6 +796,8 @@ export type Database = {
           window_days: number | null
         }
         Insert: {
+          applies_to_class_ids?: string[] | null
+          applies_to_durations?: number[] | null
           code: string
           created_at?: string
           description?: string | null
@@ -807,6 +811,8 @@ export type Database = {
           window_days?: number | null
         }
         Update: {
+          applies_to_class_ids?: string[] | null
+          applies_to_durations?: number[] | null
           code?: string
           created_at?: string
           description?: string | null

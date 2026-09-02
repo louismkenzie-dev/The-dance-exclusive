@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import ChangePasswordCard from "@/components/ChangePasswordCard";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -1012,6 +1013,10 @@ const Account = () => {
             </div>
           )}
       </>
+
+      <div className="mt-8">
+        <ChangePasswordCard />
+      </div>
 
       <div className="mt-8">
         <Button asChild variant="outline">

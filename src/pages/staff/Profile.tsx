@@ -14,6 +14,7 @@ import { DANCE_STYLES } from "@/lib/danceStyles";
 import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 import getCroppedImg from "@/lib/cropImage";
+import ChangePasswordCard from "@/components/ChangePasswordCard";
 
 const StaffProfile = () => {
   const { staff, refresh } = useStaffMember();
@@ -222,6 +223,10 @@ const StaffProfile = () => {
           <Button onClick={save} className="w-full">Save changes</Button>
         </CardContent>
       </Card>
+
+      <div className="mt-6">
+        <ChangePasswordCard />
+      </div>
     </div>
   );
 };

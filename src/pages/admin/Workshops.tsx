@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import WorkshopCover from "@/components/WorkshopCover";
+import DescriptionAssistButton from "@/components/admin/DescriptionAssistButton";
 
 const DANCE_STYLES = ["Tap", "Modern", "Jazz", "Hip Hop", "Ballet", "Contemporary", "Lyrical", "Street", "Musical Theatre", "Acro", "Commercial", "Heels", "Popping", "Locking", "Breaking", "Whacking", "Afro", "House", "Crew Choreography", "Lite Feet", "Private Lessons", "Mixed"];
 
@@ -330,7 +331,22 @@ const AdminWorkshops = () => {
                       <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder="e.g. Street Dance KS1" />
                     </div>
                     <div className="space-y-2">
-                      <Label>Description</Label>
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <Label>Description</Label>
+                        <DescriptionAssistButton
+                          kind="dance class type"
+                          name={form.name}
+                          existing={form.description}
+                          facts={{
+                            danceStyle: form.dance_style,
+                            audience: form.class_type === "adult" ? "adults" : "children",
+                            ages: form.age_min || form.age_max
+                              ? `${form.age_min || "any"} to ${form.age_max || "any"}`
+                              : null,
+                          }}
+                          onDrafted={(description) => setForm((f) => ({ ...f, description }))}
+                        />
+                      </div>
                       <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={4} placeholder="Describe this type of class, what children/adults will learn..." />
                     </div>
                     <div className="space-y-2">

@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Ticket, Pencil } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { classDurationMinutes, passCoverageLabel } from "@/lib/passEligibility";
+import DescriptionAssistButton from "@/components/admin/DescriptionAssistButton";
 
 interface PassRow {
   id: string;
@@ -301,7 +302,26 @@ const ClassPassManager = () => {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>Description <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <Label>Description <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <DescriptionAssistButton
+                  kind="adult class pass"
+                  name={form.label}
+                  existing={form.description}
+                  facts={{
+                    audience: "adults",
+                    notes: [
+                      form.sessions ? `${form.sessions} classes` : null,
+                      form.price ? `£${form.price}` : null,
+                      form.sameWeek
+                        ? "must all be used in one calendar week (Monday to Sunday)"
+                        : form.windowDays ? `valid ${form.windowDays} days from purchase` : null,
+                      form.durations.length > 0 ? `only ${form.durations.join(" & ")} minute classes` : null,
+                    ].filter(Boolean).join(", ") || null,
+                  }}
+                  onDrafted={(description) => setForm((f) => ({ ...f, description }))}
+                />
+              </div>
               <Input
                 placeholder="e.g. Any 10 classes within 8 weeks"
                 value={form.description}

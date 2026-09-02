@@ -123,7 +123,16 @@ const StaffRegisters = () => {
           ...b,
           attendance: attByBooking[b.id] || null,
           unpaid: unpaidStudents.has(b.student_id) || (!b.student_id && unpaidParents.has(b.parent_id)),
-        }));
+        }))
+        // Registers read top-to-bottom at the door, so keep them alphabetical;
+        // rows with no attendee profile sink to the bottom.
+        .sort((a: any, b: any) => {
+          const an = a.students ? `${a.students.first_name} ${a.students.last_name}`.toLowerCase() : null;
+          const bn = b.students ? `${b.students.first_name} ${b.students.last_name}`.toLowerCase() : null;
+          if (an === null) return bn === null ? 0 : 1;
+          if (bn === null) return -1;
+          return an.localeCompare(bn);
+        });
     }
     setAttendance(map);
     setLoading(false);

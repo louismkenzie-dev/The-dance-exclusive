@@ -27,7 +27,7 @@ const AdminRegisters = () => {
   const [selectedSessionId, setSelectedSessionId] = useState<string>("");
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [profileBooking, setProfileBooking] = useState<{ booking: any; sessionId: string; classId: string } | null>(null);
+  const [profileBooking, setProfileBooking] = useState<{ booking: any; sessionId: string; classId: string | null } | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [venueFilter, setVenueFilter] = useState<string>("all");
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -48,15 +48,22 @@ const AdminRegisters = () => {
 
   const loadSessions = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("class_sessions")
-      .select(`
-        id, session_date, start_time, end_time, class_id,
-        classes:class_id ( id, name, day_of_week, venue_id, location_note, venues:venue_id ( name ) ),
-        session_instructors ( staff:staff_id ( id, first_name, last_name, full_name ) )
-      `)
-      .eq("session_date", date)
-      .order("start_time");
+    const [{ data }, { data: campRows }] = await Promise.all([
+      supabase
+        .from("class_sessions")
+        .select(`
+          id, session_date, start_time, end_time, class_id,
+          classes:class_id ( id, name, day_of_week, venue_id, location_note, venues:venue_id ( name ) ),
+          session_instructors ( staff:staff_id ( id, first_name, last_name, full_name ) )
+        `)
+        .eq("session_date", date)
+        .order("start_time"),
+      supabase
+        .from("camp_sessions")
+        .select("id, camp_id, session_date, start_time, end_time, status, camps:camp_id ( id, name, venue_id, is_active, venues:venue_id ( name ) )")
+        .eq("session_date", date)
+        .neq("status", "cancelled"),
+    ]);
 
     const rows = data ?? [];
 
@@ -77,35 +84,86 @@ const AdminRegisters = () => {
     const enriched = rows.map((s: any) => {
       const explicit = (s.session_instructors ?? []).map((si: any) => si.staff).filter(Boolean);
       const instructors = explicit.length > 0 ? explicit : (defaultByClass[s.class_id] ?? []);
-      return { ...s, instructors };
+      return { ...s, kind: "class", instructors };
     });
 
-    setSessions(enriched);
-    if (enriched.length > 0) setSelectedSessionId(enriched[0].id);
+    // Camp days sit alongside the class registers. They're shaped like class
+    // sessions (the whole page reads s.classes) so everything downstream —
+    // venue chips, labels, the picker — works on both without special cases.
+    const activeCampRows = ((campRows as any[]) ?? []).filter((c: any) => c.camps?.is_active !== false);
+    const campIds = Array.from(new Set(activeCampRows.map((c: any) => c.camp_id)));
+    const campStaffByCamp: Record<string, any[]> = {};
+    if (campIds.length > 0) {
+      const { data: ci } = await supabase
+        .from("camp_instructors")
+        .select("camp_id, staff:staff_id ( id, first_name, last_name, full_name )")
+        .in("camp_id", campIds);
+      (ci as any[])?.forEach((c: any) => {
+        campStaffByCamp[c.camp_id] = campStaffByCamp[c.camp_id] || [];
+        if (c.staff) campStaffByCamp[c.camp_id].push(c.staff);
+      });
+    }
+    const campSessions = activeCampRows.map((c: any) => ({
+      id: c.id,
+      kind: "camp",
+      camp_id: c.camp_id,
+      class_id: null,
+      session_date: c.session_date,
+      start_time: c.start_time,
+      end_time: c.end_time,
+      classes: {
+        id: null,
+        name: c.camps?.name ?? "Event",
+        day_of_week: null,
+        venue_id: c.camps?.venue_id ?? null,
+        location_note: null,
+        venues: c.camps?.venues ?? null,
+      },
+      instructors: campStaffByCamp[c.camp_id] ?? [],
+    }));
+
+    const all = [...enriched, ...campSessions].sort((a: any, b: any) =>
+      String(a.start_time ?? "").localeCompare(String(b.start_time ?? "")));
+    setSessions(all);
+    if (all.length > 0) setSelectedSessionId(all[0].id);
     setLoading(false);
   };
 
   const loadRegister = async () => {
     const session = sessions.find((s) => s.id === selectedSessionId);
     if (!session) return;
+    const isCamp = (session as any).kind === "camp";
+    const bookingSelect = `id, student_id, parent_id, notes, students:student_id ( id, first_name, last_name, preferred_name, profile_photo, avatar_url, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info, photo_consent )`;
     const [{ data: bks }, { data: att }, { data: unpaidRows }] = await Promise.all([
-      supabase
-        .from("bookings")
-        .select(`id, student_id, parent_id, notes, students:student_id ( id, first_name, last_name, preferred_name, profile_photo, avatar_url, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info, photo_consent )`)
-        .eq("class_id", session.class_id)
-        .eq("status", "confirmed"),
+      isCamp
+        ? supabase.from("bookings").select(bookingSelect).eq("camp_id", (session as any).camp_id).eq("status", "confirmed")
+        : supabase.from("bookings").select(bookingSelect).eq("class_id", session.class_id).eq("status", "confirmed"),
       supabase
         .from("attendance")
         .select("*")
-        .eq("class_session_id", session.id),
+        .eq(isCamp ? "camp_session_id" : "class_session_id", session.id),
       // Families whose monthly membership payment has failed — flagged so the
-      // door team can catch non-payers.
-      supabase.rpc("get_unpaid_membership_attendees", { _class_id: session.class_id }),
+      // door team can catch non-payers. Camps are paid up front, so there's
+      // nothing to flag there.
+      isCamp
+        ? Promise.resolve({ data: [] as any[] })
+        : supabase.rpc("get_unpaid_membership_attendees", { _class_id: session.class_id }),
     ]);
     const unpaidStudents = new Set((unpaidRows ?? []).map((u: any) => u.student_id).filter(Boolean));
     const unpaidParents = new Set((unpaidRows ?? []).filter((u: any) => !u.student_id).map((u: any) => u.user_id));
     const attMap: Record<string, any> = {};
     (att ?? []).forEach((a: any) => (attMap[a.booking_id] = a));
+    // Registers read top-to-bottom at the door, so keep them alphabetical;
+    // rows with no attendee profile sink to the bottom.
+    const nameOf = (b: any) =>
+      b.students ? `${b.students.first_name} ${b.students.last_name}`.toLowerCase() : null;
+    const byName = (a: any, b: any) => {
+      const an = nameOf(a);
+      const bn = nameOf(b);
+      if (an === null) return bn === null ? 0 : 1;
+      if (bn === null) return -1;
+      return an.localeCompare(bn);
+    };
     // Pass/birthday bookings are per-session (the date is in their notes) —
     // only show them on the register for their own date. Class-level bookings
     // (memberships, trials, drop-ins) appear every week.
@@ -119,7 +177,8 @@ const AdminRegisters = () => {
           ...b,
           attendance: attMap[b.id] || null,
           unpaid: unpaidStudents.has(b.student_id) || (!b.student_id && unpaidParents.has(b.parent_id)),
-        })),
+        }))
+        .sort(byName),
     );
   };
 
@@ -128,6 +187,19 @@ const AdminRegisters = () => {
     toast({ title: "Couldn't update register", description: error.message, variant: "destructive" });
     return true;
   };
+
+  // Attendance rows hang off a class session or a camp day — same register,
+  // different keys.
+  const attendanceTarget = (session: any) =>
+    session.kind === "camp"
+      ? {
+          keys: { class_id: null, camp_id: session.camp_id, camp_session_id: session.id },
+          onConflict: "booking_id,camp_session_id",
+        }
+      : {
+          keys: { class_id: session.class_id, class_session_id: session.id },
+          onConflict: "booking_id,class_session_id",
+        };
 
   /**
    * QR check-in. The scanner previously lived only on the staff register, so
@@ -153,7 +225,7 @@ const AdminRegisters = () => {
 
     const { data: booking } = await supabase
       .from("bookings")
-      .select("id, class_id, student_id, status, notes, students:student_id ( first_name, last_name, preferred_name )")
+      .select("id, class_id, camp_id, student_id, status, notes, students:student_id ( first_name, last_name, preferred_name )")
       .eq("id", t.booking_id)
       .maybeSingle();
     if (!booking || booking.status !== "confirmed") {
@@ -161,8 +233,10 @@ const AdminRegisters = () => {
       return;
     }
 
-    // Which of this day's sessions does the booking belong to?
-    const session = sessions.find((s) => s.class_id === booking.class_id);
+    // Which of this day's sessions does the booking belong to? A camp booking
+    // matches the camp's day, a class booking its class session.
+    const session = sessions.find((s: any) =>
+      (booking as any).camp_id ? s.camp_id === (booking as any).camp_id : s.class_id === booking.class_id);
     if (!session) {
       toast({
         title: "Not on this day's register",
@@ -184,12 +258,13 @@ const AdminRegisters = () => {
 
     if (session.id !== selectedSessionId) setSelectedSessionId(session.id);
 
+    const target = attendanceTarget(session);
     const now = new Date().toISOString();
     const { error } = await supabase.from("attendance").upsert({
-      booking_id: booking.id, class_id: session.class_id, class_session_id: session.id,
+      booking_id: booking.id, ...target.keys,
       student_id: booking.student_id ?? null, session_date: session.session_date,
       status: "present", checked_in_at: now, checked_out_at: null, check_in_method: "qr",
-    }, { onConflict: "booking_id,class_session_id" });
+    } as any, { onConflict: target.onConflict });
     if (writeFailed(error)) return;
 
     const st = (booking as any).students;
@@ -204,12 +279,13 @@ const AdminRegisters = () => {
   const checkIn = async (booking: any) => {
     const session = sessions.find((s) => s.id === selectedSessionId);
     if (!session) return;
+    const target = attendanceTarget(session);
     const now = new Date().toISOString();
     const { error } = await supabase.from("attendance").upsert({
-      booking_id: booking.id, class_id: session.class_id, class_session_id: session.id,
+      booking_id: booking.id, ...target.keys,
       student_id: booking.student_id ?? null, session_date: session.session_date,
       status: "present", checked_in_at: now, checked_out_at: null, check_in_method: "manual",
-    }, { onConflict: "booking_id,class_session_id" });
+    } as any, { onConflict: target.onConflict });
     if (writeFailed(error)) return;
     toast({ title: "Checked in" });
     void loadRegister();
@@ -228,11 +304,12 @@ const AdminRegisters = () => {
   const markAbsent = async (booking: any) => {
     const session = sessions.find((s) => s.id === selectedSessionId);
     if (!session) return;
+    const target = attendanceTarget(session);
     const { error } = await supabase.from("attendance").upsert({
-      booking_id: booking.id, class_id: session.class_id, class_session_id: session.id,
+      booking_id: booking.id, ...target.keys,
       student_id: booking.student_id ?? null, session_date: session.session_date, status: "absent",
       checked_in_at: null, checked_out_at: null,
-    }, { onConflict: "booking_id,class_session_id" });
+    } as any, { onConflict: target.onConflict });
     if (writeFailed(error)) return;
     toast({ title: "Marked absent" });
     void loadRegister();
@@ -252,10 +329,11 @@ const AdminRegisters = () => {
     const session = sessions.find((s) => s.id === selectedSessionId);
     if (!session) return;
     const next = !booking.attendance?.dancer_of_week;
+    const target = attendanceTarget(session);
     const { error } = booking.attendance
       ? await supabase.from("attendance").update({ dancer_of_week: next } as any).eq("id", booking.attendance.id)
       : await supabase.from("attendance").insert({
-          booking_id: booking.id, class_id: session.class_id, class_session_id: session.id,
+          booking_id: booking.id, ...target.keys,
           student_id: booking.student_id ?? null, session_date: session.session_date,
           status: "expected", dancer_of_week: true,
         } as any);
@@ -401,6 +479,9 @@ const AdminRegisters = () => {
                     <div className="flex flex-col items-start gap-1 text-left">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">{selectedSession.classes?.name}</span>
+                        {(selectedSession as any).kind === "camp" && (
+                          <Badge className="text-[10px] bg-amber-500/90 text-white hover:bg-amber-500/90">Event</Badge>
+                        )}
                         <Badge variant="outline" className="text-[10px]">{format(new Date(selectedSession.session_date + "T00:00:00"), "EEE d MMM")}</Badge>
                       </div>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -421,7 +502,10 @@ const AdminRegisters = () => {
                 {visibleSessions.map((s) => (
                   <SelectItem key={s.id} value={s.id} className="py-3">
                     <div className="flex flex-col gap-0.5">
-                      <span className="font-medium">{s.classes?.name}</span>
+                      <span className="font-medium">
+                        {s.classes?.name}
+                        {(s as any).kind === "camp" && <span className="ml-1.5 text-[10px] text-amber-500 font-semibold uppercase">Event</span>}
+                      </span>
                       <span className="text-xs text-muted-foreground">
                         {format(new Date(s.session_date + "T00:00:00"), "EEE d MMM")} · {s.start_time?.slice(0,5)}–{s.end_time?.slice(0,5)} · {s.classes?.venues?.name ?? "Venue TBC"}
                         {s.instructors?.length > 0 && <> · {s.instructors.map((st: any) => st.first_name || st.full_name).join(", ")}</>}
@@ -438,7 +522,12 @@ const AdminRegisters = () => {
               <CardContent className="p-5">
                 <div className="flex items-center justify-between mb-4 pb-4 border-b border-border flex-wrap gap-3">
                   <div>
-                    <h3 className="font-semibold text-lg">{selectedSession.classes?.name}</h3>
+                    <h3 className="font-semibold text-lg">
+                      {selectedSession.classes?.name}
+                      {(selectedSession as any).kind === "camp" && (
+                        <Badge className="ml-2 align-middle text-[10px] bg-amber-500/90 text-white hover:bg-amber-500/90">Event</Badge>
+                      )}
+                    </h3>
                     <p className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap mt-1">
                       <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{selectedSession.start_time?.slice(0,5)}–{selectedSession.end_time?.slice(0,5)}</span>
                       <span>•</span>

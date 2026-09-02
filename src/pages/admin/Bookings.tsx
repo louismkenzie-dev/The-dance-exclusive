@@ -42,6 +42,7 @@ interface Booking {
   } | null;
   students: { first_name: string; last_name: string } | null;
   profiles: { full_name: string; email: string; phone?: string | null } | null;
+  camps?: { name: string } | null;
 }
 
 /** Booking types the admin can move to another class in place. Monthly
@@ -910,7 +911,7 @@ const AdminBookings = () => {
   const fetchBookings = async () => {
     let query = supabase
       .from("bookings")
-      .select("*, classes(name, class_type, start_time, end_time, price_per_session, price_per_term, price_per_month, price_per_year, term_end), students(first_name, last_name)")
+      .select("*, classes(name, class_type, start_time, end_time, price_per_session, price_per_term, price_per_month, price_per_year, term_end), students(first_name, last_name), camps:camp_id(name)")
       .order("booked_at", { ascending: false });
 
     if (filter !== "all") query = query.eq("status", filter as "confirmed" | "pending_payment" | "cancelled");
@@ -993,7 +994,7 @@ const AdminBookings = () => {
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold">{b.classes?.name || "Unknown class"}</span>
+                      <span className="font-semibold">{b.classes?.name || b.camps?.name || "Unknown class"}</span>
                       <Badge variant={statusColors[b.status] || "secondary"}>{b.status.replace("_", " ")}</Badge>
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">

@@ -68,6 +68,11 @@ const Index = () => {
   if (!loading && user && role === "admin") {
     return <Navigate to="/admin" replace />;
   }
+  // Staff too: without this, a coach opening the site while already signed
+  // in landed on the customer homepage with no route to the staff side.
+  if (!loading && user && role === "staff") {
+    return <Navigate to="/staff" replace />;
+  }
 
   const customerType = profile?.customer_type as string | null;
   const primaryIsAdult = customerType === "adult_dancer";

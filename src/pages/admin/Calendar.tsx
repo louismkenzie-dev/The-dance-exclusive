@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import VenueFilterChips from "@/components/VenueFilterChips";
+import { findHeldSessions, describeHold } from "@/lib/sessionGuards";
 import {
   format,
   startOfMonth,
@@ -501,6 +502,25 @@ const AdminCalendar = () => {
   const handleDelete = async () => {
     if (!editingSession) return;
     setDeleting(true);
+    // Never delete a night parents have booked — their bookings would be
+    // left pointing at a session that no longer exists, and they'd still be
+    // emailed a reminder and turn up.
+    const held = await findHeldSessions([
+      { id: editingSession.id, class_id: editingSession.class_id, session_date: editingSession.session_date },
+    ]);
+    const hold = held.get(editingSession.id);
+    if (hold) {
+      toast({
+        title: "This date has bookings on it",
+        description:
+          `${describeHold(hold)} for ${format(parseISO(editingSession.session_date), "EEEE d MMMM")}. ` +
+          "Move or cancel their bookings first (Bookings → Move), then delete the session.",
+        variant: "destructive",
+        duration: 12000,
+      });
+      setDeleting(false);
+      return;
+    }
     const { error } = await supabase
       .from("class_sessions")
       .delete()

@@ -19,6 +19,7 @@ import { AssignStaffDialog } from "@/components/admin/AssignStaffDialog";
 import WorkshopCover from "@/components/WorkshopCover";
 import TermSessionGroups from "@/components/TermSessionGroups";
 import { format, addDays, parseISO, eachDayOfInterval, getDay, isBefore, isWithinInterval } from "date-fns";
+import { findHeldSessions, describeHold } from "@/lib/sessionGuards";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
 const DAY_INDEX_MAP: Record<string, number> = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
@@ -662,15 +663,31 @@ const AdminClasses = () => {
 
     const todayIso = format(new Date(), "yyyy-MM-dd");
     const desiredDates = new Set(sessions.map(s => s.date));
+    // Dates we refused to remove because parents are booked on them — told
+    // to the admin in the final toast (the toaster only shows one at a time).
+    let keptNote = "";
 
     if (editing) {
       // Remove future sessions no longer in the schedule. Past sessions stay
       // untouched so register/attendance history survives edits.
       const toDelete = [...existingByDate.values()]
-        .filter(s => !desiredDates.has(s.session_date) && s.session_date >= todayIso)
-        .map(s => s.id);
+        .filter(s => !desiredDates.has(s.session_date) && s.session_date >= todayIso);
       if (toDelete.length > 0) {
-        await supabase.from("class_sessions").delete().in("id", toDelete);
+        // A date parents have booked stays on the timetable even if it was
+        // removed in this wizard — deleting it would leave their bookings
+        // pointing at a night that no longer exists.
+        const held = await findHeldSessions(toDelete.map(s => ({ id: s.id, class_id: classId, session_date: s.session_date })));
+        const removable = toDelete.filter(s => !held.has(s.id)).map(s => s.id);
+        if (removable.length > 0) {
+          await supabase.from("class_sessions").delete().in("id", removable);
+        }
+        const kept = toDelete.filter(s => held.has(s.id)).sort((a, b) => a.session_date.localeCompare(b.session_date));
+        if (kept.length > 0) {
+          keptNote =
+            `Kept ${kept.length === 1 ? "a date" : `${kept.length} dates`} parents have booked: ` +
+            kept.map(s => `${format(parseISO(s.session_date), "EEE d MMM")} (${describeHold(held.get(s.id)!)})`).join("; ") +
+            ". Move their bookings first if that date really isn't running.";
+        }
       }
       // Update times on kept future sessions when they changed.
       for (const s of sessions) {
@@ -746,7 +763,10 @@ const AdminClasses = () => {
       );
     }
 
-    toast({ title: editing ? "Class updated" : "Class created" });
+    toast({
+      title: editing ? "Class updated" : "Class created",
+      ...(keptNote && { description: keptNote, duration: 15000 }),
+    });
     setOpen(false);
     resetForm();
     fetchData();

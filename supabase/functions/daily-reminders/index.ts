@@ -31,12 +31,19 @@ serve(async (_req) => {
   const tomorrow = fmt.format(new Date(Date.now() + 24 * 60 * 60 * 1000));
   const todayLondon = fmt.format(new Date());
 
-  const summary = { date: tomorrow, trialReminders: 0, waitlistNotified: 0, birthdayEmails: 0, errors: 0 };
+  const summary = {
+    date: tomorrow,
+    trialReminders: 0,
+    skippedNoSession: 0,
+    waitlistNotified: 0,
+    birthdayEmails: 0,
+    errors: 0,
+  };
 
-  const { data: bookings } = await supabase
+  const { data: pinnedBookings } = await supabase
     .from("bookings")
     .select(
-      `id, parent_id, notes,
+      `id, parent_id, class_id, notes,
        students:student_id ( first_name, last_name, preferred_name ),
        classes:class_id ( name, start_time, end_time, venues:venue_id ( name ) )`,
     )
@@ -44,6 +51,31 @@ serve(async (_req) => {
     .eq("booking_type", "trial")
     .ilike("notes", `%session ${tomorrow}%`)
     .not("notes", "ilike", "%reminder sent%");
+
+  // Only remind about classes that are actually on tomorrow. A booking stays
+  // pinned to its date even if the admin later removed or cancelled that
+  // session, and telling a parent to turn up to a class that isn't running
+  // is far worse than sending nothing. Skipped bookings are left unstamped
+  // and logged so they show up if anyone goes looking.
+  const pinnedClassIds = [...new Set((pinnedBookings ?? []).map((b: any) => b.class_id).filter(Boolean))];
+  const runningClassIds = new Set<string>();
+  if (pinnedClassIds.length > 0) {
+    const { data: liveSessions } = await supabase
+      .from("class_sessions")
+      .select("class_id")
+      .in("class_id", pinnedClassIds)
+      .eq("session_date", tomorrow)
+      .neq("status", "cancelled");
+    for (const s of liveSessions ?? []) runningClassIds.add(s.class_id);
+  }
+  const bookings = (pinnedBookings ?? []).filter((b: any) => runningClassIds.has(b.class_id));
+  for (const b of pinnedBookings ?? []) {
+    if (runningClassIds.has(b.class_id)) continue;
+    summary.skippedNoSession++;
+    console.warn(
+      `daily-reminders: booking ${b.id} is pinned to ${tomorrow} but class ${b.class_id} has no session that day — reminder NOT sent`,
+    );
+  }
 
   if ((bookings ?? []).length > 0) {
     const { data: msgRow } = await supabase

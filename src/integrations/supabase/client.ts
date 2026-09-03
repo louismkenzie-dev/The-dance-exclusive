@@ -28,5 +28,13 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-  }
+  },
+  global: {
+    // Safari on iPad/iPhone caches GET responses hard. The studio runs admin
+    // on an iPad, where saving something and immediately re-reading it could
+    // return Safari's copy from BEFORE the save — the screen then shows the
+    // old value until the page is reloaded. Never serve these from cache:
+    // every read is answered by the database.
+    fetch: (input, init = {}) => fetch(input, { ...init, cache: "no-store" }),
+  },
 });

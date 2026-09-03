@@ -11,10 +11,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
-  Calendar, Loader2, Plus, Trash2, Edit2, GraduationCap, Palmtree, Flag, ExternalLink
+  Calendar, CalendarCheck, Loader2, Plus, Trash2, Edit2, GraduationCap, Palmtree, Flag, ExternalLink
 } from "lucide-react";
 import { format, parseISO, differenceInWeeks } from "date-fns";
 import HolidaySessionSweep from "@/components/admin/settings/HolidaySessionSweep";
+import TimetableGaps from "@/components/admin/settings/TimetableGaps";
 
 const currentYear = new Date().getFullYear();
 const currentMonth = new Date().getMonth();
@@ -301,6 +302,17 @@ export const SchoolTermsManager = () => {
                     })}
                   </div>
                 )}
+              </div>
+
+              <Separator />
+
+              {/* Timetable check: classes missing dates inside their terms */}
+              <div>
+                <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
+                  <CalendarCheck className="h-4 w-4" />
+                  Timetable check
+                </h3>
+                <TimetableGaps />
               </div>
 
               <Separator />

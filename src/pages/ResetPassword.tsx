@@ -21,6 +21,8 @@ const ResetPassword = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
+  // Captured once: the query string is stripped after the link is verified.
+  const [isStaffInvite] = useState(() => searchParams.get("source") === "staff-invite");
 
   useEffect(() => {
     let cancelled = false;
@@ -123,11 +125,20 @@ const ResetPassword = () => {
     setLoading(false);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      setStatus("success");
-      toast({ title: "Password updated!", description: "You can now sign in with your new password." });
-      setTimeout(() => navigate("/auth"), 1800);
+      return;
     }
+    setStatus("success");
+    toast({ title: "Password set!", description: "You're signed in — taking you through now." });
+    // The link already signed them in, so go straight to their portal
+    // rather than bouncing them back through the sign-in form (which is
+    // where new staff were getting stuck).
+    const { data: userData } = await supabase.auth.getUser();
+    const { data: roles } = userData.user
+      ? await supabase.from("user_roles").select("role").eq("user_id", userData.user.id)
+      : { data: null };
+    const isAdmin = roles?.some((r: { role: string }) => r.role === "admin");
+    const isStaff = roles?.some((r: { role: string }) => r.role === "staff");
+    setTimeout(() => navigate(isAdmin ? "/admin" : isStaff ? "/staff" : "/", { replace: true }), 1200);
   };
 
   return (
@@ -161,11 +172,13 @@ const ResetPassword = () => {
                 <div className="flex items-start gap-3 mb-5">
                   <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    {errorMsg || "This password reset link is invalid or has expired. Please request a new one."}
+                    {isStaffInvite
+                      ? "This invite link has already been used or has expired — each link only works once. Pop your email in on the next screen and we'll send you a fresh one straight away."
+                      : (errorMsg || "This password reset link is invalid or has expired. Please request a new one.")}
                   </p>
                 </div>
-                <Button onClick={() => navigate("/auth")} className="w-full font-semibold">
-                  Request a new link
+                <Button onClick={() => navigate("/auth?forgot=1")} className="w-full font-semibold">
+                  Send me a new link
                 </Button>
               </CardContent>
             </Card>
@@ -175,12 +188,12 @@ const ResetPassword = () => {
         {status === "success" && (
           <>
             <div className="text-center mb-6">
-              <h1 className="text-3xl font-display font-bold text-foreground tracking-wide">Password updated</h1>
+              <h1 className="text-3xl font-display font-bold text-foreground tracking-wide">Password set</h1>
             </div>
             <Card className="border-border/50 bg-card/80 backdrop-blur">
               <CardContent className="pt-6 pb-6 text-center">
                 <CheckCircle2 className="h-12 w-12 text-primary mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">Redirecting you to sign in...</p>
+                <p className="text-sm text-muted-foreground">You're signed in — taking you through now…</p>
               </CardContent>
             </Card>
           </>
@@ -189,8 +202,14 @@ const ResetPassword = () => {
         {status === "ready" && (
           <>
             <div className="text-center mb-6">
-              <h1 className="text-3xl font-display font-bold text-foreground tracking-wide">Set new password</h1>
-              <p className="text-muted-foreground mt-2 text-sm">Choose a new password for your account</p>
+              <h1 className="text-3xl font-display font-bold text-foreground tracking-wide">
+                {isStaffInvite ? "Welcome to the team" : "Set new password"}
+              </h1>
+              <p className="text-muted-foreground mt-2 text-sm">
+                {isStaffInvite
+                  ? "Choose a password for your staff login — you'll use it with your email address from now on"
+                  : "Choose a new password for your account"}
+              </p>
             </div>
             <Card className="border-border/50 bg-card/80 backdrop-blur">
               <CardContent className="pt-6">

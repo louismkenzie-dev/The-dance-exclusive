@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +29,13 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get("redirect");
   const { toast } = useToast();
+
+  // /auth?forgot=1 opens the "send me a reset link" form directly — where
+  // an expired invite or reset link sends people, instead of the sign-in
+  // form they can't get past.
+  useEffect(() => {
+    if (searchParams.get("forgot") === "1") setShowForgotPassword(true);
+  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -45,7 +45,7 @@ serve(async (_req) => {
     .select(
       `id, parent_id, class_id, notes,
        students:student_id ( first_name, last_name, preferred_name ),
-       classes:class_id ( name, start_time, end_time, venues:venue_id ( name ) )`,
+       classes:class_id ( name, start_time, end_time, class_type, venues:venue_id ( name ) )`,
     )
     .eq("status", "confirmed")
     .eq("booking_type", "trial")
@@ -110,6 +110,7 @@ serve(async (_req) => {
               startTime: cls?.start_time ?? null,
               endTime: cls?.end_time ?? null,
               venueName: cls?.venues?.name ?? null,
+              classType: cls?.class_type ?? null,
               customMessage,
             },
           },

@@ -4,9 +4,11 @@ import {
   detailRow,
   divider,
   escapeHtml,
-  FONT_BODY,
   heading,
+  HERO,
+  kicker,
   panel,
+  panelTitle,
   paragraph,
   renderLayout,
 } from "./layout.ts";
@@ -19,6 +21,8 @@ export interface TrialReminderData {
   startTime?: string | null;
   endTime?: string | null;
   venueName?: string | null;
+  /** Picks the photo: kids under blue light, or the adult heels silhouette. */
+  classType?: "children" | "adult" | null;
   /** Studio-written note (app_settings: trial_reminder_message) — shown verbatim. */
   customMessage?: string | null;
 }
@@ -42,26 +46,30 @@ export function renderTrialReminder(data: TrialReminderData) {
   const greetingName = data.parentName?.split(" ")[0] || "there";
   const who = data.studentName ? `${escapeHtml(data.studentName)}'s` : "your";
   const time = [prettyTime(data.startTime), prettyTime(data.endTime)].filter(Boolean).join(" – ");
+  const hero = data.classType === "adult"
+    ? { url: HERO.adults, alt: "Dancer in heels under stage lights" }
+    : { url: HERO.kids, alt: "Young dancers mid-move under blue stage lights" };
 
   const body = `
+    ${kicker("Trial reminder", { align: "center" })}
     ${heading("See you tomorrow!", { align: "center" })}
     ${paragraph(
-      `Hi ${escapeHtml(greetingName)}, just a quick reminder that ${who} trial class is <strong>tomorrow</strong> — we can't wait to see you there.`,
+      `Hi ${escapeHtml(greetingName)}, just a quick reminder that ${who} trial class is <strong style="color:${BRAND.ink};">tomorrow</strong> — we can't wait to see you there.`,
       { muted: true, align: "center" },
     )}
 
     ${panel(
-      `<div style="font-family:${FONT_BODY};font-size:17px;line-height:24px;font-weight:700;color:${BRAND.ink};margin-bottom:6px;">${escapeHtml(data.className)}</div>
+      `${panelTitle(escapeHtml(data.className))}
        ${detailRow("Date", escapeHtml(prettyDate(data.sessionDate)))}
        ${time ? detailRow("Time", escapeHtml(time)) : ""}
        ${data.venueName ? detailRow("Venue", escapeHtml(data.venueName)) : ""}
-       ${data.studentName ? detailRow("Attendee", escapeHtml(data.studentName)) : ""}`,
+       ${data.studentName ? detailRow("Dancer", escapeHtml(data.studentName)) : ""}`,
       { accent: "magenta" },
     )}
 
     ${data.customMessage ? paragraph(escapeHtml(data.customMessage).replace(/\n/g, "<br />")) : ""}
 
-    ${ctaButton("View My Bookings", `${BRAND.appUrl}/account/bookings`)}
+    ${ctaButton("View My Bookings", `${BRAND.appUrl}/account/bookings`, "magenta")}
 
     ${divider()}
 
@@ -77,6 +85,7 @@ export function renderTrialReminder(data: TrialReminderData) {
       title: "Trial reminder",
       preheader: `${data.className} is tomorrow${time ? ` at ${prettyTime(data.startTime)}` : ""} — see you there!`,
       body,
+      hero,
     }),
   };
 }

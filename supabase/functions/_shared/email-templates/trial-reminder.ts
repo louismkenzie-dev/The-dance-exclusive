@@ -64,17 +64,16 @@ export function renderTrialReminder(data: TrialReminderData) {
        ${time ? detailRow("Time", escapeHtml(time)) : ""}
        ${data.venueName ? detailRow("Venue", escapeHtml(data.venueName)) : ""}
        ${data.studentName ? detailRow("Dancer", escapeHtml(data.studentName)) : ""}`,
-      { accent: "magenta" },
     )}
 
     ${data.customMessage ? paragraph(escapeHtml(data.customMessage).replace(/\n/g, "<br />")) : ""}
 
-    ${ctaButton("View My Bookings", `${BRAND.appUrl}/account/bookings`, "magenta")}
+    ${ctaButton("View my bookings", `${BRAND.appUrl}/account/bookings`)}
 
     ${divider()}
 
     ${paragraph(
-      `Can't make it after all? Just reply to this email or contact <a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.blueDeep};text-decoration:none;">${BRAND.supportEmail}</a> and we'll sort another date.`,
+      `Can't make it after all? Just reply to this email or contact <a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.blue};text-decoration:none;">${BRAND.supportEmail}</a> and we'll sort another date.`,
       { muted: true, small: true, align: "center" },
     )}
   `;
@@ -86,6 +85,7 @@ export function renderTrialReminder(data: TrialReminderData) {
       preheader: `${data.className} is tomorrow${time ? ` at ${prettyTime(data.startTime)}` : ""} — see you there!`,
       body,
       hero,
+      icon: "bell",
     }),
   };
 }

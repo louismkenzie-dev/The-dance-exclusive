@@ -46,7 +46,9 @@ export const BRAND = {
   supportEmail: "hello@thedanceexclusive.co.uk",
   // Must live on the custom domain: vercel.app hosts sit behind Vercel
   // Authentication, so mail clients get a 401 instead of the image.
-  logoUrl: "https://app.thedanceexclusive.co.uk/brand/email-logo.png",
+  // Email can't use SVG (Gmail/Outlook drop it), so this is the logo at 4x
+  // its 112px display size — as sharp as a vector on any screen.
+  logoUrl: "https://app.thedanceexclusive.co.uk/brand/email-logo-4x.png",
 };
 
 /** Email-sized photos served from the app's public folder (public/email/). */
@@ -61,8 +63,12 @@ export const HERO = {
 
 export const FONT_BODY =
   "'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+// Oswald is condensed, so the fallbacks are condensed too — iPhone/iPad
+// (Avenir Next Condensed), Windows (Arial Narrow), Android (Roboto Condensed)
+// — which keeps the letter-spacing looking like the site when the web font
+// can't load (Outlook and Gmail apps).
 export const FONT_DISPLAY =
-  "'Oswald','Arial Narrow','Helvetica Neue','Segoe UI',Arial,sans-serif";
+  "'Oswald','Avenir Next Condensed','Arial Narrow','Roboto Condensed','Segoe UI',Arial,sans-serif";
 
 const GOOGLE_FONTS_URL =
   "https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap";
@@ -131,9 +137,9 @@ export function renderLayout({ title, preheader, body, hero }: LayoutOpts): stri
             <tr>
               <td align="center" bgcolor="${BRAND.band}" class="band" style="background:${BRAND.band};border:1px solid ${BRAND.panelBorder};border-bottom:0;border-radius:20px 20px 0 0;padding:30px 32px 22px 32px;">
                 <a href="${BRAND.appUrl}" target="_blank" style="text-decoration:none;">
-                  <img src="${BRAND.logoUrl}" width="150" height="139" alt="The Dance Exclusive" style="display:block;width:150px;height:auto;max-width:50%;border:0;margin:0 auto;" />
+                  <img src="${BRAND.logoUrl}" width="112" alt="The Dance Exclusive" style="display:block;width:112px;height:auto;max-width:40%;border:0;margin:0 auto;" />
                 </a>
-                <div style="margin-top:14px;font-family:${FONT_DISPLAY};font-weight:600;font-size:12px;line-height:16px;letter-spacing:7px;color:${BRAND.blue};text-transform:uppercase;">
+                <div style="margin-top:12px;font-family:${FONT_DISPLAY};font-weight:600;font-size:11px;line-height:16px;letter-spacing:3.5px;color:${BRAND.blue};text-transform:uppercase;">
                   STEP IN &nbsp;&middot;&nbsp; STAND OUT
                 </div>
               </td>
@@ -172,10 +178,10 @@ export function renderLayout({ title, preheader, body, hero }: LayoutOpts): stri
             <!-- Footer band -->
             <tr>
               <td align="center" bgcolor="${BRAND.band}" class="band" style="background:${BRAND.band};border:1px solid ${BRAND.panelBorder};border-radius:0 0 20px 20px;padding:26px 32px 28px 32px;">
-                <div style="font-family:${FONT_DISPLAY};font-weight:700;font-size:13px;line-height:18px;letter-spacing:5px;color:${BRAND.ink};text-transform:uppercase;margin-bottom:4px;">
+                <div style="font-family:${FONT_DISPLAY};font-weight:700;font-size:13px;line-height:18px;letter-spacing:3px;color:${BRAND.ink};text-transform:uppercase;margin-bottom:4px;">
                   THE DANCE EXCLUSIVE
                 </div>
-                <div style="font-family:${FONT_DISPLAY};font-weight:500;font-size:11px;line-height:16px;letter-spacing:2.5px;color:${BRAND.magenta};text-transform:uppercase;margin-bottom:16px;">
+                <div style="font-family:${FONT_DISPLAY};font-weight:500;font-size:11px;line-height:16px;letter-spacing:1.5px;color:${BRAND.magenta};text-transform:uppercase;margin-bottom:16px;">
                   Essex&#39;s award-winning street &amp; commercial dance school
                 </div>
                 <div style="font-family:${FONT_BODY};font-size:12px;line-height:20px;color:${BRAND.footerText};margin-bottom:12px;">
@@ -217,7 +223,7 @@ export function escapeHtml(str: string): string {
 /** Small letter-spaced label above a headline — "Trial reminder", "Booking confirmed". */
 export function kicker(text: string, opts: { align?: "left" | "center"; color?: "magenta" | "blue" } = {}): string {
   const color = opts.color === "blue" ? BRAND.blue : BRAND.magenta;
-  return `<div style="margin:0 0 10px 0;font-family:${FONT_DISPLAY};font-size:12px;line-height:16px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:${color};text-align:${opts.align ?? "left"};">${text}</div>`;
+  return `<div style="margin:0 0 10px 0;font-family:${FONT_DISPLAY};font-size:12px;line-height:16px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:${color};text-align:${opts.align ?? "left"};">${text}</div>`;
 }
 
 /**
@@ -230,9 +236,9 @@ export function heading(
 ): string {
   const align = opts.align ?? "left";
   if (opts.level === 2) {
-    return `<div style="margin:28px 0 12px 0;font-family:${FONT_DISPLAY};font-size:13px;line-height:18px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:${BRAND.blue};text-align:${align};">${text}</div>`;
+    return `<div style="margin:28px 0 12px 0;font-family:${FONT_DISPLAY};font-size:13px;line-height:18px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:${BRAND.blue};text-align:${align};">${text}</div>`;
   }
-  return `<h1 class="h1" style="margin:0 0 14px 0;font-family:${FONT_DISPLAY};font-size:34px;line-height:40px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${BRAND.ink};text-align:${align};">${text}</h1>`;
+  return `<h1 class="h1" style="margin:0 0 14px 0;font-family:${FONT_DISPLAY};font-size:34px;line-height:40px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:${BRAND.ink};text-align:${align};">${text}</h1>`;
 }
 
 /** Body paragraph — 16px/1.6 light ink on navy; muted/small/center variants. */
@@ -250,7 +256,7 @@ export function paragraph(
 export function detailRow(label: string, value: string): string {
   return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
     <tr>
-      <td style="padding:10px 0;border-bottom:1px solid ${BRAND.panelBorder};font-family:${FONT_DISPLAY};font-size:12px;line-height:18px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:${BRAND.inkMuted};vertical-align:top;white-space:nowrap;">${label}</td>
+      <td style="padding:10px 0;border-bottom:1px solid ${BRAND.panelBorder};font-family:${FONT_DISPLAY};font-size:12px;line-height:18px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:${BRAND.inkMuted};vertical-align:top;white-space:nowrap;">${label}</td>
       <td align="right" style="padding:10px 0 10px 16px;border-bottom:1px solid ${BRAND.panelBorder};font-family:${FONT_BODY};font-size:15px;line-height:20px;font-weight:600;color:${BRAND.ink};vertical-align:top;">${value}</td>
     </tr>
   </table>`;
@@ -258,7 +264,7 @@ export function detailRow(label: string, value: string): string {
 
 /** Bold Oswald title inside a panel — the class or event name. */
 export function panelTitle(text: string): string {
-  return `<div style="font-family:${FONT_DISPLAY};font-size:22px;line-height:28px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:${BRAND.ink};margin:0 0 8px 0;">${text}</div>`;
+  return `<div style="font-family:${FONT_DISPLAY};font-size:22px;line-height:28px;font-weight:600;letter-spacing:0.3px;text-transform:uppercase;color:${BRAND.ink};margin:0 0 8px 0;">${text}</div>`;
 }
 
 /** Raised navy panel card, optionally with a blue or magenta accent edge. */
@@ -295,7 +301,7 @@ export function ctaButton(
   return `<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:26px auto 28px auto;">
     <tr>
       <td align="center" bgcolor="${color}" style="background:${color};border-radius:999px;mso-padding-alt:16px 40px;">
-        <a href="${escapeHtml(url)}" target="_blank" style="display:inline-block;padding:16px 40px;font-family:${FONT_DISPLAY};font-size:15px;line-height:18px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#ffffff;text-decoration:none;border-radius:999px;">${escapeHtml(label)}</a>
+        <a href="${escapeHtml(url)}" target="_blank" style="display:inline-block;padding:16px 40px;font-family:${FONT_DISPLAY};font-size:15px;line-height:18px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#ffffff;text-decoration:none;border-radius:999px;">${escapeHtml(label)}</a>
       </td>
     </tr>
   </table>`;

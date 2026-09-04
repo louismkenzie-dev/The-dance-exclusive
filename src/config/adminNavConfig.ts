@@ -17,6 +17,9 @@ export const DEFAULT_NAV_CONFIG: NavItem[] = [
   { id: "bookings", label: "Bookings", icon: "ClipboardList", path: "/admin/bookings" },
   { id: "coupons", label: "Coupons", icon: "Ticket", path: "/admin/coupons" },
   { id: "registers", label: "Registers", icon: "UserCheck", path: "/admin/registers" },
+  { id: "awards", label: "Awards", icon: "Trophy", path: "/admin/awards" },
+  { id: "reports", label: "Financial Report", icon: "PoundSterling", path: "/admin/reports" },
+  { id: "emails", label: "Bulk Emails", icon: "Mail", path: "/admin/emails" },
   {
     id: "users",
     label: "Users",
@@ -34,3 +37,31 @@ export const DEFAULT_NAV_CONFIG: NavItem[] = [
 ];
 
 export const NAV_SETTINGS_KEY = "admin_nav_config";
+
+/** Every id in a config tree, including nested children. */
+const collectIds = (items: NavItem[], into: Set<string> = new Set()): Set<string> => {
+  for (const item of items) {
+    into.add(item.id);
+    if (item.children?.length) collectIds(item.children, into);
+  }
+  return into;
+};
+
+/**
+ * A saved navigation layout is a snapshot of the menu on the day it was saved,
+ * so pages added later would never appear for a studio that has customised
+ * theirs. Merge instead: keep the saved order exactly as it is, and append
+ * anything from the defaults that the saved layout has never seen — nested
+ * defaults land inside their parent group when that group still exists.
+ */
+export function mergeNavConfig(saved: NavItem[], defaults: NavItem[] = DEFAULT_NAV_CONFIG): NavItem[] {
+  const known = collectIds(saved);
+  const merged = saved.map((item) => {
+    const fallback = defaults.find((d) => d.id === item.id);
+    const missingChildren = (fallback?.children ?? []).filter((c) => !known.has(c.id));
+    return missingChildren.length > 0
+      ? { ...item, children: [...(item.children ?? []), ...missingChildren] }
+      : item;
+  });
+  return [...merged, ...defaults.filter((d) => !known.has(d.id))];
+}

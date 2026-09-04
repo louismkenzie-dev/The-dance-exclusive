@@ -684,6 +684,14 @@ const CheckoutPage = () => {
 
         if (cancelled) return;
 
+        // Nothing to pay (a free event, or a code covering the whole cost):
+        // the server has already confirmed the bookings, so go straight to
+        // the confirmation screen instead of asking for a card.
+        if (data?.free && data?.reference) {
+          navigate(`/checkout/return?free=${encodeURIComponent(data.reference)}`, { replace: true });
+          return;
+        }
+
         if (error || !data?.clientSecret) {
           // supabase-js hides the function's JSON body behind error.context —
           // surface the server's friendly message (e.g. the duplicate-booking

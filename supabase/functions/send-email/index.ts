@@ -76,6 +76,14 @@ import {
   renderAdminBookingReady,
   type AdminBookingReadyData,
 } from "../_shared/email-templates/admin-booking-ready.ts";
+import {
+  renderMerchOrderConfirmation,
+  type MerchOrderConfirmationData,
+} from "../_shared/email-templates/merch-order-confirmation.ts";
+import {
+  renderBroadcast,
+  type BroadcastData,
+} from "../_shared/email-templates/broadcast.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -138,7 +146,9 @@ type Payload =
   | { template: "one_to_one_invite"; to: string; data: OneToOneInviteData }
   | { template: "party_inquiry_admin"; to: string; data: PartyInquiryAdminData }
   | { template: "party_response"; to: string; data: PartyResponseData }
-  | { template: "admin_booking_ready"; to: string; data: AdminBookingReadyData };
+  | { template: "admin_booking_ready"; to: string; data: AdminBookingReadyData }
+  | { template: "merch_order_confirmation"; to: string; data: MerchOrderConfirmationData }
+  | { template: "broadcast"; to: string; data: BroadcastData };
 
 function buildEmail(payload: Payload): { subject: string; html: string } {
   switch (payload.template) {
@@ -180,6 +190,10 @@ function buildEmail(payload: Payload): { subject: string; html: string } {
       return renderPartyResponse(payload.data);
     case "admin_booking_ready":
       return renderAdminBookingReady(payload.data);
+    case "merch_order_confirmation":
+      return renderMerchOrderConfirmation(payload.data);
+    case "broadcast":
+      return renderBroadcast(payload.data);
     default:
       throw new Error(`Unknown template: ${(payload as any).template}`);
   }

@@ -7,14 +7,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, LogIn, LogOut, AlertTriangle, CameraOff, Check, MapPin, Users, History, CalendarDays, Star, QrCode, Cake } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, LogIn, LogOut, AlertTriangle, CameraOff, Check, MapPin, Users, History, CalendarDays, Star, QrCode, Cake, Ticket } from "lucide-react";
 import { birthdayInWeekOf, birthdayLabel } from "@/lib/birthdays";
+import { describePass, isPassBooking, passIdFromBooking } from "@/lib/passBookings";
+import { loadPassSummaries } from "@/lib/passLookup";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { addDays, differenceInYears, format, parseISO } from "date-fns";
 import StudentProfileDrawer from "@/components/staff/StudentProfileDrawer";
 import VenueFilterChips from "@/components/VenueFilterChips";
 import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
 import QrScannerDialog from "@/components/staff/QrScannerDialog";
+import RegisterLegend from "@/components/staff/RegisterLegend";
 import { initialsOf } from "@/lib/initials";
 
 const formatDay = (d: string) => d.charAt(0).toUpperCase() + d.slice(1);
@@ -133,7 +136,7 @@ const AdminRegisters = () => {
     const session = sessions.find((s) => s.id === selectedSessionId);
     if (!session) return;
     const isCamp = (session as any).kind === "camp";
-    const bookingSelect = `id, student_id, parent_id, notes, students:student_id ( id, first_name, last_name, preferred_name, profile_photo, avatar_url, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info, photo_consent )`;
+    const bookingSelect = `id, student_id, parent_id, notes, booking_type, students:student_id ( id, first_name, last_name, preferred_name, profile_photo, avatar_url, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info, photo_consent )`;
     const [{ data: bks }, { data: att }, { data: unpaidRows }] = await Promise.all([
       isCamp
         ? supabase.from("bookings").select(bookingSelect).eq("camp_id", (session as any).camp_id).eq("status", "confirmed")
@@ -167,16 +170,22 @@ const AdminRegisters = () => {
     // Pass/birthday bookings are per-session (the date is in their notes) —
     // only show them on the register for their own date. Class-level bookings
     // (memberships, trials, drop-ins) appear every week.
+    const forThisDate = (bks ?? []).filter((b: any) => {
+      const m = /session (\d{4}-\d{2}-\d{2})/.exec(b.notes || "");
+      return !m || m[1] === session.session_date;
+    });
+
+    // Adults mostly book with a multi-class pass — the door team needs to see
+    // that, and how many classes they have left on it.
+    const passSummaries = await loadPassSummaries(forThisDate);
+
     setBookings(
-      (bks ?? [])
-        .filter((b: any) => {
-          const m = /session (\d{4}-\d{2}-\d{2})/.exec(b.notes || "");
-          return !m || m[1] === session.session_date;
-        })
+      forThisDate
         .map((b: any) => ({
           ...b,
           attendance: attMap[b.id] || null,
           unpaid: unpaidStudents.has(b.student_id) || (!b.student_id && unpaidParents.has(b.parent_id)),
+          pass: isPassBooking(b) ? (passSummaries.get(passIdFromBooking(b) ?? "") ?? null) : null,
         }))
         .sort(byName),
     );
@@ -550,6 +559,13 @@ const AdminRegisters = () => {
                   </div>
                 </div>
 
+                <RegisterLegend
+                  birthdayCount={bookings.filter((b: any) =>
+                    birthdayInWeekOf(b.students?.date_of_birth, selectedSession.session_date)).length}
+                  passCount={bookings.filter((b: any) => isPassBooking(b)).length}
+                  className="mb-3"
+                />
+
                 {bookings.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-8 text-center">No confirmed bookings for this class.</p>
                 ) : (
@@ -615,9 +631,19 @@ const AdminRegisters = () => {
                                       );
                                     })()}
                                   </p>
-                                  <div className="flex gap-1 mt-0.5">
+                                  <div className="flex gap-1 mt-0.5 flex-wrap">
                                     {b.unpaid && <Badge variant="destructive" className="text-[10px]">Unpaid</Badge>}
                                     {student?.is_self && <Badge variant="outline" className="text-[10px]">Adult</Badge>}
+                                    {isPassBooking(b) && (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[10px] border-sky-500/40 text-sky-500"
+                                        title={describePass(b.pass)}
+                                      >
+                                        <Ticket className="w-3 h-3 mr-1" />
+                                        {describePass(b.pass)}
+                                      </Badge>
+                                    )}
                                     {!student && <Badge variant="outline" className="text-[10px] text-muted-foreground">No profile</Badge>}
                                   </div>
                                 </div>

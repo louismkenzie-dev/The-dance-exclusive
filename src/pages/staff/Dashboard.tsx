@@ -40,6 +40,8 @@ const StaffDashboard = () => {
   const [upcoming, setUpcoming] = useState<SessionLite[]>([]);
   const [hoursThisMonth, setHoursThisMonth] = useState(0);
   const [sessionsThisMonth, setSessionsThisMonth] = useState(0);
+  const [hoursAllTime, setHoursAllTime] = useState(0);
+  const [sessionsAllTime, setSessionsAllTime] = useState(0);
 
   useEffect(() => {
     if (!staff?.id) return;
@@ -136,18 +138,27 @@ const StaffDashboard = () => {
     setToday(allSessions.filter((s) => s.session_date === todayStr));
     setUpcoming(allSessions.filter((s) => s.session_date > todayStr).slice(0, 6));
 
-    // Hours / sessions this month (past + today only)
+    // Hours are only counted for classes that have actually happened —
+    // everything from the 1st of this month up to and including today.
+    const minutesOf = (sessions: SessionLite[]) =>
+      sessions.reduce((total, s) => {
+        const [sh, sm] = s.start_time.split(":").map(Number);
+        const [eh, em] = s.end_time.split(":").map(Number);
+        return total + (eh * 60 + em - (sh * 60 + sm));
+      }, 0);
+    const roundHours = (minutes: number) => Math.round((minutes / 60) * 10) / 10;
+
     const thisMonth = allSessions.filter(
       (s) => s.session_date >= monthStartStr && s.session_date <= todayStr,
     );
-    let totalMinutes = 0;
-    thisMonth.forEach((s) => {
-      const [sh, sm] = s.start_time.split(":").map(Number);
-      const [eh, em] = s.end_time.split(":").map(Number);
-      totalMinutes += eh * 60 + em - (sh * 60 + sm);
-    });
-    setHoursThisMonth(Math.round((totalMinutes / 60) * 10) / 10);
+    setHoursThisMonth(roundHours(minutesOf(thisMonth)));
     setSessionsThisMonth(thisMonth.length);
+
+    // Everything taught to date — the "since I started here" figure staff
+    // actually wanted, rather than guessing what the monthly tile covered.
+    const toDate = allSessions.filter((s) => s.session_date <= todayStr);
+    setHoursAllTime(roundHours(minutesOf(toDate)));
+    setSessionsAllTime(toDate.length);
   };
 
   if (loading) {
@@ -193,7 +204,12 @@ const StaffDashboard = () => {
   const compliantStroke =
     completionPct >= 80 ? "hsl(160, 84%, 45%)" : completionPct >= 50 ? "hsl(38, 92%, 55%)" : "hsl(0, 84%, 60%)";
 
-  const earningsEstimate = staff.pay_per_hour ? hoursThisMonth * Number(staff.pay_per_hour) : null;
+  // Hours taught × the hourly rate on this staff profile. An estimate, not a
+  // payslip: it doesn't know about holiday, cover, or anything paid by hand.
+  const hourlyRate = staff.pay_per_hour ? Number(staff.pay_per_hour) : null;
+  const earningsEstimate = hourlyRate != null ? hoursThisMonth * hourlyRate : null;
+  const earningsAllTime = hourlyRate != null ? hoursAllTime * hourlyRate : null;
+  const monthName = new Date().toLocaleDateString("en-GB", { month: "long" });
 
   const photo = staff.profile_photo ? getStaffPhotoUrl(staff.profile_photo) : undefined;
   const greeting = (() => {
@@ -257,7 +273,8 @@ const StaffDashboard = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold">{sessionsThisMonth}</p>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Sessions / mo</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Classes in {monthName}</p>
+                <p className="text-[11px] text-muted-foreground/80">{sessionsAllTime} in total</p>
               </div>
             </div>
           </CardContent>
@@ -270,7 +287,8 @@ const StaffDashboard = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold">{hoursThisMonth}h</p>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Hours / mo</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Hours in {monthName}</p>
+                <p className="text-[11px] text-muted-foreground/80">{hoursAllTime}h in total</p>
               </div>
             </div>
           </CardContent>
@@ -285,12 +303,24 @@ const StaffDashboard = () => {
                 <p className="text-2xl font-bold">
                   {earningsEstimate !== null ? `£${earningsEstimate.toFixed(0)}` : "—"}
                 </p>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Est. earnings</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Est. pay, {monthName}</p>
+                <p className="text-[11px] text-muted-foreground/80">
+                  {earningsAllTime !== null ? `£${earningsAllTime.toFixed(0)} in total` : "No hourly rate set"}
+                </p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Staff asked what the earnings figure actually covers — so say it. */}
+      <p className="text-xs text-muted-foreground -mt-2">
+        The monthly figures cover classes you&rsquo;ve taught from 1 {monthName} up to today; the
+        smaller number under each is your running total since you started.
+        {hourlyRate != null
+          ? ` Pay is estimated at your £${hourlyRate.toFixed(2)}/hour rate and doesn't include anything paid separately.`
+          : " Ask an admin to add your hourly rate and an estimate will appear here."}
+      </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Today + Upcoming */}

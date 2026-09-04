@@ -12,6 +12,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit, Trash2, CalendarDays, ChevronRight, ChevronLeft, ListChecks, ChevronDown, ChevronUp, Clock, User, Archive, X, Copy, Flag, AlertTriangle, Link as LinkIcon } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import DescriptionAssistButton from "@/components/admin/DescriptionAssistButton";
 import { classShareUrl } from "@/lib/classLinks";
 import { termsForRange } from "@/lib/termMatching";
 import SessionManager from "@/components/admin/SessionManager";
@@ -160,6 +162,7 @@ const AdminClasses = () => {
   // Form state
   const [classType, setClassType] = useState<"children" | "adult">("children");
   const [workshopId, setWorkshopId] = useState("");
+  const [description, setDescription] = useState("");
   const [abilityLevel, setAbilityLevel] = useState<string>("");
   const [gender, setGender] = useState<string>("mixed");
   const [durationMinutes, setDurationMinutes] = useState("60");
@@ -298,6 +301,7 @@ const AdminClasses = () => {
     hydratingTermsRef.current = false;
     setClassType("children");
     setWorkshopId("");
+    setDescription("");
     setAbilityLevel("");
     setGender("mixed");
     setDurationMinutes("60");
@@ -478,6 +482,7 @@ const AdminClasses = () => {
     if (isEdit) setEditing(c); else setEditing(null);
     setClassType((c.class_type as "children" | "adult") || "children");
     setWorkshopId(c.workshop_id || "");
+    setDescription(c.description || "");
     setAbilityLevel(c.ability_level || "");
     setGender(c.gender || "mixed");
     setVenueId(c.venue_id || "");
@@ -584,7 +589,9 @@ const AdminClasses = () => {
 
     const payload: any = {
       name: selectedWorkshop.name,
-      description: selectedWorkshop.description,
+      // What the admin wrote for THIS class wins; the class type's own text is
+      // only the starting point.
+      description: description.trim() || selectedWorkshop.description,
       class_type: selectedWorkshop.class_type as any,
       dance_style: selectedWorkshop.dance_style,
       age_min: selectedWorkshop.age_min,
@@ -953,6 +960,38 @@ const AdminClasses = () => {
                     </CardContent>
                   </Card>
                 )}
+
+                {/* Per-class description: two Street classes at different
+                    venues shouldn't have to share one paragraph. */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label>Description (shown to parents)</Label>
+                    <DescriptionAssistButton
+                      kind={classType === "adult" ? "adult dance class" : "children's dance class"}
+                      name={selectedWorkshop?.name ?? ""}
+                      facts={{
+                        danceStyle: selectedWorkshop?.dance_style,
+                        audience: classType === "adult" ? "adults" : "children",
+                        ages: selectedWorkshop?.age_min || selectedWorkshop?.age_max
+                          ? `${selectedWorkshop?.age_min ?? "?"}–${selectedWorkshop?.age_max ?? "?"}`
+                          : null,
+                        durationMinutes: durationMinutes ? parseInt(durationMinutes) : null,
+                        level: abilityLevel || null,
+                        venue: venues.find(v => v.id === venueId)?.name ?? null,
+                      }}
+                      existing={description}
+                      onDrafted={setDescription}
+                    />
+                  </div>
+                  <Textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    rows={3}
+                    placeholder={selectedWorkshop
+                      ? "What they'll do in this class, and who it suits."
+                      : "Pick a type of class first."}
+                  />
+                </div>
 
                 <div className="space-y-2">
                   <Label>WhatsApp group link</Label>

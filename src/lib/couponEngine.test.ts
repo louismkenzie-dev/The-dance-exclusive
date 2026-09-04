@@ -145,7 +145,7 @@ describe("validateAndCompute", () => {
     expect(result).toMatchObject({ discountAmount: 30.6, eligibleIndexes: [0], finalTotal: 60 });
   });
 
-  it("refuses a used-up code and a code that would leave nothing to pay", async () => {
+  it("refuses a used-up code, allows £0, and refuses a sub-30p remainder", async () => {
     const used = await validateAndCompute(
       fakeSupabase({ coupon: baseCoupon, profileEmail: "parent@example.com", redemptionsTotal: 1 }),
       "TDE-ABCD2345",
@@ -154,8 +154,15 @@ describe("validateAndCompute", () => {
     );
     expect(used).toEqual({ error: "This coupon has reached its usage limit" });
 
+    // A code covering the whole cost is allowed through at £0 — checkout
+    // confirms it without a card.
     const full = { ...baseCoupon, restricted_to_email: null, discount_value: 104 };
     const nothingToPay = await validateAndCompute(fakeSupabase({ coupon: full }), "TDE-ABCD2345", "user-1", [termItem]);
-    expect("error" in nothingToPay && nothingToPay.error).toMatch(/nothing to pay/);
+    expect(nothingToPay).toMatchObject({ finalTotal: 0, discountAmount: 104 });
+
+    // …but a total Stripe can't charge (1p–29p) still has to be turned away.
+    const almostFull = { ...baseCoupon, restricted_to_email: null, discount_value: 103.8 };
+    const tooSmall = await validateAndCompute(fakeSupabase({ coupon: almostFull }), "TDE-ABCD2345", "user-1", [termItem]);
+    expect("error" in tooSmall && tooSmall.error).toMatch(/less than 30p/);
   });
 });

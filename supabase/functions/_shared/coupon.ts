@@ -178,14 +178,14 @@ export async function validateAndCompute(
   discountAmount = Math.round(discountAmount * 100) / 100;
   const finalTotal = Math.max(0, Math.round((cartSubtotal - discountAmount) * 100) / 100);
 
-  // Card payments can't be £0 (or under Stripe's 30p minimum), so a code
-  // covering the full cost cannot go through checkout at all. Say so in
-  // plain words — the studio books full-scholarship places in directly.
-  if (finalTotal < 0.30) {
+  // A code covering the whole cost is fine: checkout confirms a £0 basket
+  // without going near a card. What Stripe genuinely can't take is a charge
+  // between 1p and 29p, and there's no way to round that away honestly.
+  if (finalTotal > 0 && finalTotal < 0.30) {
     return {
       error:
-        "This code covers the full cost, so there's nothing to pay — the studio will " +
-        "book this in for you directly. Please drop them a message and they'll sort it.",
+        "This code leaves less than 30p to pay, which card payments can't take. " +
+        "Please contact the studio and they'll book this in for you.",
     };
   }
 

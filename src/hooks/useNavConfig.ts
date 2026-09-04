@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { DEFAULT_NAV_CONFIG, NAV_SETTINGS_KEY, NavItem } from "@/config/adminNavConfig";
+import { DEFAULT_NAV_CONFIG, NAV_SETTINGS_KEY, NavItem, mergeNavConfig } from "@/config/adminNavConfig";
 
 export const useNavConfig = () => {
   const queryClient = useQueryClient();
@@ -17,7 +17,9 @@ export const useNavConfig = () => {
       if (error) throw error;
       if (data?.value) {
         try {
-          return JSON.parse(data.value) as NavItem[];
+          // Merge so pages added after the studio last customised their menu
+          // still show up (their own order and labels are left untouched).
+          return mergeNavConfig(JSON.parse(data.value) as NavItem[]);
         } catch {
           return DEFAULT_NAV_CONFIG;
         }

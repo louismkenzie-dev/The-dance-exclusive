@@ -14,6 +14,7 @@ import { Plus, Edit, Trash2, Loader2, Camera, User, Star, ChevronDown, MapPin, P
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { YearsAtTdeBadge } from "@/components/staff/YearsAtTdeBadge";
+import StaffAccessSummary from "@/components/admin/StaffAccessSummary";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -772,6 +773,8 @@ const AdminStaff = () => {
                         />
                       )}
                     </div>
+
+                    <StaffAccessSummary role={form.role} />
                   </TabsContent>
 
                   {/* Address Tab */}

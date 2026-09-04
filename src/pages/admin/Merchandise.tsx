@@ -12,6 +12,8 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Image, Package, X, Upload, Crop } from "lucide-react";
+import MerchOrdersTab from "@/components/admin/MerchOrdersTab";
+import DescriptionAssistButton from "@/components/admin/DescriptionAssistButton";
 
 const CATEGORIES = [
   { value: "t-shirt", label: "T-Shirt" },
@@ -458,11 +460,18 @@ const Merchandise = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="items" className="space-y-4">
+      <Tabs defaultValue="orders" className="space-y-4">
         <TabsList>
+          {/* Orders lead: what's been bought is the thing that needs acting on. */}
+          <TabsTrigger value="orders">Orders</TabsTrigger>
           <TabsTrigger value="items">Products</TabsTrigger>
           <TabsTrigger value="bundles">Bundles</TabsTrigger>
         </TabsList>
+
+        {/* ─── Orders Tab ────────────────────────── */}
+        <TabsContent value="orders">
+          <MerchOrdersTab />
+        </TabsContent>
 
         {/* ─── Products Tab ──────────────────────── */}
         <TabsContent value="items" className="space-y-4">
@@ -615,7 +624,19 @@ const Merchandise = () => {
               </Select>
             </div>
             <div><Label>Base Price (£)</Label><Input type="number" step="0.01" value={itemForm.base_price} onChange={e => setItemForm(f => ({ ...f, base_price: e.target.value }))} /></div>
-            <div><Label>Description</Label><Textarea value={itemForm.description} onChange={e => setItemForm(f => ({ ...f, description: e.target.value }))} rows={3} /></div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label>Description</Label>
+                <DescriptionAssistButton
+                  kind="item of dance-school uniform or merchandise"
+                  name={itemForm.name}
+                  facts={{ notes: `Category: ${getCategoryLabel(itemForm.category)}` }}
+                  existing={itemForm.description}
+                  onDrafted={(description) => setItemForm(f => ({ ...f, description }))}
+                />
+              </div>
+              <Textarea value={itemForm.description} onChange={e => setItemForm(f => ({ ...f, description: e.target.value }))} rows={3} />
+            </div>
             <Button onClick={saveItem} className="w-full">{editingItem ? "Update" : "Create"} Product</Button>
           </div>
         </DialogContent>
@@ -786,7 +807,18 @@ const Merchandise = () => {
           <div className="space-y-4">
             <div><Label>Bundle Name</Label><Input value={bundleForm.name} onChange={e => setBundleForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Starter Pack" /></div>
             <div><Label>Bundle Price (£)</Label><Input type="number" step="0.01" value={bundleForm.bundle_price} onChange={e => setBundleForm(f => ({ ...f, bundle_price: e.target.value }))} /></div>
-            <div><Label>Description</Label><Textarea value={bundleForm.description} onChange={e => setBundleForm(f => ({ ...f, description: e.target.value }))} rows={3} /></div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label>Description</Label>
+                <DescriptionAssistButton
+                  kind="bundle of dance-school uniform sold together"
+                  name={bundleForm.name}
+                  existing={bundleForm.description}
+                  onDrafted={(description) => setBundleForm(f => ({ ...f, description }))}
+                />
+              </div>
+              <Textarea value={bundleForm.description} onChange={e => setBundleForm(f => ({ ...f, description: e.target.value }))} rows={3} />
+            </div>
             <Button onClick={saveBundle} className="w-full">{editingBundle ? "Update" : "Create"} Bundle</Button>
           </div>
         </DialogContent>

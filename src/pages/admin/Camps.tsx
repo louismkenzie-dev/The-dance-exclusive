@@ -13,6 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit, Trash2, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, X, Copy, MapPin, Calendar, Users, Clock, Link as LinkIcon } from "lucide-react";
 import { format, parseISO, eachDayOfInterval, isBefore, isWeekend, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameMonth, isSameDay, getDay } from "date-fns";
 import WorkshopCover from "@/components/WorkshopCover";
+import { Textarea } from "@/components/ui/textarea";
+import DescriptionAssistButton from "@/components/admin/DescriptionAssistButton";
 import { campShareUrl } from "@/lib/classLinks";
 
 interface WorkshopOption {
@@ -89,6 +91,7 @@ const AdminCamps = () => {
   // Form state
   const [classType, setClassType] = useState<"children" | "adult">("children");
   const [workshopId, setWorkshopId] = useState("");
+  const [description, setDescription] = useState("");
   const [venueId, setVenueId] = useState("");
   const [instructorIds, setInstructorIds] = useState<string[]>([]);
   const [mainInstructorId, setMainInstructorId] = useState<string>("");
@@ -129,6 +132,14 @@ const AdminCamps = () => {
   );
   const selectedWorkshop = useMemo(() => workshops.find(w => w.id === workshopId), [workshops, workshopId]);
   const today = new Date();
+
+  // Picking a class type offers its description as a starting point; anything
+  // the admin has already written for this event is never overwritten.
+  useEffect(() => {
+    if (!selectedWorkshop || editing) return;
+    setDescription((current) => current.trim() ? current : (selectedWorkshop.description ?? ""));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedWorkshop?.id]);
 
   const filteredCamps = useMemo(() => {
     return camps.filter(c => {
@@ -197,6 +208,7 @@ const AdminCamps = () => {
   const resetForm = () => {
     setClassType("children");
     setWorkshopId("");
+    setDescription("");
     setVenueId("");
     setInstructorIds([]);
     setMainInstructorId("");
@@ -339,6 +351,7 @@ const AdminCamps = () => {
       if (d.pay_per_hour_override != null) payMap[d.staff_id] = d.pay_per_hour_override.toString();
     });
     setInstructorPayOverrides(payMap);
+    setDescription(c.description || "");
     setStartDate(c.start_date || "");
     setEndDate(c.end_date || "");
     setDefaultStartTime(c.start_time?.slice(0, 5) || "09:00");
@@ -427,7 +440,9 @@ const AdminCamps = () => {
 
     const payload: any = {
       name: selectedWorkshop.name,
-      description: selectedWorkshop.description,
+      // The admin's own words win; fall back to the class type's description
+      // so an event created without editing it still reads properly.
+      description: description.trim() || selectedWorkshop.description,
       class_type: classType as any,
       dance_style: selectedWorkshop.dance_style,
       age_min: selectedWorkshop.age_min,
@@ -655,6 +670,37 @@ const AdminCamps = () => {
                   </Card>
                 )}
 
+                {/* The description used to be copied from the class type with
+                    no way to change it — a one-off carnival or holiday event
+                    needs to say what THAT event is. */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label>Description (shown to parents)</Label>
+                    <DescriptionAssistButton
+                      kind={classType === "adult" ? "adult dance workshop or one-off event" : "children's holiday dance event"}
+                      name={selectedWorkshop?.name ?? ""}
+                      facts={{
+                        danceStyle: selectedWorkshop?.dance_style,
+                        audience: classType === "adult" ? "adults" : "children",
+                        ages: selectedWorkshop?.age_min || selectedWorkshop?.age_max
+                          ? `${selectedWorkshop?.age_min ?? "?"}–${selectedWorkshop?.age_max ?? "?"}`
+                          : null,
+                        venue: venues.find(v => v.id === venueId)?.name ?? null,
+                      }}
+                      existing={description}
+                      onDrafted={setDescription}
+                    />
+                  </div>
+                  <Textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    rows={3}
+                    placeholder={selectedWorkshop
+                      ? "What happens on the day, who it's for, what to bring…"
+                      : "Pick a type of class first."}
+                  />
+                </div>
+
                 <div className="space-y-2">
                   <Label>Venue</Label>
                   <Select value={venueId} onValueChange={(v) => {
@@ -719,15 +765,22 @@ const AdminCamps = () => {
                     {sellingMode === "per_day" ? (
                       <div className="space-y-2">
                         <Label className="text-xs">Per Day (£)</Label>
-                        <Input type="number" step="0.01" value={pricePerDay} onChange={e => setPricePerDay(e.target.value)} placeholder="e.g. 35" />
+                        <Input type="number" min="0" step="0.01" value={pricePerDay} onChange={e => setPricePerDay(e.target.value)} placeholder="e.g. 35" />
                       </div>
                     ) : (
                       <div className="space-y-2">
                         <Label className="text-xs">Whole Event (£, per child)</Label>
-                        <Input type="number" step="0.01" value={priceTotal} onChange={e => setPriceTotal(e.target.value)} placeholder="e.g. 150" />
+                        <Input type="number" min="0" step="0.01" value={priceTotal} onChange={e => setPriceTotal(e.target.value)} placeholder="e.g. 150" />
                       </div>
                     )}
                   </div>
+                  {/* Free events (carnivals, community sessions) are booked
+                      through the ordinary basket with no card step at all. */}
+                  <p className="text-xs text-muted-foreground">
+                    {(sellingMode === "per_day" ? Number(pricePerDay) : Number(priceTotal)) > 0
+                      ? "Leave the price at 0 (or blank) to make this a free event — parents book a place without paying anything."
+                      : "Free event — parents will book a place with nothing to pay, and no card details are asked for."}
+                  </p>
                   <div className="flex items-center justify-between rounded-lg border border-border p-4">
                     <div className="space-y-1">
                       <p className="text-sm font-medium">Sibling discount applies (10% off for second child onwards)</p>
@@ -1305,8 +1358,11 @@ const AdminCamps = () => {
                   </div>
                   </div>
                   <div className="flex items-center gap-2 lg:gap-3 flex-wrap justify-end border-t lg:border-t-0 border-border/40 pt-3 lg:pt-0">
-                    {c.price_per_day && <span className="text-sm font-medium">£{c.price_per_day}/day</span>}
-                    {c.price_total && <span className="text-sm text-muted-foreground">£{c.price_total} total</span>}
+                    {Number(c.price_per_day) > 0 && <span className="text-sm font-medium">£{c.price_per_day}/day</span>}
+                    {Number(c.price_total) > 0 && <span className="text-sm text-muted-foreground">£{c.price_total} total</span>}
+                    {!(Number(c.price_per_day) > 0) && !(Number(c.price_total) > 0) && (
+                      <span className="text-sm font-medium text-emerald-500">Free</span>
+                    )}
                     {/* Only linkable camps get a link: the parent-facing fetch
                         skips inactive/finished events, so a link to one would
                         land on nothing. */}

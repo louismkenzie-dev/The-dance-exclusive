@@ -87,12 +87,95 @@ async function handlePartyInvoicePaid(invoice: any) {
   console.log("Party invoice paid:", invoice.id, payment.kind);
 }
 
+/**
+ * A paid uniform / merchandise order: mark the order paid, take the stock and
+ * send the customer their receipt. Idempotent — complete_merch_order only acts
+ * on an order that hasn't been fulfilled yet, so a replayed webhook is a no-op.
+ */
+async function handleMerchCheckoutCompleted(session: any) {
+  const orderId = session.metadata?.merchOrderId;
+  if (!orderId) {
+    console.warn("Merch checkout session without an order id:", session.id);
+    return;
+  }
+
+  const details = session.customer_details ?? {};
+  const paymentIntentId = typeof session.payment_intent === "string"
+    ? session.payment_intent
+    : session.payment_intent?.id ?? null;
+
+  // Stripe's checkout page is where a guest actually types their name, email
+  // and phone — fill in anything we didn't already know.
+  const contact: Record<string, string> = {};
+  if (details.name) contact.customer_name = details.name;
+  if (details.email) contact.customer_email = details.email;
+  if (details.phone) contact.customer_phone = details.phone;
+  if (Object.keys(contact).length > 0) {
+    await supabase.from("merchandise_orders").update(contact).eq("id", orderId);
+  }
+
+  const { data: fulfilled, error } = await supabase.rpc("complete_merch_order", {
+    _order_id: orderId,
+    _payment_intent_id: paymentIntentId,
+  });
+  if (error) {
+    console.error("complete_merch_order failed:", error);
+    return;
+  }
+  if (!fulfilled) {
+    console.log("Merch order already fulfilled or unknown:", orderId);
+    return;
+  }
+
+  const [{ data: order }, { data: lines }] = await Promise.all([
+    supabase
+      .from("merchandise_orders")
+      .select("id, customer_name, customer_email, total_amount")
+      .eq("id", orderId)
+      .maybeSingle(),
+    supabase
+      .from("merchandise_order_items")
+      .select("product_name, size, quantity, unit_price")
+      .eq("order_id", orderId),
+  ]);
+
+  if (!order?.customer_email) {
+    console.warn("Merch order has no email — receipt not sent:", orderId);
+    return;
+  }
+
+  const { error: emailError } = await supabase.functions.invoke("send-email", {
+    headers: { "x-internal-auth": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
+    body: {
+      template: "merch_order_confirmation",
+      to: order.customer_email,
+      data: {
+        customerName: order.customer_name,
+        orderReference: order.id,
+        totalAmount: Number(order.total_amount ?? 0),
+        items: (lines ?? []).map((l: any) => ({
+          productName: l.product_name,
+          size: l.size,
+          quantity: l.quantity,
+          unitPrice: Number(l.unit_price ?? 0),
+        })),
+      },
+    },
+  });
+  if (emailError) console.error("Merch receipt email failed:", emailError);
+}
+
 // Legacy embedded Checkout Session flow — kept for any in-flight sessions.
 async function handleCheckoutCompleted(session: any) {
   console.log("Checkout completed:", session.id, "payment_status:", session.payment_status);
 
   if (session.payment_status !== "paid") {
     console.log("Payment not yet paid, skipping booking creation");
+    return;
+  }
+
+  if (session.metadata?.checkoutType === "merch") {
+    await handleMerchCheckoutCompleted(session);
     return;
   }
 

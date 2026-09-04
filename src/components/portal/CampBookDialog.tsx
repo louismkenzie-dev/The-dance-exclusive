@@ -267,16 +267,19 @@ export function CampBookDialog({ open, onOpenChange, camp, children, onNeedChild
 
           {wholeCampOnly && (
             <p className="text-xs text-muted-foreground">
-              Booked as the whole event{sessions.length > 1 ? ` (${sessions.length} days)` : ""} — £{Number(camp.price_total || 0).toFixed(2)} per {isAdultCamp ? "person" : "child"}.
+              Booked as the whole event{sessions.length > 1 ? ` (${sessions.length} days)` : ""} —{" "}
+              {Number(camp.price_total || 0) > 0
+                ? `£${Number(camp.price_total || 0).toFixed(2)} per ${isAdultCamp ? "person" : "child"}.`
+                : "free to attend, nothing to pay."}
             </p>
           )}
         </div>
 
         <div className="border-t border-border/50 px-6 py-4 flex items-center justify-between gap-3">
           <div style={{ fontFamily: "var(--font-body)" }}>
-            {total > 0 && (
+            {(total > 0 || (selKids.length > 0 && (wholeCampOnly || dayCount > 0))) && (
               <span className="text-lg font-bold text-foreground">
-                £{total.toFixed(2).replace(/\.00$/, "")}
+                {total > 0 ? `£${total.toFixed(2).replace(/\.00$/, "")}` : "Free"}
                 {!wholeCampOnly && dayCount > 0 && (
                   <span className="text-xs font-normal text-muted-foreground ml-1">
                     {dayCount} day{dayCount === 1 ? "" : "s"}{selKids.length > 1 ? ` × ${selKids.length} ${isAdultCamp ? "people" : "children"}` : ""}

@@ -71,6 +71,10 @@ const CheckoutReturn = () => {
   const setupIntentId = searchParams.get("setup_intent");
   const setupClientSecret = searchParams.get("setup_intent_client_secret");
   const subscriptionId = searchParams.get("subscription");
+  // A basket with nothing to pay (free event, or a code covering the whole
+  // cost) never touches Stripe — the server confirmed it and handed us the
+  // reference its bookings are filed under.
+  const freeReference = searchParams.get("free");
   const [status, setStatus] = useState<Status>("loading");
   const [email, setEmail] = useState<string | null>(null);
   const [amount, setAmount] = useState<number | null>(null);
@@ -82,7 +86,7 @@ const CheckoutReturn = () => {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (!paymentIntentId && !sessionId && !setupClientSecret && !subscriptionId) {
+    if (!paymentIntentId && !sessionId && !setupClientSecret && !subscriptionId && !freeReference) {
       setStatus("error");
       return;
     }
@@ -209,6 +213,18 @@ const CheckoutReturn = () => {
 
     const checkStatus = async () => {
       try {
+        // Free basket: the bookings already exist, there's no payment to
+        // verify. Show success and fill in the details.
+        if (freeReference) {
+          clearCart();
+          setAmount(0);
+          setStatus("success");
+          void pollForBookings(freeReference).then((found) => {
+            if (!cancelled) setBookings(found);
+          });
+          return;
+        }
+
         if (!paymentIntentId && !sessionId && (setupClientSecret || setupIntentId || subscriptionId)) {
           await checkSetupStatus();
           return;
@@ -277,7 +293,7 @@ const CheckoutReturn = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paymentIntentId, sessionId, clientSecret, setupIntentId, setupClientSecret, subscriptionId, clearCart, user?.id]);
+  }, [paymentIntentId, sessionId, clientSecret, setupIntentId, setupClientSecret, subscriptionId, freeReference, clearCart, user?.id]);
 
   if (status === "loading") {
     return (
@@ -406,7 +422,9 @@ const CheckoutReturn = () => {
               {amount !== null && (
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Total paid</dt>
-                  <dd className="font-bold text-lg">£{amount.toFixed(2)}</dd>
+                  <dd className="font-bold text-lg">
+                    {amount === 0 ? "Free — nothing to pay" : `£${amount.toFixed(2)}`}
+                  </dd>
                 </div>
               )}
               {email && (
@@ -417,11 +435,11 @@ const CheckoutReturn = () => {
                   <dd className="font-medium">{email}</dd>
                 </div>
               )}
-              {(paymentIntentId || sessionId) && (
+              {(paymentIntentId || sessionId || freeReference) && (
                 <div className="flex justify-between items-center">
                   <dt className="text-muted-foreground">Reference</dt>
                   <dd className="font-mono text-xs">
-                    {(paymentIntentId || sessionId)!.slice(-12).toUpperCase()}
+                    {(paymentIntentId || sessionId || freeReference)!.slice(-12).toUpperCase()}
                   </dd>
                 </div>
               )}

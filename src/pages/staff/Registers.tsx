@@ -5,8 +5,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, LogIn, LogOut, ScanLine, AlertTriangle, CameraOff, Heart, Check, CalendarDays, Star, Cake } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, LogIn, LogOut, ScanLine, AlertTriangle, CameraOff, Heart, Check, CalendarDays, Star, Cake, Ticket } from "lucide-react";
 import { birthdayInWeekOf, birthdayLabel } from "@/lib/birthdays";
+import { describePass, isPassBooking, passIdFromBooking } from "@/lib/passBookings";
+import { loadPassSummaries } from "@/lib/passLookup";
+import RegisterLegend from "@/components/staff/RegisterLegend";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -97,7 +100,7 @@ const StaffRegisters = () => {
     for (const s of all) {
       const { data: bookings } = await supabase
         .from("bookings")
-        .select(`id, student_id, parent_id, notes, students:student_id ( first_name, last_name, preferred_name, profile_photo, avatar_url, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info, photo_consent )`)
+        .select(`id, student_id, parent_id, notes, booking_type, students:student_id ( first_name, last_name, preferred_name, profile_photo, avatar_url, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info, photo_consent )`)
         .eq("class_id", s.class_id)
         .eq("status", "confirmed");
       const { data: att } = await supabase
@@ -114,15 +117,19 @@ const StaffRegisters = () => {
       // Pass/birthday bookings are per-session (the date is in their notes) —
       // only show them on the register for their own date. Class-level
       // bookings (memberships, trials, drop-ins) appear every week.
-      map[s.id] = (bookings ?? [])
-        .filter((b: any) => {
-          const m = /session (\d{4}-\d{2}-\d{2})/.exec(b.notes || "");
-          return !m || m[1] === s.session_date;
-        })
+      const forThisDate = (bookings ?? []).filter((b: any) => {
+        const m = /session (\d{4}-\d{2}-\d{2})/.exec(b.notes || "");
+        return !m || m[1] === s.session_date;
+      });
+      // Adults mostly book on a multi-class pass — show which, and how many
+      // classes they have left.
+      const passSummaries = await loadPassSummaries(forThisDate);
+      map[s.id] = forThisDate
         .map((b: any) => ({
           ...b,
           attendance: attByBooking[b.id] || null,
           unpaid: unpaidStudents.has(b.student_id) || (!b.student_id && unpaidParents.has(b.parent_id)),
+          pass: isPassBooking(b) ? (passSummaries.get(passIdFromBooking(b) ?? "") ?? null) : null,
         }))
         // Registers read top-to-bottom at the door, so keep them alphabetical;
         // rows with no attendee profile sink to the bottom.
@@ -380,6 +387,12 @@ const StaffRegisters = () => {
                   </div>
                   <Badge variant="outline">{(attendance[s.id] || []).length} students</Badge>
                 </div>
+                <RegisterLegend
+                  birthdayCount={(attendance[s.id] || []).filter((b: any) =>
+                    birthdayInWeekOf(b.students?.date_of_birth, s.session_date)).length}
+                  passCount={(attendance[s.id] || []).filter((b: any) => isPassBooking(b)).length}
+                  className="mb-3"
+                />
                 {(attendance[s.id] || []).length === 0 ? (
                   <p className="text-sm text-muted-foreground py-4 text-center">No bookings yet for this class.</p>
                 ) : (
@@ -451,9 +464,19 @@ const StaffRegisters = () => {
                                       );
                                     })()}
                                   </p>
-                                  <div className="flex gap-1 mt-0.5">
+                                  <div className="flex gap-1 mt-0.5 flex-wrap">
                                     {b.unpaid && <Badge variant="destructive" className="text-[10px]">Unpaid</Badge>}
                                     {student?.is_self && <Badge variant="outline" className="text-[10px]">Adult</Badge>}
+                                    {isPassBooking(b) && (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[10px] border-sky-500/40 text-sky-500"
+                                        title={describePass(b.pass)}
+                                      >
+                                        <Ticket className="w-3 h-3 mr-1" />
+                                        {describePass(b.pass)}
+                                      </Badge>
+                                    )}
                                     {!student && <Badge variant="outline" className="text-[10px] text-muted-foreground">No profile</Badge>}
                                   </div>
                                 </div>

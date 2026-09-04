@@ -44,7 +44,7 @@ serve(async (_req) => {
     .from("bookings")
     .select(
       `id, parent_id, class_id, notes,
-       students:student_id ( first_name, last_name, preferred_name ),
+       students:student_id ( first_name, last_name, preferred_name, is_self ),
        classes:class_id ( name, start_time, end_time, class_type, venues:venue_id ( name ) )`,
     )
     .eq("status", "confirmed")
@@ -111,6 +111,9 @@ serve(async (_req) => {
               endTime: cls?.end_time ?? null,
               venueName: cls?.venues?.name ?? null,
               classType: cls?.class_type ?? null,
+              // An adult who booked themselves should be addressed directly,
+              // not told about their own trial in the third person.
+              isSelf: Boolean(student?.is_self),
               customMessage,
             },
           },
@@ -175,6 +178,7 @@ serve(async (_req) => {
             data: {
               parentName: profile.full_name,
               className: cls.name,
+              classId: cls.id,
               dayOfWeek: cls.day_of_week ?? null,
               startTime: cls.start_time ?? null,
               endTime: cls.end_time ?? null,

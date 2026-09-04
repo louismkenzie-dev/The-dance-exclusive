@@ -6,7 +6,9 @@ import {
   escapeHtml,
   FONT_BODY,
   heading,
+  kicker,
   panel,
+  panelTitle,
   paragraph,
   renderLayout,
 } from "./layout.ts";
@@ -42,15 +44,22 @@ const prettyDate = (iso: string) => {
 
 /** Internal notification to the studio inbox — a new party enquiry. */
 export function renderPartyInquiryAdmin(data: PartyInquiryAdminData) {
+  // Replying to this email reaches the studio's own inbox (send-email sets
+  // reply_to to hello@), so the family's details have to be tappable here.
+  const telHref = data.phone ? data.phone.replace(/[^\d+]/g, "") : "";
+  const link = (href: string, text: string) =>
+    `<a href="${href}" style="color:${BRAND.blue};text-decoration:none;">${text}</a>`;
+
   const body = `
-    ${heading("New party enquiry", { align: "center" })}
+    ${kicker("New party enquiry", { align: "center", color: "magenta" })}
+    ${heading(`${escapeHtml(data.childName)}&#39;s party`, { align: "center" })}
     ${paragraph(
-      `<strong>${escapeHtml(data.parentName)}</strong> has enquired about a party for <strong>${escapeHtml(data.childName)}</strong>${data.childAge ? ` (turning ${data.childAge})` : ""}.`,
+      `<strong style="color:${BRAND.ink};">${escapeHtml(data.parentName)}</strong> has enquired about a party for <strong style="color:${BRAND.ink};">${escapeHtml(data.childName)}</strong>${data.childAge ? ` (turning ${data.childAge})` : ""}.`,
       { muted: true, align: "center" },
     )}
 
     ${panel(
-      `<div style="font-family:${FONT_BODY};font-size:17px;line-height:24px;font-weight:700;color:${BRAND.ink};margin-bottom:6px;">The party</div>
+      `${panelTitle("The party")}
        ${data.packageName ? detailRow("Package", escapeHtml(data.packageName)) : detailRow("Package", "Not sure yet")}
        ${data.preferredDate ? detailRow("Preferred date", escapeHtml(prettyDate(data.preferredDate))) : ""}
        ${data.preferredTime ? detailRow("Preferred time", escapeHtml(data.preferredTime)) : ""}
@@ -61,21 +70,21 @@ export function renderPartyInquiryAdmin(data: PartyInquiryAdminData) {
     )}
 
     ${panel(
-      `<div style="font-family:${FONT_BODY};font-size:13px;line-height:19px;font-weight:700;color:${BRAND.ink};margin-bottom:6px;">Contact</div>
+      `${panelTitle("Contact")}
        ${detailRow("Name", escapeHtml(data.parentName))}
-       ${detailRow("Email", escapeHtml(data.email))}
-       ${data.phone ? detailRow("Phone", escapeHtml(data.phone)) : ""}`,
+       ${detailRow("Email", link(`mailto:${escapeHtml(data.email)}`, escapeHtml(data.email)))}
+       ${data.phone ? detailRow("Phone", link(`tel:${escapeHtml(telHref)}`, escapeHtml(data.phone))) : ""}`,
     )}
 
     ${data.notes
       ? panel(
-        `<div style="font-family:${FONT_BODY};font-size:13px;line-height:19px;font-weight:700;color:${BRAND.ink};margin-bottom:6px;">What they said</div>
+        `${panelTitle("What they said")}
          <p style="margin:0;font-family:${FONT_BODY};font-size:14px;line-height:22px;color:${BRAND.inkMuted};">${escapeHtml(data.notes).replace(/\n/g, "<br />")}</p>`,
         { accent: "blue" },
       )
       : ""}
 
-    ${ctaButton("Open the enquiry", `${BRAND.appUrl}/admin/parties`, "magenta")}
+    ${ctaButton("Open the enquiry", `${BRAND.appUrl}/admin/parties`)}
 
     ${divider()}
 
@@ -91,6 +100,7 @@ export function renderPartyInquiryAdmin(data: PartyInquiryAdminData) {
       title: "New party enquiry",
       preheader: `${data.parentName} enquired about a party for ${data.childName}.`,
       body,
+      icon: "party-popper",
     }),
   };
 }

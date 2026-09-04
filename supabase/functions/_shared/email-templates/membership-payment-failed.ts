@@ -4,9 +4,10 @@ import {
   detailRow,
   divider,
   escapeHtml,
-  FONT_BODY,
   heading,
+  kicker,
   panel,
+  panelTitle,
   paragraph,
   renderLayout,
 } from "./layout.ts";
@@ -26,15 +27,16 @@ export function renderMembershipPaymentFailed(data: MembershipPaymentFailedData)
   const amount = `&pound;${Number(data.monthlyAmount).toFixed(2)}`;
 
   const body = `
-    ${heading("Action needed: membership payment failed", { align: "center" })}
+    ${kicker("Membership payment failed", { align: "center", color: "magenta" })}
+    ${heading("Action needed", { align: "center" })}
     ${paragraph(
-      `Hi ${escapeHtml(greetingName)}, we couldn&#39;t collect this month&#39;s payment for the <strong>${escapeHtml(data.className)}</strong> monthly membership${forStudent}.`,
+      `Hi ${escapeHtml(greetingName)}, we couldn&#39;t collect this month&#39;s payment for the <strong style="color:${BRAND.ink};">${escapeHtml(data.className)}</strong> monthly membership${forStudent}.`,
       { muted: true, align: "center" },
     )}
 
     ${panel(
-      `<div style="font-family:${FONT_BODY};font-size:17px;line-height:24px;font-weight:700;color:${BRAND.ink};margin-bottom:6px;">${escapeHtml(data.className)}</div>
-       ${data.studentName ? detailRow("For", escapeHtml(data.studentName)) : ""}
+      `${panelTitle(escapeHtml(data.className))}
+       ${data.studentName ? detailRow("Dancer", escapeHtml(data.studentName)) : ""}
        ${detailRow("Amount due", amount)}`,
       { accent: "magenta" },
     )}
@@ -45,19 +47,29 @@ export function renderMembershipPaymentFailed(data: MembershipPaymentFailedData)
     ${
       data.payUrl
         ? paragraph(
-          `The quickest fix is to pay this month securely online now &mdash; you can also use a different card there, and it registers straight away.`,
+          `The quickest fix is to pay this month now on our secure payment page, hosted by Stripe &mdash; the card processor we use. You can pay with a different card there, and it&#39;s confirmed straight away.`,
         )
         : paragraph(
           `To make sure the retry goes through, please check that your card details are up to date and that there are sufficient funds. If the card has expired or been replaced, just get in touch and we&#39;ll help you update it.`,
         )
     }
 
-    ${data.payUrl ? ctaButton("Pay Now", data.payUrl) : ctaButton("View My Memberships", `${BRAND.appUrl}/account/bookings`)}
+    ${data.payUrl ? ctaButton("Pay now", data.payUrl) : ctaButton("View my bookings", `${BRAND.appUrl}/account/bookings`)}
+    ${
+      // A "pay now" button leading to an unfamiliar domain is the shape of a
+      // phishing email — say where it goes before the parent hovers it.
+      data.payUrl
+        ? paragraph(
+          `The button opens invoice.stripe.com, Stripe&#39;s secure payment page &mdash; we never ask for card details by email.`,
+          { muted: true, small: true, align: "center" },
+        )
+        : ""
+    }
 
     ${divider()}
 
     ${paragraph(
-      `Questions, or think this is a mistake? Email <a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.blueDeep};text-decoration:none;">${BRAND.supportEmail}</a> and we&#39;ll put it right.`,
+      `Questions, or think this is a mistake? Email <a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.blue};text-decoration:none;">${BRAND.supportEmail}</a> and we&#39;ll put it right.`,
       { muted: true, small: true, align: "center" },
     )}
   `;
@@ -68,6 +80,7 @@ export function renderMembershipPaymentFailed(data: MembershipPaymentFailedData)
       title: "Membership payment failed",
       preheader: `We couldn't collect this month's payment for ${data.className} — it will be retried automatically.`,
       body,
+      icon: "alert-circle",
     }),
   };
 }

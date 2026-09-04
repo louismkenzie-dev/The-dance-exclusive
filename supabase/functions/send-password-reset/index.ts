@@ -8,6 +8,31 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+// The only host we will ever put in an emailed reset link. `redirectTo` comes
+// straight off the request body, so it is matched against this rather than
+// trusted — an attacker who could steer the link host could harvest the
+// recovery token from a genuine reset email.
+const APP_ORIGIN = "https://app.thedanceexclusive.co.uk";
+
+/**
+ * Where the emailed link should land. Supabase's own `action_link` points at
+ * <project>.supabase.co/auth/v1/verify, which then 302s here — that host in a
+ * password email reads as phishing, and link scanners (Outlook Safe Links,
+ * Gmail) follow the GET and burn the one-time token before the user clicks,
+ * which is how a staff member ended up on "link expired". Linking the app
+ * directly with the hashed token keeps the verification server-side at
+ * ResetPassword.tsx's verifyOtp call instead.
+ */
+function resetPageUrl(redirectTo?: string): string {
+  try {
+    const u = new URL(redirectTo ?? "");
+    if (u.origin === APP_ORIGIN) return `${u.origin}${u.pathname}`;
+  } catch {
+    // Malformed or absent — fall through to the canonical page.
+  }
+  return `${APP_ORIGIN}/reset-password`;
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -77,7 +102,12 @@ serve(async (req) => {
       });
     }
 
-    const resetUrl = data.properties.action_link;
+    // Prefer the app-hosted token_hash link; keep action_link as the fallback
+    // so an unexpected generateLink response still sends a working email.
+    const hashedToken = data.properties.hashed_token;
+    const resetUrl = hashedToken
+      ? `${resetPageUrl(redirectTo)}?token_hash=${encodeURIComponent(hashedToken)}&type=recovery`
+      : data.properties.action_link;
 
     // Dispatch via send-email
     const { error: sendErr } = await supabase.functions.invoke("send-email", {

@@ -6,7 +6,10 @@ import {
   escapeHtml,
   FONT_BODY,
   heading,
+  HERO,
+  kicker,
   panel,
+  panelTitle,
   paragraph,
   renderLayout,
 } from "./layout.ts";
@@ -47,8 +50,11 @@ const prettyDate = (iso: string) => {
   }
 };
 
+// No emoji in the headline: Oswald (and the condensed fallbacks) sit badly
+// beside Outlook's flat emoji glyph, and the headline icon tile carries the
+// celebration in the brand's own style. The subject line keeps its 🎉.
 const HEADINGS: Record<PartyResponseData["outcome"], string> = {
-  confirmed: "Your party is confirmed! 🎉",
+  confirmed: "Your party is confirmed!",
   proposed: "About your party date",
   declined: "About your party enquiry",
 };
@@ -68,9 +74,7 @@ export function renderPartyResponse(data: PartyResponseData) {
 
   const detailsPanel = hasDetails && data.outcome !== "declined"
     ? panel(
-      `<div style="font-family:${FONT_BODY};font-size:17px;line-height:24px;font-weight:700;color:${BRAND.ink};margin-bottom:6px;">${
-        data.outcome === "confirmed" ? "Your party" : "What we can offer"
-      }</div>
+      `${panelTitle(data.outcome === "confirmed" ? "Your party" : "What we can offer")}
        ${data.packageName ? detailRow("Package", escapeHtml(data.packageName)) : ""}
        ${data.partyDate ? detailRow("Date", escapeHtml(prettyDate(data.partyDate))) : ""}
        ${data.partyTime ? detailRow("Time", escapeHtml(data.partyTime)) : ""}

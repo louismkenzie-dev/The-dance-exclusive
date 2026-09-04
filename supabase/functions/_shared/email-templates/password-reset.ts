@@ -4,6 +4,7 @@ import {
   escapeHtml,
   FONT_BODY,
   heading,
+  kicker,
   panel,
   paragraph,
   renderLayout,
@@ -16,22 +17,29 @@ export interface PasswordResetData {
 }
 
 export function renderPasswordReset(data: PasswordResetData) {
-  const firstName = data.fullName?.split(" ")[0] || "there";
+  const firstName = data.fullName?.trim().split(/\s+/)[0] || "there";
 
   const body = `
-    ${heading("Reset your password")}
-    ${paragraph(`Hi ${escapeHtml(firstName)},`)}
+    ${kicker("Account security", { align: "center" })}
+    ${heading("Reset your password", { align: "center" })}
+    ${paragraph(`Hi ${escapeHtml(firstName)},`, { align: "center" })}
     ${paragraph(
-      `We received a request to reset the password for <strong>${escapeHtml(data.email)}</strong>. Click the button below to choose a new one. The link will expire in 1 hour.`,
-      { muted: true },
+      `We received a request to reset the password for <strong style="color:${BRAND.ink};">${escapeHtml(data.email)}</strong>. Use the button below to choose a new one &mdash; the link expires within the hour.`,
+      { muted: true, align: "center" },
     )}
 
     ${ctaButton("Reset Password", data.resetUrl)}
 
-    ${paragraph(
-      `Or copy and paste this link into your browser:<br /><a href="${escapeHtml(data.resetUrl)}" style="color:${BRAND.blueDeep};word-break:break-all;">${escapeHtml(data.resetUrl)}</a>`,
-      { muted: true, small: true },
-    )}
+    ${
+    // The reset link carries a single-use token. Printing it as visible text
+    // put a long third-party-looking URL in front of a reader who is already
+    // being told to be careful — and invited them to mis-copy it. The button
+    // carries the link; anyone whose client strips it gets the help line below.
+    paragraph(
+      `Trouble with the button? Reply to this email or contact <a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.blue};text-decoration:none;">${BRAND.supportEmail}</a> and we'll get you back in.`,
+      { muted: true, small: true, align: "center" },
+    )
+  }
 
     ${panel(
       `<p style="margin:0;font-family:${FONT_BODY};font-size:13px;line-height:20px;color:${BRAND.inkMuted};"><strong style="color:${BRAND.ink};">Didn&#39;t request this?</strong> You can safely ignore this email &mdash; your password won&#39;t change unless you click the link above.</p>`,
@@ -45,6 +53,7 @@ export function renderPasswordReset(data: PasswordResetData) {
       title: "Reset your password",
       preheader: "Use the link inside to set a new password.",
       body,
+      icon: "key",
     }),
   };
 }

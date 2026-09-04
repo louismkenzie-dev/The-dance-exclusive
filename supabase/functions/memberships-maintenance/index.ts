@@ -210,7 +210,7 @@ serve(async (_req) => {
           .eq("stripe_subscription_id", subId)
           .in("status", ["active", "past_due", "paused", "cancel_scheduled"]);
 
-        // ── 5. One-month payment adjustments ────────────────────────────
+        // ── 5. One-month payment adjustments ────────────────────────────────
         // A pending "£x off <month>" is handed to Stripe as an invoice item
         // once that month's payment is the next one due (invoices are raised
         // on the 5th at 07:00 UTC; this runs at 06:10, so an item created

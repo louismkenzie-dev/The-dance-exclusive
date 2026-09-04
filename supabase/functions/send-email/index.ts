@@ -76,14 +76,13 @@ import {
   renderAdminBookingReady,
   type AdminBookingReadyData,
 } from "../_shared/email-templates/admin-booking-ready.ts";
+import { BRAND } from "../_shared/email-templates/layout.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-internal-auth",
 };
-
-const DEFAULT_FROM = "The Dance Exclusive <onboarding@resend.dev>";
 
 // Resolve a secret/config value: prefer the platform env var (the standard,
 // dashboard-managed way — if it's ever set there it wins), otherwise fall back
@@ -207,8 +206,20 @@ serve(async (req) => {
       },
     );
   }
-  const FROM_ADDRESS = (await getSecret("EMAIL_FROM")) || DEFAULT_FROM;
-  const REPLY_TO = await getSecret("EMAIL_REPLY_TO");
+  // Every template tells the reader to "reply to this email", so there is no
+  // safe default sender: refuse to send rather than go out from an address
+  // nobody reads. Replies always land in the studio inbox.
+  const FROM_ADDRESS = await getSecret("EMAIL_FROM");
+  if (!FROM_ADDRESS) {
+    return new Response(
+      JSON.stringify({ error: "EMAIL_FROM is not configured" }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
+  }
+  const REPLY_TO = (await getSecret("EMAIL_REPLY_TO")) || BRAND.supportEmail;
 
   let payload: Payload;
   try {
@@ -275,7 +286,7 @@ serve(async (req) => {
         to: [payload.to],
         subject,
         html,
-        ...(REPLY_TO ? { reply_to: REPLY_TO } : {}),
+        reply_to: REPLY_TO,
       }),
     });
 

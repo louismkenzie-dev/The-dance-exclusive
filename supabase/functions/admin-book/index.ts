@@ -184,7 +184,7 @@ serve(async (req) => {
     }
     const { data: cls } = await supabase
       .from("classes")
-      .select("id, name, class_type, is_active")
+      .select("id, name, class_type, is_active, day_of_week, start_time, end_time, venues:venue_id ( name )")
       .eq("id", classId)
       .maybeSingle();
     if (!cls || !cls.is_active) {
@@ -279,6 +279,11 @@ serve(async (req) => {
                 ? (student.preferred_name || student.first_name)
                 : null,
               className: cls.name,
+              classType: cls.class_type,
+              dayOfWeek: cls.day_of_week,
+              startTime: cls.start_time,
+              endTime: cls.end_time,
+              venueName: (cls as any).venues?.name ?? null,
               plan,
               sessionDates: dates.length > 0 ? dates : null,
               price: Number.isFinite(price) ? price : null,

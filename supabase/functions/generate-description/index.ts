@@ -36,6 +36,27 @@ const SYSTEM_PROMPT = [
   "- Output the description text only, with no surrounding quotes.",
 ].join("\n");
 
+/**
+ * Practical text (how to find the hall, where to park, where to drop off) has
+ * a different job from selling a class: a parent reads it in the car. Nudge
+ * the model towards plain instructions and, above all, away from inventing
+ * directions that don't exist.
+ */
+const PRACTICAL_PROMPT = [
+  "",
+  "This one is practical information a parent reads on their way to the venue,",
+  "not marketing copy. Extra rules for it:",
+  "- Give clear, plain instructions in the order someone would follow them.",
+  "- NEVER invent a road name, landmark, car park, entrance, gate, door code,",
+  "  cost or restriction that was not given to you. If a detail is missing,",
+  "  leave it out entirely rather than guessing.",
+  "- Up to 4 short sentences is fine here.",
+].join("\n");
+
+/** Does this draft describe how to get somewhere rather than what happens? */
+const isPracticalKind = (kind: string) =>
+  /direction|parking|drop-?off|access|how to find/i.test(kind);
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -107,7 +128,10 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          {
+            role: "system",
+            content: isPracticalKind(kind) ? SYSTEM_PROMPT + PRACTICAL_PROMPT : SYSTEM_PROMPT,
+          },
           { role: "user", content: facts.join("\n") },
         ],
         max_tokens: 200,

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { DEFAULT_NAV_CONFIG, NAV_SETTINGS_KEY, NavItem } from "@/config/adminNavConfig";
+import { DEFAULT_NAV_CONFIG, NAV_SETTINGS_KEY, NavItem, mergeNavConfig } from "@/config/adminNavConfig";
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
   DragEndEvent, DragOverEvent, DragStartEvent, DragOverlay,
@@ -145,7 +145,9 @@ const SettingsNavigation = () => {
         .maybeSingle();
       if (error) throw error;
       if (data?.value) {
-        try { return JSON.parse(data.value) as NavItem[]; } catch { return DEFAULT_NAV_CONFIG; }
+        // Same merge the live menu does, so the editor lists newly added pages
+        // rather than silently dropping them the next time it's saved.
+        try { return mergeNavConfig(JSON.parse(data.value) as NavItem[]); } catch { return DEFAULT_NAV_CONFIG; }
       }
       return DEFAULT_NAV_CONFIG;
     },

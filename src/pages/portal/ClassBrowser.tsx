@@ -46,7 +46,8 @@ import { ChildFormDialog } from "@/components/portal/ChildFormDialog";
 import { CampBookDialog } from "@/components/portal/CampBookDialog";
 import { AdultPassesCard } from "@/components/portal/AdultPassesCard";
 import { isAttendeeProfileComplete } from "@/lib/attendeeProfile";
-import VenueFilterChips from "@/components/VenueFilterChips";
+import ClassFilterBar from "@/components/ClassFilterBar";
+import { applyClassFilters, DAYS, daysOf } from "@/lib/classFilters";
 import WorkshopCover from "@/components/WorkshopCover";
 import {
   MONTHLY_MEMBERSHIP_NOTICE,
@@ -185,6 +186,11 @@ const ClassBrowser = () => {
   const [hasExistingBookings, setHasExistingBookings] = useState<boolean | null>(null);
   const [activeSection, setActiveSection] = useState<"classes" | "camps" | "shows">("classes");
   const [venueFilter, setVenueFilter] = useState<string>("all");
+  // Parents told us the full list is overwhelming — these narrow it to the
+  // classes that could actually suit their child.
+  const [ageFilter, setAgeFilter] = useState<string>("all");
+  const [dayFilter, setDayFilter] = useState<string>("all");
+  const [classSearch, setClassSearch] = useState("");
   const [quickBookClassId, setQuickBookClassId] = useState<string | null>(null);
   const [bookCampId, setBookCampId] = useState<string | null>(null);
   const [schoolTerms, setSchoolTerms] = useState<{ name: string; term_type: string; start_date: string; end_date: string }[]>([]);
@@ -346,7 +352,7 @@ const ClassBrowser = () => {
       setLoading(false);
     };
     fetchClasses();
-    setVenueFilter("all");
+    clearClassFilters();
   }, [classType]);
 
   // This parent's waitlist entries (to toggle Join/Leave on full classes).
@@ -479,7 +485,8 @@ const ClassBrowser = () => {
 
     handledLinkRef.current = linkedClassId;
     setActiveSection("classes");
-    setVenueFilter("all");
+    // Any filter would hide the very class the link is for.
+    clearClassFilters();
     setExpandedId(linkedClassId);
     setHighlightId(linkedClassId);
 
@@ -545,9 +552,28 @@ const ClassBrowser = () => {
     return [...byId.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
   }, [classes]);
 
+  const clearClassFilters = () => {
+    setVenueFilter("all");
+    setAgeFilter("all");
+    setDayFilter("all");
+    setClassSearch("");
+  };
+
+  // Only offer day chips for days something actually runs on — an empty
+  // "Sunday" chip is just another thing to read past.
+  const dayOptions = useMemo(() => {
+    const running = new Set(classes.flatMap((c) => daysOf(c)));
+    return DAYS.filter((d) => running.has(d));
+  }, [classes]);
+
   // Sort: age-matched classes first, then by distance
   const sortedClasses = useMemo(() => {
-    const filtered = venueFilter === "all" ? classes : classes.filter(c => c.venue_id === venueFilter);
+    const filtered = applyClassFilters(classes, {
+      venueId: venueFilter,
+      ageBandId: ageFilter,
+      day: dayFilter,
+      search: classSearch,
+    });
     const scored = filtered.map(c => {
       const matched = getMatchingChildren(c);
       const ageScore = matched.length > 0 ? 0 : 1;
@@ -562,7 +588,7 @@ const ClassBrowser = () => {
     });
     scored.sort((a, b) => a.ageScore - b.ageScore || a.dist - b.dist);
     return scored;
-  }, [classes, effectiveCoords, children, venueFilter]);
+  }, [classes, effectiveCoords, children, venueFilter, ageFilter, dayFilter, classSearch]);
 
   const getDistance = (c: ClassItem) => {
     if (!effectiveCoords) return null;
@@ -769,23 +795,40 @@ const ClassBrowser = () => {
 
         {/* CLASSES SECTION */}
         <div id="section-classes" className={activeSection !== "classes" ? "hidden" : ""}>
-        {!loading && (
-          <VenueFilterChips
+        {!loading && classes.length > 0 && (
+          <ClassFilterBar
             venues={venueOptions}
-            value={venueFilter}
-            onChange={setVenueFilter}
-            className="justify-center mb-8"
+            days={dayOptions}
+            filters={{ venueId: venueFilter, ageBandId: ageFilter, day: dayFilter, search: classSearch }}
+            onChange={(next) => {
+              if (next.venueId !== undefined) setVenueFilter(next.venueId);
+              if (next.ageBandId !== undefined) setAgeFilter(next.ageBandId);
+              if (next.day !== undefined) setDayFilter(next.day);
+              if (next.search !== undefined) setClassSearch(next.search);
+            }}
+            onReset={clearClassFilters}
+            resultCount={sortedClasses.length}
+            totalCount={classes.length}
+            showAgeBands={!isAdult}
+            className="mb-8"
           />
         )}
         {loading ? (
           <div className="text-center text-muted-foreground py-12">Loading classes...</div>
         ) : sortedClasses.length === 0 ? (
           <Card className="card-elevated border-border/50">
-            <CardContent className="py-16 text-center text-muted-foreground">
-              <CalendarDays className="w-10 h-10 mx-auto mb-3 text-muted-foreground/50" />
-              {venueFilter !== "all"
-                ? `No ${classType} classes at this venue right now — try another venue.`
-                : `No ${classType} classes available right now. Check back soon!`}
+            <CardContent className="py-16 text-center text-muted-foreground space-y-3">
+              <CalendarDays className="w-10 h-10 mx-auto text-muted-foreground/50" />
+              {classes.length === 0 ? (
+                <p>No {classType} classes available right now. Check back soon!</p>
+              ) : (
+                <>
+                  <p>No {classType} classes match what you&rsquo;ve chosen.</p>
+                  <Button variant="outline" size="sm" onClick={clearClassFilters}>
+                    Show all {classes.length} classes
+                  </Button>
+                </>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -1591,8 +1634,12 @@ const ClassBrowser = () => {
                       </div>
                       <div className="flex items-center justify-between pt-4 border-t border-border/50">
                         <div>
-                          {camp.price_per_day && <span className="text-lg font-bold text-foreground">£{camp.price_per_day}<span className="text-xs font-normal text-muted-foreground">/day</span></span>}
-                          {camp.price_total && !camp.price_per_day && <span className="text-lg font-bold text-foreground">£{camp.price_total}<span className="text-xs font-normal text-muted-foreground"> total</span></span>}
+                          {Number(camp.price_per_day) > 0 && <span className="text-lg font-bold text-foreground">£{camp.price_per_day}<span className="text-xs font-normal text-muted-foreground">/day</span></span>}
+                          {Number(camp.price_total) > 0 && !(Number(camp.price_per_day) > 0) && <span className="text-lg font-bold text-foreground">£{camp.price_total}<span className="text-xs font-normal text-muted-foreground"> total</span></span>}
+                          {/* Free community events are a real thing here — say so rather than showing nothing. */}
+                          {!(Number(camp.price_per_day) > 0) && !(Number(camp.price_total) > 0) && (
+                            <span className="text-lg font-bold text-emerald-500">Free<span className="text-xs font-normal text-muted-foreground"> to attend</span></span>
+                          )}
                         </div>
                         <Button
                           size="sm"

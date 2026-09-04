@@ -8,6 +8,8 @@ const corsHeaders = {
 };
 
 const CACHE_KEY = "google_reviews_cache";
+/** Admin-set Google Place ID, so the studio can connect it themselves. */
+const PLACE_ID_KEY = "google_place_id";
 const CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 const MAX_REVIEWS = 6;
 
@@ -55,6 +57,14 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
+    // A refresh request (from the admin settings page) skips the cache so the
+    // studio can see straight away whether their Place ID actually works.
+    let forceRefresh = false;
+    if (req.method === "POST") {
+      const body = await req.json().catch(() => ({}));
+      forceRefresh = body?.refresh === true;
+    }
+
     // 1. Try the cache first.
     const { data: cacheRow } = await supabase
       .from("app_settings")
@@ -70,7 +80,7 @@ serve(async (req) => {
       }
     }
 
-    if (cached?.fetchedAt) {
+    if (cached?.fetchedAt && !forceRefresh) {
       const age = Date.now() - new Date(cached.fetchedAt).getTime();
       if (Number.isFinite(age) && age >= 0 && age < CACHE_TTL_MS) {
         return jsonResponse(cached);
@@ -78,12 +88,23 @@ serve(async (req) => {
     }
 
     // 2. Cache is missing or stale — fetch fresh data from Google.
+    // The API key stays a platform secret; the Place ID is the studio's own
+    // and they can set it themselves in Settings without a redeploy.
     const apiKey = Deno.env.get("GOOGLE_PLACES_API_KEY");
-    const placeId = Deno.env.get("GOOGLE_PLACE_ID");
+    const { data: placeRow } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", PLACE_ID_KEY)
+      .maybeSingle();
+    const placeId = (placeRow?.value ?? "").trim() || Deno.env.get("GOOGLE_PLACE_ID");
 
     if (!apiKey || !placeId) {
-      console.warn("google-reviews: GOOGLE_PLACES_API_KEY / GOOGLE_PLACE_ID not set");
-      return jsonResponse(cached ?? EMPTY_PAYLOAD);
+      console.warn("google-reviews: API key or Place ID not configured");
+      return jsonResponse({
+        ...(cached ?? EMPTY_PAYLOAD),
+        connected: false,
+        reason: !apiKey ? "missing_api_key" : "missing_place_id",
+      });
     }
 
     const url =
@@ -95,10 +116,13 @@ serve(async (req) => {
     });
 
     if (!googleRes.ok) {
-      console.error(
-        `google-reviews: Places API responded ${googleRes.status}: ${await googleRes.text()}`,
-      );
-      return jsonResponse(cached ?? EMPTY_PAYLOAD);
+      const detail = await googleRes.text();
+      console.error(`google-reviews: Places API responded ${googleRes.status}: ${detail}`);
+      return jsonResponse({
+        ...(cached ?? EMPTY_PAYLOAD),
+        connected: false,
+        reason: googleRes.status === 404 ? "place_not_found" : "google_error",
+      });
     }
 
     // deno-lint-ignore no-explicit-any
@@ -143,7 +167,7 @@ serve(async (req) => {
       console.error("google-reviews: cache upsert failed:", upsertError);
     }
 
-    return jsonResponse(payload);
+    return jsonResponse({ ...payload, connected: true });
   } catch (e) {
     console.error("google-reviews error:", e);
     // Never 500 — fall back to whatever we have so the homepage degrades gracefully.

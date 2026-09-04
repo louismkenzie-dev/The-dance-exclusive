@@ -16,6 +16,10 @@ export interface BookingItem {
   id?: string | null;
   className: string;
   studentName?: string | null;
+  /** "YYYY-MM-DD" for a booking pinned to one date (trial, pay-as-you-go,
+   *  class pass). Shown instead of the weekly "Wednesdays" line so a parent
+   *  booking on the day can see exactly when to turn up. */
+  sessionDate?: string | null;
   dayOfWeek?: string | null;
   startTime?: string | null;
   endTime?: string | null;
@@ -44,6 +48,21 @@ const planLabel: Record<string, string> = {
   year: "Full Year",
 };
 
+/** "Wednesday 4 September 2026" — or null when there's no pinned date. */
+function formatSessionDate(date?: string | null): string | null {
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const [y, m, d] = date.split("-").map(Number);
+  const parsed = new Date(Date.UTC(y, m - 1, d));
+  if (isNaN(parsed.getTime())) return null;
+  return parsed.toLocaleDateString("en-GB", {
+    timeZone: "UTC",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 export function renderBookingConfirmation(data: BookingConfirmationData) {
   const greetingName = data.parentName?.split(" ")[0] || "there";
 
@@ -71,10 +90,13 @@ export function renderBookingConfirmation(data: BookingConfirmationData) {
       const day = b.dayOfWeek
         ? b.dayOfWeek.charAt(0).toUpperCase() + b.dayOfWeek.slice(1) + "s"
         : "";
+      const onDate = formatSessionDate(b.sessionDate);
 
       const rows = [
         b.studentName ? detailRow("For", escapeHtml(b.studentName)) : "",
-        day ? detailRow("Day", escapeHtml(day)) : "",
+        // A dated booking shows the actual date; a standing weekly place
+        // shows the day it runs on.
+        onDate ? detailRow("Date", escapeHtml(onDate)) : day ? detailRow("Day", escapeHtml(day)) : "",
         time ? detailRow("Time", time) : "",
         venue ? detailRow("Venue", escapeHtml(venue)) : "",
         b.bookingType

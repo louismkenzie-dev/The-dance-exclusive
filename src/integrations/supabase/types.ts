@@ -1615,6 +1615,251 @@ export type Database = {
           },
         ]
       }
+      merchandise_order_items: {
+        Row: {
+          created_at: string
+          id: string
+          item_id: string | null
+          order_id: string
+          product_name: string
+          quantity: number
+          size: string | null
+          unit_price: number
+          variant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          order_id: string
+          product_name: string
+          quantity?: number
+          size?: string | null
+          unit_price?: number
+          variant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_id?: string | null
+          order_id?: string
+          product_name?: string
+          quantity?: number
+          size?: string | null
+          unit_price?: number
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "merchandise_order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "merchandise_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      merchandise_orders: {
+        Row: {
+          collected_at: string | null
+          created_at: string
+          customer_email: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          id: string
+          notes: string | null
+          paid_at: string | null
+          status: string
+          stripe_payment_intent_id: string | null
+          stripe_session_id: string | null
+          total_amount: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          collected_at?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          status?: string
+          stripe_payment_intent_id?: string | null
+          stripe_session_id?: string | null
+          total_amount?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          collected_at?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_phone?: string | null
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          status?: string
+          stripe_payment_intent_id?: string | null
+          stripe_session_id?: string | null
+          total_amount?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      email_broadcasts: {
+        Row: {
+          audience: Json
+          audience_label: string | null
+          body: string
+          completed_at: string | null
+          created_at: string
+          failed_count: number
+          id: string
+          recipient_count: number
+          sent_by: string | null
+          status: string
+          subject: string
+        }
+        Insert: {
+          audience?: Json
+          audience_label?: string | null
+          body: string
+          completed_at?: string | null
+          created_at?: string
+          failed_count?: number
+          id?: string
+          recipient_count?: number
+          sent_by?: string | null
+          status?: string
+          subject: string
+        }
+        Update: {
+          audience?: Json
+          audience_label?: string | null
+          body?: string
+          completed_at?: string | null
+          created_at?: string
+          failed_count?: number
+          id?: string
+          recipient_count?: number
+          sent_by?: string | null
+          status?: string
+          subject?: string
+        }
+        Relationships: []
+      }
+      email_broadcast_recipients: {
+        Row: {
+          broadcast_id: string
+          created_at: string
+          email: string
+          error: string | null
+          id: string
+          name: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          broadcast_id: string
+          created_at?: string
+          email: string
+          error?: string | null
+          id?: string
+          name?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          broadcast_id?: string
+          created_at?: string
+          email?: string
+          error?: string | null
+          id?: string
+          name?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_broadcast_recipients_broadcast_id_fkey"
+            columns: ["broadcast_id"]
+            isOneToOne: false
+            referencedRelation: "email_broadcasts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_awards: {
+        Row: {
+          awarded_by: string | null
+          awarded_on: string
+          award_type: string
+          class_id: string | null
+          class_name: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          student_id: string
+          term_id: string | null
+          term_label: string
+          updated_at: string
+        }
+        Insert: {
+          awarded_by?: string | null
+          awarded_on?: string
+          award_type: string
+          class_id?: string | null
+          class_name?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          student_id: string
+          term_id?: string | null
+          term_label: string
+          updated_at?: string
+        }
+        Update: {
+          awarded_by?: string | null
+          awarded_on?: string
+          award_type?: string
+          class_id?: string | null
+          class_name?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          student_id?: string
+          term_id?: string | null
+          term_label?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_awards_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_awards_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_awards_term_id_fkey"
+            columns: ["term_id"]
+            isOneToOne: false
+            referencedRelation: "school_terms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       merchandise_variants: {
         Row: {
           color: string | null

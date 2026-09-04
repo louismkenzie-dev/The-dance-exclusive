@@ -459,6 +459,9 @@ export async function sendBookingConfirmationEmail(
           studentName: b.students
             ? `${b.students.first_name} ${b.students.last_name}`
             : null,
+          // Trials, pay-as-you-go and pass bookings carry their date in the
+          // notes — a parent booking a same-day trial needs to see it.
+          sessionDate: /session (\d{4}-\d{2}-\d{2})/.exec(b.notes || "")?.[1] ?? null,
           dayOfWeek: b.classes?.day_of_week || null,
           startTime: b.classes?.start_time || null,
           endTime: b.classes?.end_time || null,
@@ -471,6 +474,7 @@ export async function sendBookingConfirmationEmail(
           id: null, // passes are not bookings — no entrance QR
           className: passCatalog[p.pass_type as string]?.label || "Class Pass",
           studentName: null,
+          sessionDate: null,
           dayOfWeek: null,
           startTime: null,
           endTime: null,

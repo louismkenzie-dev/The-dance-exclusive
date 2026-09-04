@@ -9,6 +9,12 @@ import {
   getPlatformFeePercent,
 } from "../_shared/stripe.ts";
 import { allocateDiscount, validateAndCompute } from "../_shared/coupon.ts";
+import {
+  fulfillItems,
+  parsePaymentIntentItems,
+  recordCouponRedemption,
+  sendBookingConfirmationEmail,
+} from "../_shared/fulfilment.ts";
 import { getActiveStripeEnv } from "../_shared/paymentsMode.ts";
 import { chargesFirstMonthAtSignup, firstBillingAnchor, freeMonthFor, londonYMD } from "../_shared/billing.ts";
 import {
@@ -53,6 +59,29 @@ const jsonResponse = (body: unknown, status = 200) =>
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+
+/**
+ * A stable id for one family's £0 basket. Free baskets are confirmed without a
+ * PaymentIntent, so there's no Stripe id to key the bookings on — this stands
+ * in for one. The same basket always fingerprints to the same value, which is
+ * what makes a refreshed checkout page repeat harmlessly.
+ */
+async function basketFingerprint(
+  userId: string,
+  itemMetadata: Record<string, string>,
+  couponId: string | null,
+): Promise<string> {
+  const canonical = JSON.stringify([
+    userId,
+    couponId ?? "",
+    Object.keys(itemMetadata).sort().map((key) => [key, itemMetadata[key]]),
+  ]);
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+  const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  // 32 hex characters is plenty to separate one family's baskets and keeps the
+  // reference short enough to read on a confirmation screen.
+  return hex.slice(0, 32);
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -673,8 +702,17 @@ serve(async (req) => {
     };
 
     const totalAmountInPence = Math.max(0, subtotalInPence - discountInPence);
-    if (totalAmountInPence < 30) {
-      throw new Error("Total amount is below the £0.30 minimum charge");
+    // A £0 basket is a real thing — a free community event, or a code that
+    // covers the whole cost — and is confirmed below without going near a
+    // card. Only a total between 1p and 29p is genuinely impossible: Stripe
+    // won't take it, and rounding it up would charge for something free.
+    if (totalAmountInPence > 0 && totalAmountInPence < 30) {
+      return jsonResponse({
+        error:
+          "The total comes to less than 30p, which card payments can't take. " +
+          "Please contact the studio and they'll book this in for you.",
+        code: "below_minimum",
+      }, 400);
     }
 
     // Compact metadata so we stay under Stripe's 500-char per-value limit.
@@ -933,6 +971,43 @@ serve(async (req) => {
         paymentIntentId: pi.id,
         subscriptionId: subscription.id,
         amount: invoice.amount_due,
+        siblingDiscountAmount: siblingDiscountInPence / 100,
+        discountAmount: discountInPence / 100,
+        environment: env,
+      });
+    }
+
+    // ------------------------------------------------------------------
+    // Free basket: confirm it here and now. A £0 event (the studio runs free
+    // carnival and community sessions) previously had no way through checkout
+    // at all — Stripe rejects anything under 30p — so the studio had to price
+    // free places at 30p and parents were charged for them.
+    // ------------------------------------------------------------------
+    if (totalAmountInPence === 0) {
+      if (!userId) {
+        return jsonResponse({ error: "Please sign in to book a free place." }, 400);
+      }
+      // Bookings are keyed on this reference in their notes, exactly as a
+      // PaymentIntent id would be — so the return page, the confirmation
+      // email and the registers all work unchanged. It's derived from the
+      // basket rather than random, so refreshing the checkout page lands on
+      // the same reference and re-runs as a no-op instead of recording the
+      // coupon twice.
+      const reference = `free_${await basketFingerprint(userId, bookingMetadata, couponId)}`;
+      const items = parsePaymentIntentItems(bookingMetadata);
+      await fulfillItems(supabaseAdmin, userId, { id: reference }, items);
+      if (couponId) {
+        await recordCouponRedemption(supabaseAdmin, userId, {
+          id: reference,
+          metadata: { couponId, discountAmount: String(discountInPence / 100) },
+        });
+      }
+      await sendBookingConfirmationEmail(supabaseAdmin, userId, reference, 0);
+
+      return jsonResponse({
+        free: true,
+        reference,
+        amount: 0,
         siblingDiscountAmount: siblingDiscountInPence / 100,
         discountAmount: discountInPence / 100,
         environment: env,

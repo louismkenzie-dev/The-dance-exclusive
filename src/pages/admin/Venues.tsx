@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import VenueMap from "@/components/VenueMap";
+import DescriptionAssistButton from "@/components/admin/DescriptionAssistButton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -126,6 +127,22 @@ const AdminVenues = () => {
   useEffect(() => { fetchVenues(); }, []);
 
   const resetForm = () => { setForm({ ...emptyForm }); setEditing(null); setFacilities([]); setContacts([]); };
+
+  /** What the AI drafter is allowed to know about this venue — only what the
+   *  admin has already typed in, never anything invented. */
+  const venueFacts = () => ({
+    venue: [form.name, form.address_line1, form.city, form.postcode].filter(Boolean).join(", ") || undefined,
+    notes: [
+      form.what3words ? `what3words: ${form.what3words}` : null,
+      form.has_parking ? "Has parking" : null,
+      form.parking_details ? `Parking: ${form.parking_details}` : null,
+      form.accessibility_info ? `Access: ${form.accessibility_info}` : null,
+      form.floor_type ? `Floor: ${form.floor_type}` : null,
+      form.has_mirrors ? "Mirrors" : null,
+      form.has_changing_rooms ? "Changing rooms" : null,
+      form.has_waiting_area ? "Waiting area for parents" : null,
+    ].filter(Boolean).join(". ") || undefined,
+  });
 
   const openEdit = (v: Venue) => {
     setEditing(v);
@@ -420,7 +437,16 @@ const AdminVenues = () => {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Description</Label>
+                  <div className="flex items-center justify-between gap-2">
+                    <Label>Description</Label>
+                    <DescriptionAssistButton
+                      kind="dance venue"
+                      name={form.name}
+                      facts={venueFacts()}
+                      existing={form.description}
+                      onDrafted={(description) => setForm((f) => ({ ...f, description }))}
+                    />
+                  </div>
                   <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Brief description of the venue, what makes it great for dance..." rows={3} />
                 </div>
                 <div className="space-y-2">
@@ -485,7 +511,16 @@ const AdminVenues = () => {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label>Short Description (public card text)</Label>
+                      <div className="flex items-center justify-between gap-2">
+                        <Label>Short Description (public card text)</Label>
+                        <DescriptionAssistButton
+                          kind="one-line summary of a dance venue for a website card"
+                          name={form.name}
+                          facts={{ ...venueFacts(), notes: form.description || undefined }}
+                          existing={form.short_description}
+                          onDrafted={(short_description) => setForm((f) => ({ ...f, short_description }))}
+                        />
+                      </div>
                       <Textarea value={form.short_description} onChange={(e) => setForm({ ...form, short_description: e.target.value })} placeholder="One or two sentences shown on the featured venue card" rows={2} />
                     </div>
                     <div className="flex items-center gap-3">
@@ -760,15 +795,42 @@ const AdminVenues = () => {
                   <p className="text-xs text-muted-foreground">Find yours at <a href="https://what3words.com" target="_blank" rel="noopener noreferrer" className="text-primary underline">what3words.com</a></p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Directions / How to Find Us</Label>
+                  <div className="flex items-center justify-between gap-2">
+                    <Label>Directions / How to Find Us</Label>
+                    <DescriptionAssistButton
+                      kind="directions telling a parent how to find a dance venue"
+                      name={form.name}
+                      facts={venueFacts()}
+                      existing={form.directions}
+                      onDrafted={(directions) => setForm((f) => ({ ...f, directions }))}
+                    />
+                  </div>
                   <Textarea value={form.directions} onChange={(e) => setForm({ ...form, directions: e.target.value })} placeholder="Describe how to get to the venue, e.g., Turn left after the church, entrance is through the blue gate on the right..." rows={3} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Parking Information</Label>
+                  <div className="flex items-center justify-between gap-2">
+                    <Label>Parking Information</Label>
+                    <DescriptionAssistButton
+                      kind="parking information for a parent arriving at a dance venue"
+                      name={form.name}
+                      facts={venueFacts()}
+                      existing={form.parking_details}
+                      onDrafted={(parking_details) => setForm((f) => ({ ...f, parking_details }))}
+                    />
+                  </div>
                   <Textarea value={form.parking_details} onChange={(e) => setForm({ ...form, parking_details: e.target.value })} placeholder="Where to park, any restrictions, costs, nearest car park..." rows={3} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Drop-off Information</Label>
+                  <div className="flex items-center justify-between gap-2">
+                    <Label>Drop-off Information</Label>
+                    <DescriptionAssistButton
+                      kind="drop-off information for a parent bringing a child to a dance venue"
+                      name={form.name}
+                      facts={venueFacts()}
+                      existing={form.drop_off_info}
+                      onDrafted={(drop_off_info) => setForm((f) => ({ ...f, drop_off_info }))}
+                    />
+                  </div>
                   <Textarea value={form.drop_off_info} onChange={(e) => setForm({ ...form, drop_off_info: e.target.value })} placeholder="Where parents can drop off children, e.g., Pull up by the main entrance on High Street..." rows={3} />
                 </div>
                 <div className="space-y-2">

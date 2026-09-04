@@ -46,6 +46,9 @@ const AdminCalendar = lazy(() => import("./pages/admin/Calendar"));
 const AdminParties = lazy(() => import("./pages/admin/Parties"));
 const AdminMerchandise = lazy(() => import("./pages/admin/Merchandise"));
 const AdminCoupons = lazy(() => import("./pages/admin/Coupons"));
+const AdminAwards = lazy(() => import("./pages/admin/Awards"));
+const AdminReports = lazy(() => import("./pages/admin/Reports"));
+const AdminEmails = lazy(() => import("./pages/admin/Emails"));
 const AdminSettings = lazy(() => import("./pages/admin/Settings"));
 const SettingsCompany = lazy(() => import("./pages/admin/SettingsCompany"));
 const SettingsTermDates = lazy(() => import("./pages/admin/SettingsTermDates"));
@@ -105,6 +108,9 @@ const App = () => (
               <Route path="bookings" element={<AdminBookings />} />
               <Route path="coupons" element={<AdminCoupons />} />
               <Route path="registers" element={<AdminRegisters />} />
+              <Route path="awards" element={<AdminAwards />} />
+              <Route path="reports" element={<AdminReports />} />
+              <Route path="emails" element={<AdminEmails />} />
               <Route path="admins" element={<AdminAdmins />} />
               <Route path="customers" element={<AdminCustomers />} />
               <Route path="students" element={<AdminStudents />} />

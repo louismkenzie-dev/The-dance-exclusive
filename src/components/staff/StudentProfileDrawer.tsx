@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Phone, AlertTriangle, Heart, Shield, User, Camera, Sparkles, Users, LogIn, LogOut, XCircle, QrCode, Cake, HelpCircle } from "lucide-react";
+import { Loader2, Phone, AlertTriangle, Heart, Shield, User, Camera, Sparkles, Users, LogIn, LogOut, XCircle, QrCode, Cake, HelpCircle, Trophy } from "lucide-react";
+import { awardTypeLabel, type StudentAward } from "@/lib/awards";
 import { format, differenceInYears } from "date-fns";
 import { QRCodeSVG } from "qrcode.react";
 import { getOrCreateBookingQrToken, buildQrPayload } from "@/lib/qrTokens";
@@ -45,6 +46,7 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
   const [student, setStudent] = useState<any | null>(null);
   const [parent, setParent] = useState<any | null>(null);
   const [collectors, setCollectors] = useState<any[]>([]);
+  const [awards, setAwards] = useState<StudentAward[]>([]);
   const [showQr, setShowQr] = useState(false);
   const [qrToken, setQrToken] = useState<{ token: string; validUntil: string } | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
@@ -58,6 +60,7 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
       setStudent(null);
       setParent(null);
       setCollectors([]);
+      setAwards([]);
       return;
     }
     void load();
@@ -72,6 +75,7 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
     setStudent(null);
     setParent(null);
     setCollectors([]);
+    setAwards([]);
     const { data: s } = await supabase.from("students").select("*").eq("id", studentId!).maybeSingle();
     setStudent(s);
     if (s?.parent_id) {
@@ -92,6 +96,14 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
       setParent(p);
       setCollectors(c ?? []);
     }
+    // Awards this dancer has already had — the record that stops the same
+    // children being picked term after term.
+    const { data: a } = await supabase
+      .from("student_awards")
+      .select("id, student_id, class_id, class_name, term_label, award_type, notes, awarded_on")
+      .eq("student_id", studentId!)
+      .order("awarded_on", { ascending: false });
+    setAwards((a ?? []) as unknown as StudentAward[]);
     setLoading(false);
   };
 
@@ -308,6 +320,23 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
                       <Card key={i} className="p-2.5 text-sm">
                         <div className="font-medium">{c.name}</div>
                         <div className="text-xs text-muted-foreground">{c.relationship} · {c.phone || c.email || ""}</div>
+                      </Card>
+                    ))}
+                  </div>
+                </Section>
+              )}
+
+              {/* Awards already won — so the same dancers aren't picked twice */}
+              {awards.length > 0 && (
+                <Section title="Awards" icon={Trophy}>
+                  <div className="space-y-2">
+                    {awards.map((a) => (
+                      <Card key={a.id} className="p-2.5 text-sm">
+                        <div className="font-medium">{awardTypeLabel(a.award_type)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {a.class_name ?? "Class not recorded"} · {a.term_label}
+                        </div>
+                        {a.notes && <div className="text-xs text-muted-foreground mt-1">{a.notes}</div>}
                       </Card>
                     ))}
                   </div>

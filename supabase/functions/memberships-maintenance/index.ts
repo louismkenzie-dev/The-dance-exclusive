@@ -24,6 +24,12 @@ import {
 } from "../_shared/stripe.ts";
 import { londonYMD, resumeAfterFreeMonth } from "../_shared/billing.ts";
 import { activateMembershipSetup } from "../_shared/fulfilment.ts";
+import {
+  ensureAdjustmentInvoiceItem,
+  markAdjustmentApplied,
+  retirePendingAdjustments,
+  yearMonth,
+} from "../_shared/membershipAdjustments.ts";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -70,6 +76,8 @@ serve(async (_req) => {
   // When a membership actually ends, take the standing weekly booking off the
   // register too — otherwise lapsed families keep appearing at the door.
   const retireBooking = async (m: any) => {
+    // A membership that has ended can't receive a payment adjustment either.
+    await retirePendingAdjustments(supabase, m.id, null, "membership ended before this payment");
     if (!m.class_id) return;
     let q = supabase
       .from("bookings")
@@ -208,8 +216,17 @@ serve(async (_req) => {
         // on the 5th at 07:00 UTC; this runs at 06:10, so an item created
         // any day up to then lands on the right invoice).
         if (periodEnd) {
-          const chargeDate = new Date(periodEnd);
-          const chargeYm = `${chargeDate.getUTCFullYear()}-${String(chargeDate.getUTCMonth() + 1).padStart(2, "0")}`;
+          const chargeYm = yearMonth(new Date(periodEnd));
+          // Memberships that are ending take one last payment; adjustments
+          // beyond it would never be invoiced, so retire them instead.
+          for (const m of members) {
+            if (m.status === "cancel_scheduled" && m.final_payment_date) {
+              await retirePendingAdjustments(
+                supabase, m.id, yearMonth(new Date(m.final_payment_date)),
+                "membership ends before this payment",
+              );
+            }
+          }
           const { data: pendingAdjustments } = await supabase
             .from("membership_adjustments")
             .select("*")
@@ -219,26 +236,11 @@ serve(async (_req) => {
           for (const adj of pendingAdjustments ?? []) {
             if (String(adj.billing_month).slice(0, 7) !== chargeYm || !customerId) continue;
             try {
-              const pounds = Number(adj.amount);
-              const invoiceItem = await stripe.invoiceItems.create(
-                {
-                  customer: customerId,
-                  subscription: subId,
-                  amount: Math.round(pounds * 100),
-                  currency: "gbp",
-                  description: pounds < 0
-                    ? `Credit from The Dance Exclusive — ${adj.reason ?? "adjustment"}`
-                    : `The Dance Exclusive — ${adj.reason ?? "adjustment"}`,
-                  metadata: { adjustmentId: adj.id, membershipId: adj.membership_id },
-                },
-                { ...connectOpts, idempotencyKey: `membership-adjustment-${adj.id}` },
-              );
-              await supabase
-                .from("membership_adjustments")
-                .update({ status: "applied", stripe_invoice_item_id: invoiceItem.id, applied_at: nowIso })
-                .eq("id", adj.id)
-                .eq("status", "pending");
-              summary.adjustmentsApplied++;
+              // Finds an item already created for this adjustment (a lost
+              // reply earlier) before creating one, so re-runs never double up.
+              const invoiceItem = await ensureAdjustmentInvoiceItem(stripe, connectOpts, customerId, subId, adj);
+              if (await markAdjustmentApplied(supabase, adj.id, invoiceItem.id)) summary.adjustmentsApplied++;
+              else summary.errors++;
             } catch (e) {
               summary.errors++;
               console.error("Failed to apply membership adjustment", adj.id, e);

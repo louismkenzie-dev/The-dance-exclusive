@@ -235,7 +235,9 @@ const MembershipAdjustDialog = ({ open, onOpenChange, membership, onSaved }: Mem
       }
       toast({
         title: "Adjustment saved",
-        description: `${monthName(selected.key, "MMMM")}'s payment will be ${money(resultingPayment)} instead of ${money(monthlyAmount)}.`,
+        description: data?.stripePending
+          ? `${monthName(selected.key, "MMMM")}'s payment will be ${money(resultingPayment)} instead of ${money(monthlyAmount)}. Stripe was slow to answer, so it's queued — it's passed across automatically overnight, well before the payment.`
+          : `${monthName(selected.key, "MMMM")}'s payment will be ${money(resultingPayment)} instead of ${money(monthlyAmount)}.`,
       });
       setAmount("");
       setReason("");

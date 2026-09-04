@@ -29,6 +29,12 @@ import {
   priceMonthlyItems,
   round2,
 } from "../_shared/pricing.ts";
+import {
+  ensureAdjustmentInvoiceItem,
+  markAdjustmentApplied,
+  monthLabel,
+  yearMonth,
+} from "../_shared/membershipAdjustments.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,12 +58,6 @@ const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
-/** "YYYY-MM" of a date, UTC (billing dates are 07:00 UTC on the 5th, so UTC and London agree). */
-const yearMonth = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-const monthLabel = (ym: string) => {
-  const [y, m] = ym.split("-").map(Number);
-  return `${MONTH_NAMES[m - 1]} ${y}`;
-};
 
 const CLASS_FIELDS =
   "id, name, class_type, day_of_week, start_time, end_time, price_per_session, price_per_month, " +
@@ -200,6 +200,14 @@ serve(async (req) => {
       if (membership.free_month != null && targetMonth === Number(membership.free_month)) {
         return jsonResponse({ error: `No payment is taken in ${MONTH_NAMES[targetMonth - 1]} — it's this family's free month` }, 400);
       }
+      // A membership that is ending has one last payment; months after it
+      // will never be invoiced, so an adjustment there would silently vanish.
+      if (membership.status === "cancel_scheduled" && membership.final_payment_date) {
+        const finalYm = yearMonth(new Date(membership.final_payment_date));
+        if (targetYm > finalYm) {
+          return jsonResponse({ error: `This membership ends after the ${monthLabel(finalYm)} payment, so that's the last one you can change` }, 400);
+        }
+      }
       const roundedPounds = Math.round(pounds * 100) / 100;
       if (roundedPounds < 0 && Math.abs(roundedPounds) > Number(membership.monthly_amount) + 0.005) {
         return jsonResponse({ error: `That's more than the £${Number(membership.monthly_amount).toFixed(2)} monthly payment — a month can be free, but not less than free` }, 400);
@@ -227,37 +235,37 @@ serve(async (req) => {
         return jsonResponse({ error: "Couldn't save the adjustment — please try again" }, 500);
       }
 
+      // Next payment due: hand it to Stripe now. Later months wait for the
+      // nightly job. Once Stripe has been asked, the row is never deleted —
+      // a lost reply is reconciled by the job (it finds the item by the
+      // adjustment id), so a retry can't create a second credit.
+      let stripePending = false;
       if (targetYm === nextChargeYm) {
+        let invoiceItem: any = null;
         try {
-          const invoiceItem = await stripe.invoiceItems.create(
-            {
-              customer: customerId,
-              subscription: sub.id,
-              amount: Math.round(roundedPounds * 100),
-              currency: "gbp",
-              description: roundedPounds < 0
-                ? `Credit from The Dance Exclusive — ${note}`
-                : `The Dance Exclusive — ${note}`,
-              metadata: { adjustmentId: row.id, membershipId: membership.id },
-            },
-            { ...connectOpts, idempotencyKey: `membership-adjustment-${row.id}` },
-          );
-          const nowIso = new Date().toISOString();
-          await supabase
-            .from("membership_adjustments")
-            .update({ status: "applied", stripe_invoice_item_id: invoiceItem.id, applied_at: nowIso })
-            .eq("id", row.id);
-          row.status = "applied";
-          row.stripe_invoice_item_id = invoiceItem.id;
-          row.applied_at = nowIso;
+          invoiceItem = await ensureAdjustmentInvoiceItem(stripe, connectOpts, customerId, sub.id, row);
         } catch (e: any) {
           console.error("Stripe invoice item failed for adjustment", row.id, e);
-          await supabase.from("membership_adjustments").delete().eq("id", row.id);
-          return jsonResponse({ error: `Stripe wouldn't accept the change: ${e?.message ?? "unknown error"}` }, 502);
+          if (e?.type === "StripeInvalidRequestError") {
+            // Stripe definitively refused — nothing was created, safe to undo.
+            await supabase.from("membership_adjustments").delete().eq("id", row.id).eq("status", "pending");
+            return jsonResponse({ error: `Stripe wouldn't accept the change: ${e?.message ?? "unknown error"}` }, 502);
+          }
+          stripePending = true; // ambiguous outcome — leave pending for the nightly reconcile
+        }
+        if (invoiceItem) {
+          const marked = await markAdjustmentApplied(supabase, row.id, invoiceItem.id);
+          if (marked) {
+            row.status = "applied";
+            row.stripe_invoice_item_id = invoiceItem.id;
+            row.applied_at = new Date().toISOString();
+          } else {
+            stripePending = true; // the job will re-find the item and mark it
+          }
         }
       }
 
-      return jsonResponse({ success: true, adjustment: row, nextChargeMonth: nextChargeYm });
+      return jsonResponse({ success: true, adjustment: row, nextChargeMonth: nextChargeYm, stripePending });
     }
 
     if (action === "remove_adjustment") {
@@ -503,6 +511,22 @@ serve(async (req) => {
     const switchedAmount = newAmounts.get(membership.id);
     if (switchedAmount == null) {
       return jsonResponse({ error: "Could not price the new class — please email hello@thedanceexclusive.co.uk" }, 500);
+    }
+
+    // A studio credit already set against a coming payment must still fit
+    // the new price, or the invoice would go negative and roll into the
+    // following month. Ask for it to be removed (and re-added) first.
+    const { data: liveCredits } = await supabase
+      .from("membership_adjustments")
+      .select("billing_month, amount")
+      .eq("membership_id", membership.id)
+      .in("status", ["pending", "applied"])
+      .lt("amount", 0);
+    const tooBig = (liveCredits ?? []).find((a: any) => Math.abs(Number(a.amount)) > switchedAmount + 0.005);
+    if (tooBig) {
+      return jsonResponse({
+        error: `There's a £${Math.abs(Number(tooBig.amount)).toFixed(2)} credit on the ${monthLabel(String(tooBig.billing_month))} payment, which is more than the new class's £${switchedAmount.toFixed(2)} a month. Remove that credit first, then move the class and add it back.`,
+      }, 400);
     }
 
     // ── Update Stripe: the switched item always gets a fresh price (new class

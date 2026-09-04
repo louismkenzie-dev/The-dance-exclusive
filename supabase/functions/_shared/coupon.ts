@@ -30,6 +30,10 @@ const KIND_LABELS: Record<CouponKind, string> = {
   pass: "adult class passes",
 };
 
+/** Reservations older than this are treated as abandoned checkouts. */
+export const RESERVATION_TTL_MS = 2 * 60 * 60 * 1000;
+export const reservationCutoff = (now: Date = new Date()) => new Date(now.getTime() - RESERVATION_TTL_MS);
+
 /** Which coupon kind a basket item falls under. */
 export function couponKindOf(item: { itemKind?: string | null; pricingPlan?: string | null }): CouponKind {
   const kind = item.itemKind ?? "class";
@@ -98,11 +102,17 @@ export async function validateAndCompute(
     }
   }
 
+  // Uses = completed redemptions plus live reservations (a checkout priced
+  // with the code in the last two hours that hasn't been paid or cancelled
+  // yet), so one single-use credit can't be applied to two baskets at once.
+  const usesFilter = `status.eq.completed,and(status.eq.reserved,redeemed_at.gt.${reservationCutoff().toISOString()})`;
+
   if (coupon.usage_limit_total != null) {
     const { count, error: cErr } = await supabase
       .from("coupon_redemptions")
       .select("*", { count: "exact", head: true })
-      .eq("coupon_id", coupon.id);
+      .eq("coupon_id", coupon.id)
+      .or(usesFilter);
     if (cErr) return { error: "Failed to check usage" };
     if ((count ?? 0) >= coupon.usage_limit_total) {
       return { error: "This coupon has reached its usage limit" };
@@ -114,7 +124,8 @@ export async function validateAndCompute(
       .from("coupon_redemptions")
       .select("*", { count: "exact", head: true })
       .eq("coupon_id", coupon.id)
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .or(usesFilter);
     if (uErr) return { error: "Failed to check user usage" };
     if ((count ?? 0) >= coupon.usage_limit_per_user) {
       return { error: "You have already used this coupon the maximum number of times" };

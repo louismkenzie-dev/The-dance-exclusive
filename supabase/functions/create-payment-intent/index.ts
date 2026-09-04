@@ -100,6 +100,12 @@ serve(async (req) => {
           e?.message,
         );
       }
+      // Free up any code that basket had reserved.
+      await supabaseAdmin
+        .from("coupon_redemptions")
+        .delete()
+        .eq("payment_intent_id", previousPaymentIntentId)
+        .eq("status", "reserved");
     }
 
     const kindOf = (item: IncomingItem) => item.itemKind ?? "class";
@@ -593,6 +599,36 @@ serve(async (req) => {
     let discountOffPence: number[] = cartItems.map(() => 0);
 
     if (couponCode && typeof couponCode === "string" && couponCode.trim().length > 0) {
+      // One live basket per code per family: if this account already has
+      // an unpaid checkout holding this code (another tab, a retry that
+      // lost track of its PaymentIntent), cancel that one and release the
+      // reservation, so a single-use credit can never be paid twice.
+      if (userId) {
+        const { data: sameCode } = await supabaseAdmin
+          .from("coupons")
+          .select("id")
+          .eq("code", couponCode.trim().toUpperCase())
+          .maybeSingle();
+        if (sameCode?.id) {
+          const { data: held } = await supabaseAdmin
+            .from("coupon_redemptions")
+            .select("id, payment_intent_id")
+            .eq("coupon_id", sameCode.id)
+            .eq("user_id", userId)
+            .eq("status", "reserved");
+          for (const r of held ?? []) {
+            if (r.payment_intent_id && r.payment_intent_id !== previousPaymentIntentId && r.payment_intent_id.startsWith("pi_")) {
+              try {
+                await stripe.paymentIntents.cancel(r.payment_intent_id, {}, connectOpts);
+              } catch (e: any) {
+                console.log("Could not cancel reserved PaymentIntent", r.payment_intent_id, "—", e?.message);
+              }
+            }
+            await supabaseAdmin.from("coupon_redemptions").delete().eq("id", r.id).eq("status", "reserved");
+          }
+        }
+      }
+
       const couponItems = cartItems.map((item, index) => ({
         classId: item.classId ?? "",
         classType: item.classType,
@@ -621,6 +657,20 @@ serve(async (req) => {
     const paidPrices = chargedPrices.map((p, index) =>
       round2((Math.round(p * 100) - discountOffPence[index]) / 100)
     );
+
+    // Hold the code against this PaymentIntent until it's paid (completed
+    // by fulfilment), cancelled (released above) or abandoned (expires).
+    const reserveCoupon = async (paymentIntentId: string) => {
+      if (!couponId || !userId) return;
+      const { error } = await supabaseAdmin.from("coupon_redemptions").insert({
+        coupon_id: couponId,
+        user_id: userId,
+        payment_intent_id: paymentIntentId,
+        amount_discounted: discountInPence / 100,
+        status: "reserved",
+      });
+      if (error) console.error("Could not reserve coupon for", paymentIntentId, error);
+    };
 
     const totalAmountInPence = Math.max(0, subtotalInPence - discountInPence);
     if (totalAmountInPence < 30) {
@@ -876,6 +926,8 @@ serve(async (req) => {
         });
       }
 
+      await reserveCoupon(pi.id);
+
       return jsonResponse({
         clientSecret: pi.client_secret,
         paymentIntentId: pi.id,
@@ -918,6 +970,8 @@ serve(async (req) => {
       },
       connectOpts,
     );
+
+    await reserveCoupon(paymentIntent.id);
 
     return jsonResponse({
       clientSecret: paymentIntent.client_secret,

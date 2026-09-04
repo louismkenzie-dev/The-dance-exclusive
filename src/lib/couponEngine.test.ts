@@ -21,6 +21,7 @@ function fakeSupabase(opts: {
     const b: any = {
       select: () => b,
       in: () => b,
+      or: () => b,
       limit: () => b,
       eq: () => { eqCalls += 1; return b; },
       maybeSingle: async () => ({ data: row, error: null }),

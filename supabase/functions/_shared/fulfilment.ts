@@ -358,22 +358,34 @@ export async function activateMembershipSetup(supabase: any, sub: any): Promise<
   return true;
 }
 
-/** Record a coupon redemption once per PaymentIntent. */
+/** Record a coupon redemption once per PaymentIntent — completing the
+ *  reservation create-payment-intent made, or inserting one if none exists. */
 export async function recordCouponRedemption(supabase: any, userId: string, pi: any) {
   const couponId = pi.metadata?.couponId;
   if (!couponId) return;
   const discountAmount = Number(pi.metadata?.discountAmount || 0);
   const { data: existingRedemption } = await supabase
     .from("coupon_redemptions")
-    .select("id")
+    .select("id, status")
     .eq("payment_intent_id", pi.id)
     .limit(1);
-  if (existingRedemption && existingRedemption.length > 0) return;
+  const existing = existingRedemption?.[0];
+  if (existing) {
+    if (existing.status !== "completed") {
+      const { error } = await supabase
+        .from("coupon_redemptions")
+        .update({ status: "completed", amount_discounted: discountAmount, redeemed_at: new Date().toISOString() })
+        .eq("id", existing.id);
+      if (error) console.error("Failed to complete coupon reservation:", error);
+    }
+    return;
+  }
   const { error } = await supabase.from("coupon_redemptions").insert({
     coupon_id: couponId,
     user_id: userId,
     payment_intent_id: pi.id,
     amount_discounted: discountAmount,
+    status: "completed",
   });
   if (error) console.error("Failed to record coupon redemption:", error);
 }

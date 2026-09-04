@@ -26,9 +26,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CouponFormDialog, type CouponRow } from "@/components/admin/coupons/CouponFormDialog";
+import {
+  CouponFormDialog,
+  COUPON_KIND_OPTIONS,
+  normaliseKinds,
+  type CouponRow,
+} from "@/components/admin/coupons/CouponFormDialog";
 
 type CouponWithUsage = CouponRow & { redemption_count: number };
+
+function kindChips(c: CouponRow): string[] {
+  const kinds = normaliseKinds(c.applies_to_kinds);
+  return COUPON_KIND_OPTIONS.filter((k) => kinds.includes(k.value)).map((k) => k.short);
+}
 
 function getStatus(c: CouponRow): { label: string; variant: "default" | "secondary" | "destructive" | "outline" } {
   if (!c.is_active) return { label: "Disabled", variant: "outline" };
@@ -75,7 +85,11 @@ const AdminCoupons = () => {
 
   const filtered = coupons.filter((c) => {
     const q = search.toLowerCase();
-    return c.code.toLowerCase().includes(q) || (c.description || "").toLowerCase().includes(q);
+    return (
+      c.code.toLowerCase().includes(q) ||
+      (c.description || "").toLowerCase().includes(q) ||
+      (c.restricted_to_email || "").toLowerCase().includes(q)
+    );
   });
 
   const handleDelete = async () => {
@@ -106,7 +120,7 @@ const AdminCoupons = () => {
         <div>
           <h1 className="text-3xl font-display font-bold">Coupons</h1>
           <p className="text-muted-foreground mt-1">
-            Create and manage discount codes for bookings.
+            Discount codes and personal credits for holiday workshops, class bookings, monthly memberships and adult passes.
           </p>
         </div>
         <Button onClick={handleNew}>
@@ -119,7 +133,7 @@ const AdminCoupons = () => {
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by code or description"
+              placeholder="Search by code, description or family email"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -140,6 +154,7 @@ const AdminCoupons = () => {
                 <TableRow>
                   <TableHead>Code</TableHead>
                   <TableHead>Discount</TableHead>
+                  <TableHead>Applies to</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Usage</TableHead>
                   <TableHead>Valid window</TableHead>
@@ -162,6 +177,20 @@ const AdminCoupons = () => {
                         {c.discount_type === "percent"
                           ? `${c.discount_value}%`
                           : `£${Number(c.discount_value).toFixed(2)}`}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {kindChips(c).map((label) => (
+                            <Badge key={label} variant="secondary" className="font-normal">
+                              {label}
+                            </Badge>
+                          ))}
+                        </div>
+                        {c.restricted_to_email && (
+                          <div className="text-xs text-muted-foreground mt-1 break-all">
+                            Personal: {c.restricted_to_email}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge variant={status.variant}>{status.label}</Badge>

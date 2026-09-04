@@ -6,12 +6,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Search, ChevronDown, ChevronRight, Mail, Phone, Baby, ExternalLink, MapPin, Calendar, ShoppingBag, ShieldCheck, Pencil, ArrowUpDown, Map as MapIcon, Gift } from "lucide-react";
+import { Users, Search, ChevronDown, ChevronRight, Mail, Phone, Baby, ExternalLink, MapPin, Calendar, ShoppingBag, ShieldCheck, Pencil, ArrowUpDown, Map as MapIcon, Gift, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import CustomerEditDialog from "@/components/admin/CustomerEditDialog";
 import { ChildFormDialog } from "@/components/portal/ChildFormDialog";
+import { IssueCreditDialog } from "@/components/admin/IssueCreditDialog";
 
 interface Profile {
   id: string;
@@ -29,6 +30,128 @@ interface Profile {
 }
 
 type SortMode = "name" | "paid_desc" | "newest" | "oldest";
+
+interface CreditCode {
+  id: string;
+  code: string;
+  description: string | null;
+  discount_type: string;
+  discount_value: number;
+  valid_until: string | null;
+  is_active: boolean;
+  created_at: string;
+  used: boolean;
+}
+
+/** Escape LIKE wildcards so an email such as jo_smith@… only matches itself. */
+const escapeLike = (s: string) => s.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+
+const creditCodeStatus = (c: CreditCode): { label: string; variant: "default" | "secondary" | "outline" } => {
+  if (c.used) return { label: "Used", variant: "secondary" };
+  if (c.valid_until && new Date(c.valid_until) < new Date()) return { label: "Expired", variant: "outline" };
+  if (!c.is_active) return { label: "Disabled", variant: "outline" };
+  return { label: "Unused", variant: "default" };
+};
+
+/**
+ * The personal credit codes issued to one family, plus the button to issue a
+ * new one. Mounted only when the customer's row is expanded, so the codes are
+ * fetched on demand rather than for every profile on page load.
+ */
+const CustomerCreditCodes = ({ customer }: { customer: Profile }) => {
+  const [issueOpen, setIssueOpen] = useState(false);
+  const email = customer.email.trim();
+
+  const { data: codes, isLoading, isError, refetch } = useQuery({
+    queryKey: ["admin-customer-credit-codes", email.toLowerCase()],
+    enabled: !!email,
+    queryFn: async (): Promise<CreditCode[]> => {
+      const { data, error } = await supabase
+        .from("coupons")
+        .select("id, code, description, discount_type, discount_value, valid_until, is_active, created_at, restricted_to_email")
+        .ilike("restricted_to_email", escapeLike(email))
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+
+      const rows = (data || []).filter(
+        (c) => (c.restricted_to_email || "").trim().toLowerCase() === email.toLowerCase(),
+      );
+      const used = new Set<string>();
+      if (rows.length > 0) {
+        const { data: redemptions, error: redemptionsError } = await supabase
+          .from("coupon_redemptions")
+          .select("coupon_id")
+          .in("coupon_id", rows.map((c) => c.id));
+        if (redemptionsError) throw redemptionsError;
+        for (const r of redemptions || []) used.add(r.coupon_id);
+      }
+      return rows.map((c) => ({
+        id: c.id,
+        code: c.code,
+        description: c.description,
+        discount_type: c.discount_type,
+        discount_value: Number(c.discount_value),
+        valid_until: c.valid_until,
+        is_active: c.is_active,
+        created_at: c.created_at,
+        used: used.has(c.id),
+      }));
+    },
+  });
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+          <Ticket className="h-3.5 w-3.5" /> Credit codes{codes ? ` (${codes.length})` : ""}
+        </h4>
+        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setIssueOpen(true)}>
+          <Ticket className="h-3.5 w-3.5" /> Issue credit code
+        </Button>
+      </div>
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground animate-pulse">Loading codes...</p>
+      ) : isError ? (
+        <p className="text-sm text-destructive">
+          Couldn't load this family's codes.
+          <Button variant="link" size="sm" className="h-auto p-0 ml-1.5" onClick={() => void refetch()}>
+            Try again
+          </Button>
+        </p>
+      ) : !codes || codes.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No credit codes issued yet</p>
+      ) : (
+        <div className="grid gap-2">
+          {codes.map((c) => {
+            const status = creditCodeStatus(c);
+            return (
+              <div key={c.id} className="flex items-center gap-3 bg-background rounded-lg px-4 py-3 border flex-wrap">
+                <span className="font-mono font-semibold text-sm">{c.code}</span>
+                <span className="text-sm font-medium">
+                  {c.discount_type === "percent" ? `${c.discount_value}% off` : `£${c.discount_value.toFixed(2)} off`}
+                </span>
+                <span className="text-sm text-muted-foreground flex-1 min-w-0 truncate" title={c.description || undefined}>
+                  {c.description || "No reason recorded"}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {c.valid_until ? `Expires ${format(new Date(c.valid_until), "d MMM yyyy")}` : "No expiry"}
+                </span>
+                <Badge variant={status.variant} className="text-xs">{status.label}</Badge>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <IssueCreditDialog
+        open={issueOpen}
+        onOpenChange={setIssueOpen}
+        customer={customer}
+        onIssued={() => void refetch()}
+      />
+    </div>
+  );
+};
 
 const AdminCustomers = () => {
   const [search, setSearch] = useState("");
@@ -512,6 +635,9 @@ const AdminCustomers = () => {
                                   )}
                                 </div>
                               </div>
+
+                              {/* Personal credit codes */}
+                              <CustomerCreditCodes customer={customer} />
                             </div>
                           </TableCell>
                         </TableRow>

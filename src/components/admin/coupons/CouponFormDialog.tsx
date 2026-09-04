@@ -47,6 +47,26 @@ export interface CouponRow {
   applies_to_pricing_plans: string[];
   applies_to_class_ids: string[];
   applies_to_camp_ids: string[] | null;
+  applies_to_kinds: string[] | null;
+  restricted_to_email: string | null;
+}
+
+export type CouponKind = "camp" | "class" | "monthly" | "pass";
+
+/** Where a code can be used. `short` is the chip label used in the coupon list. */
+export const COUPON_KIND_OPTIONS: { value: CouponKind; label: string; hint: string; short: string }[] = [
+  { value: "camp", label: "Holiday workshops", hint: "Camp and workshop days", short: "Workshops" },
+  { value: "class", label: "Class bookings", hint: "Trials, pay-as-you-go, termly and yearly", short: "Classes" },
+  { value: "monthly", label: "Monthly membership", hint: "First payment of a new membership only", short: "Monthly" },
+  { value: "pass", label: "Adult class passes", hint: "Adult pass bundles", short: "Passes" },
+];
+
+const ALL_KINDS: CouponKind[] = COUPON_KIND_OPTIONS.map((k) => k.value);
+
+/** Keep only known kinds; older codes with nothing saved were workshop-only. */
+export function normaliseKinds(kinds: string[] | null | undefined): CouponKind[] {
+  const known = (kinds || []).filter((k): k is CouponKind => ALL_KINDS.includes(k as CouponKind));
+  return known.length > 0 ? known : ["camp"];
 }
 
 function generateCode(len = 8) {
@@ -82,6 +102,8 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
   const [isActive, setIsActive] = useState(true);
   const [campIds, setCampIds] = useState<string[]>([]);
   const [campOptions, setCampOptions] = useState<{ id: string; name: string }[]>([]);
+  const [kinds, setKinds] = useState<CouponKind[]>(ALL_KINDS);
+  const [restrictedEmail, setRestrictedEmail] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -105,6 +127,8 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
       setUsageLimitPerUser(coupon.usage_limit_per_user?.toString() || "");
       setIsActive(coupon.is_active);
       setCampIds(coupon.applies_to_camp_ids || []);
+      setKinds(normaliseKinds(coupon.applies_to_kinds));
+      setRestrictedEmail(coupon.restricted_to_email || "");
     } else {
       setCode("");
       setDescription("");
@@ -116,6 +140,8 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
       setUsageLimitPerUser("");
       setIsActive(true);
       setCampIds([]);
+      setKinds([...ALL_KINDS]);
+      setRestrictedEmail("");
     }
   }, [coupon, open]);
 
@@ -139,6 +165,12 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
     setter(arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val]);
   };
 
+  const toggleKind = (kind: CouponKind) => {
+    setKinds((prev) => (prev.includes(kind) ? prev.filter((k) => k !== kind) : [...prev, kind]));
+  };
+
+  const campTicked = kinds.includes("camp");
+
   const handleSubmit = async () => {
     const trimmedCode = code.trim().toUpperCase();
     if (!trimmedCode) {
@@ -154,6 +186,23 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
       toast({ title: "Percent cannot exceed 100", variant: "destructive" });
       return;
     }
+    if (kinds.length === 0) {
+      toast({
+        title: "Choose where the code can be used",
+        description: "Tick at least one option under \"Can be used on\".",
+        variant: "destructive",
+      });
+      return;
+    }
+    const email = restrictedEmail.trim().toLowerCase();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast({
+        title: "Check the email",
+        description: "That doesn't look like an email address. Leave it blank if the code is for anyone.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setSubmitting(true);
     const payload = {
@@ -166,12 +215,16 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
       usage_limit_total: usageLimitTotal ? Number(usageLimitTotal) : null,
       usage_limit_per_user: usageLimitPerUser ? Number(usageLimitPerUser) : null,
       is_active: isActive,
-      // Coupons only apply to holiday workshops now — clear the legacy class
-      // targeting fields on every save so stale scoping can't linger.
+      applies_to_kinds: kinds,
+      restricted_to_email: email || null,
+      // "Can be used on" decides where a code works now. The legacy class
+      // targeting fields are unused — clear them on every save so stale
+      // scoping can't linger.
       applies_to_class_types: [],
       applies_to_pricing_plans: [],
       applies_to_class_ids: [],
-      applies_to_camp_ids: campIds,
+      // Workshop targeting only means something when workshops are ticked.
+      applies_to_camp_ids: campTicked ? campIds : [],
     };
 
     const { error } = coupon
@@ -194,7 +247,7 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border shrink-0">
           <DialogTitle>{coupon ? "Edit coupon" : "New coupon"}</DialogTitle>
           <DialogDescription>
-            Create a discount code customers can apply at checkout.
+            Create a discount code or personal credit families can apply at checkout.
           </DialogDescription>
         </DialogHeader>
 
@@ -325,28 +378,65 @@ export function CouponFormDialog({ open, onOpenChange, coupon, onSaved }: Props)
             </div>
           </div>
 
-          <div className="space-y-3 rounded-lg border border-border p-4">
-            <p className="text-sm font-semibold">Targeting</p>
+          <div className="space-y-4 rounded-lg border border-border p-4">
+            <div>
+              <p className="text-sm font-semibold">Can be used on</p>
+              <p className="text-xs text-muted-foreground">
+                Tick everything this code should work for. At least one is needed.
+              </p>
+            </div>
 
-            <p className="text-xs text-muted-foreground rounded-md border border-border bg-muted/40 p-3">
-              Coupons apply to holiday workshops only — they cannot discount regular class bookings.
-            </p>
+            <div className="grid gap-1">
+              {COUPON_KIND_OPTIONS.map((k) => (
+                <label
+                  key={k.value}
+                  className="flex items-start gap-2 cursor-pointer hover:bg-muted/40 rounded px-2 py-1.5"
+                >
+                  <Checkbox
+                    className="mt-0.5"
+                    checked={kinds.includes(k.value)}
+                    onCheckedChange={() => toggleKind(k.value)}
+                  />
+                  <span className="text-sm leading-tight">
+                    {k.label}
+                    <span className="block text-xs text-muted-foreground">{k.hint}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
 
-            <div className="grid gap-2">
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                Limit to specific holiday workshops <span className="normal-case">(leave empty to apply to all)</span>
-              </Label>
-              <div className="max-h-40 overflow-y-auto border border-border rounded-md p-2 space-y-1">
-                {campOptions.length === 0 && (
-                  <p className="text-xs text-muted-foreground p-2">No holiday workshops available</p>
-                )}
-                {campOptions.map((c) => (
-                  <label key={c.id} className="flex items-center gap-2 cursor-pointer hover:bg-muted/40 rounded px-2 py-1">
-                    <Checkbox checked={campIds.includes(c.id)} onCheckedChange={() => toggle(campIds, c.id, setCampIds)} />
-                    <span className="text-sm">{c.name}</span>
-                  </label>
-                ))}
+            {campTicked && (
+              <div className="grid gap-2">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Limit to specific holiday workshops <span className="normal-case">(leave empty to apply to all)</span>
+                </Label>
+                <div className="max-h-40 overflow-y-auto border border-border rounded-md p-2 space-y-1">
+                  {campOptions.length === 0 && (
+                    <p className="text-xs text-muted-foreground p-2">No holiday workshops available</p>
+                  )}
+                  {campOptions.map((c) => (
+                    <label key={c.id} className="flex items-center gap-2 cursor-pointer hover:bg-muted/40 rounded px-2 py-1">
+                      <Checkbox checked={campIds.includes(c.id)} onCheckedChange={() => toggle(campIds, c.id, setCampIds)} />
+                      <span className="text-sm">{c.name}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
+            )}
+
+            <div className="grid gap-2 border-t border-border pt-4">
+              <Label htmlFor="coupon-restricted-email">Only for one family (email)</Label>
+              <Input
+                id="coupon-restricted-email"
+                type="email"
+                autoComplete="off"
+                value={restrictedEmail}
+                onChange={(e) => setRestrictedEmail(e.target.value)}
+                placeholder="Leave blank so anyone can use it"
+              />
+              <p className="text-xs text-muted-foreground">
+                Only the account with this email can use the code — handy for a personal credit
+              </p>
             </div>
           </div>
 

@@ -1070,7 +1070,7 @@ const CheckoutPage = () => {
                 ) : (
                   <div className="space-y-2">
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                      Have a coupon?
+                      Got a code or studio credit?
                     </p>
                     <div className="flex gap-2">
                       <Input

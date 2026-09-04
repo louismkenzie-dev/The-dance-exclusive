@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { differenceInCalendarDays, format } from "date-fns";
+import { differenceInCalendarDays, format, startOfMonth } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import { ChevronDown, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { passLabelOf, usePassCatalog } from "@/lib/passCatalog";
 import MoveMembershipDialog, { type MoveMembershipTarget } from "@/components/admin/MoveMembershipDialog";
+import MembershipAdjustDialog, { type AdjustableMembership } from "@/components/admin/MembershipAdjustDialog";
 import OneToOneTab from "@/components/admin/OneToOneTab";
 import TrialsTab from "@/components/admin/TrialsTab";
 import AddBookingDialog from "@/components/admin/AddBookingDialog";
@@ -188,10 +189,28 @@ interface AdminMembership {
   started_at: string;
   current_period_end: string | null;
   cancel_at: string | null;
+  free_month: number | null;
   students: { first_name: string; last_name: string } | null;
   classes: { name: string; day_of_week: string | null; start_time: string | null } | null;
   profile: { full_name: string; email: string } | null;
 }
+
+/** A one-off change to a single month's membership payment (money off or
+ *  extra) that hasn't been removed — shown as a badge on the row. */
+interface RowAdjustment {
+  membership_id: string;
+  billing_month: string;
+  amount: number;
+}
+
+/** "−£7 off Feb" / "+£5 extra Feb" — whole pounds stay whole. */
+const adjustmentBadgeLabel = (a: RowAdjustment) => {
+  const abs = Math.abs(a.amount);
+  const pounds = Number.isInteger(abs) ? `£${abs}` : `£${abs.toFixed(2)}`;
+  const [y, m] = a.billing_month.split("-").map(Number);
+  const month = format(new Date(y, m - 1, 1), "MMM");
+  return a.amount < 0 ? `−${pounds} off ${month}` : `+${pounds} extra ${month}`;
+};
 
 const membershipBadge: Record<string, { label: string; className: string }> = {
   active: { label: "Active", className: "border-transparent bg-emerald-600 text-white" },
@@ -225,6 +244,9 @@ interface PlanRow {
   /** Set on monthly rows — enables the admin "Move" (class transfer) action. */
   membershipId: string | null;
   classId: string | null;
+  /** Raw memberships.status / free_month — for the "Adjust payment" dialog. */
+  membershipStatus: string | null;
+  freeMonth: number | null;
 }
 
 const planMeta: Record<PlanKind, { label: string; className: string }> = {
@@ -263,6 +285,9 @@ const MembershipsTab = () => {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [moveTarget, setMoveTarget] = useState<MoveMembershipTarget | null>(null);
+  const [adjustTarget, setAdjustTarget] = useState<AdjustableMembership | null>(null);
+  // Upcoming one-off payment changes, keyed by membership id.
+  const [adjustmentsByMembership, setAdjustmentsByMembership] = useState<Map<string, RowAdjustment[]>>(new Map());
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -270,7 +295,7 @@ const MembershipsTab = () => {
       const [membershipsRes, bookingsRes] = await Promise.all([
         supabase
           .from("memberships")
-          .select("id, user_id, class_id, monthly_amount, status, started_at, current_period_end, cancel_at, students(first_name, last_name), classes(name, day_of_week, start_time)")
+          .select("id, user_id, class_id, monthly_amount, status, started_at, current_period_end, cancel_at, free_month, students(first_name, last_name), classes(name, day_of_week, start_time)")
           .order("created_at", { ascending: false }),
         supabase
           .from("bookings")
@@ -293,6 +318,27 @@ const MembershipsTab = () => {
         ? await supabase.from("profiles").select("user_id, full_name, email").in("user_id", userIds)
         : { data: [] };
       const profileMap = new Map((profiles ?? []).map((p) => [p.user_id, p]));
+
+      // One-off payment changes for this month onwards, one query for every
+      // membership listed — past months no longer matter for the row badge.
+      const membershipIds = memberships.map((m) => m.id);
+      const { data: adjustments } = membershipIds.length > 0
+        ? await supabase
+            .from("membership_adjustments")
+            .select("membership_id, billing_month, amount")
+            .in("membership_id", membershipIds)
+            .neq("status", "removed")
+            .gte("billing_month", format(startOfMonth(new Date()), "yyyy-MM-dd"))
+            .order("billing_month")
+        : { data: [] };
+      const adjMap = new Map<string, RowAdjustment[]>();
+      for (const a of adjustments ?? []) {
+        const row = { ...a, amount: Number(a.amount) };
+        const list = adjMap.get(a.membership_id);
+        if (list) list.push(row);
+        else adjMap.set(a.membership_id, [row]);
+      }
+      setAdjustmentsByMembership(adjMap);
 
       const schedule = (cls: { day_of_week: string | null; start_time: string | null } | null) =>
         cls?.day_of_week
@@ -322,6 +368,8 @@ const MembershipsTab = () => {
           live: isLive(m.status),
           membershipId: m.id,
           classId: (m as any).class_id ?? null,
+          membershipStatus: m.status,
+          freeMonth: m.free_month ?? null,
         };
       });
 
@@ -346,6 +394,8 @@ const MembershipsTab = () => {
           live: true,
           membershipId: null,
           classId: null,
+          membershipStatus: null,
+          freeMonth: null,
         };
       });
 
@@ -544,7 +594,12 @@ const MembershipsTab = () => {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {g.rows.map((r) => (
+                            {g.rows.map((r) => {
+                              const rowAdjustments = r.membershipId ? adjustmentsByMembership.get(r.membershipId) ?? [] : [];
+                              const canAdjust =
+                                !!r.membershipId &&
+                                (r.statusLabel === "Active" || r.statusLabel === "Paused" || r.statusLabel === "Payment issue");
+                              return (
                               <TableRow key={r.key}>
                                 <TableCell>{r.childName}</TableCell>
                                 <TableCell>
@@ -553,7 +608,22 @@ const MembershipsTab = () => {
                                     <span className="block text-xs text-muted-foreground">{r.classSchedule}</span>
                                   )}
                                 </TableCell>
-                                <TableCell>£{r.amount.toFixed(2)}</TableCell>
+                                <TableCell>
+                                  £{r.amount.toFixed(2)}
+                                  {rowAdjustments.map((a) => (
+                                    <Badge
+                                      key={a.billing_month}
+                                      variant="outline"
+                                      className={`block w-fit mt-1 text-[10px] whitespace-nowrap ${
+                                        a.amount < 0
+                                          ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
+                                          : "border-amber-500/40 text-amber-600 dark:text-amber-400"
+                                      }`}
+                                    >
+                                      {adjustmentBadgeLabel(a)}
+                                    </Badge>
+                                  ))}
+                                </TableCell>
                                 <TableCell>
                                   <Badge variant="outline" className={r.statusClass}>{r.statusLabel}</Badge>
                                 </TableCell>
@@ -561,25 +631,46 @@ const MembershipsTab = () => {
                                 <TableCell>{r.nextCharge ? format(new Date(r.nextCharge), "d MMM yyyy") : "—"}</TableCell>
                                 <TableCell>{r.ends ? format(new Date(r.ends), "d MMM yyyy") : "—"}</TableCell>
                                 <TableCell className="text-right">
-                                  {r.membershipId && (r.statusLabel === "Active" || r.statusLabel === "Paused") && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-7 px-2 text-xs"
-                                      onClick={() => setMoveTarget({
-                                        membershipId: r.membershipId!,
-                                        parentName: r.parentName,
-                                        childName: r.childName,
-                                        className: r.className,
-                                        classId: r.classId,
-                                      })}
-                                    >
-                                      Move
-                                    </Button>
-                                  )}
+                                  <div className="flex justify-end gap-1.5">
+                                    {r.membershipId && (r.statusLabel === "Active" || r.statusLabel === "Paused") && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 px-2 text-xs"
+                                        onClick={() => setMoveTarget({
+                                          membershipId: r.membershipId!,
+                                          parentName: r.parentName,
+                                          childName: r.childName,
+                                          className: r.className,
+                                          classId: r.classId,
+                                        })}
+                                      >
+                                        Move
+                                      </Button>
+                                    )}
+                                    {canAdjust && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 px-2 text-xs whitespace-nowrap"
+                                        onClick={() => setAdjustTarget({
+                                          id: r.membershipId!,
+                                          monthly_amount: r.amount,
+                                          current_period_end: r.nextCharge,
+                                          free_month: r.freeMonth,
+                                          className: r.className,
+                                          studentName: r.childName !== "—" ? r.childName : null,
+                                          status: r.membershipStatus ?? "",
+                                        })}
+                                      >
+                                        Adjust payment
+                                      </Button>
+                                    )}
+                                  </div>
                                 </TableCell>
                               </TableRow>
-                            ))}
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       </div>
@@ -662,6 +753,14 @@ const MembershipsTab = () => {
             target={moveTarget}
             onOpenChange={(o) => { if (!o) setMoveTarget(null); }}
             onMoved={() => setRefreshKey((k) => k + 1)}
+          />
+
+          {/* Take money off (or add extra to) one month's payment */}
+          <MembershipAdjustDialog
+            open={!!adjustTarget}
+            onOpenChange={(o) => { if (!o) setAdjustTarget(null); }}
+            membership={adjustTarget}
+            onSaved={() => setRefreshKey((k) => k + 1)}
           />
 
           {showOneOff && oneOffSorted.length > 0 && (

@@ -83,6 +83,22 @@ interface Membership {
   classes: { name: string; day_of_week: string | null; start_time: string | null } | null;
 }
 
+/** A one-off change the studio has made to a single month's payment —
+ *  negative = credit (money off), positive = extra agreed with the family. */
+interface MembershipAdjustment {
+  membership_id: string;
+  /** First day of the month whose payment it changes, "YYYY-MM-DD". */
+  billing_month: string;
+  amount: number;
+}
+
+/** "YYYY-MM" of the calendar month a payment date falls in. Payments land at
+ *  ~07:00 UTC on the 5th, so the UTC month is the right one. */
+const paymentMonthKey = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+};
+
 // 'incomplete' rows are filtered out of the query entirely, so no entry here.
 const membershipBadges: Record<string, { label: string; className: string }> = {
   active: { label: "Active", className: "border-transparent bg-emerald-600 text-white" },
@@ -101,6 +117,8 @@ const MyBookings = () => {
   // Total classes still bookable across the user's active passes (for the prompt banner).
   const [passCredits, setPassCredits] = useState(0);
   const [memberships, setMemberships] = useState<Membership[]>([]);
+  // Studio credits / extras that change one specific month's payment.
+  const [adjustments, setAdjustments] = useState<MembershipAdjustment[]>([]);
   const [membershipsLoading, setMembershipsLoading] = useState(true);
   const [payLinkLoading, setPayLinkLoading] = useState<string | null>(null);
   // Membership pending cancellation confirmation (controls the AlertDialog).
@@ -149,17 +167,33 @@ const MyBookings = () => {
   useEffect(() => { fetchPassCredits(); }, [fetchPassCredits]);
 
   const fetchMemberships = useCallback(async () => {
-    if (!user) { setMemberships([]); return; }
-    const { data } = await supabase
-      .from("memberships")
-      .select("id, status, class_id, student_id, monthly_amount, started_at, current_period_end, final_payment_date, cancel_at, cancelled_at, free_month, students(first_name, last_name, date_of_birth), classes(name, day_of_week, start_time)")
-      .eq("user_id", user.id)
-      .neq("status", "incomplete") // never surface half-created subscriptions
-      .order("created_at", { ascending: false });
+    if (!user) { setMemberships([]); setAdjustments([]); return; }
+    const [{ data }, { data: adjustmentRows }] = await Promise.all([
+      supabase
+        .from("memberships")
+        .select("id, status, class_id, student_id, monthly_amount, started_at, current_period_end, final_payment_date, cancel_at, cancelled_at, free_month, students(first_name, last_name, date_of_birth), classes(name, day_of_week, start_time)")
+        .eq("user_id", user.id)
+        .neq("status", "incomplete") // never surface half-created subscriptions
+        .order("created_at", { ascending: false }),
+      // Only the parent's own rows come back (RLS); removed ones no longer apply.
+      supabase
+        .from("membership_adjustments")
+        .select("membership_id, billing_month, amount")
+        .eq("user_id", user.id)
+        .in("status", ["pending", "applied"]),
+    ]);
     setMemberships((data as unknown as Membership[]) ?? []);
+    setAdjustments((adjustmentRows ?? []).map((a) => ({ ...a, amount: Number(a.amount) })));
     setMembershipsLoading(false);
   }, [user]);
   useEffect(() => { fetchMemberships(); }, [fetchMemberships]);
+
+  /** The studio's credit (or extra) on this membership's NEXT payment, if any. */
+  const nextPaymentAdjustment = (m: Membership): MembershipAdjustment | null => {
+    if (!m.current_period_end) return null;
+    const key = paymentMonthKey(m.current_period_end);
+    return adjustments.find((a) => a.membership_id === m.id && a.billing_month.slice(0, 7) === key) ?? null;
+  };
 
   // Per-child live monthly totals. A £0 membership only happens when the
   // £110 Unlimited cap absorbed the class — the card should say that, not
@@ -530,6 +564,11 @@ const MyBookings = () => {
                 const day = cls?.day_of_week
                   ? cls.day_of_week.charAt(0).toUpperCase() + cls.day_of_week.slice(1)
                   : null;
+                // A studio credit/extra on the next payment changes the figure shown.
+                const adjustment = nextPaymentAdjustment(m);
+                const monthly = Number(m.monthly_amount);
+                const adjustedPayment = adjustment ? Math.max(0, monthly + adjustment.amount) : monthly;
+                const isStudioFreeMonth = !!adjustment && adjustment.amount < 0 && -adjustment.amount >= monthly - 0.005;
                 return (
                   <Card key={m.id} className="card-elevated animate-fade-in">
                     <CardContent className="p-4">
@@ -576,10 +615,23 @@ const MyBookings = () => {
                                 </p>
                               ) : (
                                 <>
-                                  <p className="text-sm text-muted-foreground">
-                                    Next payment: {format(new Date(m.current_period_end), "d MMM yyyy")} — this
-                                    covers {format(new Date(m.current_period_end), "MMMM")}&#39;s classes.
-                                  </p>
+                                  {adjustment ? (
+                                    <p className="text-sm text-muted-foreground">
+                                      Next payment:{" "}
+                                      <span className="font-medium text-foreground">£{adjustedPayment.toFixed(2)}</span>{" "}
+                                      on {format(new Date(m.current_period_end), "d MMMM")} —{" "}
+                                      {adjustment.amount < 0
+                                        ? isStudioFreeMonth
+                                          ? "your free month from the studio"
+                                          : `includes £${(-adjustment.amount).toFixed(2)} credit from the studio`
+                                        : `includes £${adjustment.amount.toFixed(2)} extra agreed with the studio`}.
+                                    </p>
+                                  ) : (
+                                    <p className="text-sm text-muted-foreground">
+                                      Next payment: {format(new Date(m.current_period_end), "d MMM yyyy")} — this
+                                      covers {format(new Date(m.current_period_end), "MMMM")}&#39;s classes.
+                                    </p>
+                                  )}
                                   <p className="text-xs text-muted-foreground">
                                     You pay 11 months a year — {freeMonthName(m.free_month)} is your free month.
                                   </p>

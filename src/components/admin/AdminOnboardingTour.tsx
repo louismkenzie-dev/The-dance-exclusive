@@ -98,10 +98,10 @@ const TOUR_STEPS: TourStep[] = [
     icon: Sun,
     title: "Holiday workshops",
     description:
-      "School holidays are covered too. Holiday camps and workshops are booked per day, so parents can pick exactly the days they need — and they're the only place your discount coupons ever apply.",
+      "School holidays are covered too. Holiday camps and workshops are booked per day, so parents can pick exactly the days they need.",
     highlights: [
       "Parents book individual days, not whole weeks",
-      "Coupons apply here and nowhere else",
+      "Discount codes can be limited to specific workshops",
       "Perfect for taster days and holiday intensives",
     ],
     route: "/admin/camps",
@@ -122,11 +122,11 @@ const TOUR_STEPS: TourStep[] = [
     icon: Ticket,
     title: "Coupons",
     description:
-      "Create discount codes for your holiday workshops — a percentage off or a fixed amount. Set usage limits and validity windows so an early-bird code quietly retires itself when the time's up.",
+      "Create discount codes for holiday workshops, class bookings, the first payment of a new monthly membership and adult class passes — a percentage off or a fixed amount. Lock a code to one family's email to give them a personal credit, and set usage limits and validity windows so an early-bird code quietly retires itself when the time's up.",
     highlights: [
-      "Percentage or fixed-amount discounts",
+      "Works on workshops, classes, monthly first payments and passes",
+      "Lock a code to one family's email for a personal credit",
       "Usage limits and start/end dates per code",
-      "Coupons work on holiday workshops only — never term classes",
     ],
     route: "/admin/coupons",
   },

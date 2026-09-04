@@ -137,7 +137,9 @@ export function IssueCreditDialog({ open, onOpenChange, customer, onIssued }: Pr
       .then(({ data }) => setClassOptions((data as unknown as ClassOption[]) || []));
   }, [open]);
 
-  // Work out what one month of the chosen class is worth.
+  // Work out what one month of the chosen class is worth (four weekly
+  // classes at its rate — no session counting, which mis-divides for classes
+  // whose dates span several school terms).
   useEffect(() => {
     if (!selectedClassId) {
       setSuggestion(null);
@@ -146,29 +148,8 @@ export function IssueCreditDialog({ open, onOpenChange, customer, onIssued }: Pr
     }
     const cls = classOptions.find((c) => c.id === selectedClassId);
     if (!cls) return;
-
-    let cancelled = false;
-    setSuggesting(true);
-    (async () => {
-      let sessionsInTerm = 0;
-      if (cls.term_start && cls.term_end) {
-        const { count } = await supabase
-          .from("class_sessions")
-          .select("id", { count: "exact", head: true })
-          .eq("class_id", cls.id)
-          .eq("status", "scheduled")
-          .gte("session_date", cls.term_start)
-          .lte("session_date", cls.term_end);
-        sessionsInTerm = count ?? 0;
-      }
-      if (cancelled) return;
-      const value = monthValueForClass(cls, sessionsInTerm);
-      setSuggestion({ className: cls.name, ...value });
-      setSuggesting(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
+    setSuggesting(false);
+    setSuggestion({ className: cls.name, ...monthValueForClass(cls) });
   }, [selectedClassId, classOptions]);
 
   const applySuggestion = () => {
@@ -292,8 +273,9 @@ export function IssueCreditDialog({ open, onOpenChange, customer, onIssued }: Pr
   };
 
   const message = issued
-    ? `Hi ${firstName}, we've put ${money(issued.amount)} credit on your account. ` +
-      `Pop the code ${issued.code} into the 'Got a code?' box when you next book and it comes straight off. ` +
+    ? `Hi ${firstName}, we've set up a one-time code worth ${money(issued.amount)} off your next booking with us. ` +
+      `Enter ${issued.code} in the 'Got a code or studio credit?' box at checkout and it comes off the total ` +
+      `(it's used in one go, so pop it on a booking that costs more than ${money(issued.amount)}). ` +
       `It's valid until ${format(issued.expiry, "d MMMM yyyy")}.`
     : "";
 
@@ -348,8 +330,10 @@ export function IssueCreditDialog({ open, onOpenChange, customer, onIssued }: Pr
             <DialogHeader className="px-6 pt-6 pb-4 border-b border-border shrink-0">
               <DialogTitle>Issue a credit code</DialogTitle>
               <DialogDescription>
-                A one-off code for {customer.full_name} that comes straight off their next booking.
-                Only their account ({customer.email}) can use it.
+                A one-time code for {customer.full_name}, used in one go on their next booking.
+                Only their account ({customer.email}) can use it. It can&apos;t cover a whole booking —
+                for that, add the booking yourself; for someone already on a monthly membership, use
+                Adjust payment on their membership instead.
               </DialogDescription>
             </DialogHeader>
 
@@ -376,7 +360,7 @@ export function IssueCreditDialog({ open, onOpenChange, customer, onIssued }: Pr
                   rows={2}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Saved as a note for admins — the parent never sees this.
+                  A note for admins only — it isn&apos;t shown to the family.
                 </p>
               </div>
 

@@ -158,7 +158,9 @@ const MembershipAdjustDialog = ({ open, onOpenChange, membership, onSaved }: Mem
     setAdjustments((data ?? []).map((a) => ({ ...a, amount: Number(a.amount) })));
   }, [membership, toast]);
 
-  // Fresh form + list every time the dialog opens for a membership.
+  // Fresh form + list every time the dialog opens for a membership. The
+  // previous family's list is cleared first, otherwise their adjusted months
+  // would briefly count against this family and pick the wrong default.
   useEffect(() => {
     if (!open) return;
     setMonthKey("");
@@ -166,6 +168,8 @@ const MembershipAdjustDialog = ({ open, onOpenChange, membership, onSaved }: Mem
     setAmount("");
     setReason("");
     setConfirmRemove(null);
+    setAdjustments([]);
+    setLoadingList(true);
     loadAdjustments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, membership?.id]);
@@ -179,12 +183,15 @@ const MembershipAdjustDialog = ({ open, onOpenChange, membership, onSaved }: Mem
     }));
   }, [membership?.current_period_end, freeMonth, adjustments]);
 
-  // Default to the first month that can actually be adjusted.
+  // Default to the first month that can actually be adjusted — once this
+  // membership's own list is in, so an already-adjusted month is skipped for
+  // the right reason.
   useEffect(() => {
+    if (loadingList) return;
     const current = options.find((o) => o.key === monthKey);
     if (current && !current.isFree && !current.alreadyAdjusted) return;
     setMonthKey(options.find((o) => !o.isFree && !o.alreadyAdjusted)?.key ?? "");
-  }, [options, monthKey]);
+  }, [options, monthKey, loadingList]);
 
   const selected = options.find((o) => o.key === monthKey) ?? null;
   const pounds = Number(amount);
@@ -292,8 +299,10 @@ const MembershipAdjustDialog = ({ open, onOpenChange, membership, onSaved }: Mem
           <div className="space-y-4">
             {membership?.status === "past_due" && (
               <p className="text-xs text-amber-600 dark:text-amber-400">
-                This family&apos;s last payment didn&apos;t go through. The adjustment applies to the
-                payment for the month you pick, whenever Stripe manages to take it.
+                This family&apos;s last payment failed and Stripe is still retrying it at the full
+                amount — that one can&apos;t be changed here (refund the difference from Stripe if you
+                need to). Anything you take off below goes on the next payment, starting with the one
+                shown.
               </p>
             )}
 

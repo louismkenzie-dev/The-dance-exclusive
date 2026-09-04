@@ -203,6 +203,12 @@ interface RowAdjustment {
   amount: number;
 }
 
+/** "YYYY-MM" of the month a payment date falls in (payments land ~07:00 UTC on the 5th). */
+const paymentMonthKey = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+};
+
 /** "−£7 off Feb" / "+£5 extra Feb" — whole pounds stay whole. */
 const adjustmentBadgeLabel = (a: RowAdjustment) => {
   const abs = Math.abs(a.amount);
@@ -595,7 +601,11 @@ const MembershipsTab = () => {
                           </TableHeader>
                           <TableBody>
                             {g.rows.map((r) => {
-                              const rowAdjustments = r.membershipId ? adjustmentsByMembership.get(r.membershipId) ?? [] : [];
+                              // Only payments not yet taken: once the 5th has been
+                              // charged, that month's adjustment is history.
+                              const nextChargeKey = r.nextCharge ? paymentMonthKey(r.nextCharge) : null;
+                              const rowAdjustments = (r.membershipId ? adjustmentsByMembership.get(r.membershipId) ?? [] : [])
+                                .filter((a) => !nextChargeKey || a.billing_month.slice(0, 7) >= nextChargeKey);
                               const canAdjust =
                                 !!r.membershipId &&
                                 (r.statusLabel === "Active" || r.statusLabel === "Paused" || r.statusLabel === "Payment issue");

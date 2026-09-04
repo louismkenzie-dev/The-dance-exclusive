@@ -1,7 +1,7 @@
 // Helpers for the admin "Issue credit code" flow — working out how much a
 // personal credit should be worth when it stands in for something like a
 // free month of a class.
-import { monthlyPrice, round2, type PricedClass } from "./pricing";
+import { monthlyPrice, round2, sessionPrice, type PricedClass } from "./pricing";
 
 export { round2 };
 
@@ -17,20 +17,22 @@ const gbp = (n: number) => `£${Number.isInteger(n) ? n : n.toFixed(2)}`;
 
 /**
  * What one month of a class is worth — e.g. for a "free month" referral
- * prize on a class that is only sold by the term. A month is taken as four
- * sessions' worth of the term price; a class with no term price (or no
- * scheduled sessions to divide by) falls back to its monthly membership rate.
+ * prize on a class that is only sold by the term. A month is four weekly
+ * classes at the class's per-session rate (White Court Performing Arts:
+ * 4 × £8 = £32 of its £104 term). This deliberately ignores the class's
+ * term_start/term_end range, which often spans several school terms and
+ * so can't be used to divide the term price safely. Where the studio has
+ * set an explicit monthly rate it is mentioned as the alternative.
  */
-export const monthValueForClass = (cls: PricedClass, sessionsInTerm: number): MonthValue => {
-  const termPrice = Number(cls.price_per_term ?? 0);
-  if (termPrice > 0 && sessionsInTerm > 0) {
-    return {
-      amount: round2((termPrice * 4) / sessionsInTerm),
-      explanation: `4 of the ${sessionsInTerm} sessions in a ${gbp(termPrice)} term`,
-    };
-  }
+export const monthValueForClass = (cls: PricedClass): MonthValue => {
+  const perClass = sessionPrice(cls);
+  const amount = round2(perClass * 4);
+  const monthly = monthlyPrice(cls);
+  const hasOwnMonthlyRate = Number(cls.price_per_month ?? 0) > 0 && Math.abs(monthly - amount) >= 0.005;
   return {
-    amount: monthlyPrice(cls),
-    explanation: "the monthly rate for this class",
+    amount,
+    explanation:
+      `4 weekly classes at ${gbp(perClass)}` +
+      (hasOwnMonthlyRate ? ` (its monthly membership rate is ${gbp(monthly)})` : ""),
   };
 };

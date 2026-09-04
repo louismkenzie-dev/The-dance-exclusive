@@ -1,11 +1,13 @@
 import {
   BRAND,
+  ctaButton,
   detailRow,
   divider,
   escapeHtml,
-  FONT_BODY,
   heading,
+  kicker,
   panel,
+  panelTitle,
   paragraph,
   renderLayout,
 } from "./layout.ts";
@@ -19,16 +21,25 @@ export interface MembershipCancelRequestedData {
   endDate: string; // ISO
 }
 
-const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-
-/** "Friday 15 August 2026" — plain JS, UTC-based so the server TZ can't shift the date. */
+/**
+ * "Friday 15 August 2026" in the studio's own calendar.
+ *
+ * The caller passes Stripe instants (invoices are raised at 07:00 UTC on the
+ * 5th), so the date must be resolved in Europe/London — a UTC-formatted
+ * instant names the previous day for anything falling in the 23:00–00:00 UTC
+ * hour during BST, telling a parent their money leaves a day earlier than it
+ * does. Same zone the billing calendar uses (_shared/billing.ts).
+ */
 function formatLongDate(iso: string): string {
   const d = new Date(iso);
-  return `${DAY_NAMES[d.getUTCDay()]} ${d.getUTCDate()} ${MONTH_NAMES[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-GB", {
+    timeZone: "Europe/London",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 }
 
 export function renderMembershipCancelRequested(data: MembershipCancelRequestedData) {
@@ -39,31 +50,31 @@ export function renderMembershipCancelRequested(data: MembershipCancelRequestedD
   const endDate = formatLongDate(data.endDate);
 
   const body = `
-    ${heading("We&#39;ve received your cancellation notice", { align: "center" })}
+    ${kicker("Cancellation notice", { align: "center" })}
+    ${heading("Notice received", { align: "center" })}
     ${paragraph(
-      `Hi ${escapeHtml(greetingName)}, this confirms we&#39;ve received your notice to cancel the <strong>${escapeHtml(data.className)}</strong> monthly membership${forStudent}.`,
+      `Hi ${escapeHtml(greetingName)}, this confirms we&#39;ve received your notice to cancel the <strong style="color:${BRAND.ink};">${escapeHtml(data.className)}</strong> monthly membership${forStudent}.`,
       { muted: true, align: "center" },
     )}
 
     ${panel(
-      `<div style="font-family:${FONT_BODY};font-size:17px;line-height:24px;font-weight:700;color:${BRAND.ink};margin-bottom:6px;">${escapeHtml(data.className)}</div>
-       ${data.studentName ? detailRow("For", escapeHtml(data.studentName)) : ""}
+      `${panelTitle(escapeHtml(data.className))}
+       ${data.studentName ? detailRow("Dancer", escapeHtml(data.studentName)) : ""}
        ${detailRow("Final payment", `${amount} on ${escapeHtml(finalPayment)}`)}
        ${detailRow("Membership ends", escapeHtml(endDate))}`,
       { accent: "blue" },
     )}
 
     ${paragraph(
-      `In line with our one month&#39;s notice policy, the final payment of <strong>${amount}</strong> will still be taken on <strong>${escapeHtml(finalPayment)}</strong>.`,
+      `In line with our one month&#39;s notice policy, that final payment will still be taken on the usual date. Classes carry on as normal until the membership ends &mdash; there&#39;s nothing more you need to do.`,
     )}
-    ${paragraph(
-      `Classes continue as normal until <strong>${escapeHtml(endDate)}</strong>, when the membership ends automatically &mdash; there&#39;s nothing more you need to do.`,
-    )}
+
+    ${ctaButton("View my bookings", `${BRAND.appUrl}/account/bookings`)}
 
     ${divider()}
 
     ${paragraph(
-      `Didn&#39;t request this, or changed your mind? Email <a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.blueDeep};text-decoration:none;">${BRAND.supportEmail}</a> and we&#39;ll sort it out.`,
+      `Didn&#39;t request this, or changed your mind? Email <a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.blue};text-decoration:none;">${BRAND.supportEmail}</a> and we&#39;ll sort it out.`,
       { muted: true, small: true, align: "center" },
     )}
   `;
@@ -74,6 +85,7 @@ export function renderMembershipCancelRequested(data: MembershipCancelRequestedD
       title: "Cancellation notice received",
       preheader: `Your ${data.className} membership ends on ${endDate}.`,
       body,
+      icon: "calendar-check",
     }),
   };
 }

@@ -1,17 +1,29 @@
 import {
   BRAND,
   ctaButton,
+  divider,
   escapeHtml,
   FONT_BODY,
   heading,
+  HERO,
+  kicker,
   panel,
   paragraph,
   renderLayout,
+  secondaryLink,
 } from "./layout.ts";
 
 export interface WelcomeData {
   fullName?: string | null;
   email: string;
+  /**
+   * Who the account is for, when the caller knows. Sign-up doesn't ask
+   * (Auth.tsx collects name/email/password only), so this is usually absent —
+   * and the CTA then goes to the account page rather than guessing. Sending an
+   * adult who joined to dance themselves to the children's listing is the one
+   * outcome worth designing against.
+   */
+  audience?: "children" | "adult" | null;
 }
 
 function bulletList(items: string[]): string {
@@ -21,40 +33,60 @@ function bulletList(items: string[]): string {
 }
 
 export function renderWelcome(data: WelcomeData) {
-  const firstName = data.fullName?.split(" ")[0] || "there";
+  const firstName = data.fullName?.trim().split(/\s+/)[0] || "there";
+
+  const cta = data.audience === "adult"
+    ? { label: "Browse adult classes", url: `${BRAND.appUrl}/classes/adult` }
+    : data.audience === "children"
+      ? { label: "Browse children's classes", url: `${BRAND.appUrl}/classes/children` }
+      : { label: "Set up your account", url: `${BRAND.appUrl}/account` };
 
   const body = `
+    ${kicker("You're in")}
     ${heading(`Welcome, ${escapeHtml(firstName)}.`)}
     ${paragraph(
-      `You&#39;re in. Your account at <strong>The Dance Exclusive</strong> is ready to go.`,
+      `Your account at <strong>The Dance Exclusive</strong> is ready to go.`,
     )}
     ${paragraph(
-      "Browse our children&#39;s and adult classes, book trials, and manage everything from your account.",
+      `Browse our children&#39;s and adult classes, book in, and manage everything from <strong style="color:${BRAND.ink};">My Account</strong>.`,
       { muted: true },
     )}
 
-    ${ctaButton("Browse Classes", `${BRAND.appUrl}/classes/children`)}
+    ${ctaButton(cta.label, cta.url)}
 
     ${heading("What&#39;s next?", { level: 2 })}
 
     ${panel(
-      `<div style="font-family:${FONT_BODY};font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${BRAND.blueDeep};margin-bottom:10px;">For your child</div>
+      `${kicker("For your child", { color: "blue" })}
        ${bulletList([
-         `Add your child&#39;s profile under <strong style="color:${BRAND.ink};">My Account</strong>`,
-         "Sign the medical waiver to complete their profile",
-         "Book a free trial class to get started",
-       ])}`,
+         `Add your child&#39;s profile under <strong style="color:${BRAND.ink};">My Account</strong> &mdash; medical details, allergies and consent all live there`,
+         // Trials cost the price of one class (pricing.ts: trialPrice = sessionPrice).
+         // The app's own booking dialog says the same; promising "free" here would
+         // be a money promise checkout can't honour.
+         `Book a trial class to get started &mdash; <strong style="color:${BRAND.ink};">the price of one class</strong>, no commitment`,
+       ])}
+       ${secondaryLink("Browse children's classes", `${BRAND.appUrl}/classes/children`)}`,
       { accent: "blue" },
     )}
 
     ${panel(
-      `<div style="font-family:${FONT_BODY};font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${BRAND.magenta};margin-bottom:10px;">Booking for yourself</div>
+      `${kicker("Booking for yourself", { color: "magenta" })}
        ${bulletList([
          `Complete your profile under <strong style="color:${BRAND.ink};">My Account</strong>`,
          "Browse adult classes &mdash; no experience needed",
-         "Book a drop-in or commit to a full term",
-       ])}`,
+         // Term/monthly/yearly plans are children-only; create-payment-intent
+         // rejects them outright for adult classes.
+         `Pay as you go by the class, or save with a <strong style="color:${BRAND.ink};">multi-class pass</strong>`,
+       ])}
+       ${secondaryLink("Browse adult classes", `${BRAND.appUrl}/classes/adult`)}`,
       { accent: "magenta" },
+    )}
+
+    ${divider()}
+
+    ${paragraph(
+      `Questions? Just reply to this email or contact <a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.blue};text-decoration:none;">${BRAND.supportEmail}</a> &mdash; we're happy to help.`,
+      { muted: true, small: true },
     )}
 
     ${paragraph("Welcome to the family,<br />The Dance Exclusive team", {
@@ -69,6 +101,8 @@ export function renderWelcome(data: WelcomeData) {
       title: "Welcome",
       preheader: "Your account is ready — let's get you dancing.",
       body,
+      hero: { url: HERO.stage, alt: "Dancers under blue and magenta stage lights" },
+      icon: "sparkles",
     }),
   };
 }

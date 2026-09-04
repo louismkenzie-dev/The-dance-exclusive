@@ -4,9 +4,10 @@ import {
   detailRow,
   divider,
   escapeHtml,
-  FONT_BODY,
   heading,
+  kicker,
   panel,
+  panelTitle,
   paragraph,
   renderLayout,
 } from "./layout.ts";
@@ -30,23 +31,28 @@ const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 export function renderStaffClassAssigned(data: StaffClassAssignedData) {
   const greetingName = data.staffName?.split(" ")[0] || "there";
   const day = data.dayOfWeek ? `${capitalise(data.dayOfWeek)}s` : null;
+  // Escape the parts, not the en-dash entity that joins them.
   const time = data.startTime
-    ? `${data.startTime.slice(0, 5)}${data.endTime ? ` &ndash; ${data.endTime.slice(0, 5)}` : ""}`
+    ? `${escapeHtml(data.startTime.slice(0, 5))}${data.endTime ? ` &ndash; ${escapeHtml(data.endTime.slice(0, 5))}` : ""}`
     : null;
   const venue = data.venueName
     ? `${data.venueName}${data.venueCity ? `, ${data.venueCity}` : ""}`
     : null;
-  const roleLabel = data.instructorRole === "main" ? "Main instructor" : "Assistant";
+  const isMain = data.instructorRole === "main";
+  const roleLabel = isMain ? "Main instructor" : "Assistant";
+  // An assistant isn't "assigned to teach" — the panel below would contradict it.
+  const verb = isMain ? "teach" : "assist with";
 
   const body = `
+    ${kicker("Class assignment", { align: "center" })}
     ${heading("You&#39;re on the team sheet!", { align: "center" })}
     ${paragraph(
-      `Hi ${escapeHtml(greetingName)}, you&#39;ve been assigned to teach <strong>${escapeHtml(data.className)}</strong> at The Dance Exclusive.`,
+      `Hi ${escapeHtml(greetingName)}, you&#39;ve been assigned to ${verb} <strong style="color:${BRAND.ink};">${escapeHtml(data.className)}</strong> at The Dance Exclusive.`,
       { muted: true, align: "center" },
     )}
 
     ${panel(
-      `<div style="font-family:${FONT_BODY};font-size:17px;line-height:24px;font-weight:700;color:${BRAND.ink};margin-bottom:6px;">${escapeHtml(data.className)}</div>
+      `${panelTitle(escapeHtml(data.className))}
        ${detailRow("Your role", escapeHtml(roleLabel))}
        ${day ? detailRow("Day", escapeHtml(day)) : ""}
        ${time ? detailRow("Time", time) : ""}
@@ -66,7 +72,7 @@ export function renderStaffClassAssigned(data: StaffClassAssignedData) {
     ${divider()}
 
     ${paragraph(
-      `Questions about this assignment? Email <a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.blueDeep};text-decoration:none;">${BRAND.supportEmail}</a>.`,
+      `Questions about this assignment? Email <a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.blue};text-decoration:none;">${BRAND.supportEmail}</a>.`,
       { muted: true, small: true, align: "center" },
     )}
   `;
@@ -77,6 +83,7 @@ export function renderStaffClassAssigned(data: StaffClassAssignedData) {
       title: "Class assignment",
       preheader: `You've been assigned to ${data.className}${day ? ` on ${capitalise(data.dayOfWeek!)}s` : ""}.`,
       body,
+      icon: "calendar-check",
     }),
   };
 }

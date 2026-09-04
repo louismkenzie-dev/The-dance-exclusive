@@ -6,19 +6,24 @@ import {
   escapeHtml,
   FONT_BODY,
   heading,
+  kicker,
   panel,
+  panelTitle,
   paragraph,
   renderLayout,
+  secondaryLink,
 } from "./layout.ts";
 
 export interface BookingItem {
-  /** bookings.id — when present, the entrance QR code CTA is rendered. */
+  /** bookings.id — when present, the entrance QR code link is rendered. */
   id?: string | null;
   className: string;
   studentName?: string | null;
   dayOfWeek?: string | null;
   startTime?: string | null;
   endTime?: string | null;
+  /** Pre-formatted date range for camps, e.g. "Mon 27 Jul – Fri 31 Jul". */
+  dates?: string | null;
   venueName?: string | null;
   venueCity?: string | null;
   bookingType?: string | null;
@@ -36,22 +41,36 @@ export interface BookingConfirmationData {
   discountCode?: string | null;
 }
 
+// Wording follows the checkout confirmation page (CheckoutReturn.tsx) so the
+// email names the plan exactly as the parent just saw it in the app.
 const planLabel: Record<string, string> = {
   trial: "Free Trial",
   session: "Per Session",
-  monthly: "Monthly",
+  drop_in: "Drop-in",
+  monthly: "Monthly Membership",
   term: "Full Term",
   year: "Full Year",
+  yearly: "Full Year",
+  camp: "Holiday Workshop",
+  pass: "Class Pass",
+  birthday: "Birthday Class",
 };
+
+/** Any booking_type added later still reads as a label, never as a raw slug. */
+const titleCase = (slug: string) =>
+  slug
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 
 export function renderBookingConfirmation(data: BookingConfirmationData) {
   const greetingName = data.parentName?.split(" ")[0] || "there";
+  const count = data.bookings.length;
 
   const totalPanel =
     data.totalAmount != null
       ? panel(
           `<div style="font-family:${FONT_BODY};font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${BRAND.inkMuted};text-align:center;">Total paid</div>
-           <div style="font-family:${FONT_BODY};font-size:32px;line-height:40px;font-weight:800;color:${BRAND.ink};text-align:center;margin-top:4px;">&pound;${Number(data.totalAmount).toFixed(2)}</div>
+           <div style="font-family:${FONT_BODY};font-size:32px;line-height:40px;font-weight:700;color:${BRAND.ink};text-align:center;margin-top:4px;">&pound;${Number(data.totalAmount).toFixed(2)}</div>
            ${data.discountAmount != null && Number(data.discountAmount) > 0
              ? `<div style="font-family:${FONT_BODY};font-size:13px;line-height:20px;color:${BRAND.success};text-align:center;margin-top:6px;">Includes &pound;${Number(data.discountAmount).toFixed(2)} off${data.discountCode ? ` with code ${escapeHtml(data.discountCode)}` : ""}</div>`
              : ""}
@@ -74,11 +93,15 @@ export function renderBookingConfirmation(data: BookingConfirmationData) {
 
       const rows = [
         b.studentName ? detailRow("For", escapeHtml(b.studentName)) : "",
+        b.dates ? detailRow("Dates", escapeHtml(b.dates)) : "",
         day ? detailRow("Day", escapeHtml(day)) : "",
         time ? detailRow("Time", time) : "",
         venue ? detailRow("Venue", escapeHtml(venue)) : "",
         b.bookingType
-          ? detailRow("Plan", escapeHtml(planLabel[b.bookingType] || b.bookingType))
+          ? detailRow(
+              "Plan",
+              escapeHtml(planLabel[b.bookingType] || titleCase(b.bookingType)),
+            )
           : "",
         b.amount != null
           ? detailRow("Amount", `&pound;${Number(b.amount).toFixed(2)}`)
@@ -86,51 +109,58 @@ export function renderBookingConfirmation(data: BookingConfirmationData) {
       ].join("");
 
       // Per-booking entrance QR: deep-links straight to this booking's QR
-      // code on the My Bookings page (?qr= handled portal-side).
-      const qrCta = b.id
-        ? ctaButton(
+      // code on the My Bookings page (?qr= handled portal-side). Kept as a
+      // quiet link so the one blue button below stays the primary action.
+      const qrLink = b.id
+        ? secondaryLink(
             "View entrance QR code",
             `${BRAND.appUrl}/account/bookings?qr=${encodeURIComponent(b.id)}`,
           )
         : "";
 
       return panel(
-        `<div style="font-family:${FONT_BODY};font-size:17px;line-height:24px;font-weight:700;color:${BRAND.ink};margin-bottom:6px;">${escapeHtml(b.className)}</div>
+        `${panelTitle(escapeHtml(b.className))}
          ${rows}
-         ${qrCta}`,
+         ${qrLink}`,
         { accent: "blue" },
       );
     })
     .join("");
 
   const body = `
+    ${kicker("Booking confirmed", { align: "center" })}
     ${heading("You&#39;re booked in!", { align: "center" })}
     ${paragraph(
-      `Hi ${escapeHtml(greetingName)}, thanks for booking with <strong>The Dance Exclusive</strong>. Here&#39;s your confirmation.`,
+      `Hi ${escapeHtml(greetingName)}, thanks for booking with <strong style="color:${BRAND.ink};">The Dance Exclusive</strong>. Here&#39;s your confirmation.`,
       { muted: true, align: "center" },
     )}
 
     ${totalPanel}
 
-    ${heading(`Your bookings (${data.bookings.length})`, { level: 2 })}
+    ${heading(count === 1 ? "Your booking" : `Your bookings (${count})`, { level: 2 })}
     ${bookingsHtml}
 
     ${divider()}
 
-    ${ctaButton("View My Bookings", `${BRAND.appUrl}/account/bookings`)}
+    ${ctaButton("View my bookings", `${BRAND.appUrl}/account/bookings`)}
 
     ${paragraph(
-      "Need to make a change? Reply to this email or contact us &mdash; we&#39;re here to help.",
+      `Need to make a change? Reply to this email or contact <a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.blue};text-decoration:none;">${BRAND.supportEmail}</a> &mdash; we&#39;re here to help.`,
       { muted: true, small: true, align: "center" },
     )}
   `;
 
+  const firstName = data.bookings[0]?.className || "The Dance Exclusive";
+
   return {
-    subject: `Booking confirmed — ${data.bookings[0]?.className || "The Dance Exclusive"}`,
+    subject: `Booking confirmed — ${firstName}${count > 1 ? ` + ${count - 1} more` : ""}`,
     html: renderLayout({
       title: "Booking confirmed",
-      preheader: `Your booking with The Dance Exclusive is confirmed.`,
+      preheader: count === 1
+        ? "Your booking with The Dance Exclusive is confirmed."
+        : `Your ${count} bookings with The Dance Exclusive are confirmed.`,
       body,
+      icon: "check-circle",
     }),
   };
 }

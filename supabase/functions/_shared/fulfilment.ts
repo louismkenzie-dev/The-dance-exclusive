@@ -390,6 +390,27 @@ export async function recordCouponRedemption(supabase: any, userId: string, pi: 
   if (error) console.error("Failed to record coupon redemption:", error);
 }
 
+/**
+ * Camp run as the parent should read it, e.g. "Mon 27 Jul – Fri 31 Jul";
+ * a one-day camp shows the single date rather than repeating it.
+ */
+function campDates(start?: string | null, end?: string | null): string | null {
+  if (!start) return null;
+  const fmt = (iso: string) => {
+    const d = new Date(`${iso}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toLocaleDateString("en-GB", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
+  };
+  const from = fmt(start);
+  if (!from) return null;
+  const to = end && end !== start ? fmt(end) : null;
+  return to ? `${from} – ${to}` : from;
+}
+
 /** Branded confirmation email covering class, camp and pass purchases. */
 export async function sendBookingConfirmationEmail(
   supabase: any,
@@ -462,6 +483,7 @@ export async function sendBookingConfirmationEmail(
           dayOfWeek: b.classes?.day_of_week || null,
           startTime: b.classes?.start_time || null,
           endTime: b.classes?.end_time || null,
+          dates: campDates(b.camps?.start_date, b.camps?.end_date),
           venueName: b.classes?.venues?.name || b.camps?.venues?.name || null,
           venueCity: b.classes?.venues?.city || b.camps?.venues?.city || null,
           bookingType: b.booking_type,
@@ -474,6 +496,7 @@ export async function sendBookingConfirmationEmail(
           dayOfWeek: null,
           startTime: null,
           endTime: null,
+          dates: null,
           venueName: null,
           venueCity: null,
           bookingType: "pass",

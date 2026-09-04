@@ -284,20 +284,29 @@ export function paragraph(
   return `<p style="margin:0 0 18px 0;font-family:${FONT_BODY};font-size:${size};line-height:${lineHeight};color:${color};text-align:${opts.align ?? "left"};">${html}</p>`;
 }
 
-/** Pick the app icon that suits a detail label, so every template gets tiles for free. */
-function iconForLabel(label: string): IconName | null {
+/**
+ * Pick the app icon that suits a detail label, so every template gets tiles
+ * for free.
+ *
+ * Whole words only, and people before dates: plain substring matching put a
+ * calendar beside "Attendee" (it contains "end") and beside "Birthday star"
+ * (it contains "day"). A row always gets a tile — an un-tiled row sits 50px
+ * left of its neighbours, and ragged alignment reads worse than a general
+ * icon does.
+ */
+function iconForLabel(label: string): IconName {
   const l = label.toLowerCase();
-  if (/date|day|when|start|end|expires|renew/.test(l)) return "calendar";
-  if (/time/.test(l)) return "clock";
-  if (/venue|location|where|address|hall|studio/.test(l)) return "map-pin";
-  if (/dancer|attendee|child|student|name|for/.test(l)) return "user";
-  if (/class|session|workshop|camp|event/.test(l)) return "sparkles";
-  if (/price|amount|total|paid|cost|fee|balance/.test(l)) return "credit-card";
-  if (/email/.test(l)) return "mail";
-  if (/phone|mobile|tel/.test(l)) return "phone";
-  if (/booking|ref|ticket|order/.test(l)) return "ticket";
-  if (/teacher|instructor|coach|staff|team|guests|children/.test(l)) return "users";
-  return null;
+  if (/\b(dancer|attendee|child|student|name|star|who|for)\b/.test(l)) return "user";
+  if (/\b(teacher|instructor|coach|staff|team|guests|children|with)\b/.test(l)) return "users";
+  if (/\b(date|dates|day|days|when|starts?|ends?|expires?|renews?|due|birthday)\b/.test(l)) return "calendar";
+  if (/\btimes?\b/.test(l)) return "clock";
+  if (/\b(venue|location|where|address|hall|studio)\b/.test(l)) return "map-pin";
+  if (/\b(price|amount|total|paid|payment|cost|fee|balance|deposit)\b/.test(l)) return "credit-card";
+  if (/\b(email|enquiry|inquiry|message|topic|subject)\b/.test(l)) return "mail";
+  if (/\b(phone|mobile|tel)\b/.test(l)) return "phone";
+  if (/\b(plan|membership|package|booking|ref|reference|ticket|order|pass)\b/.test(l)) return "ticket";
+  if (/\b(role|position|job)\b/.test(l)) return "shield-check";
+  return "sparkles";
 }
 
 /**
@@ -366,6 +375,17 @@ export function ctaButton(
       </td>
     </tr>
   </table>`;
+}
+
+/**
+ * Quiet inline link for a secondary action sitting beside a primary CTA —
+ * a second full-width button competes with the real one and, on a phone,
+ * pushes it below the fold.
+ */
+export function secondaryLink(label: string, url: string): string {
+  return `<div style="margin:14px 0 0 0;">
+    <a href="${escapeHtml(url)}" target="_blank" style="font-family:${FONT_BODY};font-size:14px;line-height:20px;font-weight:600;color:${BRAND.blue};text-decoration:none;">${escapeHtml(label)} &rarr;</a>
+  </div>`;
 }
 
 /** Thin hairline, like the app's section borders. */

@@ -1,11 +1,13 @@
 import {
   BRAND,
+  ctaButton,
   detailRow,
   divider,
   escapeHtml,
-  FONT_BODY,
   heading,
+  kicker,
   panel,
+  panelTitle,
   paragraph,
   renderLayout,
 } from "./layout.ts";
@@ -23,16 +25,24 @@ export interface MembershipClassChangedData {
   nextPaymentDate?: string | null; // ISO
 }
 
-const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-
-/** "Friday 15 August 2026" — plain JS, UTC-based so the server TZ can't shift the date. */
+/**
+ * "Friday 15 August 2026" in the studio's own calendar.
+ *
+ * The caller passes a Stripe period end (an exact instant), so the day must be
+ * resolved in Europe/London — formatting in UTC names the previous day for any
+ * instant in the 23:00–00:00 UTC hour during BST, which would tell a parent the
+ * wrong payment date. Same zone the billing calendar uses (_shared/billing.ts).
+ */
 function formatLongDate(iso: string): string {
   const d = new Date(iso);
-  return `${DAY_NAMES[d.getUTCDay()]} ${d.getUTCDate()} ${MONTH_NAMES[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-GB", {
+    timeZone: "Europe/London",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 }
 
 const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -46,32 +56,36 @@ export function renderMembershipClassChanged(data: MembershipClassChangedData) {
     ? `${data.newStartTime.slice(0, 5)}${data.newEndTime ? ` &ndash; ${data.newEndTime.slice(0, 5)}` : ""}`
     : null;
   const schedule = [day, time].filter(Boolean).join(", ");
+  const nextPayment = data.nextPaymentDate ? formatLongDate(data.nextPaymentDate) : null;
 
   const body = `
-    ${heading("Your class change is confirmed", { align: "center" })}
+    ${kicker("Membership update", { align: "center" })}
+    ${heading("Class change confirmed", { align: "center" })}
     ${paragraph(
-      `Hi ${escapeHtml(greetingName)}, the monthly membership${forStudent} has moved from <strong>${escapeHtml(data.oldClassName)}</strong> to <strong>${escapeHtml(data.newClassName)}</strong>. The class register has been updated &mdash; the change takes effect straight away.`,
+      `Hi ${escapeHtml(greetingName)}, the monthly membership${forStudent} has moved from <strong style="color:${BRAND.ink};">${escapeHtml(data.oldClassName)}</strong> to <strong style="color:${BRAND.ink};">${escapeHtml(data.newClassName)}</strong>. The class register has been updated &mdash; the change takes effect straight away.`,
       { muted: true, align: "center" },
     )}
 
     ${panel(
-      `<div style="font-family:${FONT_BODY};font-size:17px;line-height:24px;font-weight:700;color:${BRAND.ink};margin-bottom:6px;">${escapeHtml(data.newClassName)}</div>
-       ${data.studentName ? detailRow("For", escapeHtml(data.studentName)) : ""}
+      `${panelTitle(escapeHtml(data.newClassName))}
+       ${data.studentName ? detailRow("Dancer", escapeHtml(data.studentName)) : ""}
        ${schedule ? detailRow("When", schedule) : ""}
        ${data.newVenueName ? detailRow("Venue", escapeHtml(data.newVenueName)) : ""}
        ${detailRow("Monthly payment", amount)}
-       ${data.nextPaymentDate ? detailRow("Next payment", escapeHtml(formatLongDate(data.nextPaymentDate))) : ""}`,
+       ${nextPayment ? detailRow("Next payment", escapeHtml(nextPayment)) : ""}`,
       { accent: "blue" },
     )}
 
     ${paragraph(
-      `Your membership simply carries on &mdash; same rolling monthly payment, now for the new class${data.nextPaymentDate ? `, with the next payment of <strong>${amount}</strong> on <strong>${escapeHtml(formatLongDate(data.nextPaymentDate))}</strong>` : ""}.`,
+      `Your membership carries on as a rolling monthly plan. From the next payment it&#39;s <strong>${amount}</strong> for ${escapeHtml(data.newClassName)}${nextPayment ? `, due on <strong>${escapeHtml(nextPayment)}</strong>` : ""} &mdash; nothing to pay today.`,
     )}
+
+    ${ctaButton("View my bookings", `${BRAND.appUrl}/account/bookings`)}
 
     ${divider()}
 
     ${paragraph(
-      `Didn&#39;t request this, or need to change it back? Email <a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.blueDeep};text-decoration:none;">${BRAND.supportEmail}</a> and we&#39;ll sort it out.`,
+      `Didn&#39;t request this, or need to change it back? Email <a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.blue};text-decoration:none;">${BRAND.supportEmail}</a> and we&#39;ll sort it out.`,
       { muted: true, small: true, align: "center" },
     )}
   `;
@@ -82,6 +96,7 @@ export function renderMembershipClassChanged(data: MembershipClassChangedData) {
       title: "Class change confirmed",
       preheader: `Your membership has moved to ${data.newClassName}.`,
       body,
+      icon: "calendar-check",
     }),
   };
 }

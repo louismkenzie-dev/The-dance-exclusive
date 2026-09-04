@@ -44,7 +44,7 @@ export interface BookingConfirmationData {
 // Wording follows the checkout confirmation page (CheckoutReturn.tsx) so the
 // email names the plan exactly as the parent just saw it in the app.
 const planLabel: Record<string, string> = {
-  trial: "Free Trial",
+  trial: "Trial",
   session: "Per Session",
   drop_in: "Drop-in",
   monthly: "Monthly Membership",

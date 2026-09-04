@@ -4,9 +4,10 @@ import {
   detailRow,
   divider,
   escapeHtml,
-  FONT_BODY,
   heading,
+  kicker,
   panel,
+  panelTitle,
   paragraph,
   renderLayout,
 } from "./layout.ts";
@@ -28,51 +29,39 @@ export interface OneToOneInviteData {
   price: number;
 }
 
-const prettyDate = (iso: string) => {
-  try {
-    return new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
-  } catch {
-    return iso;
-  }
-};
-
 const prettyTime = (t?: string | null) => (t ? t.slice(0, 5) : null);
 
-/** "Thursday 10 September" — no year, for listing several dates compactly. */
+/** "Thursday 10 September" — the format used for every date in this email. */
 const shortDate = (iso: string) => {
-  try {
-    return new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-    });
-  } catch {
-    return iso;
-  }
+  const d = new Date(`${iso}T00:00:00`);
+  // Date never throws on bad input — it yields an Invalid Date, so the raw
+  // value has to be checked for rather than caught.
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
 };
 
 /** Invitation to a private one-to-one session — book & pay in the portal. */
 export function renderOneToOneInvite(data: OneToOneInviteData) {
-  const greetingName = data.parentName?.split(" ")[0] || "there";
+  const greetingName = data.parentName?.trim().split(/\s+/)[0] || "there";
   const time = [prettyTime(data.startTime), prettyTime(data.endTime)].filter(Boolean).join(" – ");
   const dates = (data.sessionDates?.length ? data.sessionDates : [data.sessionDate]).slice().sort();
   const multi = dates.length > 1;
   const total = Number(data.price) * dates.length;
 
   const body = `
-    ${heading("You're invited! ✨", { align: "center" })}
+    ${kicker("One-to-one invitation", { align: "center", color: "magenta" })}
+    ${heading("You're invited!", { align: "center" })}
     ${paragraph(
-      `Hi ${escapeHtml(greetingName)}, <strong>${escapeHtml(data.childName)}</strong> has been personally invited to a private session at The Dance Exclusive.`,
+      `Hi ${escapeHtml(greetingName)}, <strong style="color:${BRAND.ink};">${escapeHtml(data.childName)}</strong> has been personally invited to ${multi ? `a block of ${dates.length} private sessions` : "a private session"} at The Dance Exclusive.`,
       { muted: true, align: "center" },
     )}
 
     ${panel(
-      `<div style="font-family:${FONT_BODY};font-size:17px;line-height:24px;font-weight:700;color:${BRAND.ink};margin-bottom:6px;">${escapeHtml(data.className)}</div>
+      `${panelTitle(escapeHtml(data.className))}
        ${detailRow("For", escapeHtml(data.childName))}
        ${data.coachName ? detailRow("With", escapeHtml(data.coachName)) : ""}
        ${multi
@@ -80,7 +69,7 @@ export function renderOneToOneInvite(data: OneToOneInviteData) {
           `Dates (${dates.length})`,
           dates.map((d) => escapeHtml(shortDate(d))).join("<br />"),
         )
-        : detailRow("Date", escapeHtml(prettyDate(dates[0])))}
+        : detailRow("Date", escapeHtml(shortDate(dates[0])))}
        ${time ? detailRow("Time", escapeHtml(time)) : ""}
        ${data.venueName ? detailRow("Where", escapeHtml(data.venueName)) : ""}
        ${multi
@@ -101,7 +90,7 @@ export function renderOneToOneInvite(data: OneToOneInviteData) {
     ${divider()}
 
     ${paragraph(
-      `Questions, or can&#39;t make that time? Email <a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.blueDeep};text-decoration:none;">${BRAND.supportEmail}</a> and we&#39;ll find another slot.`,
+      `Questions, or can&#39;t make that time? Email <a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.blue};text-decoration:none;">${BRAND.supportEmail}</a> and we&#39;ll find another slot.`,
       { muted: true, small: true, align: "center" },
     )}
   `;
@@ -110,8 +99,11 @@ export function renderOneToOneInvite(data: OneToOneInviteData) {
     subject: `${data.childName} is invited: ${data.className}`,
     html: renderLayout({
       title: "You're invited",
-      preheader: `${data.childName} is invited to ${data.className} on ${prettyDate(data.sessionDate)}.`,
+      preheader: multi
+        ? `${data.childName} is invited to ${data.className} — ${dates.length} sessions from ${shortDate(dates[0])}.`
+        : `${data.childName} is invited to ${data.className} on ${shortDate(dates[0])}.`,
       body,
+      icon: "sparkles",
     }),
   };
 }

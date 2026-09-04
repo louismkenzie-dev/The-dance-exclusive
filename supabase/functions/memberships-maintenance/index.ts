@@ -151,7 +151,7 @@ serve(async (_req) => {
         await retireBooking(m);
         summary.endedNow++;
         const desc = await describeMembership(m);
-        await sendEmail(m.user_id, "membership_ended", { ...desc, endDate: m.cancel_at });
+        await sendEmail(m.user_id, "membership_ended", { ...desc, endDate: m.cancel_at, scheduled: true });
       } catch (e) {
         summary.errors++;
         console.error("Failed to end membership", m.id, e);
@@ -196,7 +196,10 @@ serve(async (_req) => {
             // Never-activated checkouts get no "membership ended" email.
             if (m.status === "incomplete") continue;
             const desc = await describeMembership(m);
-            await sendEmail(m.user_id, "membership_ended", { ...desc, endDate: m.cancel_at ?? nowIso });
+            // Ended in Stripe rather than through our notice period, so the
+            // membership stopped today — cancel_at may be a date still in the
+            // future, which would read as an end date that hasn't happened.
+            await sendEmail(m.user_id, "membership_ended", { ...desc, endDate: nowIso });
           }
           continue;
         }

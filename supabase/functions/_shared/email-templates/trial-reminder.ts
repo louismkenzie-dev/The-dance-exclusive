@@ -25,6 +25,12 @@ export interface TrialReminderData {
   classType?: "children" | "adult" | null;
   /** Studio-written note (app_settings: trial_reminder_message) — shown verbatim. */
   customMessage?: string | null;
+  /**
+   * The dancer is the account holder (students.is_self), so the reader and the
+   * student are the same person. Optional: inferred from the names when the
+   * caller doesn't say.
+   */
+  isSelf?: boolean | null;
 }
 
 const prettyDate = (iso: string) => {
@@ -43,8 +49,15 @@ const prettyTime = (t?: string | null) => (t ? t.slice(0, 5) : null);
 
 /** Day-before reminder for a booked trial session. */
 export function renderTrialReminder(data: TrialReminderData) {
-  const greetingName = data.parentName?.split(" ")[0] || "there";
-  const who = data.studentName ? `${escapeHtml(data.studentName)}'s` : "your";
+  const greetingName = data.parentName?.trim().split(/\s+/)[0] || "there";
+  // An adult booking themselves comes through with their own name as the
+  // student, so talking about "Vicki Woods's trial" would address the reader
+  // in the third person.
+  const isSelf = data.isSelf ??
+    (data.classType === "adult" &&
+      Boolean(data.studentName) &&
+      data.studentName!.trim().toLowerCase() === data.parentName?.trim().toLowerCase());
+  const who = data.studentName && !isSelf ? `${escapeHtml(data.studentName)}'s` : "your";
   const time = [prettyTime(data.startTime), prettyTime(data.endTime)].filter(Boolean).join(" – ");
   const hero = data.classType === "adult"
     ? { url: HERO.adults, alt: "Dancer in heels under stage lights" }
@@ -63,7 +76,7 @@ export function renderTrialReminder(data: TrialReminderData) {
        ${detailRow("Date", escapeHtml(prettyDate(data.sessionDate)))}
        ${time ? detailRow("Time", escapeHtml(time)) : ""}
        ${data.venueName ? detailRow("Venue", escapeHtml(data.venueName)) : ""}
-       ${data.studentName ? detailRow("Dancer", escapeHtml(data.studentName)) : ""}`,
+       ${data.studentName && !isSelf ? detailRow("Dancer", escapeHtml(data.studentName)) : ""}`,
     )}
 
     ${data.customMessage ? paragraph(escapeHtml(data.customMessage).replace(/\n/g, "<br />")) : ""}
@@ -79,7 +92,7 @@ export function renderTrialReminder(data: TrialReminderData) {
   `;
 
   return {
-    subject: `Reminder: ${data.studentName ? `${data.studentName}'s` : "your"} trial is tomorrow — ${data.className}`,
+    subject: `Reminder: ${data.studentName && !isSelf ? `${data.studentName}'s` : "your"} trial is tomorrow — ${data.className}`,
     html: renderLayout({
       title: "Trial reminder",
       preheader: `${data.className} is tomorrow${time ? ` at ${prettyTime(data.startTime)}` : ""} — see you there!`,

@@ -59,6 +59,12 @@ const HEADINGS: Record<PartyResponseData["outcome"], string> = {
   declined: "About your party enquiry",
 };
 
+const KICKERS: Record<PartyResponseData["outcome"], string> = {
+  confirmed: "Party confirmed",
+  proposed: "Party enquiry",
+  declined: "Party enquiry",
+};
+
 /** Amie's reply to a party enquiry — confirmation, alternatives, or a no. */
 export function renderPartyResponse(data: PartyResponseData) {
   const greetingName = data.parentName?.split(" ")[0] || "there";
@@ -114,17 +120,25 @@ export function renderPartyResponse(data: PartyResponseData) {
     ${data.invoice?.url
       ? ctaButton(
         data.invoice.kind === "deposit" ? "Pay the deposit" : "Pay the balance",
+        // The one legitimately off-domain link in the set: Stripe's hosted
+        // invoice page, which has no app-side equivalent.
         data.invoice.url,
         "magenta",
       )
-      : data.outcome === "declined"
+      // An invoice with no hosted URL must not fall through to a packages
+      // button — the panel has just told them how they'll be asked to pay.
+      : data.invoice
         ? ""
-        : ctaButton("See our party packages", `${BRAND.appUrl}/parties`)}
+        // A family whose party is booked doesn't need selling the packages;
+        // anyone still deciding does.
+        : data.outcome === "proposed"
+          ? ctaButton("See our party packages", `${BRAND.appUrl}/parties`)
+          : ""}
 
     ${divider()}
 
     ${paragraph(
-      `Any questions, just reply to this email or contact <a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.blueDeep};text-decoration:none;">${BRAND.supportEmail}</a>.`,
+      `Any questions, just reply to this email or contact <a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.blue};text-decoration:none;">${BRAND.supportEmail}</a>.`,
       { muted: true, small: true, align: "center" },
     )}
   `;
@@ -143,6 +157,11 @@ export function renderPartyResponse(data: PartyResponseData) {
         ? `${data.childName}'s party is booked in${data.partyDate ? ` for ${prettyDate(data.partyDate)}` : ""}.`
         : `A reply about ${data.childName}'s party.`,
       body,
+      // A "sorry, we can't" email shouldn't open with a celebration photo.
+      hero: data.outcome === "declined"
+        ? undefined
+        : { url: HERO.kids, alt: "Young dancers mid-move under blue stage lights" },
+      icon: data.outcome === "confirmed" ? "party-popper" : "calendar",
     }),
   };
 }

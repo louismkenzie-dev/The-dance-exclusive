@@ -32,16 +32,16 @@ export function renderContactEnquiryReceived(data: ContactEnquiryReceivedData) {
 
     ${topicPanel}
 
-    ${heading("What happens next", { level: 2 })}
+    ${heading("What happens next", { level: 2, align: "center" })}
     ${paragraph(
       // The Contact page promises a reply within 24 hours; the email has to
       // make the same promise the parent just read.
       `One of the team will reply <strong style="color:${BRAND.ink};">within 24 hours</strong>. There&#39;s nothing else you need to do for now &mdash; we&#39;ll come back to you at this email address.`,
-      { muted: true },
+      { muted: true, align: "center" },
     )}
     ${paragraph(
       "While you wait, feel free to have a look at our classes and see what catches your eye.",
-      { muted: true },
+      { muted: true, align: "center" },
     )}
 
     ${ctaButton("Browse Classes", `${BRAND.appUrl}/classes/children`)}
@@ -49,6 +49,7 @@ export function renderContactEnquiryReceived(data: ContactEnquiryReceivedData) {
     ${paragraph("Speak soon,<br />The Dance Exclusive team", {
       muted: true,
       small: true,
+      align: "center",
     })}
   `;
 

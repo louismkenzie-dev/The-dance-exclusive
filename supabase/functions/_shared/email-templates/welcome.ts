@@ -73,7 +73,7 @@ export function renderWelcome(data: WelcomeData) {
       `${kicker("Booking for yourself", { color: "magenta" })}
        ${bulletList([
          `Complete your profile under <strong style="color:${BRAND.ink};">My Account</strong>`,
-         "Browse adult classes &mdash; no experience needed",
+         "Our adult classes are all levels &mdash; no experience needed",
          // Term/monthly/yearly plans are children-only; create-payment-intent
          // rejects them outright for adult classes.
          `Pay as you go by the class, or save with a <strong style="color:${BRAND.ink};">multi-class pass</strong>`,

@@ -36,13 +36,17 @@ export interface MembershipClassChangedData {
 function formatLongDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("en-GB", {
-    timeZone: "Europe/London",
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  // Intl puts a comma after the weekday ("Sunday, 5 July 2026"); the studio's
+  // house style, and every other template, writes it without one.
+  return d
+    .toLocaleDateString("en-GB", {
+      timeZone: "Europe/London",
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    })
+    .replace(",", "");
 }
 
 const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

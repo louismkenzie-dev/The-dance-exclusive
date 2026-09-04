@@ -4,6 +4,7 @@ import {
   detailRow,
   escapeHtml,
   heading,
+  kicker,
   panel,
   paragraph,
   renderLayout,
@@ -15,23 +16,27 @@ export interface ContactEnquiryReceivedData {
 }
 
 export function renderContactEnquiryReceived(data: ContactEnquiryReceivedData) {
-  const firstName = data.name?.split(" ")[0] || "there";
+  const firstName = data.name?.trim().split(/\s+/)[0] || "there";
 
   const topicPanel = data.topic
     ? panel(detailRow("Your enquiry", escapeHtml(data.topic)), { accent: "blue" })
     : "";
 
   const body = `
-    ${heading("Thanks for getting in touch")}
+    ${kicker("Enquiry received", { align: "center" })}
+    ${heading("Thanks, we've got it", { align: "center" })}
     ${paragraph(
-      `Hi ${escapeHtml(firstName)}, your message has landed safely with the <strong>Dance Exclusive</strong> team.`,
+      `Hi ${escapeHtml(firstName)}, your message has landed safely with the <strong style="color:${BRAND.ink};">Dance Exclusive</strong> team.`,
+      { align: "center" },
     )}
 
     ${topicPanel}
 
     ${heading("What happens next", { level: 2 })}
     ${paragraph(
-      "One of the team will reply within <strong>2 working days</strong>. There&#39;s nothing else you need to do for now &mdash; we&#39;ll come back to you at this email address.",
+      // The Contact page promises a reply within 24 hours; the email has to
+      // make the same promise the parent just read.
+      `One of the team will reply <strong style="color:${BRAND.ink};">within 24 hours</strong>. There&#39;s nothing else you need to do for now &mdash; we&#39;ll come back to you at this email address.`,
       { muted: true },
     )}
     ${paragraph(
@@ -51,8 +56,9 @@ export function renderContactEnquiryReceived(data: ContactEnquiryReceivedData) {
     subject: "We've received your enquiry — The Dance Exclusive",
     html: renderLayout({
       title: "Enquiry received",
-      preheader: "Thanks for your message — we'll reply within 2 working days.",
+      preheader: "Thanks for your message — we'll reply within 24 hours.",
       body,
+      icon: "mail",
     }),
   };
 }

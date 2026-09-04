@@ -1,8 +1,11 @@
 import {
   BRAND,
+  ctaButton,
   escapeHtml,
   FONT_BODY,
   heading,
+  HERO,
+  kicker,
   panel,
   paragraph,
   renderLayout,
@@ -26,19 +29,23 @@ export function renderBirthday(data: BirthdayData) {
   const name = escapeHtml(data.childName);
   const isAdult = data.audience === "adult";
   const turning = data.age != null && data.age > 0 ? ` — ${data.age} today!` : "";
+  // The perk is an adult-class offer, so it must never reach the parent of a
+  // child dancer even if a caller sets the note by mistake.
+  const showPerk = isAdult && Boolean(data.freeClassNote);
 
   const intro = isAdult
     ? paragraph(
-      `It's your birthday${turning ? escapeHtml(turning) : ""} 🎂 Everyone at <strong>The Dance Exclusive</strong> is sending you the biggest birthday wishes.`,
+      `It's your birthday${turning ? escapeHtml(turning) : ""} 🎂 Everyone at <strong style="color:${BRAND.ink};">The Dance Exclusive</strong> is sending you the biggest birthday wishes.`,
       { muted: true, align: "center" },
     )
     : paragraph(
-      `Hi ${escapeHtml(data.parentName?.split(" ")[0] || "there")}, everyone at <strong>The Dance Exclusive</strong> is sending ${name} the biggest birthday wishes today${escapeHtml(turning)} 🎂`,
+      `Hi ${escapeHtml(data.parentName?.trim().split(/\s+/)[0] || "there")}, everyone at <strong style="color:${BRAND.ink};">The Dance Exclusive</strong> is sending ${name} the biggest birthday wishes${escapeHtml(turning)} 🎂`,
       { muted: true, align: "center" },
     );
 
   const body = `
-    ${heading(`Happy birthday, ${name}! 🎉`, { align: "center" })}
+    ${kicker("Birthday", { align: "center", color: "magenta" })}
+    ${heading(`Happy birthday, ${name}! 🎂`, { align: "center" })}
     ${intro}
 
     ${panel(
@@ -49,14 +56,15 @@ export function renderBirthday(data: BirthdayData) {
       { accent: "magenta" },
     )}
 
-    ${data.freeClassNote ? panel(
-      `<p style="margin:0;font-family:${FONT_BODY};font-size:14px;line-height:22px;color:${BRAND.ink};text-align:center;">${escapeHtml(data.freeClassNote)}</p>`,
-      { accent: "blue" },
-    ) : ""}
+    ${showPerk
+      ? `${panel(
+        `<p style="margin:0;font-family:${FONT_BODY};font-size:16px;line-height:26px;color:${BRAND.ink};text-align:center;">${escapeHtml(data.freeClassNote!)}</p>`,
+        { accent: "blue" },
+      )}
+      ${ctaButton("Claim my free class", `${BRAND.appUrl}/classes/adult`)}`
+      : ""}
 
     ${paragraph("With love,<br />Amie &amp; The Dance Exclusive crew xx", {
-      muted: true,
-      small: true,
       align: "center",
     })}
   `;
@@ -67,6 +75,10 @@ export function renderBirthday(data: BirthdayData) {
       title: "Happy birthday!",
       preheader: `Birthday wishes for ${data.childName} from The Dance Exclusive.`,
       body,
+      hero: isAdult
+        ? { url: HERO.adults, alt: "Dancer in heels under stage lights" }
+        : { url: HERO.kids, alt: "Young dancers mid-move under blue stage lights" },
+      icon: "cake",
     }),
   };
 }

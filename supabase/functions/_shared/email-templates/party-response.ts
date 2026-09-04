@@ -86,19 +86,20 @@ export function renderPartyResponse(data: PartyResponseData) {
 
   const invoicePanel = data.invoice
     ? panel(
-      `<div style="font-family:${FONT_BODY};font-size:13px;line-height:19px;font-weight:700;color:${BRAND.ink};margin-bottom:6px;">${
-        data.invoice.kind === "deposit" ? "Deposit to secure the date" : "Balance due"
-      }</div>
+      `${panelTitle(data.invoice.kind === "deposit" ? "Deposit to secure the date" : "Balance due")}
        ${detailRow("Amount", `&pound;${Number(data.invoice.amount).toFixed(2)}`)}
        ${data.invoice.dueDate ? detailRow("Due by", escapeHtml(prettyDate(data.invoice.dueDate))) : ""}
        <p style="margin:10px 0 0 0;font-family:${FONT_BODY};font-size:13px;line-height:20px;color:${BRAND.inkMuted};">
-         Your invoice is attached to this email as a secure Stripe payment page &mdash; pay by card whenever suits you.
+         ${data.invoice.url
+        ? `Pay securely by card using the button below${data.invoice.dueDate ? ` before ${escapeHtml(prettyDate(data.invoice.dueDate))}` : ""} &mdash; Stripe also emails you a copy of the invoice.`
+        : `Stripe emails you the invoice with a secure card payment link${data.invoice.dueDate ? ` &mdash; it&#39;s due by ${escapeHtml(prettyDate(data.invoice.dueDate))}` : ""}. Can&#39;t find it? Just reply to this email.`}
        </p>`,
       { accent: "magenta" },
     )
     : "";
 
   const body = `
+    ${kicker(KICKERS[data.outcome], { align: "center", color: "magenta" })}
     ${heading(HEADINGS[data.outcome], { align: "center" })}
     ${paragraph(intro, { muted: true, align: "center" })}
 

@@ -8,7 +8,7 @@ import {
   getConnectedAccountId,
   getPlatformFeePercent,
 } from "../_shared/stripe.ts";
-import { validateAndCompute } from "../_shared/coupon.ts";
+import { allocateDiscount, validateAndCompute } from "../_shared/coupon.ts";
 import { getActiveStripeEnv } from "../_shared/paymentsMode.ts";
 import { chargesFirstMonthAtSignup, firstBillingAnchor, freeMonthFor, londonYMD } from "../_shared/billing.ts";
 import {
@@ -583,10 +583,14 @@ serve(async (req) => {
       subtotalInPence += amountInPence;
     }
 
-    // Apply coupon (server-side re-validation; holiday workshops only).
+    // Apply a code (server-side re-validation). The engine decides which
+    // basket items it covers — holiday workshops, class bookings, a new
+    // membership's first payment, passes — and the discount is then split
+    // across those items so every booking records what was really paid.
     let couponId: string | null = null;
     let couponCodeApplied: string | null = null;
     let discountInPence = 0;
+    let discountOffPence: number[] = cartItems.map(() => 0);
 
     if (couponCode && typeof couponCode === "string" && couponCode.trim().length > 0) {
       const couponItems = cartItems.map((item, index) => ({
@@ -604,7 +608,19 @@ serve(async (req) => {
       couponId = result.couponId;
       couponCodeApplied = result.code;
       discountInPence = Math.round(result.discountAmount * 100);
+      discountOffPence = allocateDiscount(
+        chargedPrices.map((p) => Math.round(p * 100)),
+        result.eligibleIndexes,
+        discountInPence,
+        result.discountType,
+        result.discountValue,
+      );
     }
+
+    // What each item actually costs once the code is taken off it.
+    const paidPrices = chargedPrices.map((p, index) =>
+      round2((Math.round(p * 100) - discountOffPence[index]) / 100)
+    );
 
     const totalAmountInPence = Math.max(0, subtotalInPence - discountInPence);
     if (totalAmountInPence < 30) {
@@ -624,7 +640,7 @@ serve(async (req) => {
           pt: item.passType || "",
           s: item.studentId || "",
           p: item.pricingPlan,
-          t: chargedPrices[index],
+          t: paidPrices[index],
           ...(trialSessionDates.has(index) && { d: trialSessionDates.get(index) }),
           ...(sessionPlanDates.has(index) && { sd: sessionPlanDates.get(index) }),
         }),
@@ -710,8 +726,8 @@ serve(async (req) => {
       const billingAnchor = firstBillingAnchor(now);
       const freeMonth = freeMonthFor(now);
 
-      // One-off items join the first invoice; the coupon (holiday workshops
-      // only) is allocated against the camp items it applies to.
+      // One-off items join the first invoice, each at its price after any
+      // code has been taken off it.
       const oneOffEntries = cartItems
         .map((item, index) => ({ item, index }))
         .filter(({ item }) => !(kindOf(item) === "class" && item.pricingPlan === "monthly"));
@@ -723,17 +739,18 @@ serve(async (req) => {
           error: "September memberships are set up with no payment today, so they need their own checkout — please book your other items separately first, then add the membership.",
         }, 400);
       }
+      if (!chargeFirstMonthNow && discountInPence > 0) {
+        // Nothing is charged today, so there is nothing for a code to come
+        // off — the studio can take it off a later month instead.
+        return jsonResponse({
+          error: "There's no payment today for a September membership, so this code can't be used here — the studio can take the amount off a later month for you instead.",
+        }, 400);
+      }
 
-      let couponRemaining = discountInPence;
       const addInvoiceItems: { price_data: { currency: string; product: string; unit_amount: number }; quantity: number }[] = [];
       let oneOffProductId: string | null = null;
-      for (const { item, index } of oneOffEntries) {
-        let amount = Math.round(chargedPrices[index] * 100);
-        if (couponRemaining > 0 && kindOf(item) === "camp") {
-          const applied = Math.min(couponRemaining, amount);
-          amount -= applied;
-          couponRemaining -= applied;
-        }
+      for (const { index } of oneOffEntries) {
+        const amount = Math.round(chargedPrices[index] * 100) - discountOffPence[index];
         if (!oneOffProductId) {
           const prod = await stripe.products.create(
             { name: `One-off booking${oneOffEntries.length === 1 ? "" : "s"}` },
@@ -749,13 +766,15 @@ serve(async (req) => {
 
       // The signup month itself is paid up-front as a one-off "first month"
       // line per membership (the recurring price is trialing until the 5th).
+      // A code that covers memberships comes off THIS line only — the
+      // recurring price, and so every renewal, stays at the full amount.
       if (chargeFirstMonthNow) {
         const firstMonthProduct = await stripe.products.create(
           { name: "First month (paid at signup)" },
           connectOpts,
         );
         for (const { index } of monthlyEntries) {
-          const amount = Math.round(chargedPrices[index] * 100);
+          const amount = Math.round(chargedPrices[index] * 100) - discountOffPence[index];
           if (amount > 0) {
             addInvoiceItems.push({
               price_data: { currency: "gbp", product: firstMonthProduct.id, unit_amount: amount },

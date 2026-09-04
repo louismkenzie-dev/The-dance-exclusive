@@ -1215,6 +1215,7 @@ export type Database = {
           applies_to_camp_ids: string[] | null
           applies_to_class_ids: string[]
           applies_to_class_types: string[]
+          applies_to_kinds: string[]
           applies_to_pricing_plans: string[]
           code: string
           created_at: string
@@ -1224,6 +1225,7 @@ export type Database = {
           discount_value: number
           id: string
           is_active: boolean
+          restricted_to_email: string | null
           updated_at: string
           usage_limit_per_user: number | null
           usage_limit_total: number | null
@@ -1234,6 +1236,7 @@ export type Database = {
           applies_to_camp_ids?: string[] | null
           applies_to_class_ids?: string[]
           applies_to_class_types?: string[]
+          applies_to_kinds?: string[]
           applies_to_pricing_plans?: string[]
           code: string
           created_at?: string
@@ -1243,6 +1246,7 @@ export type Database = {
           discount_value: number
           id?: string
           is_active?: boolean
+          restricted_to_email?: string | null
           updated_at?: string
           usage_limit_per_user?: number | null
           usage_limit_total?: number | null
@@ -1253,6 +1257,7 @@ export type Database = {
           applies_to_camp_ids?: string[] | null
           applies_to_class_ids?: string[]
           applies_to_class_types?: string[]
+          applies_to_kinds?: string[]
           applies_to_pricing_plans?: string[]
           code?: string
           created_at?: string
@@ -1262,6 +1267,7 @@ export type Database = {
           discount_value?: number
           id?: string
           is_active?: boolean
+          restricted_to_email?: string | null
           updated_at?: string
           usage_limit_per_user?: number | null
           usage_limit_total?: number | null
@@ -1310,6 +1316,62 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      membership_adjustments: {
+        Row: {
+          amount: number
+          applied_at: string | null
+          billing_month: string
+          created_at: string
+          created_by: string | null
+          id: string
+          membership_id: string
+          reason: string | null
+          removed_at: string | null
+          status: string
+          stripe_env: string
+          stripe_invoice_item_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          applied_at?: string | null
+          billing_month: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          membership_id: string
+          reason?: string | null
+          removed_at?: string | null
+          status?: string
+          stripe_env?: string
+          stripe_invoice_item_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          applied_at?: string | null
+          billing_month?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          membership_id?: string
+          reason?: string | null
+          removed_at?: string | null
+          status?: string
+          stripe_env?: string
+          stripe_invoice_item_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "membership_adjustments_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
             referencedColumns: ["id"]
           },
         ]

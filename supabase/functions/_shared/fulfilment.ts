@@ -421,6 +421,16 @@ export async function sendBookingConfirmationEmail(
   // Pass names for the receipt — only looked up when a pass was bought.
   const passCatalog = (passes ?? []).length > 0 ? await loadPasses(supabase) : {};
 
+  // A code used on this payment is shown on the receipt so the per-booking
+  // amounts and the total add up in the parent's eyes.
+  const { data: redemption } = await supabase
+    .from("coupon_redemptions")
+    .select("amount_discounted, coupons:coupon_id ( code )")
+    .eq("payment_intent_id", reference)
+    .maybeSingle();
+  const discountAmount = Number(redemption?.amount_discounted || 0);
+  const discountCode = (redemption as any)?.coupons?.code ?? null;
+
   const emailPayload = {
     template: "booking_confirmation",
     to: profile.email,
@@ -429,6 +439,7 @@ export async function sendBookingConfirmationEmail(
       email: profile.email,
       totalAmount,
       reference,
+      ...(discountAmount > 0 && { discountAmount, discountCode }),
       bookings: [
         ...(bookings ?? []).map((b: any) => ({
           id: b.id, // enables the per-booking entrance QR CTA in the email

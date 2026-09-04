@@ -31,6 +31,9 @@ export interface BookingConfirmationData {
   bookings: BookingItem[];
   totalAmount?: number | null;
   reference?: string | null;
+  /** A code or studio credit taken off this payment. */
+  discountAmount?: number | null;
+  discountCode?: string | null;
 }
 
 const planLabel: Record<string, string> = {
@@ -49,6 +52,9 @@ export function renderBookingConfirmation(data: BookingConfirmationData) {
       ? panel(
           `<div style="font-family:${FONT_BODY};font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${BRAND.inkMuted};text-align:center;">Total paid</div>
            <div style="font-family:${FONT_BODY};font-size:32px;line-height:40px;font-weight:800;color:${BRAND.ink};text-align:center;margin-top:4px;">&pound;${Number(data.totalAmount).toFixed(2)}</div>
+           ${data.discountAmount != null && Number(data.discountAmount) > 0
+             ? `<div style="font-family:${FONT_BODY};font-size:13px;line-height:20px;color:${BRAND.success};text-align:center;margin-top:6px;">Includes &pound;${Number(data.discountAmount).toFixed(2)} off${data.discountCode ? ` with code ${escapeHtml(data.discountCode)}` : ""}</div>`
+             : ""}
            ${data.reference ? `<div style="font-family:monospace;font-size:11px;letter-spacing:1.5px;color:${BRAND.inkMuted};text-align:center;margin-top:8px;">REF: ${escapeHtml(data.reference.slice(-12).toUpperCase())}</div>` : ""}`,
         )
       : "";

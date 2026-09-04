@@ -11,6 +11,9 @@
 //     memberships once a card is on file if the client-side finalize never
 //     ran, and cancels abandoned card-less checkouts after 24h — including
 //     orphaned Stripe subscriptions whose DB rows a re-checkout deleted.
+//  5. Passes pending one-month payment adjustments ("£7 off February") to
+//     Stripe as invoice items once that month's payment is the next one due,
+//     so they land on that month's invoice.
 // All operations are idempotent — running it repeatedly is safe.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -42,6 +45,7 @@ serve(async (_req) => {
     resumed: 0,
     activatedSetups: 0,
     cancelledAbandoned: 0,
+    adjustmentsApplied: 0,
     errors: 0,
   };
   const nowIso = new Date().toISOString();
@@ -197,6 +201,50 @@ serve(async (_req) => {
           .update({ current_period_end: periodEnd, updated_at: nowIso })
           .eq("stripe_subscription_id", subId)
           .in("status", ["active", "past_due", "paused", "cancel_scheduled"]);
+
+        // ── 5. One-month payment adjustments ────────────────────────────
+        // A pending "£x off <month>" is handed to Stripe as an invoice item
+        // once that month's payment is the next one due (invoices are raised
+        // on the 5th at 07:00 UTC; this runs at 06:10, so an item created
+        // any day up to then lands on the right invoice).
+        if (periodEnd) {
+          const chargeDate = new Date(periodEnd);
+          const chargeYm = `${chargeDate.getUTCFullYear()}-${String(chargeDate.getUTCMonth() + 1).padStart(2, "0")}`;
+          const { data: pendingAdjustments } = await supabase
+            .from("membership_adjustments")
+            .select("*")
+            .in("membership_id", members.map((m: any) => m.id))
+            .eq("status", "pending");
+          const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id;
+          for (const adj of pendingAdjustments ?? []) {
+            if (String(adj.billing_month).slice(0, 7) !== chargeYm || !customerId) continue;
+            try {
+              const pounds = Number(adj.amount);
+              const invoiceItem = await stripe.invoiceItems.create(
+                {
+                  customer: customerId,
+                  subscription: subId,
+                  amount: Math.round(pounds * 100),
+                  currency: "gbp",
+                  description: pounds < 0
+                    ? `Credit from The Dance Exclusive — ${adj.reason ?? "adjustment"}`
+                    : `The Dance Exclusive — ${adj.reason ?? "adjustment"}`,
+                  metadata: { adjustmentId: adj.id, membershipId: adj.membership_id },
+                },
+                { ...connectOpts, idempotencyKey: `membership-adjustment-${adj.id}` },
+              );
+              await supabase
+                .from("membership_adjustments")
+                .update({ status: "applied", stripe_invoice_item_id: invoiceItem.id, applied_at: nowIso })
+                .eq("id", adj.id)
+                .eq("status", "pending");
+              summary.adjustmentsApplied++;
+            } catch (e) {
+              summary.errors++;
+              console.error("Failed to apply membership adjustment", adj.id, e);
+            }
+          }
+        }
 
         if (sub.status === "past_due" || sub.status === "unpaid") {
           // Stripe's hosted invoice page lets the family pay the failed month

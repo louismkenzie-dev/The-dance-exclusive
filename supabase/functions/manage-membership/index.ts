@@ -9,6 +9,12 @@
 //    (additional-class rate, sibling discount, £110 unlimited cap) and the
 //    next payment charges the new amount. A deliberate ongoing change — the
 //    membership stays tied to one specific class, not week-by-week hopping.
+//  - "adjust" (admin only): take an amount off (or add to) ONE month's
+//    payment — "£7 off February because we owed them", or a whole month
+//    free. Recorded in membership_adjustments and passed to Stripe as an
+//    invoice item on that month's invoice, so the card is charged the
+//    adjusted amount; the usual price carries on the month after.
+//  - "remove_adjustment" (admin only): undo one before its invoice is raised.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
@@ -42,6 +48,17 @@ const addOneMonth = (unixSeconds: number): Date => {
   return d;
 };
 
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+/** "YYYY-MM" of a date, UTC (billing dates are 07:00 UTC on the 5th, so UTC and London agree). */
+const yearMonth = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+const monthLabel = (ym: string) => {
+  const [y, m] = ym.split("-").map(Number);
+  return `${MONTH_NAMES[m - 1]} ${y}`;
+};
+
 const CLASS_FIELDS =
   "id, name, class_type, day_of_week, start_time, end_time, price_per_session, price_per_month, " +
   "is_active, status, publicly_visible, booking_enabled, invite_only, sibling_discount_enabled, " +
@@ -64,8 +81,9 @@ serve(async (req) => {
       return jsonResponse({ error: "You must be signed in to manage a membership" }, 401);
     }
 
-    const { action, membershipId, newClassId } = await req.json();
-    if (action !== "cancel" && action !== "switch_class" && action !== "payment_link") {
+    const { action, membershipId, newClassId, billingMonth, amount, reason, adjustmentId } = await req.json();
+    const ADMIN_ACTIONS = ["adjust", "remove_adjustment"];
+    if (!["cancel", "switch_class", "payment_link", ...ADMIN_ACTIONS].includes(action)) {
       return jsonResponse({ error: "Unknown action" }, 400);
     }
     if (!membershipId || typeof membershipId !== "string") {
@@ -78,21 +96,26 @@ serve(async (req) => {
     );
 
     // Owners manage their own memberships; admins (Amie moving a family who
-    // booked the wrong class) can manage anyone's.
+    // booked the wrong class) can manage anyone's. Money adjustments are
+    // admin-only.
+    const { data: adminRole } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .maybeSingle();
+    const isAdmin = Boolean(adminRole);
     const { data: membership } = await supabase
       .from("memberships")
       .select("*")
       .eq("id", membershipId)
       .maybeSingle();
     if (!membership) return jsonResponse({ error: "Membership not found" }, 404);
-    if (membership.user_id !== user.id) {
-      const { data: adminRole } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "admin")
-        .maybeSingle();
-      if (!adminRole) return jsonResponse({ error: "Membership not found" }, 404);
+    if (membership.user_id !== user.id && !isAdmin) {
+      return jsonResponse({ error: "Membership not found" }, 404);
+    }
+    if (ADMIN_ACTIONS.includes(action) && !isAdmin) {
+      return jsonResponse({ error: "Only the studio can change a payment amount" }, 403);
     }
     // All family-scoped reads/writes below belong to the membership's OWNER,
     // which is the caller for parents and the family for admin calls.
@@ -143,6 +166,128 @@ serve(async (req) => {
         return jsonResponse({ error: "There's nothing to pay right now — the payment may already have gone through." }, 400);
       }
       return jsonResponse({ url: payUrl });
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // ADJUST ONE MONTH'S PAYMENT (admin) — an invoice item on the chosen
+    // month's subscription invoice. If that month is the next payment due,
+    // it goes to Stripe right now; otherwise the daily maintenance job
+    // passes it on once that month's payment becomes the next one.
+    // ────────────────────────────────────────────────────────────────────
+    const customerId = typeof sub.customer === "string" ? sub.customer : (sub.customer as any)?.id;
+    const nextChargeYm = sub.current_period_end
+      ? yearMonth(new Date(sub.current_period_end * 1000))
+      : null;
+
+    if (action === "adjust") {
+      const pounds = Number(amount);
+      if (typeof billingMonth !== "string" || !/^\d{4}-\d{2}-01$/.test(billingMonth)) {
+        return jsonResponse({ error: "Pick which month's payment to change" }, 400);
+      }
+      if (!Number.isFinite(pounds) || Math.abs(pounds) < 0.01 || Math.abs(pounds) > 1000) {
+        return jsonResponse({ error: "Enter the amount to take off (or add), between 1p and £1,000" }, 400);
+      }
+      const note = typeof reason === "string" ? reason.trim().slice(0, 200) : "";
+      if (!note) return jsonResponse({ error: "Add a short reason — it shows on the family's invoice" }, 400);
+      if (!nextChargeYm || !customerId) {
+        return jsonResponse({ error: "This membership has no upcoming payment to adjust" }, 400);
+      }
+      const targetYm = billingMonth.slice(0, 7);
+      if (targetYm < nextChargeYm) {
+        return jsonResponse({ error: `The ${monthLabel(targetYm)} payment has already been taken — the next one is ${monthLabel(nextChargeYm)}` }, 400);
+      }
+      const targetMonth = Number(targetYm.slice(5, 7));
+      if (membership.free_month != null && targetMonth === Number(membership.free_month)) {
+        return jsonResponse({ error: `No payment is taken in ${MONTH_NAMES[targetMonth - 1]} — it's this family's free month` }, 400);
+      }
+      const roundedPounds = Math.round(pounds * 100) / 100;
+      if (roundedPounds < 0 && Math.abs(roundedPounds) > Number(membership.monthly_amount) + 0.005) {
+        return jsonResponse({ error: `That's more than the £${Number(membership.monthly_amount).toFixed(2)} monthly payment — a month can be free, but not less than free` }, 400);
+      }
+
+      const { data: row, error: insErr } = await supabase
+        .from("membership_adjustments")
+        .insert({
+          membership_id: membership.id,
+          user_id: ownerId,
+          billing_month: billingMonth,
+          amount: roundedPounds,
+          reason: note,
+          status: "pending",
+          stripe_env: env,
+          created_by: user.id,
+        })
+        .select("*")
+        .single();
+      if (insErr || !row) {
+        if ((insErr as any)?.code === "23505") {
+          return jsonResponse({ error: `There's already an adjustment on the ${monthLabel(targetYm)} payment — remove it first if you want a different amount` }, 400);
+        }
+        console.error("membership_adjustments insert failed:", insErr);
+        return jsonResponse({ error: "Couldn't save the adjustment — please try again" }, 500);
+      }
+
+      if (targetYm === nextChargeYm) {
+        try {
+          const invoiceItem = await stripe.invoiceItems.create(
+            {
+              customer: customerId,
+              subscription: sub.id,
+              amount: Math.round(roundedPounds * 100),
+              currency: "gbp",
+              description: roundedPounds < 0
+                ? `Credit from The Dance Exclusive — ${note}`
+                : `The Dance Exclusive — ${note}`,
+              metadata: { adjustmentId: row.id, membershipId: membership.id },
+            },
+            { ...connectOpts, idempotencyKey: `membership-adjustment-${row.id}` },
+          );
+          const nowIso = new Date().toISOString();
+          await supabase
+            .from("membership_adjustments")
+            .update({ status: "applied", stripe_invoice_item_id: invoiceItem.id, applied_at: nowIso })
+            .eq("id", row.id);
+          row.status = "applied";
+          row.stripe_invoice_item_id = invoiceItem.id;
+          row.applied_at = nowIso;
+        } catch (e: any) {
+          console.error("Stripe invoice item failed for adjustment", row.id, e);
+          await supabase.from("membership_adjustments").delete().eq("id", row.id);
+          return jsonResponse({ error: `Stripe wouldn't accept the change: ${e?.message ?? "unknown error"}` }, 502);
+        }
+      }
+
+      return jsonResponse({ success: true, adjustment: row, nextChargeMonth: nextChargeYm });
+    }
+
+    if (action === "remove_adjustment") {
+      if (!adjustmentId || typeof adjustmentId !== "string") {
+        return jsonResponse({ error: "No adjustment selected" }, 400);
+      }
+      const { data: row } = await supabase
+        .from("membership_adjustments")
+        .select("*")
+        .eq("id", adjustmentId)
+        .eq("membership_id", membership.id)
+        .maybeSingle();
+      if (!row) return jsonResponse({ error: "Adjustment not found" }, 404);
+      if (row.status === "removed") return jsonResponse({ success: true, adjustment: row });
+      if (row.status === "applied" && row.stripe_invoice_item_id) {
+        try {
+          await stripe.invoiceItems.del(row.stripe_invoice_item_id, connectOpts);
+        } catch (e: any) {
+          console.error("Could not delete invoice item", row.stripe_invoice_item_id, e);
+          return jsonResponse({
+            error: "That month's invoice has already been raised in Stripe, so this can't be undone from here — refund the difference from the Stripe dashboard instead",
+          }, 400);
+        }
+      }
+      const nowIso = new Date().toISOString();
+      await supabase
+        .from("membership_adjustments")
+        .update({ status: "removed", removed_at: nowIso })
+        .eq("id", row.id);
+      return jsonResponse({ success: true, adjustment: { ...row, status: "removed", removed_at: nowIso } });
     }
 
     // Fetched once — both remaining actions email a confirmation.

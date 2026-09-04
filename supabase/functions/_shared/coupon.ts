@@ -1,21 +1,61 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+// No Deno-only imports here: the app's unit tests exercise this engine too.
+// Only the query-builder surface actually used is required of the client.
+// deno-lint-ignore no-explicit-any
+type SupabaseLike = { from: (table: string) => any };
 
 export interface CartItemInput {
   classId: string;
   classType?: "children" | "adult";
   pricingPlan: string;
   totalPrice: number;
-  /** "class" | "camp" | "pass" — coupons only ever apply to camp (holiday workshop) items. */
+  /** "class" | "camp" | "pass" (basket item kind). */
   itemKind?: string;
   campId?: string | null;
 }
 
+/**
+ * What a code can be used on (coupons.applies_to_kinds):
+ *  - camp    — holiday workshops
+ *  - class   — class bookings: trials, pay-as-you-go, termly, yearly
+ *  - monthly — the FIRST payment of a new monthly membership (renewals are
+ *              never discounted by a code; use a membership adjustment)
+ *  - pass    — adult class passes
+ */
+export type CouponKind = "camp" | "class" | "monthly" | "pass";
+
+const KIND_LABELS: Record<CouponKind, string> = {
+  camp: "holiday workshops",
+  class: "class bookings",
+  monthly: "a new monthly membership's first payment",
+  pass: "adult class passes",
+};
+
+/** Which coupon kind a basket item falls under. */
+export function couponKindOf(item: { itemKind?: string | null; pricingPlan?: string | null }): CouponKind {
+  const kind = item.itemKind ?? "class";
+  if (kind === "camp") return "camp";
+  if (kind === "pass") return "pass";
+  return item.pricingPlan === "monthly" ? "monthly" : "class";
+}
+
+export interface CouponResult {
+  couponId: string;
+  code: string;
+  discountType: string;
+  discountValue: number;
+  discountAmount: number;
+  eligibleSubtotal: number;
+  finalTotal: number;
+  /** Positions (in the items array passed in) the discount applies to. */
+  eligibleIndexes: number[];
+}
+
 export async function validateAndCompute(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseLike,
   code: string,
   userId: string,
   items: CartItemInput[],
-) {
+): Promise<CouponResult | { error: string }> {
   if (!code || typeof code !== "string") {
     return { error: "Coupon code is required" };
   }
@@ -43,6 +83,21 @@ export async function validateAndCompute(
     return { error: "This coupon has expired" };
   }
 
+  // Personal credit codes belong to one family's account.
+  if (coupon.restricted_to_email) {
+    if (!userId) return { error: "Please sign in to use this code" };
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("email")
+      .eq("user_id", userId)
+      .maybeSingle();
+    const want = String(coupon.restricted_to_email).trim().toLowerCase();
+    const have = String(prof?.email ?? "").trim().toLowerCase();
+    if (!have || have !== want) {
+      return { error: "This code belongs to a different account" };
+    }
+  }
+
   if (coupon.usage_limit_total != null) {
     const { count, error: cErr } = await supabase
       .from("coupon_redemptions")
@@ -66,21 +121,33 @@ export async function validateAndCompute(
     }
   }
 
+  // Codes made before kinds existed default to holiday workshops only.
+  const kinds = (Array.isArray(coupon.applies_to_kinds) && coupon.applies_to_kinds.length > 0
+    ? coupon.applies_to_kinds
+    : ["camp"]) as CouponKind[];
   const campIds: string[] = coupon.applies_to_camp_ids || [];
 
-  // Coupons are only valid for holiday workshops (camps) — never regular
-  // class bookings or passes. Optionally narrowed to specific camps.
-  const eligible = items.filter((item) => {
-    if (item.pricingPlan === "trial" || Number(item.totalPrice) <= 0) return false;
-    if ((item.itemKind ?? "class") !== "camp" || !item.campId) return false;
-    if (campIds.length > 0 && !campIds.includes(item.campId)) return false;
-    return true;
+  const eligibleIndexes: number[] = [];
+  items.forEach((item, index) => {
+    if (Number(item.totalPrice) <= 0) return;
+    const kind = couponKindOf(item);
+    if (!kinds.includes(kind)) return;
+    if (kind === "camp") {
+      if (!item.campId) return;
+      if (campIds.length > 0 && !campIds.includes(item.campId)) return;
+    }
+    eligibleIndexes.push(index);
   });
 
-  if (eligible.length === 0) {
-    return { error: "Coupons only apply to holiday workshops — there are none in your basket this code covers" };
+  if (eligibleIndexes.length === 0) {
+    const what = kinds.map((k) => KIND_LABELS[k] ?? k);
+    const list = what.length <= 1
+      ? what[0]
+      : `${what.slice(0, -1).join(", ")} or ${what[what.length - 1]}`;
+    return { error: `This code only works on ${list} — there's nothing in your basket it covers` };
   }
 
+  const eligible = eligibleIndexes.map((i) => items[i]);
   const eligibleSubtotal = eligible.reduce(
     (sum, i) => sum + Number(i.totalPrice || 0),
     0,
@@ -119,5 +186,45 @@ export async function validateAndCompute(
     discountAmount,
     eligibleSubtotal: Math.round(eligibleSubtotal * 100) / 100,
     finalTotal,
+    eligibleIndexes,
   };
+}
+
+/**
+ * Split a coupon's discount (pence) across the eligible items so each
+ * booking records what was actually paid for it. Percent codes take their
+ * share off every eligible item (rounding settled on the last one); fixed
+ * amounts come off the eligible items in basket order. Returns pence off
+ * per item, aligned with `itemPence`.
+ */
+export function allocateDiscount(
+  itemPence: number[],
+  eligibleIndexes: number[],
+  discountPence: number,
+  discountType: string,
+  discountValue: number,
+): number[] {
+  const off = itemPence.map(() => 0);
+  if (discountPence <= 0 || eligibleIndexes.length === 0) return off;
+
+  let allocated = 0;
+  if (discountType === "percent") {
+    for (const idx of eligibleIndexes) {
+      const share = Math.min(itemPence[idx], Math.round((itemPence[idx] * discountValue) / 100));
+      const applied = Math.min(share, discountPence - allocated);
+      off[idx] = Math.max(0, applied);
+      allocated += off[idx];
+    }
+  }
+  // Fixed amounts, and any rounding remainder from a percent split.
+  for (const idx of eligibleIndexes) {
+    if (allocated >= discountPence) break;
+    const room = itemPence[idx] - off[idx];
+    const add = Math.min(room, discountPence - allocated);
+    if (add > 0) {
+      off[idx] += add;
+      allocated += add;
+    }
+  }
+  return off;
 }

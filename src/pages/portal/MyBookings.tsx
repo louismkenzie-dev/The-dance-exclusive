@@ -51,6 +51,14 @@ const moveStillOpen = (dateStr: string, startTime: string | null): boolean =>
   new Date(`${dateStr}T${(startTime ?? "00:00").slice(0, 5)}:00`).getTime() - Date.now() >=
   24 * 3600_000;
 
+/**
+ * A dated booking (trial, pay-as-you-go) is over once its class has finished.
+ * The sign-in QR and the move controls only make sense before then — a
+ * parent looking at last Saturday's trial doesn't need a door code for it.
+ */
+const sessionOver = (dateStr: string, endTime: string | null): boolean =>
+  new Date(`${dateStr}T${(endTime ?? "23:59").slice(0, 5)}:00`).getTime() < Date.now();
+
 /** Display name of a membership's free month (memberships.free_month, default August). */
 const freeMonthName = (freeMonth: number | null | undefined) =>
   format(new Date(2000, (freeMonth ?? 8) - 1, 1), "MMMM");
@@ -375,6 +383,7 @@ const MyBookings = () => {
               !!sessionDate &&
               !!b.class_id;
             const moveOpen = sessionDate ? moveStillOpen(sessionDate, cls?.start_time ?? null) : false;
+            const over = sessionDate ? sessionOver(sessionDate, cls?.end_time ?? null) : false;
 
             return (
               <Card key={b.id} className="card-elevated animate-fade-in overflow-hidden hover:border-primary/40 transition-colors">
@@ -495,7 +504,7 @@ const MyBookings = () => {
                           {b.amount != null && (
                             <span className="text-xl font-bold">£{Number(b.amount).toFixed(2)}</span>
                           )}
-                          {b.status === "confirmed" && (
+                          {b.status === "confirmed" && !over && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -505,7 +514,12 @@ const MyBookings = () => {
                               <QrCode className="w-3.5 h-3.5" /> Sign-in QR
                             </Button>
                           )}
-                          {isMovable && (moveOpen ? (
+                          {over && (
+                            <span className="text-[10px] text-muted-foreground text-right">
+                              Session has passed
+                            </span>
+                          )}
+                          {isMovable && !over && (moveOpen ? (
                             <Button
                               size="sm"
                               variant="outline"

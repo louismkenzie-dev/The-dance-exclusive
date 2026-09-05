@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, Plus } from "lucide-react";
+import { AlertCircle, ChevronDown, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { passLabelOf, usePassCatalog } from "@/lib/passCatalog";
 import MoveMembershipDialog, { type MoveMembershipTarget } from "@/components/admin/MoveMembershipDialog";
@@ -253,6 +253,14 @@ interface PlanRow {
   /** Raw memberships.status / free_month — for the "Adjust payment" dialog. */
   membershipStatus: string | null;
   freeMonth: number | null;
+  /**
+   * The payment date has passed and nothing rolled the membership forward, so
+   * this month has not been paid. Derived from the dates rather than read from
+   * memberships.status: the nightly job that sets 'past_due' runs before
+   * Stripe raises the invoices, so a failure on the 5th is not in the status
+   * column until the following morning.
+   */
+  paymentOverdue: boolean;
 }
 
 const planMeta: Record<PlanKind, { label: string; className: string }> = {
@@ -353,9 +361,16 @@ const MembershipsTab = () => {
 
       const isLive = (s: string) => s === "active" || s === "past_due" || s === "cancel_scheduled";
 
+      const nowMs = Date.now();
       const membershipRows: PlanRow[] = memberships.map((m) => {
-        const badge = membershipBadge[m.status] ?? { label: m.status, className: "" };
         const profile = profileMap.get(m.user_id);
+        const overdue =
+          isLive(m.status) &&
+          !!m.current_period_end &&
+          new Date(m.current_period_end).getTime() < nowMs;
+        const badge = overdue
+          ? { label: "Not paid", className: "border-transparent bg-destructive text-destructive-foreground" }
+          : membershipBadge[m.status] ?? { label: m.status, className: "" };
         return {
           key: `m-${m.id}`,
           plan: "monthly",
@@ -376,6 +391,7 @@ const MembershipsTab = () => {
           classId: (m as any).class_id ?? null,
           membershipStatus: m.status,
           freeMonth: m.free_month ?? null,
+          paymentOverdue: overdue,
         };
       });
 
@@ -402,6 +418,7 @@ const MembershipsTab = () => {
           classId: null,
           membershipStatus: null,
           freeMonth: null,
+          paymentOverdue: false,
         };
       });
 
@@ -515,8 +532,66 @@ const MembershipsTab = () => {
     return <Card><CardContent className="py-12 text-center text-muted-foreground">No memberships or plan purchases yet.</CardContent></Card>;
   }
 
+  // Families whose payment date has passed with nothing taken. Surfaced at the
+  // top because a place is only held once the month is paid for.
+  const unpaidFamilies = [...familyGroups]
+    .map((g) => {
+      const overdue = g.rows.filter((r) => r.paymentOverdue);
+      return {
+        name: g.name,
+        email: g.email,
+        owed: overdue.reduce((n, r) => n + r.amount, 0),
+        children: [...new Set(overdue.map((r) => r.childName).filter((c) => c && c !== "—"))],
+        since: overdue.map((r) => r.nextCharge).filter(Boolean).sort()[0] ?? null,
+        count: overdue.length,
+      };
+    })
+    .filter((f) => f.count > 0)
+    .sort((a, b) => b.owed - a.owed);
+  const totalOwed = unpaidFamilies.reduce((n, f) => n + f.owed, 0);
+
   return (
     <div className="space-y-4">
+      {unpaidFamilies.length > 0 && (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <h3 className="font-semibold text-destructive">
+                  {unpaidFamilies.length} famil{unpaidFamilies.length === 1 ? "y has" : "ies have"} not paid this month
+                  {" "}— £{totalOwed.toFixed(2)} outstanding
+                </h3>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Their payment date has passed and nothing has been taken. A place isn&#39;t held until
+                  the month is paid, so check with them before the next class.
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-2">
+              {unpaidFamilies.map((f) => (
+                <div key={f.email} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border bg-background px-3 py-2">
+                  <span className="font-medium">{f.name}</span>
+                  <span className="font-semibold tabular-nums text-destructive">£{f.owed.toFixed(2)}</span>
+                  {f.children.length > 0 && (
+                    <span className="text-sm text-muted-foreground">{f.children.join(", ")}</span>
+                  )}
+                  {f.since && (
+                    <span className="text-xs text-muted-foreground">due {format(new Date(f.since), "d MMM")}</span>
+                  )}
+                  <a
+                    href={`mailto:${f.email}`}
+                    className="text-sm text-primary hover:underline ml-auto"
+                  >
+                    {f.email}
+                  </a>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <p className="text-sm text-muted-foreground">
         {monthlyStats.activeCount} live monthly membership{monthlyStats.activeCount === 1 ? "" : "s"} · £
         {monthlyStats.recurring.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/month recurring

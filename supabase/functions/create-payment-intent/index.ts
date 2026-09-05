@@ -527,6 +527,12 @@ serve(async (req) => {
         else q.eq("class_id", item.classId);
         if (item.studentId) q.eq("student_id", item.studentId);
         else q.is("student_id", null);
+        // A trial or a paid-for date is not a standing place: the child who
+        // trialled this class on Saturday is exactly the one buying it on
+        // Sunday, and must not be told they are "already booked in".
+        if (kind === "class" && item.pricingPlan !== "trial") {
+          q.not("booking_type", "in", "(trial,session,drop_in)");
+        }
         const { data: existing } = await q.maybeSingle();
         if (existing) {
           return jsonResponse({

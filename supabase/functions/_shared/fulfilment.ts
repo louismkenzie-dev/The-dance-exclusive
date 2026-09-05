@@ -165,6 +165,11 @@ export async function fulfillItems(
     else dupQuery.eq("class_id", item.classId);
     if (item.studentId) dupQuery.eq("student_id", item.studentId);
     else dupQuery.is("student_id", null);
+    // A past trial or paid-for date must not swallow the standing place the
+    // family has just paid for — the same rule as the checkout pre-check.
+    if (item.kind === "class" && item.pricingPlan !== "trial") {
+      dupQuery.not("booking_type", "in", "(trial,session,drop_in)");
+    }
     const { data: existing } = await dupQuery.maybeSingle();
     if (existing) {
       console.log("Skipping duplicate booking:", item.kind, item.classId || item.campId, "student:", item.studentId);

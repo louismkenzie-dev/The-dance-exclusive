@@ -153,6 +153,146 @@ const CustomerCreditCodes = ({ customer }: { customer: Profile }) => {
   );
 };
 
+const calcAge = (dob: string) => {
+  const diff = Date.now() - new Date(dob).getTime();
+  return Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000));
+};
+
+/**
+ * The expanded view of one customer. Shared by the desktop table row and the
+ * phone card list so the two can't drift apart.
+ */
+const CustomerDetail = ({
+  customer,
+  children,
+  bookings,
+  collectors,
+  address,
+  onEditCustomer,
+  onEditChild,
+}: {
+  customer: Profile;
+  children: any[];
+  bookings: any[];
+  collectors: any[];
+  address: string;
+  onEditCustomer: () => void;
+  onEditChild: (child: any) => void;
+}) => (
+  <div className="space-y-5">
+    <div className="grid gap-6 sm:grid-cols-2">
+      <div className="space-y-2">
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Contact Details</h4>
+        <div className="text-sm space-y-1">
+          <p className="flex items-center gap-2 break-all"><Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> {customer.email}</p>
+          <p className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> {customer.phone || "No phone"}</p>
+          {customer.secondary_phone && (
+            <p className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> {customer.secondary_phone} <span className="text-xs text-muted-foreground">(secondary)</span></p>
+          )}
+        </div>
+      </div>
+      <div className="space-y-2">
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> Address</h4>
+        <p className="text-sm">{address || <span className="text-muted-foreground">No address on file</span>}</p>
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1 mt-3"><Calendar className="h-3.5 w-3.5" /> Account</h4>
+        <p className="text-sm">Joined {format(new Date(customer.created_at), "d MMMM yyyy")}</p>
+      </div>
+    </div>
+
+    <div className="space-y-2">
+      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+        <Baby className="h-3.5 w-3.5" /> Children ({children.length})
+      </h4>
+      {children.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No children registered</p>
+      ) : (
+        <div className="grid gap-2">
+          {children.map((child: any) => (
+            <div key={child.id} className="flex items-start gap-3 bg-background rounded-lg px-4 py-3 border">
+              {child.profile_photo ? (
+                <img src={child.profile_photo} alt={child.first_name} className="w-10 h-10 rounded-full object-cover border border-border shrink-0" />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">
+                  {child.first_name?.[0]}{child.last_name?.[0]}
+                </div>
+              )}
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <div>
+                  <span className="font-medium text-sm">{child.first_name} {child.last_name}</span>
+                  <span className="block sm:inline text-muted-foreground text-sm sm:ml-2">
+                    Age {calcAge(child.date_of_birth)} • {format(new Date(child.date_of_birth), "d MMM yyyy")}
+                    {child.gender ? ` • ${child.gender}` : ""}
+                  </span>
+                </div>
+                <div className="flex gap-1.5 flex-wrap items-center">
+                  {child.has_send && <Badge variant="outline" className="text-xs">SEND</Badge>}
+                  {(child.medical_conditions_list?.length > 0 || child.medical_info) && <Badge variant="outline" className="text-xs">Medical</Badge>}
+                  {(child.allergies_list?.length > 0 || child.allergies) && <Badge variant="destructive" className="text-xs">Allergies</Badge>}
+                  {child.has_inhaler && <Badge variant="outline" className="text-xs">Inhaler</Badge>}
+                  {child.has_epipen && <Badge variant="outline" className="text-xs border-destructive/50 text-destructive">EpiPen</Badge>}
+                  {child.is_toilet_trained === false && <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-400">Toileting</Badge>}
+                  {child.ability_level && <Badge variant="secondary" className="text-xs capitalize">{child.ability_level}</Badge>}
+                  <Button size="sm" variant="ghost" className="h-7 px-2 gap-1" onClick={() => onEditChild(child)}>
+                    <Pencil className="w-3 h-3" /> Edit
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+
+    <div>
+      <Button size="sm" variant="outline" className="gap-1.5" onClick={onEditCustomer}>
+        <Pencil className="h-3.5 w-3.5" /> Edit customer details
+      </Button>
+    </div>
+
+    <div className="grid gap-6 sm:grid-cols-2">
+      <div className="space-y-2">
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+          <ShoppingBag className="h-3.5 w-3.5" /> Bookings ({bookings.length})
+        </h4>
+        {bookings.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No bookings yet</p>
+        ) : (
+          <div className="flex gap-2">
+            <Badge variant="secondary" className="text-xs">
+              {bookings.filter((b: any) => b.status === "confirmed").length} confirmed
+            </Badge>
+            <Badge variant="outline" className="text-xs">
+              {bookings.filter((b: any) => b.status === "pending_payment").length} pending
+            </Badge>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+          <ShieldCheck className="h-3.5 w-3.5" /> Authorized Collectors ({collectors.length})
+        </h4>
+        {collectors.length === 0 ? (
+          <p className="text-sm text-muted-foreground">None registered</p>
+        ) : (
+          <div className="space-y-1">
+            {collectors.map((c: any) => {
+              const childName = children.find((ch: any) => ch.id === c.student_id);
+              return (
+                <p key={c.id} className="text-sm">
+                  {c.name} <span className="text-muted-foreground">({c.relationship}){childName ? ` — for ${childName.first_name}` : ""}</span>
+                </p>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+
+    <CustomerCreditCodes customer={customer} />
+  </div>
+);
+
 const AdminCustomers = () => {
   const [search, setSearch] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("name");
@@ -322,11 +462,6 @@ const AdminCustomers = () => {
       }
     });
 
-  const calcAge = (dob: string) => {
-    const diff = Date.now() - new Date(dob).getTime();
-    return Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000));
-  };
-
   const formatAddress = (p: Profile) => {
     return [p.address_line1, p.address_line2, p.city, p.county, p.postcode].filter(Boolean).join(", ");
   };
@@ -370,54 +505,59 @@ const AdminCustomers = () => {
   }, [profiles, bookings, students, mapClasses]);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-display font-bold flex items-center gap-2">
-            <Users className="h-6 w-6" />
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-5 sm:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-display font-bold flex items-center gap-2">
+            <Users className="h-5 w-5 sm:h-6 sm:w-6 shrink-0" />
             Customers
+            <Badge variant="secondary" className="text-xs font-normal shrink-0">
+              {filtered.length}
+            </Badge>
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Parent accounts and their registered children
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="secondary" className="text-sm">
-            {filtered.length} customer{filtered.length !== 1 ? "s" : ""}
-          </Badge>
-          <Button variant="outline" size="sm" onClick={() => window.open("/auth", "_blank")} className="gap-1.5">
-            <ExternalLink className="h-4 w-4" />
-            Registration Page
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => window.open("/auth", "_blank")}
+          className="gap-1.5 self-start shrink-0"
+        >
+          <ExternalLink className="h-4 w-4" />
+          Registration page
+        </Button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative max-w-sm flex-1 min-w-[220px]">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="relative sm:max-w-sm sm:flex-1 sm:min-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Search by name, email or phone..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
-        <Select value={sortMode} onValueChange={(v) => setSortMode(v as SortMode)}>
-          <SelectTrigger className="w-56">
-            <ArrowUpDown className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="name">Name (A–Z)</SelectItem>
-            <SelectItem value="paid_desc">Total paid all time (high → low)</SelectItem>
-            <SelectItem value="newest">Newest customers first</SelectItem>
-            <SelectItem value="oldest">Oldest customers first</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button
-          variant={showMap ? "default" : "outline"}
-          size="sm"
-          onClick={() => setShowMap((v) => !v)}
-          className="gap-1.5 ml-auto"
-        >
-          <MapIcon className="h-4 w-4" />
-          {showMap ? "Hide map" : "Customer map"}
-        </Button>
+        <div className="flex gap-2">
+          <Select value={sortMode} onValueChange={(v) => setSortMode(v as SortMode)}>
+            <SelectTrigger className="flex-1 sm:w-56 sm:flex-none">
+              <ArrowUpDown className="h-3.5 w-3.5 mr-1.5 text-muted-foreground shrink-0" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Name (A–Z)</SelectItem>
+              <SelectItem value="paid_desc">Total paid all time (high → low)</SelectItem>
+              <SelectItem value="newest">Newest customers first</SelectItem>
+              <SelectItem value="oldest">Oldest customers first</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            variant={showMap ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowMap((v) => !v)}
+            className="gap-1.5 shrink-0 sm:ml-auto"
+          >
+            <MapIcon className="h-4 w-4" />
+            {showMap ? "Hide map" : "Map"}
+          </Button>
+        </div>
       </div>
 
       {showMap && <CustomerMap customers={mapData} venues={mapVenues || []} />}
@@ -429,7 +569,83 @@ const AdminCustomers = () => {
           ) : filtered.length === 0 ? (
             <div className="p-4 md:p-8 text-center text-muted-foreground">No customers found</div>
           ) : (
-            <Table>
+            <>
+            {/* Phones get a card per customer — nine columns can only be read
+                by scrolling sideways, which hides the numbers that matter. */}
+            <div className="md:hidden divide-y divide-border">
+              {filtered.map((customer) => {
+                const children = studentsByParent[customer.user_id] || [];
+                const custBookings = bookingsByParent[customer.user_id] || [];
+                const custCollectors = collectorsByParent[customer.user_id] || [];
+                const isExpanded = expandedCustomer === customer.user_id;
+                const attended = attendedByParent[customer.user_id] || 0;
+                const paid = paidByParent[customer.user_id] || 0;
+                const milestone = milestoneAdultFor(customer.user_id);
+                return (
+                  <div key={customer.id}>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedCustomer(isExpanded ? null : customer.user_id)}
+                      aria-expanded={isExpanded}
+                      className="w-full text-left p-4 flex items-start gap-3 hover:bg-muted/50 transition-colors"
+                    >
+                      {isExpanded
+                        ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
+                        : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />}
+                      <div className="min-w-0 flex-1 space-y-1.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium">{customer.full_name}</span>
+                          {milestone && (
+                            <Badge className="bg-amber-500 hover:bg-amber-600 text-white gap-1">
+                              <Gift className="h-3 w-3" /> 100 club
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-sm text-muted-foreground flex items-center gap-1.5 min-w-0">
+                          <Mail className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{customer.email}</span>
+                        </div>
+                        {customer.phone && (
+                          <div className="text-sm text-muted-foreground flex items-center gap-1.5">
+                            <Phone className="h-3.5 w-3.5 shrink-0" />
+                            {customer.phone}
+                          </div>
+                        )}
+                        <div className="flex flex-wrap gap-1.5 pt-0.5">
+                          <Badge variant={children.length > 0 ? "default" : "outline"} className="text-xs">
+                            {children.length} {children.length === 1 ? "child" : "children"}
+                          </Badge>
+                          <Badge variant={custBookings.length > 0 ? "secondary" : "outline"} className="text-xs">
+                            {custBookings.length} booking{custBookings.length === 1 ? "" : "s"}
+                          </Badge>
+                          {attended > 0 && (
+                            <Badge variant="outline" className="text-xs tabular-nums">{attended} attended</Badge>
+                          )}
+                          {paid > 0 && (
+                            <Badge variant="outline" className="text-xs tabular-nums">£{paid.toFixed(2)} paid</Badge>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                    {isExpanded && (
+                      <div className="px-4 pb-5 bg-muted/20">
+                        <CustomerDetail
+                          customer={customer}
+                          children={children}
+                          bookings={custBookings}
+                          collectors={custCollectors}
+                          address={formatAddress(customer)}
+                          onEditCustomer={() => setEditingCustomer(customer)}
+                          onEditChild={setEditingChild}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <Table className="hidden md:table">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8"></TableHead>
@@ -525,120 +741,15 @@ const AdminCustomers = () => {
                         <TableRow key={`${customer.id}-detail`} className="bg-muted/20 hover:bg-muted/20">
                           <TableCell></TableCell>
                           <TableCell colSpan={8} className="py-4">
-                            <div className="space-y-5">
-                              {/* Contact & Address */}
-                              <div className="grid grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Contact Details</h4>
-                                  <div className="text-sm space-y-1">
-                                    <p className="flex items-center gap-2"><Mail className="h-3.5 w-3.5 text-muted-foreground" /> {customer.email}</p>
-                                    <p className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-muted-foreground" /> {customer.phone || "No phone"}</p>
-                                    {customer.secondary_phone && (
-                                      <p className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-muted-foreground" /> {customer.secondary_phone} <span className="text-xs text-muted-foreground">(secondary)</span></p>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="space-y-2">
-                                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> Address</h4>
-                                  <p className="text-sm">{address || <span className="text-muted-foreground">No address on file</span>}</p>
-                                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1 mt-3"><Calendar className="h-3.5 w-3.5" /> Account</h4>
-                                  <p className="text-sm">Joined {format(new Date(customer.created_at), "d MMMM yyyy")}</p>
-                                </div>
-                              </div>
-
-                              {/* Children */}
-                              <div className="space-y-2">
-                                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                                  <Baby className="h-3.5 w-3.5" /> Children ({children.length})
-                                </h4>
-                                {children.length === 0 ? (
-                                  <p className="text-sm text-muted-foreground">No children registered</p>
-                                ) : (
-                                  <div className="grid gap-2">
-                                    {children.map((child: any) => (
-                                      <div key={child.id} className="flex items-center gap-3 bg-background rounded-lg px-4 py-3 border">
-                                        {child.profile_photo ? (
-                                          <img src={child.profile_photo} alt={child.first_name} className="w-10 h-10 rounded-full object-cover border border-border" />
-                                        ) : (
-                                          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground">
-                                            {child.first_name?.[0]}{child.last_name?.[0]}
-                                          </div>
-                                        )}
-                                        <div className="flex-1 min-w-0">
-                                          <span className="font-medium text-sm">{child.first_name} {child.last_name}</span>
-                                          <span className="text-muted-foreground text-sm ml-2">Age {calcAge(child.date_of_birth)} • {format(new Date(child.date_of_birth), "d MMM yyyy")}</span>
-                                          {child.gender && <span className="text-muted-foreground text-sm ml-1">• {child.gender}</span>}
-                                        </div>
-                                        <div className="flex gap-1.5 flex-wrap items-center">
-                                          {child.has_send && <Badge variant="outline" className="text-xs">SEND</Badge>}
-                                          {(child.medical_conditions_list?.length > 0 || child.medical_info) && <Badge variant="outline" className="text-xs">Medical</Badge>}
-                                          {(child.allergies_list?.length > 0 || child.allergies) && <Badge variant="destructive" className="text-xs">Allergies</Badge>}
-                                          {child.has_inhaler && <Badge variant="outline" className="text-xs">Inhaler</Badge>}
-                                          {child.has_epipen && <Badge variant="outline" className="text-xs border-destructive/50 text-destructive">EpiPen</Badge>}
-                                          {child.is_toilet_trained === false && <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-400">Toileting</Badge>}
-                                          {child.ability_level && <Badge variant="secondary" className="text-xs capitalize">{child.ability_level}</Badge>}
-                                          <Button size="sm" variant="ghost" className="h-7 px-2 gap-1" onClick={() => setEditingChild(child)}>
-                                            <Pencil className="w-3 h-3" /> Edit
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Edit customer button */}
-                              <div>
-                                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setEditingCustomer(customer)}>
-                                  <Pencil className="h-3.5 w-3.5" /> Edit customer details
-                                </Button>
-                              </div>
-
-                              {/* Bookings summary */}
-                              <div className="grid grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                                    <ShoppingBag className="h-3.5 w-3.5" /> Bookings ({custBookings.length})
-                                  </h4>
-                                  {custBookings.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground">No bookings yet</p>
-                                  ) : (
-                                    <div className="flex gap-2">
-                                      <Badge variant="secondary" className="text-xs">
-                                        {custBookings.filter((b: any) => b.status === "confirmed").length} confirmed
-                                      </Badge>
-                                      <Badge variant="outline" className="text-xs">
-                                        {custBookings.filter((b: any) => b.status === "pending_payment").length} pending
-                                      </Badge>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Authorized collectors */}
-                                <div className="space-y-2">
-                                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                                    <ShieldCheck className="h-3.5 w-3.5" /> Authorized Collectors ({custCollectors.length})
-                                  </h4>
-                                  {custCollectors.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground">None registered</p>
-                                  ) : (
-                                    <div className="space-y-1">
-                                      {custCollectors.map((c: any) => {
-                                        const childName = children.find((ch: any) => ch.id === c.student_id);
-                                        return (
-                                          <p key={c.id} className="text-sm">
-                                            {c.name} <span className="text-muted-foreground">({c.relationship}){childName ? ` — for ${childName.first_name}` : ""}</span>
-                                          </p>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Personal credit codes */}
-                              <CustomerCreditCodes customer={customer} />
-                            </div>
+                            <CustomerDetail
+                              customer={customer}
+                              children={children}
+                              bookings={custBookings}
+                              collectors={custCollectors}
+                              address={address}
+                              onEditCustomer={() => setEditingCustomer(customer)}
+                              onEditChild={setEditingChild}
+                            />
                           </TableCell>
                         </TableRow>
                       )}
@@ -647,6 +758,7 @@ const AdminCustomers = () => {
                 })}
               </TableBody>
             </Table>
+            </>
           )}
         </CardContent>
       </Card>

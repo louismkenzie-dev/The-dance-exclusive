@@ -559,7 +559,18 @@ const MyBookings = () => {
           ) : (
             <div className="space-y-4">
               {memberships.map((m) => {
-                const badge = membershipBadges[m.status] ?? { label: m.status, className: "" };
+                // The payment date has passed with nothing taken. Derived from
+                // the dates because the job that sets 'past_due' runs before
+                // Stripe raises the invoices, so a failure on the 5th is not in
+                // the status column until the next morning — and this is the
+                // screen the family fixes it on.
+                const paymentOverdue =
+                  (m.status === "active" || m.status === "past_due" || m.status === "cancel_scheduled") &&
+                  !!m.current_period_end &&
+                  new Date(m.current_period_end).getTime() < Date.now();
+                const badge = paymentOverdue
+                  ? membershipBadges.past_due
+                  : membershipBadges[m.status] ?? { label: m.status, className: "" };
                 const cls = m.classes;
                 const day = cls?.day_of_week
                   ? cls.day_of_week.charAt(0).toUpperCase() + cls.day_of_week.slice(1)
@@ -603,7 +614,7 @@ const MyBookings = () => {
                             </p>
                           )}
 
-                          {m.status === "active" && m.current_period_end && (
+                          {m.status === "active" && !paymentOverdue && m.current_period_end && (
                             <div className="pt-1 space-y-0.5">
                               <p className="text-sm">
                                 Paid up until <span className="font-medium">{format(new Date(m.current_period_end), "d MMM yyyy")}</span>
@@ -640,7 +651,7 @@ const MyBookings = () => {
                             </div>
                           )}
 
-                          {m.status === "past_due" && (
+                          {paymentOverdue && (
                             <div className="pt-1 space-y-2">
                               <p className="text-sm text-amber-600 dark:text-amber-400">
                                 We couldn&#39;t take your last payment — it will be retried automatically,

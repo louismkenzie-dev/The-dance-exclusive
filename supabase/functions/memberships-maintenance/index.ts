@@ -264,16 +264,30 @@ serve(async (_req) => {
           } catch (e) {
             console.error("Could not fetch hosted invoice for", subId, e);
           }
-          for (const m of members.filter((x: any) => x.status === "active")) {
+          // Every place on this subscription failed on the same payment, so
+          // the family gets ONE email covering all of them — sending one per
+          // membership meant a parent with five children's places received
+          // five identical "payment failed" emails within seconds.
+          const nowFailing = members.filter((x: any) => x.status === "active");
+          const described: any[] = [];
+          for (const m of nowFailing) {
             await supabase
               .from("memberships")
               .update({ status: "past_due", updated_at: nowIso })
               .eq("id", m.id);
             summary.pastDue++;
-            const desc = await describeMembership(m);
-            await sendEmail(m.user_id, "membership_payment_failed", {
-              ...desc,
-              monthlyAmount: Number(m.monthly_amount),
+            described.push({ m, desc: await describeMembership(m) });
+          }
+          if (described.length > 0) {
+            const first = described[0];
+            await sendEmail(first.m.user_id, "membership_payment_failed", {
+              ...first.desc,
+              monthlyAmount: Number(first.m.monthly_amount),
+              items: described.map(({ m, desc }) => ({
+                className: desc.className,
+                studentName: desc.studentName,
+                monthlyAmount: Number(m.monthly_amount),
+              })),
               payUrl,
             });
           }

@@ -484,6 +484,11 @@ const MyBookings = () => {
                               </Badge>
                             )}
                             <span>Booked: {format(new Date(b.booked_at), "d MMM yyyy")}</span>
+                            {b.class_id && !sessionDate && (
+                              <Link to={`/term-dates#class-${b.class_id}`} className="text-primary hover:underline">
+                                Class dates
+                              </Link>
+                            )}
                           </div>
 
                           {/* WhatsApp group link (confirmed bookings only) */}
@@ -619,6 +624,15 @@ const MyBookings = () => {
                                 </span>
                               )}
                             </div>
+                          )}
+
+                          {m.class_id && (
+                            <Link
+                              to={`/term-dates#class-${m.class_id}`}
+                              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                            >
+                              <CalendarDays className="w-3 h-3" /> Class dates &amp; term breaks
+                            </Link>
                           )}
 
                           {m.students && (

@@ -95,6 +95,9 @@ const PortalLayout = () => {
                   <Link to="/timetable" className="flex items-center gap-2 px-3 py-3 rounded-md hover:bg-accent text-sm font-semibold uppercase tracking-wider">
                     <CalendarDays className="w-4 h-4" /> Timetable
                   </Link>
+                  <Link to="/term-dates" className="flex items-center gap-2 px-3 py-3 rounded-md hover:bg-accent text-sm font-semibold uppercase tracking-wider">
+                    <CalendarDays className="w-4 h-4" /> Term Dates
+                  </Link>
                   {user && (
                     <>
                       <Link to="/account/bookings" className="flex items-center gap-2 px-3 py-3 rounded-md hover:bg-accent text-sm font-semibold uppercase tracking-wider">
@@ -183,6 +186,7 @@ const PortalLayout = () => {
                 <DropdownMenuItem onClick={() => navigate("/shop")}>Shop</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/venues")}>Venues</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/parties")}>Parties</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/term-dates")}>Term Dates</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/info")}>Parent Info</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/contact")}>Contact</DropdownMenuItem>
               </DropdownMenuContent>
@@ -286,6 +290,7 @@ const PortalLayout = () => {
                 <li><Link to="/classes/adult" className="hover:text-primary hover:underline underline-offset-4 transition-colors">Adult Classes</Link></li>
                 <li><Link to="/classes/children" className="hover:text-primary hover:underline underline-offset-4 transition-colors">Holiday Camps</Link></li>
                 <li><Link to="/classes/adult" className="hover:text-primary hover:underline underline-offset-4 transition-colors">Workshops</Link></li>
+                <li><Link to="/term-dates" className="hover:text-primary hover:underline underline-offset-4 transition-colors">Term Dates</Link></li>
               </ul>
             </div>
             <div>

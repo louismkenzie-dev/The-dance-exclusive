@@ -48,6 +48,7 @@ import { AdultPassesCard } from "@/components/portal/AdultPassesCard";
 import { isAttendeeProfileComplete } from "@/lib/attendeeProfile";
 import VenueFilterChips from "@/components/VenueFilterChips";
 import WorkshopCover from "@/components/WorkshopCover";
+import { TermSessionGroups } from "@/components/TermSessionGroups";
 import {
   MONTHLY_MEMBERSHIP_NOTICE,
   MONTHLY_PAYMENT_INFO,
@@ -761,8 +762,15 @@ const ClassBrowser = () => {
                 ))}
               </div>
               <p className="text-[11px] text-muted-foreground mt-2">
-                Weekly classes run in term time. Monthly memberships are billed on the 5th — you pay 11 months a year, with your 12th month free.
+                Weekly classes run every week in term time and stop for half term, the school holidays and bank holidays.
+                Monthly memberships are billed on the 5th — you pay 11 months a year, with your 12th month free.
               </p>
+              <Link
+                to="/term-dates"
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline mt-1.5"
+              >
+                All term dates, half terms &amp; holidays →
+              </Link>
             </div>
           </div>
         )}
@@ -1103,6 +1111,41 @@ const ClassBrowser = () => {
                             )}
                           </div>
                         )}
+
+                        {/* Class dates — the actual weeks this class runs, with breaks marked */}
+                        {(() => {
+                          const today = new Date().toISOString().slice(0, 10);
+                          const upcoming = (classSessions[c.id] || []).filter(s => s.session_date >= today);
+                          if (upcoming.length === 0) return null;
+                          return (
+                            <details className="group rounded-lg border border-border/50 bg-muted/20">
+                              <summary className="cursor-pointer list-none px-3 py-2 flex items-center justify-between gap-2 text-xs uppercase tracking-widest text-muted-foreground/70 font-medium">
+                                <span className="flex items-center gap-1">
+                                  <CalendarDays className="w-3 h-3" /> Class dates · {upcoming.length} to come
+                                </span>
+                                <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
+                              </summary>
+                              <div className="px-3 pb-3 space-y-2">
+                                <div className="max-h-64 overflow-y-auto pr-1">
+                                  <TermSessionGroups
+                                    sessions={upcoming}
+                                    dateOf={(s) => s.session_date}
+                                    className="grid gap-1"
+                                    renderSession={(s) => (
+                                      <div className="flex items-center justify-between rounded-md bg-background/60 px-2.5 py-1 text-xs" style={{ textTransform: 'none', letterSpacing: 'normal', fontFamily: 'var(--font-body)' }}>
+                                        <span className="text-foreground">{format(parseISO(s.session_date), "EEE d MMM")}</span>
+                                        <span className="text-muted-foreground">{s.start_time?.slice(0, 5)} – {s.end_time?.slice(0, 5)}</span>
+                                      </div>
+                                    )}
+                                  />
+                                </div>
+                                <Link to="/term-dates" className="inline-block text-[11px] font-semibold text-primary hover:underline">
+                                  All term dates, half terms &amp; holidays →
+                                </Link>
+                              </div>
+                            </details>
+                          );
+                        })()}
 
                         {/* Pricing plan selector */}
                         {(() => {

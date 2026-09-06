@@ -294,6 +294,13 @@ const Timetable = () => {
             Members with a membership are already covered — everyone else can book in a
             couple of taps.
           </p>
+          <Link
+            to="/term-dates"
+            className="mt-2 inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+            style={bodyFont}
+          >
+            <CalendarDays className="w-3.5 h-3.5" /> Term dates, half terms &amp; holidays
+          </Link>
           <VenueFilterChips venues={venues} value={venueId} onChange={setVenueId} className="mt-4" />
         </div>
 

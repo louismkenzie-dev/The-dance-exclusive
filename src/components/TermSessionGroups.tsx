@@ -72,6 +72,35 @@ export function TermSessionGroups<S>({
 
   const groups = groupSessionsByTerm(sessions, dateOf, termData.terms, termData.holidays);
 
+  // The school splits each term at half term ("Autumn, term 1" / "Autumn,
+  // term 2"), so the break usually falls BETWEEN groups rather than inside
+  // one. Name it there too — a parent scanning the list should see "half
+  // term — no classes", not just a new heading.
+  const breakBetween = (gi: number): string | null => {
+    const group = groups[gi];
+    const next = groups[gi + 1];
+    if (!next || group.inHoliday || next.inHoliday) return null;
+    const lastBlock = group.blocks[group.blocks.length - 1];
+    const last = lastBlock.sessions[lastBlock.sessions.length - 1];
+    const first = next.blocks[0]?.sessions[0];
+    if (!last || !first) return null;
+    const from = dateOf(last);
+    const to = dateOf(first);
+    const names = termData.holidays
+      .filter((h) => h.end_date > from && h.start_date < to)
+      .sort((a, b) => a.start_date.localeCompare(b.start_date))
+      .map((h) => h.name);
+    return names.length > 0 ? [...new Set(names)].join(" · ") : null;
+  };
+
+  const breakRule = (label: string) => (
+    <div className="flex items-center gap-2 py-1" aria-label={`${label} — no classes`}>
+      <div className="h-px flex-1 border-t border-dashed border-border" />
+      <span className="text-[10px] text-muted-foreground whitespace-nowrap">{label} — no classes</span>
+      <div className="h-px flex-1 border-t border-dashed border-border" />
+    </div>
+  );
+
   return (
     <div className={className}>
       {groups.map((group, gi) => (
@@ -110,17 +139,13 @@ export function TermSessionGroups<S>({
                   </div>
                 );
               })}
-              {block.breakAfter && (
-                <div className="flex items-center gap-2 py-1" aria-label={`${block.breakAfter} — no classes`}>
-                  <div className="h-px flex-1 border-t border-dashed border-border" />
-                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                    {block.breakAfter} — no classes
-                  </span>
-                  <div className="h-px flex-1 border-t border-dashed border-border" />
-                </div>
-              )}
+              {block.breakAfter && breakRule(block.breakAfter)}
             </div>
           ))}
+          {(() => {
+            const between = breakBetween(gi);
+            return between ? breakRule(between) : null;
+          })()}
         </div>
       ))}
     </div>

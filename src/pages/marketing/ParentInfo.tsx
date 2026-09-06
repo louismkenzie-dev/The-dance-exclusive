@@ -14,6 +14,7 @@ import { Reveal } from "@/components/immersive/Reveal";
 import { Marquee } from "@/components/immersive/Marquee";
 import { StatCounter } from "@/components/immersive/StatCounter";
 import { useMagnetic } from "@/hooks/useMagnetic";
+import { breakAfterTerm, type CalendarHoliday } from "@/lib/termCalendar";
 import {
   ArrowRight,
   Shirt,
@@ -75,7 +76,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "What are the term dates?",
-    a: "We follow the standard Essex school-term calendar — three terms a year, broadly mirroring the local authority pattern, with a break for every half-term and school holiday. Holiday camps and workshops fill some of those gaps for dancers who can't get enough. The current year's dates are laid out in the 'Term dates' section further down this page.",
+    a: "We follow the standard Essex school-term calendar — three terms a year, broadly mirroring the local authority pattern, with a break for every half-term and school holiday. Weekly classes run every week in term time and stop for half term, the school holidays and bank holidays. Holiday camps and workshops fill some of those gaps for dancers who can't get enough. The current year's dates are laid out in the 'Term dates' section further down this page, and the full calendar — every half term, holiday and bank holiday, plus the exact dates of the classes you've booked — is on the Term Dates page.",
   },
   {
     q: "What happens if we miss a class, and can we get a refund?",
@@ -209,34 +210,54 @@ const STATS = [
 const ParentInfo = () => {
   const magCta = useMagnetic<HTMLDivElement>(0.22);
   const [schoolTerms, setSchoolTerms] = useState<SchoolTerm[]>([]);
+  const [schoolHolidays, setSchoolHolidays] = useState<CalendarHoliday[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase
-        .from("school_terms")
-        .select("name, term_type, academic_year, start_date, end_date")
-        .order("start_date", { ascending: true });
-      if (!cancelled && !error && data) setSchoolTerms(data as SchoolTerm[]);
+      const [termsRes, holidaysRes] = await Promise.all([
+        supabase
+          .from("school_terms")
+          .select("name, term_type, academic_year, start_date, end_date")
+          .order("start_date", { ascending: true }),
+        supabase
+          .from("school_holidays")
+          .select("name, holiday_type, start_date, end_date")
+          .order("start_date", { ascending: true }),
+      ]);
+      if (cancelled) return;
+      if (!termsRes.error && termsRes.data) setSchoolTerms(termsRes.data as SchoolTerm[]);
+      if (!holidaysRes.error && holidaysRes.data) setSchoolHolidays(holidaysRes.data as CalendarHoliday[]);
     })();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  /* Live terms from Supabase when available; hardcoded TERMS otherwise. */
+  /* Live terms from Supabase when available; hardcoded TERMS otherwise.
+     Each card names the break that follows it and the day classes return —
+     the question parents actually ask. */
   const termCards =
     schoolTerms.length > 0
-      ? schoolTerms.map((t, i) => ({
-          term: t.name,
-          dates: `${format(parseISO(t.start_date), "EEE d MMM yyyy")} – ${format(
-            parseISO(t.end_date),
-            "EEE d MMM yyyy",
-          )}`,
-          half: `Academic year ${t.academic_year}`,
-          tint: TERM_TINTS[i % TERM_TINTS.length],
-          provisional: t.name.toLowerCase().includes("provisional"),
-        }))
+      ? schoolTerms.map((t, i) => {
+          const brk = breakAfterTerm(t, schoolHolidays);
+          const next = schoolTerms.find((n) => n.start_date > t.end_date);
+          const half = brk
+            ? `${brk.name}: ${format(parseISO(brk.start_date), "d MMM")} – ${format(parseISO(brk.end_date), "d MMM")}${
+                next ? ` · back ${format(parseISO(next.start_date), "EEE d MMM")}` : ""
+              }`
+            : `Academic year ${t.academic_year}`;
+          return {
+            term: t.name,
+            dates: `${format(parseISO(t.start_date), "EEE d MMM yyyy")} – ${format(
+              parseISO(t.end_date),
+              "EEE d MMM yyyy",
+            )}`,
+            half,
+            tint: TERM_TINTS[i % TERM_TINTS.length],
+            provisional: t.name.toLowerCase().includes("provisional"),
+          };
+        })
       : TERMS.map((t) => ({ ...t, provisional: false }));
 
   const academicYears = [...new Set(schoolTerms.map((t) => t.academic_year))];
@@ -495,8 +516,15 @@ const ParentInfo = () => {
           </div>
 
           <Reveal delay={120}>
+            <div className="mt-10 text-center">
+              <Button asChild variant="outline" className="uppercase tracking-wider text-xs font-bold">
+                <Link to="/term-dates">
+                  <CalendarDays className="w-4 h-4 mr-2" /> Every half term, holiday &amp; class date
+                </Link>
+              </Button>
+            </div>
             <p
-              className="mt-10 text-center text-xs text-muted-foreground/80 max-w-2xl mx-auto"
+              className="mt-6 text-center text-xs text-muted-foreground/80 max-w-2xl mx-auto"
               style={body}
             >
               Dates align with the Essex local-authority calendar and may flex

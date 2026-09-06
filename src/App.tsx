@@ -65,6 +65,7 @@ const Results = lazy(() => import("./pages/marketing/Results"));
 const Gallery = lazy(() => import("./pages/marketing/Gallery"));
 const Venues = lazy(() => import("./pages/marketing/Venues"));
 const ParentInfo = lazy(() => import("./pages/marketing/ParentInfo"));
+const TermDates = lazy(() => import("./pages/portal/TermDates"));
 const Contact = lazy(() => import("./pages/marketing/Contact"));
 const Shop = lazy(() => import("./pages/marketing/Shop"));
 const Parties = lazy(() => import("./pages/marketing/Parties"));
@@ -136,6 +137,7 @@ const App = () => (
               <Route path="/venues" element={<Venues />} />
               <Route path="/parties" element={<Parties />} />
               <Route path="/info" element={<ParentInfo />} />
+              <Route path="/term-dates" element={<TermDates />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/shop" element={<Shop />} />
               <Route path="/classes/:type" element={<ClassBrowser />} />

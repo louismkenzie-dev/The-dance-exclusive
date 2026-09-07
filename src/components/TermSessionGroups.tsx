@@ -96,7 +96,7 @@ export function TermSessionGroups<S>({
   const breakRule = (label: string) => (
     <div className="flex items-center gap-2 py-1" aria-label={`${label} — no classes`}>
       <div className="h-px flex-1 border-t border-dashed border-border" />
-      <span className="text-[10px] text-muted-foreground whitespace-nowrap">{label} — no classes</span>
+      <span className="text-xs text-muted-foreground whitespace-nowrap">{label} — no classes</span>
       <div className="h-px flex-1 border-t border-dashed border-border" />
     </div>
   );
@@ -107,7 +107,7 @@ export function TermSessionGroups<S>({
         <div key={`${group.label}-${gi}`} className="space-y-1.5">
           <div className="flex items-baseline justify-between pt-2 first:pt-0">
             <span
-              className={`text-[11px] font-bold uppercase tracking-widest ${
+              className={`text-xs font-semibold uppercase tracking-wider ${
                 group.inHoliday ? "text-pink-400" : "text-primary"
               }`}
             >
@@ -118,7 +118,7 @@ export function TermSessionGroups<S>({
                 </span>
               )}
             </span>
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {group.total} {group.total === 1 ? "class" : "classes"}
             </span>
           </div>
@@ -131,7 +131,7 @@ export function TermSessionGroups<S>({
                 return (
                   <div key={d + si}>
                     {newMonth && (
-                      <div className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground/50 pl-1 pb-0.5 pt-1">
+                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground/70 pl-1 pb-0.5 pt-1">
                         {format(parseISO(d), "MMMM")}
                       </div>
                     )}

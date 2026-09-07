@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
-import { Gift, ShoppingCart, Ticket } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { supabase } from "@/integrations/supabase/client";
 import { PassRedeemDialog, type SessionOption } from "@/components/portal/PassRedeemDialog";
+import { formatPrice } from "@/lib/bookingFormat";
 import {
   BIRTHDAY_CLASS_WINDOW_DAYS,
   BIRTHDAY_CLASS_EARLY_DAYS,
@@ -131,85 +130,81 @@ export function AdultPassesCard({ sessionOptions, selfStudent, onRedeemed }: Adu
 
   return (
     <>
-      <Card className="border-border/50 bg-card/80 mb-8">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Ticket className="w-4 h-4 text-primary" /> Class Passes
-          </CardTitle>
-          <p className="text-sm text-muted-foreground" style={{ textTransform: "none", letterSpacing: "normal", fontFamily: "var(--font-body)" }}>
-            Mix and match any adult classes — each pass shows how many classes it
-            covers and how long you have to use them.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="surface p-5 sm:p-6" aria-label="Class passes">
+        <h2 className="text-xl font-semibold tracking-tight text-foreground">Class passes</h2>
+        <p className="mt-1.5 max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
+          Mix and match any adult classes — each pass shows how many classes it
+          covers and how long you have to use them.
+        </p>
+
+        {catalog.length > 0 && (
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {catalog.map((pass) => {
               const type = pass.code;
+              const coverage = (pass.durations.length > 0 || pass.classIds.length > 0)
+                ? `${passCoverageLabel({ durations: pass.durations, classIds: pass.classIds })} only`
+                : null;
               return (
                 <button
                   key={type}
+                  type="button"
                   onClick={() => buyPass(pass)}
-                  className="p-3 rounded-lg border border-border/50 bg-background/50 hover:border-primary/50 text-left transition-all group"
+                  className="pressable flex flex-col rounded-2xl border border-border bg-card p-4 text-left transition-colors hover:border-foreground/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
                 >
-                  <span className="block font-semibold text-foreground text-sm">{pass.label}</span>
-                  <span className="block text-[10px] text-muted-foreground mt-0.5">{pass.description}</span>
-                  {(pass.durations.length > 0 || pass.classIds.length > 0) && (
-                    <span className="block text-[10px] text-primary/80 mt-0.5">
-                      {passCoverageLabel({ durations: pass.durations, classIds: pass.classIds })} only
-                    </span>
-                  )}
-                  <span className="flex items-center justify-between mt-2">
-                    <span className="font-bold text-foreground">£{pass.price}</span>
-                    <ShoppingCart className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary" />
+                  <span className="text-[15px] font-semibold text-foreground">{pass.label}</span>
+                  <span className="mt-1 text-[13px] leading-snug text-muted-foreground">{pass.description}</span>
+                  {coverage && <span className="mt-1 text-[13px] text-muted-foreground">{coverage}</span>}
+                  <span className="mt-3 flex items-center justify-between gap-2">
+                    <span className="text-[17px] font-semibold tabular-nums text-foreground">{formatPrice(pass.price, { trimZeros: true })}</span>
+                    <span className="text-[13px] font-medium text-primary">Add to basket</span>
                   </span>
                 </button>
               );
             })}
           </div>
+        )}
 
-          {passes.length > 0 && (
-            <div className="space-y-2 pt-2 border-t border-border/30">
-              <p className="text-[11px] uppercase tracking-widest text-muted-foreground/70 font-semibold">Your active passes</p>
+        {passes.length > 0 && (
+          <div className="mt-5 border-t border-border/70 pt-5">
+            <p className="text-[13px] font-medium text-muted-foreground">Your active passes</p>
+            <div className="mt-2 space-y-2">
               {passes.map((p) => {
                 const label = passLabelOf(catalog, p.pass_type);
                 return (
-                  <div key={p.id} className="flex items-center justify-between gap-3 p-2.5 rounded-lg border border-primary/30 bg-primary/5">
-                    <div>
-                      <span className="text-sm font-semibold text-foreground">{label}</span>
-                      <span className="block text-[10px] text-muted-foreground">
+                  <div key={p.id} className="flex items-center justify-between gap-3 rounded-2xl bg-accent/60 px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="text-[15px] font-semibold text-foreground">{label}</p>
+                      <p className="text-[13px] text-muted-foreground">
                         {p.sessions_remaining} of {p.sessions_total} classes left · valid until {format(parseISO(p.expires_at), "d MMM yyyy")}
-                      </span>
+                      </p>
                     </div>
-                    <Button size="sm" variant="outline" className="text-xs" onClick={() => startRedeem("pass", p)}>
+                    <Button variant="soft" className="h-11 shrink-0 rounded-full px-5" onClick={() => startRedeem("pass", p)}>
                       Book classes
                     </Button>
                   </div>
                 );
               })}
             </div>
-          )}
+          </div>
+        )}
 
-          {birthdayEligible && (
-            <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-green-500/30 bg-green-500/5">
-              <div className="flex items-center gap-2">
-                <Gift className="w-4 h-4 text-green-400 shrink-0" />
-                <div>
-                  <span className="text-sm font-semibold text-foreground">
-                    {birthdayDays != null && birthdayDays <= BIRTHDAY_CLASS_WINDOW_DAYS ? "Happy birthday! 🎂" : "Birthday coming up! 🎂"}
-                  </span>
-                  <span className="block text-[10px] text-muted-foreground">
-                    One free class on us — claim from {BIRTHDAY_CLASS_EARLY_DAYS} days before your
-                    birthday to {BIRTHDAY_CLASS_WINDOW_DAYS} days after.
-                  </span>
-                </div>
-              </div>
-              <Button size="sm" className="text-xs bg-green-500 hover:bg-green-600 text-white" onClick={() => startRedeem("birthday")}>
-                Claim free class
-              </Button>
+        {birthdayEligible && (
+          <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-success/30 bg-success/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-[15px] font-semibold text-foreground">
+                {birthdayDays != null && birthdayDays <= BIRTHDAY_CLASS_WINDOW_DAYS ? "Happy birthday! 🎂" : "Birthday coming up! 🎂"}
+              </p>
+              <p className="mt-0.5 text-[13px] text-muted-foreground">
+                One free class on us — claim from {BIRTHDAY_CLASS_EARLY_DAYS} days before your
+                birthday to {BIRTHDAY_CLASS_WINDOW_DAYS} days after.
+              </p>
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <Button variant="ink" className="h-11 shrink-0 rounded-full px-5" onClick={() => startRedeem("birthday")}>
+              Claim free class
+            </Button>
+          </div>
+        )}
+      </section>
 
       {/* Session picker for pass / birthday redemption */}
       <PassRedeemDialog

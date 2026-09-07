@@ -58,38 +58,52 @@
     --font-body: 'Inter', sans-serif;
   }
 
-  /* Children's portal — lighter variant with same brand identity */
+  /* Parent booking journey — the light theme. Warm off-white ground, white
+     surfaces, near-black type, the brand blue kept for actions and accents.
+     Roughly 85% neutral, 10% brand, 5% status colour. */
   .theme-children {
     /* Anchor the text colour to the local foreground. Overlays (dialogs,
        popovers) that carry this class portal to <body>, so without this they
        inherit the body's computed colour (white at :root) and render invisible
        on the light background. Explicit text-* utilities still override this. */
-    color: hsl(220 20% 10%);
+    color: hsl(222 16% 11%);
 
-    --background: 200 20% 97%;
-    --foreground: 220 20% 10%;
+    --background: 36 22% 97.5%;
+    --foreground: 222 16% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
+    --card-foreground: 222 16% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
+    --popover-foreground: 222 16% 11%;
 
-    --primary: 193 100% 40%;
+    /* Deep enough for white text to pass AA at button sizes */
+    --primary: 193 100% 36%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 200 20% 93%;
-    --secondary-foreground: 220 20% 10%;
+    --secondary: 36 14% 94%;
+    --secondary-foreground: 222 16% 11%;
 
-    --muted: 200 15% 94%;
-    --muted-foreground: 220 10% 45%;
+    --muted: 36 14% 94%;
+    --muted-foreground: 222 8% 44%;
 
-    --accent: 193 100% 44%;
-    --accent-foreground: 0 0% 100%;
+    /* Soft brand tint for hover surfaces and selected rows */
+    --accent: 193 80% 94%;
+    --accent-foreground: 193 100% 24%;
 
-    --border: 200 15% 88%;
-    --input: 200 15% 88%;
-    --ring: 193 100% 40%;
+    --destructive: 0 68% 46%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 36 12% 89%;
+    --input: 36 12% 84%;
+    --ring: 193 100% 36%;
+
+    --success: 152 58% 34%;
+    --success-foreground: 0 0% 100%;
+    --warning: 32 92% 42%;
+    --warning-foreground: 0 0% 100%;
+
+    --radius: 0.75rem;
   }
 
   /* Adult portal — full dark */
@@ -121,7 +135,25 @@
     --border: 220 15% 16%;
     --input: 220 15% 16%;
     --ring: 330 90% 55%;
+
+    --radius: 0.75rem;
   }
+
+  /* Booking-journey typography: the marketing site sets every heading in
+     Oswald uppercase; the product screens read as a quiet consumer app, so
+     headings inside .portal-ui use the body face in sentence case with tight
+     tracking, and the brand face stays for the site chrome. */
+  .portal-ui h1,
+  .portal-ui h2,
+  .portal-ui h3,
+  .portal-ui h4,
+  .portal-ui h5,
+  .portal-ui h6 {
+    font-family: var(--font-body);
+    text-transform: none;
+    letter-spacing: -0.015em;
+  }
+  .portal-ui h1 { letter-spacing: -0.025em; }
 
   .dark {
     --background: 220 20% 4%;
@@ -321,17 +353,89 @@
    children-portal wash, elevated cards
    ─────────────────────────────────────────────── */
 
-/* Children's portal only: a very soft fixed brand-blue wash behind content
-   (top-left + bottom-right). Applied to <body> (which mirrors the theme
-   class) and to the portal shell that carries min-h-screen, so it never
-   leaks into the dark themes or themed popovers. */
-body.theme-children,
-.theme-children.min-h-screen {
-  background-image:
-    radial-gradient(48rem 48rem at 0% 0%, hsl(193 100% 44% / 0.07), transparent 62%),
-    radial-gradient(52rem 52rem at 100% 100%, hsl(193 100% 44% / 0.06), transparent 62%);
-  background-attachment: fixed;
-  background-repeat: no-repeat;
+/* ───────────────────────────────────────────────
+   Booking surfaces + motion
+   ─────────────────────────────────────────────── */
+
+/* A surface: white card, hairline border, whisper of elevation. The
+   interactive variant lifts on hover and settles on press. */
+.surface {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 1rem;
+  box-shadow:
+    0 1px 2px hsl(222 30% 10% / 0.03),
+    0 12px 32px -18px hsl(222 30% 10% / 0.12);
+}
+.theme-adult .surface,
+.dark .surface {
+  box-shadow:
+    0 1px 2px hsl(0 0% 0% / 0.35),
+    0 12px 32px -18px hsl(0 0% 0% / 0.6);
+}
+.surface-interactive {
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    box-shadow 180ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    border-color 180ms ease;
+}
+@media (hover: hover) {
+  .surface-interactive:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 2px 4px hsl(222 30% 10% / 0.04),
+      0 20px 40px -20px hsl(222 30% 10% / 0.18);
+  }
+}
+.surface-interactive:active {
+  transform: translateY(0) scale(0.995);
+}
+
+/* Press feedback for buttons and chips */
+.pressable {
+  transition: transform 120ms ease, background-color 160ms ease, color 160ms ease, border-color 160ms ease, opacity 160ms ease;
+}
+.pressable:active:not(:disabled) {
+  transform: scale(0.975);
+}
+
+/* Horizontal scrollers (chips, date strips) hide their scrollbar */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Safe-area aware bottom padding for fixed action bars */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@keyframes tde-check-draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes tde-pop-in {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.06); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes tde-rise-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+.animate-pop-in { animation: tde-pop-in 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.animate-rise-in { animation: tde-rise-in 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.check-draw {
+  stroke-dasharray: 60;
+  stroke-dashoffset: 60;
+  animation: tde-check-draw 480ms 260ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-pop-in, .animate-rise-in { animation: none !important; opacity: 1 !important; transform: none !important; }
+  .check-draw { animation: none !important; stroke-dashoffset: 0 !important; }
+  .surface-interactive, .pressable { transition: none !important; }
 }
 
 /* Thin, rounded, muted scrollbars with a brand-blue hover */

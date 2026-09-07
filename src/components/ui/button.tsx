@@ -15,11 +15,17 @@ const buttonVariants = cva(
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        /** Near-black button for secondary-but-important actions in the booking journey. */
+        ink: "bg-foreground text-background hover:bg-foreground/90",
+        /** Quiet bordered button on a white surface. */
+        soft: "border border-border bg-card text-foreground hover:bg-muted",
       },
       size: {
         default: "h-10 px-4 py-2",
         sm: "h-9 rounded-md px-3",
         lg: "h-11 rounded-md px-8",
+        /** Booking-journey primary: comfortable thumb target. */
+        xl: "h-14 rounded-xl px-6 text-base font-semibold",
         icon: "h-10 w-10",
       },
     },

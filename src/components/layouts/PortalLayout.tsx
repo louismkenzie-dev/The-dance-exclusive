@@ -18,6 +18,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
+/** Pages that belong to the brand site rather than the booking product. */
+const MARKETING_PATHS = new Set([
+  "/", "/about", "/team", "/results", "/gallery", "/venues", "/parties", "/info", "/contact", "/shop",
+]);
+
 const PortalLayout = () => {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
@@ -31,7 +36,24 @@ const PortalLayout = () => {
   const customerType = profile?.customer_type as string | null;
   const isAdultSection = pathname.startsWith("/classes/adult") || pathname.includes("adult");
   const isChildrenSection = pathname.startsWith("/classes/children");
-  const themeClass = isAdultSection ? "theme-adult" : isChildrenSection ? "theme-children" : "";
+  // The marketing site keeps its dark stage-light look; everything a family
+  // does — browse, book, pay, manage — is one light product, unless they are
+  // an adult dancer, whose whole journey stays in the after-dark theme.
+  const isMarketing = MARKETING_PATHS.has(pathname);
+  const isAdultDancer = customerType === "adult_dancer";
+  const themeClass = isAdultSection
+    ? "theme-adult"
+    : isChildrenSection
+      ? "theme-children"
+      : isMarketing
+        ? ""
+        : isAdultDancer
+          ? "theme-adult"
+          : "theme-children";
+  const isBookingJourney = themeClass !== "";
+  // Checkout and its confirmation are focus screens: no tab bar or footer
+  // competing with the one action that matters.
+  const isFocusRoute = pathname.startsWith("/checkout");
 
   // Radix Select/Dropdown popovers portal to document.body, escaping the
   // themed wrapper div — mirror the audience theme onto <body> so dropdowns
@@ -53,7 +75,7 @@ const PortalLayout = () => {
   };
 
   return (
-    <div className={`min-h-screen bg-background pb-16 md:pb-0 ${themeClass}`}>
+    <div className={`min-h-screen bg-background ${isFocusRoute ? "" : "pb-16 md:pb-0"} ${themeClass} ${isBookingJourney ? "portal-ui" : ""}`}>
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-md transition-colors duration-500">
         <div className="container flex h-16 md:h-28 items-center justify-between">
@@ -270,9 +292,9 @@ const PortalLayout = () => {
       </main>
       <CartDrawer />
       <AttendeeOnboarding />
-      <MobileBottomNav />
+      {!isFocusRoute && <MobileBottomNav />}
 
-      <footer className="relative border-t border-border mt-20 overflow-hidden transition-colors duration-500">
+      <footer className={`relative border-t border-border mt-20 overflow-hidden transition-colors duration-500 ${isFocusRoute ? "hidden" : ""}`}>
         <div className="absolute inset-0 stage-light-duo opacity-25 pointer-events-none" />
         <div className="relative container py-16">
           <div className="grid gap-12 md:grid-cols-4">

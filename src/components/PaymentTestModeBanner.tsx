@@ -23,13 +23,16 @@ export function PaymentTestModeBanner() {
   if (!testMode) return null;
 
   return (
-    <div className="w-full bg-orange-100 border-b border-orange-300 px-4 py-2 text-center text-sm text-orange-800">
+    <div
+      role="status"
+      className="w-full border-b border-warning/30 bg-warning/10 px-4 py-2 text-center text-[13px] font-medium text-warning"
+    >
       All payments made in the preview are in test mode.{" "}
       <a
         href="https://stripe.com/docs/testing"
         target="_blank"
         rel="noopener noreferrer"
-        className="underline font-medium"
+        className="underline underline-offset-4 hover:no-underline"
       >
         Read more about test mode
       </a>

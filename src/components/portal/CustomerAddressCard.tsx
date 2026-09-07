@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Check, Loader2, MapPin, Pencil, Phone } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { Bone } from "@/components/booking/Skeletons";
 import {
   ADDRESS_REQUIRED_REASON,
   formatPostcode,
@@ -26,6 +27,9 @@ const empty: CustomerAddress = {
   county: "",
   postcode: "",
 };
+
+const FIELD = "h-12 rounded-xl text-base";
+const LABEL = "mb-1.5 block text-[13px] font-medium text-foreground";
 
 /**
  * The home address we're required to hold for anyone booking. Shows a compact
@@ -134,53 +138,42 @@ const CustomerAddressCard = ({ userId, onValidChange }: CustomerAddressCardProps
 
   if (loading) {
     return (
-      <div className="text-xs text-muted-foreground flex items-center gap-2">
-        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking your details…
+      <div className="space-y-2" role="status" aria-label="Checking your details">
+        <Bone className="h-3.5 w-40" />
+        <Bone className="h-[60px] w-full rounded-xl" />
       </div>
     );
   }
 
   return (
     <div>
-      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
-        Home address &amp; phone
-      </p>
+      <p className="mb-2 text-[13px] font-medium text-foreground">Home address and phone</p>
 
       {saved && !editing ? (
-        <div className="flex items-start justify-between gap-3 p-3 rounded-lg border border-border bg-background/50">
-          <div className="min-w-0 space-y-1.5">
-            <div className="flex items-start gap-2.5">
-              <MapPin className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-              <p className="text-sm text-foreground leading-relaxed">
-                {[saved.address_line1, saved.address_line2, saved.city, saved.county, saved.postcode]
-                  .filter(Boolean)
-                  .join(", ")}
-              </p>
-            </div>
-            {savedPhone && (
-              <div className="flex items-center gap-2.5">
-                <Phone className="w-4 h-4 text-primary shrink-0" />
-                <p className="text-sm text-foreground">{savedPhone}</p>
-              </div>
-            )}
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-[15px] leading-snug text-foreground">
+              {[saved.address_line1, saved.address_line2, saved.city, saved.county, saved.postcode]
+                .filter(Boolean)
+                .join(", ")}
+            </p>
+            {savedPhone && <p className="mt-0.5 text-[13px] text-muted-foreground">{savedPhone}</p>}
           </div>
-          <Button
+          <button
             type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs shrink-0"
             onClick={() => { setEditing(true); onValidChange(false); }}
+            className="pressable -mr-2 shrink-0 rounded-md px-2 py-1.5 text-sm font-medium text-primary hover:underline underline-offset-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
           >
-            <Pencil className="w-3 h-3 mr-1" /> Edit
-          </Button>
+            Edit
+          </button>
         </div>
       ) : (
-        <div className="space-y-3 p-3 rounded-lg border border-border bg-background/50">
-          <p className="text-xs text-muted-foreground leading-relaxed">{ADDRESS_REQUIRED_REASON}</p>
+        <div className="space-y-4">
+          <p className="text-[13px] leading-relaxed text-muted-foreground">{ADDRESS_REQUIRED_REASON}</p>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2 sm:col-span-1">
-              <Label htmlFor="addr-postcode" className="text-xs">Postcode *</Label>
+              <Label htmlFor="addr-postcode" className={LABEL}>Postcode</Label>
               <Input
                 id="addr-postcode"
                 value={form.postcode ?? ""}
@@ -188,59 +181,61 @@ const CustomerAddressCard = ({ userId, onValidChange }: CustomerAddressCardProps
                 onBlur={(e) => lookupPostcode(e.target.value)}
                 placeholder="CM7 1AB"
                 autoComplete="postal-code"
-                className="h-10"
+                className={FIELD}
               />
-            </div>
-            <div className="col-span-2 sm:col-span-1 flex items-end">
               {lookingUp && (
-                <span className="text-xs text-muted-foreground flex items-center gap-1.5 pb-2.5">
-                  <Loader2 className="w-3 h-3 animate-spin" /> Finding your town…
-                </span>
+                <p className="mt-1.5 flex items-center gap-1.5 text-[13px] text-muted-foreground" role="status">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Finding your town…
+                </p>
               )}
             </div>
             <div className="col-span-2">
-              <Label htmlFor="addr-1" className="text-xs">Address line 1 *</Label>
+              <Label htmlFor="addr-1" className={LABEL}>Address line 1</Label>
               <Input
                 id="addr-1"
                 value={form.address_line1 ?? ""}
                 onChange={(e) => setForm((f) => ({ ...f, address_line1: e.target.value }))}
                 placeholder="12 High Street"
                 autoComplete="address-line1"
-                className="h-10"
+                className={FIELD}
               />
             </div>
             <div className="col-span-2">
-              <Label htmlFor="addr-2" className="text-xs">Address line 2</Label>
+              <Label htmlFor="addr-2" className={LABEL}>
+                Address line 2 <span className="font-normal text-muted-foreground">(optional)</span>
+              </Label>
               <Input
                 id="addr-2"
                 value={form.address_line2 ?? ""}
                 onChange={(e) => setForm((f) => ({ ...f, address_line2: e.target.value }))}
                 autoComplete="address-line2"
-                className="h-10"
+                className={FIELD}
               />
             </div>
-            <div>
-              <Label htmlFor="addr-city" className="text-xs">Town / city *</Label>
+            <div className="col-span-2 sm:col-span-1">
+              <Label htmlFor="addr-city" className={LABEL}>Town or city</Label>
               <Input
                 id="addr-city"
                 value={form.city ?? ""}
                 onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
                 autoComplete="address-level2"
-                className="h-10"
+                className={FIELD}
               />
             </div>
-            <div>
-              <Label htmlFor="addr-county" className="text-xs">County</Label>
+            <div className="col-span-2 sm:col-span-1">
+              <Label htmlFor="addr-county" className={LABEL}>
+                County <span className="font-normal text-muted-foreground">(optional)</span>
+              </Label>
               <Input
                 id="addr-county"
                 value={form.county ?? ""}
                 onChange={(e) => setForm((f) => ({ ...f, county: e.target.value }))}
                 autoComplete="address-level1"
-                className="h-10"
+                className={FIELD}
               />
             </div>
             <div className="col-span-2">
-              <Label htmlFor="addr-phone" className="text-xs">Phone number *</Label>
+              <Label htmlFor="addr-phone" className={LABEL}>Phone number</Label>
               <Input
                 id="addr-phone"
                 type="tel"
@@ -248,16 +243,21 @@ const CustomerAddressCard = ({ userId, onValidChange }: CustomerAddressCardProps
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="07123 456789"
                 autoComplete="tel"
-                className="h-10"
+                className={FIELD}
               />
             </div>
           </div>
 
-          {error && <p className="text-xs text-destructive">{error}</p>}
+          {error && <p className="text-[13px] text-destructive" role="alert">{error}</p>}
 
-          <Button type="button" size="sm" onClick={save} disabled={saving} className="w-full sm:w-auto">
-            {saving ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Check className="w-3.5 h-3.5 mr-2" />}
-            Save address
+          <Button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            className="h-12 w-full rounded-xl px-6 text-[15px] font-semibold sm:w-auto"
+          >
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            Save details
           </Button>
         </div>
       )}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Elements,
@@ -10,29 +10,32 @@ import {
 import type { Appearance, StripeElementsOptions } from "@stripe/stripe-js";
 import { getPaymentsEnvironment, getStripe } from "@/lib/stripe";
 import { supabase } from "@/integrations/supabase/client";
-import { useCart, cartItemKind, type CartItem, type PricingPlan } from "@/contexts/CartContext";
+import { useCart, cartItemKind } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import CustomerAddressCard from "@/components/portal/CustomerAddressCard";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, ShieldCheck, Lock, Loader2, ChevronDown, Tag, X, UserPlus, Users } from "lucide-react";
+import { ArrowLeft, Lock, Loader2 } from "lucide-react";
 import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 import { TERMS_AND_CONDITIONS } from "@/lib/terms";
+import { formatPrice } from "@/lib/bookingFormat";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { cn } from "@/lib/utils";
+import {
+  ResponsiveSheet,
+  SectionHeading,
+  Steps,
+  StickyActionBar,
+  StickyActionBarSpacer,
+  SummarySkeleton,
+  Bone,
+} from "@/components/booking";
+import { CheckoutSection } from "@/components/booking/CheckoutSection";
+import { CheckoutSummaryCard, CheckoutSummaryStrip, type CheckoutSummaryProps, type SummaryNote } from "@/components/booking/CheckoutSummary";
+import { BookingItemsSkeleton, CheckoutFormSkeleton, FieldSkeleton, PaymentFieldsSkeleton } from "@/components/booking/CheckoutSkeletons";
+import { PaymentErrorNotice } from "@/components/booking/PaymentErrorNotice";
+import { friendlyPaymentError } from "@/components/booking/paymentErrors";
+import { planLine, scheduleLine } from "@/components/booking/checkoutItemText";
 import {
   MONTHLY_PAYMENT_INFO,
   UNLIMITED_MONTHLY_CAP,
@@ -56,121 +59,100 @@ const formatFirstPayment = (iso: string): string =>
     timeZone: "Europe/London",
   });
 
-const planLabel: Record<PricingPlan, string> = {
-  trial: "Trial",
-  session: "Per Session",
-  monthly: "Monthly Membership",
-  term: "Full Term",
-  yearly: "Full Year",
-  pass: "Class Pass",
-};
+const CHECKOUT_STEPS = ["Your booking", "Your details", "Payment"];
 
-/**
- * Read a CSS HSL variable from :root and convert to "hsl(...)" string Stripe accepts.
- */
-function cssVar(name: string): string {
-  if (typeof window === "undefined") return "";
-  const raw = getComputedStyle(document.documentElement)
-    .getPropertyValue(name)
-    .trim();
-  return raw ? `hsl(${raw})` : "";
+// ---------------------------------------------------------------------------
+// Stripe appearance. The Payment Element lives in an iframe, so it cannot
+// read our CSS variables — the tokens are resolved here from the themed page
+// root and handed over as plain colours, and the theme flips to "night" when
+// the page ground is dark (the adult portal).
+// ---------------------------------------------------------------------------
+
+/** The raw HSL triplet of a token ("193 100% 36%"), or null when unset. */
+function readToken(root: Element | null, name: string): string | null {
+  if (typeof window === "undefined") return null;
+  const el = root ?? document.body ?? document.documentElement;
+  const raw = getComputedStyle(el).getPropertyValue(name).trim();
+  return raw || null;
 }
 
-function buildAppearance(): Appearance {
-  const bg = cssVar("--background") || "hsl(220 20% 4%)";
-  const card = cssVar("--card") || "hsl(220 18% 8%)";
-  const fg = cssVar("--foreground") || "hsl(0 0% 98%)";
-  const muted = cssVar("--muted-foreground") || "hsl(220 10% 55%)";
-  const border = cssVar("--border") || "hsl(220 15% 16%)";
-  const primary = cssVar("--primary") || "hsl(193 100% 44%)";
-  const destructive = cssVar("--destructive") || "hsl(0 72% 51%)";
+const hsl = (raw: string | null, alpha?: number): string | undefined =>
+  raw == null ? undefined : alpha == null ? `hsl(${raw})` : `hsl(${raw} / ${alpha})`;
+
+/** Lightness of an HSL triplet: "36 22% 97.5%" → 97.5. */
+const lightnessOf = (raw: string | null): number | null => {
+  if (!raw) return null;
+  const l = parseFloat(raw.split(/\s+/)[2] ?? "");
+  return Number.isFinite(l) ? l : null;
+};
+
+/** Drop unset entries so Stripe never receives an empty colour. */
+const compact = (o: Record<string, string | undefined>): Record<string, string> =>
+  Object.fromEntries(Object.entries(o).filter(([, v]) => v != null && v !== "")) as Record<string, string>;
+
+function buildAppearance(root: Element | null): Appearance {
+  const light = (lightnessOf(readToken(root, "--background")) ?? 100) >= 50;
+  const primaryRaw = readToken(root, "--primary");
+  const accentRaw = readToken(root, "--accent");
+  const primary = hsl(primaryRaw);
+  const card = hsl(readToken(root, "--card"));
+  const fg = hsl(readToken(root, "--foreground"));
+  const muted = hsl(readToken(root, "--muted-foreground"));
+  const border = hsl(readToken(root, "--border"));
+  const input = hsl(readToken(root, "--input"));
+  const destructive = hsl(readToken(root, "--destructive"));
+  // The accent is a soft tint on the light theme and a saturated brand
+  // colour on the dark one — only the tint works as a selected-row fill.
+  const accentFill = (lightnessOf(accentRaw) ?? 0) >= 80 ? hsl(accentRaw) : undefined;
+  const focusRing = hsl(primaryRaw, 0.2);
 
   return {
-    theme: "night",
-    labels: "floating",
-    variables: {
+    theme: light ? "stripe" : "night",
+    labels: "above",
+    variables: compact({
       colorPrimary: primary,
       colorBackground: card,
       colorText: fg,
       colorTextSecondary: muted,
       colorTextPlaceholder: muted,
       colorDanger: destructive,
-      colorIcon: muted,
-      colorIconHover: fg,
-      fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
-      fontSizeBase: "15px",
-      borderRadius: "8px",
-      spacingUnit: "4px",
-    },
+      fontFamily: "Inter, system-ui, -apple-system, sans-serif",
+      fontSizeBase: "16px",
+      borderRadius: "12px",
+      spacingUnit: "5px",
+    }),
     rules: {
-      ".Input": {
-        backgroundColor: bg,
-        border: `1px solid ${border}`,
-        color: fg,
+      ".Input": compact({
+        border: input ? `1px solid ${input}` : undefined,
         boxShadow: "none",
-        padding: "12px 14px",
-      },
-      ".Input:focus": {
-        border: `1px solid ${primary}`,
-        boxShadow: `0 0 0 1px ${primary}`,
-      },
-      ".Input--invalid": {
-        border: `1px solid ${destructive}`,
+        padding: "14px 16px",
+      }),
+      ".Input:focus": compact({
+        borderColor: primary,
+        boxShadow: focusRing ? `0 0 0 3px ${focusRing}` : undefined,
+      }),
+      ".Input--invalid": compact({
+        borderColor: destructive,
         boxShadow: "none",
-      },
+      }),
       ".Label": {
-        color: muted,
         fontWeight: "500",
         fontSize: "13px",
-        letterSpacing: "0.02em",
       },
-      ".Tab": {
-        backgroundColor: bg,
-        border: `1px solid ${border}`,
-        color: fg,
-        padding: "12px 14px",
-      },
-      ".Tab:hover": {
-        backgroundColor: card,
-        color: fg,
-      },
-      ".Tab--selected": {
-        backgroundColor: card,
-        border: `1px solid ${primary}`,
-        color: fg,
-        boxShadow: `0 0 0 1px ${primary}`,
-      },
-      ".TabIcon--selected": {
-        fill: primary,
-      },
-      ".TabLabel--selected": {
-        color: fg,
-      },
-      ".Block": {
-        backgroundColor: card,
-        border: `1px solid ${border}`,
-      },
-      ".AccordionItem": {
-        backgroundColor: bg,
-        border: `1px solid ${border}`,
-      },
-      ".AccordionItem--selected": {
-        border: `1px solid ${primary}`,
-        boxShadow: `0 0 0 1px ${primary}`,
-      },
-      ".CheckboxInput": {
-        backgroundColor: bg,
-        border: `1px solid ${border}`,
-      },
-      ".CheckboxInput--checked": {
-        backgroundColor: primary,
-      },
+      ".Tab": compact({
+        border: border ? `1px solid ${border}` : undefined,
+        borderRadius: "12px",
+      }),
+      ".AccordionItem": compact({
+        border: border ? `1px solid ${border}` : undefined,
+        borderRadius: "12px",
+      }),
+      ".AccordionItem--selected": compact({
+        borderColor: primary,
+        backgroundColor: accentFill,
+      }),
       ".Error": {
-        color: destructive,
         fontSize: "13px",
-      },
-      ".RedirectText": {
-        color: muted,
       },
     },
   };
@@ -182,12 +164,15 @@ const PaymentForm = ({
   clientSecret,
   subscriptionId,
   userId,
+  onAddressValidChange,
 }: {
   totalAmount: number;
   customerEmail?: string | null;
   clientSecret: string;
   subscriptionId?: string | null;
   userId?: string | null;
+  /** Mirrors the address gate to the page, purely for the step indicator. */
+  onAddressValidChange?: (valid: boolean) => void;
 }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -203,6 +188,21 @@ const PaymentForm = ({
   const [termsOpen, setTermsOpen] = useState(false);
   // Home address is required before any booking is taken.
   const [addressValid, setAddressValid] = useState(false);
+  // Skeletons stand in for the Stripe iframes until they draw themselves.
+  const [emailReady, setEmailReady] = useState(false);
+  const [paymentReady, setPaymentReady] = useState(false);
+  const [paymentLoadError, setPaymentLoadError] = useState<string | null>(null);
+
+  // The skeletons sit above the Stripe iframes and never hide them, so a
+  // missed ready event cannot block paying; this just stops a skeleton
+  // lingering above a form that has plainly drawn itself.
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      setEmailReady(true);
+      setPaymentReady(true);
+    }, 8000);
+    return () => window.clearTimeout(t);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -298,112 +298,142 @@ const PaymentForm = ({
     // Otherwise Stripe is mid-redirect — do nothing.
   };
 
+  const friendly = error ? friendlyPaymentError(error) : null;
+  const payDisabled = !stripe || !elements || submitting || !termsAccepted || !addressValid;
+  const payLabel = submitting ? (
+    <>
+      <Loader2 className="h-4 w-4 animate-spin" /> Processing…
+    </>
+  ) : setupMode ? (
+    "Set up membership · £0 today"
+  ) : (
+    `Pay ${formatPrice(totalAmount)}`
+  );
+
   return (
-    <form onSubmit={handleSubmit} className="p-6 space-y-5">
-      <div>
-        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
-          Contact
-        </p>
-        <LinkAuthenticationElement
-          options={{ defaultValues: { email: customerEmail || "" } }}
-          onChange={(e) => setEmail(e.value.email)}
-        />
-      </div>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <CheckoutSection step={2} title="Your details">
+        <div>
+          {!emailReady && <FieldSkeleton labelWidth="w-12" />}
+          <LinkAuthenticationElement
+            options={{ defaultValues: { email: customerEmail || "" } }}
+            onChange={(e) => setEmail(e.value.email)}
+            onLoaderStart={() => setEmailReady(true)}
+            onReady={() => setEmailReady(true)}
+          />
+        </div>
 
-      {userId && <CustomerAddressCard userId={userId} onValidChange={setAddressValid} />}
-
-      <div>
-        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
-          Payment method
-        </p>
-        <PaymentElement
-          options={{
-            layout: { type: "tabs", defaultCollapsed: false },
-          }}
-        />
-      </div>
-
-      {error && (
-        <Alert variant="destructive">
-          <AlertTitle>Payment failed</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* Mandatory T&C acceptance */}
-      <div className="flex items-start gap-2.5 p-3 rounded-lg border border-border bg-background/50">
-        <Checkbox
-          id="accept-terms"
-          checked={termsAccepted}
-          onCheckedChange={(v) => {
-            setTermsAccepted(v === true);
-            if (v === true) setError(null);
-          }}
-          className="mt-0.5"
-        />
-        <label htmlFor="accept-terms" className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
-          I confirm I have read and accept The Dance Exclusive's{" "}
-          <button
-            type="button"
-            onClick={(e) => { e.preventDefault(); setTermsOpen(true); }}
-            className="text-primary underline underline-offset-2 hover:no-underline"
-          >
-            Terms &amp; Conditions
-          </button>
-          .
-        </label>
-      </div>
-
-      <Button
-        type="submit"
-        size="lg"
-        disabled={!stripe || !elements || submitting || !termsAccepted || !addressValid}
-        className="w-full font-bold uppercase tracking-wider"
-      >
-        {submitting ? (
-          <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processing…
-          </>
-        ) : setupMode ? (
-          <>Set Up Membership — £0 today</>
-        ) : (
-          <>Pay £{totalAmount.toFixed(2)}</>
+        {userId && (
+          <CustomerAddressCard
+            userId={userId}
+            onValidChange={(valid) => {
+              setAddressValid(valid);
+              onAddressValidChange?.(valid);
+            }}
+          />
         )}
-      </Button>
+      </CheckoutSection>
+
+      <CheckoutSection step={3} title="Payment">
+        <div>
+          {!paymentReady && !paymentLoadError && <PaymentFieldsSkeleton />}
+          {paymentLoadError && (
+            <PaymentErrorNotice
+              title="The payment form couldn't load"
+              body="Refresh the page to try again — nothing has been charged."
+              detail={paymentLoadError}
+            />
+          )}
+          <PaymentElement
+            options={{
+              layout: { type: "accordion", defaultCollapsed: false, radios: "always", spacedAccordionItems: true },
+            }}
+            onLoaderStart={() => setPaymentReady(true)}
+            onReady={() => setPaymentReady(true)}
+            onLoadError={(e) => setPaymentLoadError(e.error?.message || "Stripe could not load the payment form.")}
+          />
+        </div>
+
+        {friendly && <PaymentErrorNotice title={friendly.title} body={friendly.body} detail={friendly.detail} />}
+
+        {/* Mandatory T&C acceptance */}
+        <div className="flex items-start gap-3 rounded-xl border border-border px-4 py-3.5">
+          <Checkbox
+            id="accept-terms"
+            checked={termsAccepted}
+            onCheckedChange={(v) => {
+              setTermsAccepted(v === true);
+              if (v === true) setError(null);
+            }}
+            className="mt-0.5 h-5 w-5 rounded-md"
+          />
+          <label htmlFor="accept-terms" className="cursor-pointer text-sm leading-relaxed text-foreground">
+            I have read and accept The Dance Exclusive's{" "}
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); setTermsOpen(true); }}
+              className="rounded-sm font-medium text-primary underline underline-offset-4 hover:no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              terms and conditions
+            </button>
+            .
+          </label>
+        </div>
+
+        {/* Wide screens: the action sits under the terms. Phones get the
+            sticky bar below instead — never both. */}
+        <Button type="submit" size="xl" disabled={payDisabled} className="hidden w-full md:inline-flex">
+          {payLabel}
+        </Button>
+
+        <p className="flex items-center justify-center gap-1.5 text-[13px] text-muted-foreground">
+          <Lock className="h-3.5 w-3.5" aria-hidden /> Secure payment · Powered by Stripe
+        </p>
+      </CheckoutSection>
+
+      <StickyActionBar
+        action={
+          <Button type="submit" size="xl" disabled={payDisabled} className="px-4">
+            {payLabel}
+          </Button>
+        }
+      >
+        <p className="text-[13px] leading-tight text-muted-foreground">Total</p>
+        <p className="text-lg font-semibold leading-tight tabular-nums text-foreground">{formatPrice(totalAmount)}</p>
+        {setupMode && <p className="text-[13px] font-medium leading-tight text-primary">Nothing to pay today</p>}
+      </StickyActionBar>
 
       {/* Full T&C text */}
-      <Dialog open={termsOpen} onOpenChange={setTermsOpen}>
-        <DialogContent className="max-w-2xl max-h-dialog overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Terms and Conditions — The Dance Exclusive</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            By enrolling in any class, workshop, or program with The Dance Exclusive,
-            you agree to the following terms and conditions:
-          </p>
-          <div className="space-y-4">
-            {TERMS_AND_CONDITIONS.map((section) => (
-              <div key={section.title}>
-                <h3 className="text-sm font-bold text-foreground mb-1.5">{section.title}</h3>
-                <ul className="list-disc pl-5 space-y-1">
-                  {section.points.map((point, i) => (
-                    <li key={i} className="text-xs text-muted-foreground leading-relaxed">{point}</li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <div className="flex items-center justify-center gap-4 pt-1 text-xs text-muted-foreground uppercase tracking-wider">
-        <span className="flex items-center gap-1.5">
-          <Lock className="w-3.5 h-3.5" /> Secure Payment
-        </span>
-        <span className="flex items-center gap-1.5">
-          <ShieldCheck className="w-3.5 h-3.5" /> Powered by Stripe
-        </span>
-      </div>
+      <ResponsiveSheet
+        open={termsOpen}
+        onOpenChange={setTermsOpen}
+        title="Terms and conditions"
+        description="The Dance Exclusive"
+        size="lg"
+        themeClass="portal-ui"
+        footer={
+          <Button type="button" variant="soft" onClick={() => setTermsOpen(false)} className="h-12 w-full rounded-xl text-[15px] font-semibold">
+            Close
+          </Button>
+        }
+      >
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          By enrolling in any class, workshop, or program with The Dance Exclusive,
+          you agree to the following terms and conditions:
+        </p>
+        <div className="mt-5 space-y-6">
+          {TERMS_AND_CONDITIONS.map((section) => (
+            <section key={section.title}>
+              <h3 className="text-[15px] font-semibold text-foreground">{section.title}</h3>
+              <ul className="mt-2 list-disc space-y-1.5 pl-5">
+                {section.points.map((point, i) => (
+                  <li key={i} className="text-sm leading-relaxed text-muted-foreground">{point}</li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      </ResponsiveSheet>
     </form>
   );
 };
@@ -414,8 +444,54 @@ interface AppliedCoupon {
   discountAmount: number;
 }
 
+/** Page chrome shared by the loading skeleton and the real page. */
+const CheckoutShell = ({
+  rootRef,
+  classesPath,
+  stepIndex,
+  children,
+}: {
+  rootRef?: RefObject<HTMLDivElement>;
+  classesPath: string;
+  stepIndex: number;
+  children: ReactNode;
+}) => {
+  const navigate = useNavigate();
+  return (
+  <div ref={rootRef} className="min-h-screen bg-background">
+    <PaymentTestModeBanner />
+    <div className="container max-w-6xl pb-10 pt-4 sm:pt-6">
+      {/* Goes back to wherever the parent came from (the class, the list, the
+          basket), exactly as before; the classes path is only the fallback
+          when there is no history to return to. */}
+      <button
+        type="button"
+        onClick={() => (window.history.length > 1 ? navigate(-1) : navigate(classesPath))}
+        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden /> Back
+      </button>
+
+      <SectionHeading
+        as="h1"
+        size="page"
+        title="Checkout"
+        subtitle="Check your booking, confirm your details and pay securely."
+        className="mt-2"
+      />
+      <Steps steps={CHECKOUT_STEPS} current={stepIndex} className="mt-6" />
+
+      <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,400px)] lg:items-start lg:gap-10">
+        {children}
+      </div>
+      <StickyActionBarSpacer />
+    </div>
+  </div>
+  );
+};
+
 const CheckoutPage = () => {
-  const { items, totalAmount, isHydrating } = useCart();
+  const { items, totalAmount, isHydrating, setIsOpen } = useCart();
   const { user, profile } = useAuth();
   const navigate = useNavigate();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -449,6 +525,13 @@ const CheckoutPage = () => {
   const [couponInput, setCouponInput] = useState("");
   const [couponError, setCouponError] = useState<string | null>(null);
   const [couponSubmitting, setCouponSubmitting] = useState(false);
+
+  // Presentation only: the page root (for resolving theme tokens into the
+  // Stripe appearance), the one-column/two-column switch, and whether the
+  // address is on file (for the step indicator).
+  const pageRef = useRef<HTMLDivElement>(null);
+  const isWide = useMediaQuery("(min-width: 1024px)");
+  const [addressComplete, setAddressComplete] = useState<boolean | null>(null);
 
   // Pricing context needed to mirror the server's checkout maths: class rows
   // (durations + sibling flags), camp sibling flags, which attendees are the
@@ -782,7 +865,7 @@ const CheckoutPage = () => {
     if (!clientSecret) return null;
     return {
       clientSecret,
-      appearance: buildAppearance(),
+      appearance: buildAppearance(pageRef.current),
       loader: "auto",
       fonts: [
         {
@@ -793,330 +876,166 @@ const CheckoutPage = () => {
     };
   }, [clientSecret]);
 
+  // ---- presentation ------------------------------------------------------
+
+  const classesPath = (profile as { customer_type?: string | null } | null)?.customer_type === "adult_dancer"
+    ? "/classes/adult"
+    : "/classes/children";
+  const stepIndex = needsContactDetails || addressComplete === false ? 1 : 2;
+
   if (isHydrating) {
     return (
-      <div className="min-h-screen bg-background">
-        <PaymentTestModeBanner />
-        <div className="container max-w-6xl py-16 text-center text-muted-foreground">
-          Loading checkout…
+      <CheckoutShell classesPath={classesPath} stepIndex={stepIndex}>
+        <Bone className="h-14 w-full rounded-2xl lg:hidden" />
+        <div className="min-w-0 space-y-6">
+          <BookingItemsSkeleton />
+          <CheckoutFormSkeleton />
         </div>
-      </div>
+        <div className="hidden lg:block">
+          <SummarySkeleton />
+        </div>
+      </CheckoutShell>
     );
   }
 
   if (items.length === 0) return null;
 
+  const notes: SummaryNote[] = [];
+  if (setupMode && firstPaymentDate) {
+    notes.push({
+      key: "setup",
+      emphasis: true,
+      text: `Nothing to pay today — your first payment of ${formatPrice(estimatedTotal)} is taken on ${formatFirstPayment(firstPaymentDate)}.`,
+    });
+  }
+  if (capReachedForChild) {
+    notes.push({ key: "cap", emphasis: true, text: "£110 cap reached — every extra class for this child is free." });
+  }
+  if (hasMonthlyItems) {
+    notes.push({
+      key: "monthly",
+      text: `${MONTHLY_PAYMENT_INFO} Cancelling requires one month's written notice to hello@thedanceexclusive.co.uk.`,
+    });
+  }
+
+  const summaryProps: CheckoutSummaryProps = {
+    items,
+    charges: adjusted.charges,
+    totals: {
+      subtotal: totalAmount,
+      multiClassDiscount: adjusted.multiClassDiscount,
+      siblingDiscount: adjusted.sibling.total,
+      coupon,
+      total: finalTotal,
+    },
+    notes,
+    coupon: {
+      applied: coupon,
+      input: couponInput,
+      onInputChange: (value) => {
+        setCouponInput(value.toUpperCase());
+        setCouponError(null);
+      },
+      error: couponError,
+      submitting: couponSubmitting,
+      onApply: handleApplyCoupon,
+      onRemove: handleRemoveCoupon,
+    },
+  };
+
+  const initNoticeTitle = needsProfile
+    ? "Attendee details needed"
+    : needsContactDetails
+      ? "One more thing before you pay"
+      : "Checkout unavailable";
+
   return (
-    <div className="min-h-screen bg-background">
-      <PaymentTestModeBanner />
-      <div className="container max-w-6xl py-8">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(-1)}
-          className="mb-6 text-muted-foreground"
+    <CheckoutShell rootRef={pageRef} classesPath={classesPath} stepIndex={stepIndex}>
+      {!isWide && <CheckoutSummaryStrip {...summaryProps} />}
+
+      <div className="min-w-0 space-y-6">
+        <CheckoutSection
+          step={1}
+          title="Your booking"
+          aside={
+            <button
+              type="button"
+              onClick={() => setIsOpen(true)}
+              className="pressable -mr-2 rounded-md px-2 py-1.5 text-sm font-medium text-primary hover:underline underline-offset-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+            >
+              Edit basket
+            </button>
+          }
         >
-          <ArrowLeft className="w-4 h-4 mr-1.5" /> Back
-        </Button>
+          <ul className="divide-y divide-border">
+            {items.map((item) => {
+              const schedule = scheduleLine(item);
+              return (
+                <li key={item.id} className="flex items-start justify-between gap-4 py-4 first:pt-0 last:pb-0">
+                  <div className="min-w-0">
+                    <p className="text-[15px] font-semibold text-foreground">{item.className}</p>
+                    {item.studentName && <p className="mt-0.5 text-sm text-muted-foreground">for {item.studentName}</p>}
+                    {schedule && <p className="mt-1 text-[13px] text-muted-foreground">{schedule}</p>}
+                    <p className={cn("text-[13px] text-muted-foreground", schedule ? "mt-0.5" : "mt-1")}>{planLine(item)}</p>
+                  </div>
+                  <p className="shrink-0 text-[15px] font-semibold tabular-nums text-foreground">
+                    {formatPrice(adjusted.charges.get(item.id) ?? item.totalPrice)}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        </CheckoutSection>
 
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2 uppercase tracking-tight">
-            Checkout
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Review your booking{items.length > 1 ? "s" : ""} and complete your
-            secure payment below.
-          </p>
-        </div>
+        {initializing && <CheckoutFormSkeleton />}
 
-        <div className="grid gap-8 lg:grid-cols-[1fr_minmax(0,420px)]">
-          {/* Payment form */}
-          <div className="order-2 lg:order-1">
-            <div className="rounded-xl overflow-hidden border border-border bg-card">
-              {initializing && (
-                <div className="p-10 flex flex-col items-center justify-center gap-3 text-muted-foreground text-sm">
-                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                  Preparing secure payment…
-                </div>
+        {initError && !initializing && (
+          <div className="surface p-5 sm:p-6">
+            <PaymentErrorNotice
+              title={initNoticeTitle}
+              body={initError}
+              tone={needsContactDetails || needsProfile ? "warning" : "error"}
+            >
+              {needsProfile && (
+                <Button onClick={() => navigate("/account")} className="h-12 w-full rounded-xl px-6 text-[15px] font-semibold sm:w-auto">
+                  Add attendee details
+                </Button>
               )}
-
-              {initError && !initializing && (
-                <div className="p-6 space-y-4">
-                  <Alert variant={needsContactDetails ? "default" : "destructive"}>
-                    <AlertTitle>
-                      {needsProfile
-                        ? "Attendee details needed"
-                        : needsContactDetails
-                          ? "One more thing before you pay"
-                          : "Checkout unavailable"}
-                    </AlertTitle>
-                    <AlertDescription>{initError}</AlertDescription>
-                  </Alert>
-                  {needsProfile && (
-                    <Button onClick={() => navigate("/account")} className="w-full gap-1.5">
-                      <UserPlus className="w-4 h-4" /> Add attendee details
-                    </Button>
-                  )}
-                  {needsContactDetails && user?.id && (
-                    <CustomerAddressCard
-                      userId={user.id}
-                      onValidChange={(valid) => {
-                        // Saved and complete — build the payment form again.
-                        if (!valid || contactRetries.current >= 3) return;
-                        contactRetries.current += 1;
-                        setRetryKey((k) => k + 1);
-                      }}
-                    />
-                  )}
-                </div>
+              {needsContactDetails && user?.id && (
+                <CustomerAddressCard
+                  userId={user.id}
+                  onValidChange={(valid) => {
+                    // Saved and complete — build the payment form again.
+                    if (!valid || contactRetries.current >= 3) return;
+                    contactRetries.current += 1;
+                    setRetryKey((k) => k + 1);
+                  }}
+                />
               )}
-
-              {clientSecret && elementsOptions && (
-                <Elements stripe={getStripe()} options={elementsOptions}>
-                  <PaymentForm
-                    totalAmount={finalTotal}
-                    customerEmail={user?.email || profile?.email}
-                    clientSecret={clientSecret}
-                    subscriptionId={subscriptionId}
-                    userId={user?.id}
-                  />
-                </Elements>
-              )}
-            </div>
+            </PaymentErrorNotice>
           </div>
+        )}
 
-          {/* Order summary */}
-          <aside className="order-1 lg:order-2">
-            <div className="lg:sticky lg:top-32 space-y-4">
-              <Collapsible defaultOpen={false}>
-                {(() => {
-                  const adultCount = items.filter(
-                    (i) => i.classType === "adult",
-                  ).length;
-                  const childCount = items.length - adultCount;
-                  const summaryParts: string[] = [];
-                  if (childCount > 0)
-                    summaryParts.push(
-                      `${childCount} children's session${childCount !== 1 ? "s" : ""}`,
-                    );
-                  if (adultCount > 0)
-                    summaryParts.push(
-                      `${adultCount} adult session${adultCount !== 1 ? "s" : ""}`,
-                    );
-
-                  return (
-                    <div className="rounded-xl border border-border bg-card overflow-hidden">
-                      <CollapsibleTrigger className="group w-full p-5 flex items-center justify-between gap-3 text-left hover:bg-muted/30 transition-colors">
-                        <div className="min-w-0 flex-1">
-                          <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">
-                            Order Summary
-                          </h2>
-                          <p className="text-xs text-muted-foreground mt-1 truncate">
-                            {summaryParts.join(" · ")}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3 shrink-0">
-                          <span className="text-lg font-bold text-foreground">
-                            £{finalTotal.toFixed(2)}
-                          </span>
-                          <ChevronDown
-                            className={cn(
-                              "w-4 h-4 text-muted-foreground transition-transform",
-                              "group-data-[state=open]:rotate-180",
-                            )}
-                          />
-                        </div>
-                      </CollapsibleTrigger>
-
-                      <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
-                        <div className="px-5 pb-5">
-                          <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1 border-t border-border pt-4">
-                            {items.map((item) => (
-                              <div
-                                key={item.id}
-                                className="pb-3 border-b border-border last:border-0 last:pb-0"
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0 flex-1">
-                                    <p className="font-semibold text-sm text-foreground">
-                                      {item.className}{" "}
-                                      <span className="text-muted-foreground font-normal text-xs">
-                                        (
-                                        {item.classType === "adult"
-                                          ? "Adults"
-                                          : "Children"}
-                                        )
-                                      </span>
-                                    </p>
-                                    {item.studentName && (
-                                      <p className="text-xs text-muted-foreground mt-0.5">
-                                        for {item.studentName}
-                                      </p>
-                                    )}
-                                    <p className="text-xs text-muted-foreground mt-0.5">
-                                      {item.dayOfWeek.charAt(0).toUpperCase() +
-                                        item.dayOfWeek.slice(1)}{" "}
-                                      · {item.startTime?.slice(0, 5)}–
-                                      {item.endTime?.slice(0, 5)}
-                                    </p>
-                                    {item.venueName && (
-                                      <p className="text-xs text-muted-foreground">
-                                        {item.venueName}
-                                      </p>
-                                    )}
-                                    <Badge
-                                      variant="outline"
-                                      className="mt-1.5 text-[10px]"
-                                    >
-                                      {planLabel[item.pricingPlan]}
-                                    </Badge>
-                                  </div>
-                                  <span className="font-bold text-sm text-foreground whitespace-nowrap">
-                                    £{(adjusted.charges.get(item.id) ?? item.totalPrice).toFixed(2)}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </CollapsibleContent>
-
-                      <div className="px-5 py-4 border-t border-border space-y-2 bg-muted/20">
-                        <div className="flex items-center justify-between text-sm text-muted-foreground">
-                          <span>Subtotal</span>
-                          <span>£{totalAmount.toFixed(2)}</span>
-                        </div>
-                        {adjusted.multiClassDiscount > 0.005 && (
-                          <div className="flex items-center justify-between text-sm text-primary">
-                            <span className="flex items-center gap-1.5">
-                              <Tag className="w-3.5 h-3.5" /> Additional-class rate
-                            </span>
-                            <span>-£{adjusted.multiClassDiscount.toFixed(2)}</span>
-                          </div>
-                        )}
-                        {adjusted.sibling.total > 0 && (
-                          <div className="flex items-center justify-between text-sm text-primary">
-                            <span className="flex items-center gap-1.5">
-                              <Users className="w-3.5 h-3.5" /> Sibling discount (10%)
-                            </span>
-                            <span>-£{adjusted.sibling.total.toFixed(2)}</span>
-                          </div>
-                        )}
-                        {coupon && (
-                          <div className="flex items-center justify-between text-sm text-primary">
-                            <span className="flex items-center gap-1.5">
-                              <Tag className="w-3.5 h-3.5" /> Discount ({coupon.code})
-                            </span>
-                            <span>-£{coupon.discountAmount.toFixed(2)}</span>
-                          </div>
-                        )}
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-bold text-foreground uppercase tracking-wider">
-                            Total
-                          </span>
-                          <span className="text-2xl font-bold text-foreground">
-                            £{finalTotal.toFixed(2)}
-                          </span>
-                        </div>
-                        {setupMode && firstPaymentDate && (
-                          <p className="text-xs text-primary leading-relaxed pt-1">
-                            Nothing to pay today — your first payment of £
-                            {estimatedTotal.toFixed(2)} is taken on{" "}
-                            {formatFirstPayment(firstPaymentDate)}.
-                          </p>
-                        )}
-                        {capReachedForChild && (
-                          <p className="text-[11px] text-primary leading-relaxed pt-1">
-                            £110 cap reached — every extra class for this child is free.
-                          </p>
-                        )}
-                        {hasMonthlyItems && (
-                          <p className="text-[11px] text-muted-foreground leading-relaxed pt-1">
-                            {MONTHLY_PAYMENT_INFO} Cancelling requires one month's written
-                            notice to hello@thedanceexclusive.co.uk.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </Collapsible>
-
-              {/* Coupon code */}
-              <div className="rounded-xl border border-border bg-card p-4">
-                {coupon ? (
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-                        <Tag className="w-4 h-4 text-primary" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-foreground font-mono truncate">{coupon.code}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Saving £{coupon.discountAmount.toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleRemoveCoupon}
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="w-4 h-4 mr-1" /> Remove
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                      Got a code or studio credit?
-                    </p>
-                    <div className="flex gap-2">
-                      <Input
-                        value={couponInput}
-                        onChange={(e) => {
-                          setCouponInput(e.target.value.toUpperCase());
-                          setCouponError(null);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleApplyCoupon();
-                          }
-                        }}
-                        placeholder="Enter code"
-                        className="uppercase font-mono"
-                        disabled={couponSubmitting}
-                      />
-                      <Button
-                        type="button"
-                        onClick={handleApplyCoupon}
-                        disabled={couponSubmitting || !couponInput.trim()}
-                      >
-                        {couponSubmitting ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          "Apply"
-                        )}
-                      </Button>
-                    </div>
-                    {couponError && (
-                      <p className="text-xs text-destructive">{couponError}</p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
-                By completing your purchase you agree to our terms. Bookings
-                are confirmed immediately after payment.
-              </p>
-            </div>
-          </aside>
-        </div>
+        {clientSecret && elementsOptions && (
+          <Elements stripe={getStripe()} options={elementsOptions}>
+            <PaymentForm
+              totalAmount={finalTotal}
+              customerEmail={user?.email || profile?.email}
+              clientSecret={clientSecret}
+              subscriptionId={subscriptionId}
+              userId={user?.id}
+              onAddressValidChange={setAddressComplete}
+            />
+          </Elements>
+        )}
       </div>
-    </div>
+
+      {isWide && (
+        <div className="lg:sticky lg:top-32">
+          <CheckoutSummaryCard {...summaryProps} />
+        </div>
+      )}
+    </CheckoutShell>
   );
 };
 

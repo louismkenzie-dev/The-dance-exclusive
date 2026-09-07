@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Home } from "lucide-react";
 import { hasCompleteAddress, isValidUkPhone } from "@/lib/customerAddress";
 import CustomerAddressCard from "@/components/portal/CustomerAddressCard";
 
@@ -37,35 +35,32 @@ const AddressPrompt = () => {
   if (!user || !needed) return null;
 
   return (
-    <Card className="mb-4 border-primary/40 bg-primary/5 animate-fade-in">
-      <CardContent className="py-4">
-        {open ? (
-          <CustomerAddressCard
-            userId={user.id}
-            onValidChange={(valid) => {
-              if (valid) {
-                setNeeded(false);
-                setOpen(false);
-              }
-            }}
-          />
-        ) : (
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div className="flex items-start gap-2.5">
-              <Home className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-foreground">We need your address &amp; phone number</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  We keep them on file for every family — for our registers, emergency records and
-                  billing. It takes a few seconds.
-                </p>
-              </div>
-            </div>
-            <Button size="sm" onClick={() => setOpen(true)}>Add details</Button>
+    <div className="surface mb-4 p-5 animate-rise-in">
+      {open ? (
+        <CustomerAddressCard
+          userId={user.id}
+          onValidChange={(valid) => {
+            if (valid) {
+              setNeeded(false);
+              setOpen(false);
+            }
+          }}
+        />
+      ) : (
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-[15px] font-semibold text-foreground">We need your address and phone number</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
+              We keep them on file for every family — for our registers, emergency records and
+              billing. It takes a few seconds.
+            </p>
           </div>
-        )}
-      </CardContent>
-    </Card>
+          <Button onClick={() => setOpen(true)} className="h-11 shrink-0 rounded-xl px-5 font-semibold">
+            Add details
+          </Button>
+        </div>
+      )}
+    </div>
   );
 };
 

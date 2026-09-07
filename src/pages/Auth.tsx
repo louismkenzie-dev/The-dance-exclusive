@@ -24,6 +24,7 @@ const Auth = () => {
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [tab, setTab] = useState<"login" | "signup">("login");
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -32,10 +33,18 @@ const Auth = () => {
 
   // /auth?forgot=1 opens the "send me a reset link" form directly — where
   // an expired invite or reset link sends people, instead of the sign-in
-  // form they can't get past.
+  // form they can't get past. /auth?signup=1 opens registration, which is
+  // where the "no account found" email sends families from the old system.
   useEffect(() => {
     if (searchParams.get("forgot") === "1") setShowForgotPassword(true);
+    if (searchParams.get("signup") === "1") setTab("signup");
   }, [searchParams]);
+
+  // Families who moved from the old booking system expect their old login to
+  // work here. Supabase's error is the same for a wrong password and for an
+  // address that has no account, so the hint has to cover both.
+  const OLD_SYSTEM_HINT =
+    "If you danced with us before September, your old booking login doesn't carry across — create a new account.";
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,7 +57,12 @@ const Auth = () => {
     const { error } = await signIn(loginEmail, loginPassword);
     if (error) {
       setLoading(false);
-      toast({ title: "Login failed", description: error.message, variant: "destructive" });
+      const invalid = /invalid login credentials/i.test(error.message);
+      toast({
+        title: "Login failed",
+        description: invalid ? `Email or password not recognised. ${OLD_SYSTEM_HINT}` : error.message,
+        variant: "destructive",
+      });
     } else {
       // Check role to redirect appropriately
       const { data: roles } = await supabase
@@ -115,7 +129,8 @@ const Auth = () => {
     } else {
       toast({
         title: "Check your email",
-        description: "If an account exists for that email, we've sent a reset link.",
+        description:
+          "If that address has an account, we've sent a reset link. If it doesn't, we've emailed you how to register.",
       });
       setShowForgotPassword(false);
     }
@@ -143,6 +158,20 @@ const Auth = () => {
                 <Button type="submit" className="w-full h-11 font-bold uppercase tracking-wider" disabled={loading}>
                   {loading ? "Sending..." : "Send Reset Link"}
                 </Button>
+                <div className="rounded-lg border border-border/50 bg-muted/30 p-3 space-y-2">
+                  <p className="text-xs text-muted-foreground text-center" style={{ textTransform: 'none', letterSpacing: 'normal', fontFamily: 'var(--font-body)' }}>
+                    Danced with us before September? Logins from our old booking system didn&#39;t carry
+                    across, so there&#39;s no password to reset &mdash; you&#39;ll need a new account.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => { setShowForgotPassword(false); setTab("signup"); }}
+                  >
+                    Create a new account instead
+                  </Button>
+                </div>
                 <Button type="button" variant="ghost" className="w-full text-muted-foreground" onClick={() => setShowForgotPassword(false)}>
                   Back to Sign In
                 </Button>
@@ -200,7 +229,7 @@ const Auth = () => {
               </div>
             </div>
 
-            <Tabs defaultValue="login" className="w-full">
+            <Tabs value={tab} onValueChange={(v) => setTab(v as "login" | "signup")} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="login">Sign In</TabsTrigger>
                 <TabsTrigger value="signup">Create Account</TabsTrigger>

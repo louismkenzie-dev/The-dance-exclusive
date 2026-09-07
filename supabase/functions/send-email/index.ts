@@ -13,6 +13,10 @@ import {
   type PasswordResetData,
 } from "../_shared/email-templates/password-reset.ts";
 import {
+  renderAccountNotFound,
+  type AccountNotFoundData,
+} from "../_shared/email-templates/account-not-found.ts";
+import {
   renderStaffOnboarding,
   type StaffOnboardingData,
 } from "../_shared/email-templates/staff-onboarding.ts";
@@ -122,6 +126,7 @@ type Payload =
   | { template: "booking_confirmation"; to: string; data: BookingConfirmationData }
   | { template: "welcome"; to: string; data: WelcomeData }
   | { template: "password_reset"; to: string; data: PasswordResetData }
+  | { template: "account_not_found"; to: string; data: AccountNotFoundData }
   | { template: "staff_onboarding"; to: string; data: StaffOnboardingData }
   | { template: "party_inquiry_received"; to: string; data: PartyInquiryReceivedData }
   | { template: "contact_enquiry_received"; to: string; data: ContactEnquiryReceivedData }
@@ -147,6 +152,8 @@ function buildEmail(payload: Payload): { subject: string; html: string } {
       return renderWelcome(payload.data);
     case "password_reset":
       return renderPasswordReset(payload.data);
+    case "account_not_found":
+      return renderAccountNotFound(payload.data);
     case "staff_onboarding":
       return renderStaffOnboarding(payload.data);
     case "party_inquiry_received":

@@ -39,6 +39,49 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+/** One "no account" notice per address per hour, so the public reset form
+ *  cannot be used to flood somebody's inbox. */
+const NOTICE_COOLDOWN_MS = 60 * 60 * 1000;
+
+/**
+ * A reset was asked for an address with no account. The HTTP response must
+ * not say so (that would let anyone probe which emails are registered), but
+ * the owner of the inbox may be told — and usually needs to be: families
+ * from the old booking system assume their login carried across, request a
+ * reset, and hear nothing. Half of this week's reset requests were for
+ * addresses that do not exist here.
+ */
+async function sendAccountNotFound(
+  supabase: ReturnType<typeof createClient>,
+  email: string,
+): Promise<void> {
+  const { data: prev } = await supabase
+    .from("password_reset_notices")
+    .select("last_sent_at")
+    .eq("email", email)
+    .maybeSingle();
+  if (prev?.last_sent_at && Date.now() - new Date(prev.last_sent_at).getTime() < NOTICE_COOLDOWN_MS) {
+    return;
+  }
+  await supabase
+    .from("password_reset_notices")
+    .upsert({ email, last_sent_at: new Date().toISOString() });
+
+  const { error } = await supabase.functions.invoke("send-email", {
+    headers: { "x-internal-auth": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
+    body: {
+      template: "account_not_found",
+      to: email,
+      data: {
+        email,
+        signupUrl: `${APP_ORIGIN}/auth?signup=1`,
+        forgotUrl: `${APP_ORIGIN}/auth?forgot=1`,
+      },
+    },
+  });
+  if (error) console.error("send-email failed for account-not-found notice:", error);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -96,6 +139,10 @@ serve(async (req) => {
 
     if (error || !data?.properties?.action_link) {
       console.warn("generateLink failed (may be unknown email):", error?.message);
+      const notFound =
+        (error as { status?: number } | null)?.status === 404 ||
+        /not found/i.test(error?.message ?? "");
+      if (notFound) await sendAccountNotFound(supabase, email);
       return new Response(JSON.stringify({ success: true }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

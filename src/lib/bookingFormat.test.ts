@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { availabilityFor, formatDay, formatPrice, formatTimeRange, initialsFor } from "./bookingFormat";
+import { availabilityFor, durationLabel, formatDay, formatPrice, formatTimeRange, initialsFor } from "./bookingFormat";
+
+describe("durationLabel", () => {
+  it("reads minutes, whole hours and mixed", () => {
+    expect(durationLabel("17:00:00", "17:45:00")).toBe("45 min");
+    expect(durationLabel("18:45", "19:45")).toBe("1 hr");
+    expect(durationLabel("10:00:00", "11:15:00")).toBe("1 hr 15");
+  });
+  it("is empty when the times make no sense", () => {
+    expect(durationLabel("17:00", "17:00")).toBe("");
+    expect(durationLabel(null, "17:00")).toBe("");
+    expect(durationLabel("17:00", undefined)).toBe("");
+  });
+});
 
 describe("formatPrice", () => {
   it("always shows pence unless asked to trim", () => {

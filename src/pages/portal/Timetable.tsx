@@ -7,14 +7,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { PassRedeemDialog, type SessionOption } from "@/components/portal/PassRedeemDialog";
 import { SectionHeading } from "@/components/booking/SectionHeading";
-import { Chip, ChipRow } from "@/components/booking/Chips";
 import { DateStrip } from "@/components/booking/DateStrip";
 import { EmptyState } from "@/components/booking/EmptyState";
 import { QuietNotice } from "@/components/booking/QuietNotice";
 import { Bone } from "@/components/booking/Skeletons";
 import { ListRowsSkeleton } from "@/components/booking/PortalSkeletons";
+import { SessionRow } from "@/components/booking/SessionRow";
+import { VenuePicker, type VenueOption } from "@/components/booking/VenuePicker";
 import { timetableStripDays } from "@/lib/timetableGaps";
-import { formatTime } from "@/lib/bookingFormat";
+import { classLinkPath } from "@/lib/classLinks";
 
 interface TimetableClass {
   id: string;
@@ -22,7 +23,7 @@ interface TimetableClass {
   class_type: "children" | "adult";
   dance_style: string | null;
   venue_id: string | null;
-  venues: { name: string } | null;
+  venues: { name: string; city: string | null } | null;
 }
 
 interface SessionRow {
@@ -78,13 +79,17 @@ const Timetable = () => {
   const [dayMode, setDayMode] = useState(true);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
-  // Venue chips — only venues that actually host a bookable class.
-  const venues = useMemo(() => {
-    const byId = new Map<string, string>();
+  // Venues for the picker — only venues that actually host a bookable class,
+  // with the town and how many classes run there.
+  const venues = useMemo<VenueOption[]>(() => {
+    const byId = new Map<string, VenueOption>();
     for (const c of classes) {
-      if (c.venue_id && c.venues?.name) byId.set(c.venue_id, c.venues.name);
+      if (!c.venue_id || !c.venues?.name) continue;
+      const existing = byId.get(c.venue_id);
+      if (existing) existing.count += 1;
+      else byId.set(c.venue_id, { id: c.venue_id, name: c.venues.name, area: c.venues.city, count: 1 });
     }
-    return [...byId.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [classes]);
 
   // Bookable classes + their scheduled sessions in the next three weeks.
@@ -94,7 +99,7 @@ const Timetable = () => {
       setLoading(true);
       const { data: classData } = await supabase
         .from("classes")
-        .select("id, name, class_type, dance_style, venue_id, venues(name)")
+        .select("id, name, class_type, dance_style, venue_id, venues(name, city)")
         .eq("is_active", true)
         .eq("publicly_visible", true)
         .eq("status", "confirmed")
@@ -302,17 +307,15 @@ const Timetable = () => {
       showVenueName ? cls.venues?.name : null,
     ].filter(Boolean).join(" · ");
     return (
-      <div key={s.id} className="flex items-center gap-4 px-5 py-4">
-        <div className="w-12 shrink-0 sm:w-14">
-          <p className="text-[15px] font-semibold leading-tight tabular-nums text-foreground">{formatTime(s.start_time)}</p>
-          <p className="text-[13px] leading-tight tabular-nums text-muted-foreground">{formatTime(s.end_time)}</p>
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[15px] font-semibold leading-snug text-foreground">{cls.name}</p>
-          {meta && <p className="mt-0.5 text-[13px] text-muted-foreground">{meta}</p>}
-        </div>
-        <div className="shrink-0">{renderAction(cls)}</div>
-      </div>
+      <SessionRow
+        key={s.id}
+        startTime={s.start_time}
+        endTime={s.end_time}
+        title={cls.name}
+        meta={meta || null}
+        action={renderAction(cls)}
+        onOpen={() => navigate(classLinkPath(cls.id))}
+      />
     );
   };
 
@@ -330,12 +333,13 @@ const Timetable = () => {
         </Link>
 
         {venues.length >= 2 && (
-          <ChipRow className="mt-6">
-            <Chip selected={venueId === "all"} onClick={() => setVenueId("all")}>All venues</Chip>
-            {venues.map((v) => (
-              <Chip key={v.id} selected={venueId === v.id} onClick={() => setVenueId(v.id)}>{v.name}</Chip>
-            ))}
-          </ChipRow>
+          <VenuePicker
+            className="mt-6 sm:w-auto sm:min-w-[300px] sm:max-w-sm"
+            venues={venues}
+            value={venueId}
+            onChange={setVenueId}
+            totalCount={classes.length}
+          />
         )}
 
         {!loading && backOn && (
@@ -377,31 +381,18 @@ const Timetable = () => {
                 days={stripDays}
                 value={shownDay}
                 onChange={(date) => { setSelectedDay(date); setDayMode(true); }}
+                relativeLabels
+                allDaysLabel="All days"
+                onAllDays={() => setDayMode(false)}
               />
             )}
 
-            <div className="mt-6 flex items-center justify-between gap-3">
-              <h2 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-                {shownDay ? dateLabel(shownDay) : "All days"}
-                <span className="ml-2 text-[13px] font-normal text-muted-foreground">
-                  {shownDay ? format(parseISO(shownDay), "d MMM yyyy") : `next ${HORIZON_DAYS} days`}
-                </span>
-              </h2>
-              {shownDay ? (
-                <Button variant="ghost" size="sm" className="h-10 shrink-0 rounded-full px-4 text-[14px] font-medium" onClick={() => setDayMode(false)}>
-                  Show all days
-                </Button>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-10 shrink-0 rounded-full px-4 text-[14px] font-medium"
-                  onClick={() => { setDayMode(true); setSelectedDay(groupedDates[0] ?? null); }}
-                >
-                  One day at a time
-                </Button>
-              )}
-            </div>
+            <h2 className="mt-6 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+              {shownDay ? dateLabel(shownDay) : "All days"}
+              <span className="ml-2 text-[13px] font-normal text-muted-foreground">
+                {shownDay ? format(parseISO(shownDay), "d MMM yyyy") : `next ${HORIZON_DAYS} days`}
+              </span>
+            </h2>
 
             {shownDay ? (
               <div className="surface mt-4 divide-y divide-border/70 overflow-hidden">

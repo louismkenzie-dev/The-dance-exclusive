@@ -43,6 +43,10 @@
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 220 20% 4%;
+    /* On the dark ground a badge's tint is darker than its text, so the
+       "strong" shades are lighter here. */
+    --success-strong: 152 69% 62%;
+    --warning-strong: 38 92% 66%;
 
     /* Sidebar — admin panel */
     --sidebar-background: 220 22% 6%;
@@ -105,6 +109,10 @@
     --success-foreground: 0 0% 100%;
     --warning: 32 92% 34%;
     --warning-foreground: 0 0% 100%;
+    /* Deeper shades for small text on a tint of the same colour (badges),
+       where the tinted ground costs a little contrast: both clear 5:1. */
+    --success-strong: 152 60% 25%;
+    --warning-strong: 30 92% 28%;
 
     --radius: 0.75rem;
   }

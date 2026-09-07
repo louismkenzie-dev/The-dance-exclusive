@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { format, parseISO } from "date-fns";
+import { addDays, format, parseISO } from "date-fns";
 import { toast } from "sonner";
-import { MapPin } from "lucide-react";
+import { CalendarDays, LayoutGrid, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -10,12 +10,24 @@ import { Input } from "@/components/ui/input";
 import {
   Chip,
   ChipRow,
+  ChoiceSheet,
+  ClassCalendar,
   ClassCard,
   ClassCardSkeleton,
   EmptyState,
+  FilterPill,
   SectionHeading,
+  SegmentedControl,
+  VenuePicker,
+  type CalendarGroup,
+  type CalendarRowData,
   type ClassCardData,
+  type VenueOption,
 } from "@/components/booking";
+import { ListRowsSkeleton } from "@/components/booking/PortalSkeletons";
+import { Bone } from "@/components/booking/Skeletons";
+import { QuietNotice } from "@/components/booking/QuietNotice";
+import { timetableStripDays } from "@/lib/timetableGaps";
 import { QuickBookDialog } from "@/components/portal/QuickBookDialog";
 import { ChildFormDialog } from "@/components/portal/ChildFormDialog";
 import { CampBookDialog } from "@/components/portal/CampBookDialog";
@@ -126,6 +138,11 @@ type SessionRow = { id: string; session_date: string; start_time: string; end_ti
 
 const CARD_GRID = "grid gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-3";
 
+/** How far ahead the calendar view looks. */
+const CALENDAR_DAYS = 21;
+
+type ViewMode = "list" | "calendar";
+
 const ClassBrowser = () => {
   const { type } = useParams<{ type: string }>();
   // ?class=<id> — a link the studio sent a family, pointing at one class.
@@ -153,8 +170,21 @@ const ClassBrowser = () => {
   const [hasExistingBookings, setHasExistingBookings] = useState<boolean | null>(null);
   const [activeSection, setActiveSection] = useState<"classes" | "camps" | "shows">("classes");
   const [venueFilter, setVenueFilter] = useState<string>("all");
-  // Style chips are a pure client-side filter over the sorted list.
+  // Style is a pure client-side filter over the sorted list.
   const [styleFilter, setStyleFilter] = useState<string>("all");
+  const [styleSheetOpen, setStyleSheetOpen] = useState(false);
+  // List of classes, or the same classes laid out by day. Lives in the URL
+  // so the calendar can be linked to and survives going back.
+  const view: ViewMode = searchParams.get("view") === "calendar" ? "calendar" : "list";
+  const setView = (next: ViewMode) => {
+    const params = new URLSearchParams(searchParams);
+    if (next === "calendar") params.set("view", "calendar");
+    else params.delete("view");
+    setSearchParams(params, { replace: true });
+  };
+  // Calendar: the day on show (null = every day in the window).
+  const [calendarDay, setCalendarDay] = useState<string | null>(null);
+  const [calendarAllDays, setCalendarAllDays] = useState(false);
   const [quickBookClassId, setQuickBookClassId] = useState<string | null>(null);
   const [bookCampId, setBookCampId] = useState<string | null>(null);
   const [schoolTerms, setSchoolTerms] = useState<{ name: string; term_type: string; start_date: string; end_date: string }[]>([]);
@@ -469,6 +499,12 @@ const ClassBrowser = () => {
     setVenueFilter("all");
     setStyleFilter("all");
     setHighlightId(linkedClassId);
+    // The card lives in the list view; the calendar shows sessions, not cards.
+    if (view === "calendar") {
+      const params = new URLSearchParams(searchParams);
+      params.delete("view");
+      setSearchParams(params, { replace: true });
+    }
 
     let attempts = 0;
     let timer = 0;
@@ -476,7 +512,8 @@ const ClassBrowser = () => {
       const el = document.getElementById(`class-${linkedClassId}`);
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
-        const next = new URLSearchParams(searchParams);
+        // Read the live URL: the view switch above may have replaced it.
+        const next = new URLSearchParams(window.location.search);
         next.delete("class");
         setSearchParams(next, { replace: true });
         return;
@@ -521,22 +558,56 @@ const ClassBrowser = () => {
   // Effective coords: manual search overrides home coords
   const effectiveCoords = searchCoords || homeCoords;
 
-  // Venue chips come from the loaded classes, so only venues actually running
-  // classes of this type appear.
-  const venueOptions = useMemo(() => {
-    const byId = new Map<string, string>();
+  // Venues for the picker come from the loaded classes, so only venues
+  // actually running classes of this type appear — with the town, how many
+  // classes run there and, once the parent has said where they are, how far.
+  const venueRows = useMemo<VenueOption[]>(() => {
+    const byId = new Map<string, VenueOption & { dist: number }>();
     for (const c of classes) {
       const v = c.venues as VenueData | null;
-      if (c.venue_id && v?.name) byId.set(c.venue_id, v.name);
+      if (!c.venue_id || !v?.name) continue;
+      const existing = byId.get(c.venue_id);
+      if (existing) { existing.count += 1; continue; }
+      const dist = effectiveCoords && v.latitude && v.longitude
+        ? haversineDistance(effectiveCoords.lat, effectiveCoords.lon, v.latitude, v.longitude)
+        : null;
+      byId.set(c.venue_id, {
+        id: c.venue_id,
+        name: v.name,
+        area: v.city || null,
+        count: 1,
+        distanceLabel: dist != null ? distanceLabel(dist) : null,
+        dist: dist ?? 9999,
+      });
     }
-    return [...byId.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [classes]);
+    return [...byId.values()]
+      .sort((a, b) => (effectiveCoords ? a.dist - b.dist || a.name.localeCompare(b.name) : a.name.localeCompare(b.name)))
+      .map(({ dist: _dist, ...v }) => v);
+  }, [classes, effectiveCoords]);
 
-  // Style chips likewise come from what is actually on offer.
+  // Styles likewise come from what is actually on offer.
   const styleOptions = useMemo(
     () => [...new Set(classes.map((c) => c.dance_style).filter((s): s is string => !!s))].sort((a, b) => a.localeCompare(b)),
     [classes],
   );
+
+  // Calendar window: three weeks from the next scheduled session across every
+  // class of this audience, so during a holiday the strip starts when classes
+  // come back rather than on an empty today. (Sessions are upcoming-only and
+  // date-ordered, so the first of each class is its next.)
+  const calendarWindow = useMemo(() => {
+    const today = format(new Date(), "yyyy-MM-dd");
+    let first: string | null = null;
+    for (const c of classes) {
+      const s = classSessions[c.id]?.[0];
+      if (s && (!first || s.session_date < first)) first = s.session_date;
+    }
+    if (!first) return null;
+    const start = first > today ? first : today;
+    const end = format(addDays(parseISO(start), CALENDAR_DAYS - 1), "yyyy-MM-dd");
+    const backOn = first > format(addDays(new Date(), CALENDAR_DAYS), "yyyy-MM-dd") ? first : null;
+    return { start, end, backOn };
+  }, [classes, classSessions]);
 
   // Sort: age-matched classes first, then by distance
   const sortedClasses = useMemo(() => {
@@ -620,6 +691,115 @@ const ClassBrowser = () => {
     };
   };
 
+  // The one primary action on a class — the same whether it sits on a card
+  // or a calendar row: book, or join the waitlist when it is full.
+  const handlePrimary = (c: ClassItem, state: ClassCardData["state"]) => {
+    if (state === "full") { toggleWaitlist(c.id, c.name); return; }
+    if (state !== "bookable") return;
+    if (!user) { navigate("/auth"); return; }
+    setQuickBookClassId(c.id);
+  };
+
+  // The same classes laid out by day: every session of the visible classes
+  // inside the window, grouped by date and ordered by start time.
+  const buildCalendarGroups = (): CalendarGroup[] => {
+    if (!calendarWindow) return [];
+    const byDate = new Map<string, CalendarRowData[]>();
+    for (const { cls: c, matched } of visibleClasses) {
+      const data = cardDataFor(c, matched);
+      const price = data.priceLabel
+        ? `${data.priceLabel}${data.priceHint ? (data.priceHint.startsWith("/") ? data.priceHint : ` ${data.priceHint}`) : ""}`
+        : null;
+      for (const s of classSessions[c.id] ?? []) {
+        if (s.session_date < calendarWindow.start) continue;
+        if (s.session_date > calendarWindow.end) break;
+        const row: CalendarRowData = {
+          key: s.id,
+          classId: c.id,
+          startTime: s.start_time,
+          endTime: s.end_time,
+          title: c.name,
+          // With one venue chosen its name would repeat on every row.
+          meta: [data.style, venueFilter === "all" ? data.venue : null, data.instructor ? `with ${data.instructor}` : null].filter(Boolean).join(" · ") || null,
+          sub: [data.audience, price, data.matchedNames.length ? `Suits ${joinNames(data.matchedNames)}` : null].filter(Boolean).join(" · ") || null,
+          availability: data.availability,
+          state: data.state,
+          onWaitlist: data.onWaitlist,
+          busy: waitlistBusy === c.id,
+          highlighted: highlightId === c.id,
+        };
+        if (!byDate.has(s.session_date)) byDate.set(s.session_date, []);
+        byDate.get(s.session_date)!.push(row);
+      }
+    }
+    return [...byDate.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, rows]) => ({
+        date,
+        rows: rows.sort((a, b) => a.startTime.localeCompare(b.startTime) || a.title.localeCompare(b.title)),
+      }));
+  };
+  const calendarGroups = view === "calendar" && !loading ? buildCalendarGroups() : [];
+  const calendarDates = calendarGroups.map((g) => g.date);
+  const stripDays = timetableStripDays(
+    calendarGroups.flatMap((g) => g.rows.map(() => g.date)),
+    calendarWindow?.start,
+    calendarWindow?.end,
+  );
+  // The day on show: the picked one while it still has sessions, otherwise
+  // the first that does. Null lists every day in the window.
+  const shownDay = calendarAllDays
+    ? null
+    : calendarDay && calendarDates.includes(calendarDay) ? calendarDay : calendarDates[0] ?? null;
+  const visibleGroups = shownDay ? calendarGroups.filter((g) => g.date === shownDay) : calendarGroups;
+
+  // "Near me" lives inside the venue sheet: choosing by distance is choosing
+  // a venue. Same postcode search as before, just where it belongs.
+  const nearMeBlock = (
+    <div className="mb-4">
+      {sortedFrom ? (
+        <div className="flex items-center justify-between gap-3 rounded-2xl bg-muted px-4 py-3 text-[13px] text-muted-foreground">
+          <span>
+            Sorted by distance from <span className="font-medium text-foreground">{sortedFrom}</span>
+          </span>
+          {searchCoords && (
+            <button type="button" onClick={closeSearch} className="shrink-0 font-medium text-foreground underline-offset-4 hover:underline">
+              Clear
+            </button>
+          )}
+        </div>
+      ) : searchOpen ? (
+        <form onSubmit={submitPostcode} className="flex items-center gap-2">
+          <Input
+            aria-label="Your postcode"
+            placeholder="Your postcode"
+            autoFocus
+            autoComplete="postal-code"
+            value={postcode}
+            onChange={(e) => setPostcode(e.target.value)}
+            className="h-12 rounded-xl text-base"
+          />
+          <Button type="submit" variant="ink" className="h-12 shrink-0 rounded-xl px-5" disabled={searchLoading || !postcode.trim()}>
+            {searchLoading ? "Searching…" : "Search"}
+          </Button>
+        </form>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setSearchOpen(true)}
+          className="pressable flex w-full items-center gap-3 rounded-2xl border border-dashed border-border px-4 py-3 text-left transition-colors hover:border-foreground/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+        >
+          <MapPin className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] font-medium text-foreground">Near me</span>
+            <span className="block text-[13px] text-muted-foreground">Enter your postcode to sort venues by distance</span>
+          </span>
+        </button>
+      )}
+      {searchError && <p className="mt-2 text-[13px] text-destructive">{searchError}</p>}
+    </div>
+  );
+
   const audienceSwitch = (
     <div className="inline-flex gap-2" role="group" aria-label="Who the classes are for">
       {(primaryIsAdult ? ["adult", "children"] : ["children", "adult"]).map((t) => (
@@ -649,38 +829,41 @@ const ClassBrowser = () => {
         />
         <div className="mt-5 sm:hidden">{audienceSwitch}</div>
 
-        {/* Filters and sort — quiet, below the heading */}
+        {/* Where, what, and how to look at it — one calm row below the heading */}
         {!loading && classes.length > 0 && (
           <div className="mt-8 space-y-3">
-            {venueOptions.length >= 2 && (
-              <ChipRow>
-                <Chip selected={venueFilter === "all"} onClick={() => setVenueFilter("all")}>All venues</Chip>
-                {venueOptions.map((v) => (
-                  <Chip key={v.id} selected={venueFilter === v.id} onClick={() => setVenueFilter(v.id)}>{v.name}</Chip>
-                ))}
-              </ChipRow>
-            )}
-            {styleOptions.length >= 2 && (
-              <ChipRow>
-                <Chip selected={styleFilter === "all"} onClick={() => setStyleFilter("all")}>All styles</Chip>
-                {styleOptions.map((s) => (
-                  <Chip key={s} selected={styleFilter === s} onClick={() => setStyleFilter(s)}>{s}</Chip>
-                ))}
-              </ChipRow>
-            )}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              {venueRows.length >= 2 && (
+                <VenuePicker
+                  className="sm:w-auto sm:min-w-[300px] sm:max-w-sm"
+                  venues={venueRows}
+                  value={venueFilter}
+                  onChange={setVenueFilter}
+                  totalCount={classes.length}
+                  above={nearMeBlock}
+                />
+              )}
+              {styleOptions.length >= 2 && (
+                <FilterPill
+                  label="Style"
+                  value={styleFilter === "all" ? null : styleFilter}
+                  onClick={() => setStyleSheetOpen(true)}
+                />
+              )}
+              <SegmentedControl<ViewMode>
+                className="ml-auto"
+                ariaLabel="How to show the classes"
+                value={view}
+                onChange={setView}
+                segments={[
+                  { id: "list", label: "List", icon: <LayoutGrid className="h-4 w-4" aria-hidden /> },
+                  { id: "calendar", label: "Calendar", icon: <CalendarDays className="h-4 w-4" aria-hidden /> },
+                ]}
+              />
+            </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 pt-1 text-[13px] text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-[13px] text-muted-foreground">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                {!searchOpen && !searchCoords && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchOpen(true)}
-                    className="pressable -my-2 inline-flex min-h-10 items-center gap-1.5 rounded-md font-medium text-foreground underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
-                  >
-                    <MapPin className="h-3.5 w-3.5 text-primary" aria-hidden />
-                    Near me
-                  </button>
-                )}
                 {sortedFrom && (
                   <span>
                     Sorted by distance from <span className="font-medium text-foreground">{sortedFrom}</span>
@@ -704,27 +887,6 @@ const ClassBrowser = () => {
                 </p>
               )}
             </div>
-
-            {searchOpen && (
-              <form onSubmit={submitPostcode} className="flex max-w-md items-center gap-2 pt-1">
-                <Input
-                  aria-label="Your postcode"
-                  placeholder="Your postcode"
-                  autoFocus
-                  autoComplete="postal-code"
-                  value={postcode}
-                  onChange={(e) => setPostcode(e.target.value)}
-                  className="h-12 rounded-xl text-base"
-                />
-                <Button type="submit" variant="ink" className="h-12 shrink-0 rounded-xl px-5" disabled={searchLoading || !postcode.trim()}>
-                  {searchLoading ? "Searching…" : "Search"}
-                </Button>
-                <Button type="button" variant="ghost" className="h-12 shrink-0 rounded-xl" onClick={closeSearch}>
-                  Cancel
-                </Button>
-              </form>
-            )}
-            {searchError && <p className="text-[13px] text-destructive">{searchError}</p>}
           </div>
         )}
 
@@ -772,9 +934,62 @@ const ClassBrowser = () => {
         {section === "classes" && (
           <section id="section-classes" className="mt-8 scroll-mt-40 md:scroll-mt-52" aria-label="Classes">
             {loading ? (
-              <div className={CARD_GRID}>
-                {Array.from({ length: 6 }).map((_, i) => <ClassCardSkeleton key={i} />)}
-              </div>
+              view === "calendar" ? (
+                <div className="space-y-6">
+                  <div className="flex gap-2 overflow-hidden">
+                    {Array.from({ length: 7 }).map((_, i) => (
+                      <Bone key={i} className="h-[68px] w-[54px] shrink-0 rounded-2xl" />
+                    ))}
+                  </div>
+                  <ListRowsSkeleton rows={6} />
+                </div>
+              ) : (
+                <div className={CARD_GRID}>
+                  {Array.from({ length: 6 }).map((_, i) => <ClassCardSkeleton key={i} />)}
+                </div>
+              )
+            ) : view === "calendar" ? (
+              <>
+                {calendarWindow?.backOn && (
+                  <QuietNotice
+                    className="mb-6"
+                    title={`We're on a break — classes are back ${format(parseISO(calendarWindow.backOn), "EEEE d MMMM")}.`}
+                  >
+                    Here's the start of the new term so you can plan (and book) ahead.
+                  </QuietNotice>
+                )}
+                <ClassCalendar
+                  days={stripDays}
+                  day={shownDay}
+                  onChangeDay={(d) => { setCalendarDay(d); setCalendarAllDays(false); }}
+                  onAllDays={() => setCalendarAllDays(true)}
+                  groups={visibleGroups}
+                  horizonLabel="next 3 weeks"
+                  onOpen={(id) => navigate(classLinkPath(id))}
+                  onPrimary={(row) => {
+                    const c = classes.find((x) => x.id === row.classId);
+                    if (c) handlePrimary(c, row.state);
+                  }}
+                  empty={
+                    filtersActive ? (
+                      <EmptyState
+                        title="Nothing at this venue in the next three weeks"
+                        body="Try another venue or style, or show everything."
+                        action={
+                          <Button variant="soft" className="h-11 rounded-full px-5" onClick={() => { setVenueFilter("all"); setStyleFilter("all"); }}>
+                            Show all classes
+                          </Button>
+                        }
+                      />
+                    ) : (
+                      <EmptyState
+                        title="No upcoming sessions"
+                        body="Check back soon — new classes are added each term."
+                      />
+                    )
+                  }
+                />
+              </>
             ) : visibleClasses.length === 0 ? (
               filtersActive ? (
                 <EmptyState
@@ -808,12 +1023,7 @@ const ClassBrowser = () => {
                       highlighted={highlightId === c.id}
                       busy={waitlistBusy === c.id}
                       onOpen={() => navigate(classLinkPath(c.id))}
-                      onPrimary={() => {
-                        if (data.state === "full") { toggleWaitlist(c.id, c.name); return; }
-                        if (data.state !== "bookable") return;
-                        if (!user) { navigate("/auth"); return; }
-                        setQuickBookClassId(c.id);
-                      }}
+                      onPrimary={() => handlePrimary(c, data.state)}
                     />
                   );
                 })}
@@ -974,6 +1184,23 @@ const ClassBrowser = () => {
           </section>
         )}
       </div>
+
+      {/* Style picker — counts follow the chosen venue */}
+      <ChoiceSheet
+        open={styleSheetOpen}
+        onOpenChange={setStyleSheetOpen}
+        title="Style"
+        description="Narrow the classes to one style."
+        value={styleFilter}
+        onChange={setStyleFilter}
+        options={[
+          { id: "all", label: "All styles", meta: `${sortedClasses.length} ${sortedClasses.length === 1 ? "class" : "classes"}` },
+          ...styleOptions.map((s) => {
+            const n = sortedClasses.filter((x) => x.cls.dance_style === s).length;
+            return { id: s, label: s, meta: `${n} ${n === 1 ? "class" : "classes"}`, disabled: n === 0 };
+          }),
+        ]}
+      />
 
       <QuickBookDialog
         open={!!quickBookClassId}

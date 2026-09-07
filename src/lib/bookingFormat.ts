@@ -52,6 +52,23 @@ export const availabilityFor = (capacity: number | null | undefined, enrolled: n
   return { tone: "open", label: "Spaces available", left };
 };
 
+/** "45 min", "1 hr", "1 hr 15" — how long a session runs, from its times. */
+export const durationLabel = (start?: string | null, end?: string | null): string => {
+  const mins = (t?: string | null) => {
+    const m = /^(\d{1,2}):(\d{2})/.exec(t ?? "");
+    return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+  };
+  const a = mins(start);
+  const b = mins(end);
+  if (a == null || b == null || b <= a) return "";
+  const total = b - a;
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h === 0) return `${m} min`;
+  if (m === 0) return `${h} hr`;
+  return `${h} hr ${m}`;
+};
+
 /** Initials for an avatar: "Maia Woods" → "MW". */
 export const initialsFor = (first?: string | null, last?: string | null): string =>
   `${(first ?? "").charAt(0)}${(last ?? "").charAt(0)}`.toUpperCase() || "?";

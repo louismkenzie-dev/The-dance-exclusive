@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useCart } from "@/contexts/CartContext";
-import { Button } from "@/components/ui/button";
-import { ShoppingCart, Check } from "lucide-react";
+import { ShoppingBag, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const CartButton = () => {
   const { itemCount, setIsOpen, lastAdded } = useCart();
@@ -29,44 +29,44 @@ const CartButton = () => {
 
   return (
     <div className="relative">
-      <Button
-        variant="ghost"
-        size="icon"
-        className={`relative text-foreground hover:text-primary transition-transform ${bump ? "animate-cart-bump" : ""}`}
+      <button
+        type="button"
+        className={cn(
+          "pressable relative inline-flex h-11 w-11 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background",
+          bump && "animate-cart-bump",
+        )}
         onClick={() => setIsOpen(true)}
-        aria-label="Open basket"
+        aria-label={itemCount > 0 ? `Open basket, ${itemCount} ${itemCount === 1 ? "item" : "items"}` : "Open basket"}
       >
-        <ShoppingCart className="w-5 h-5" />
+        <ShoppingBag className="h-[22px] w-[22px]" strokeWidth={1.75} />
         {itemCount > 0 && (
           <span
             key={itemCount}
-            className={`absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center ${bump ? "animate-badge-pop" : ""}`}
+            className={cn(
+              "absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold leading-none text-primary-foreground ring-2 ring-background",
+              bump && "animate-badge-pop",
+            )}
+            aria-hidden
           >
             {itemCount}
           </span>
         )}
-      </Button>
+      </button>
 
-      {/* Anchored popup with arrow pointing UP to the basket icon */}
+      {/* Anchored confirmation with an arrow pointing up to the basket icon */}
       {showPopup && lastAdded && (
-        <div className="absolute right-0 top-full mt-3 z-50 animate-fade-in pointer-events-none">
-          {/* Arrow */}
-          <div
-            className="absolute -top-1.5 right-4 w-3 h-3 rotate-45 border-l border-t border-primary/40"
-            style={{ background: "hsl(var(--card))" }}
-          />
-          <div className="relative w-64 rounded-lg border border-primary/40 bg-card shadow-xl shadow-primary/20 px-3 py-2.5">
-            <div className="flex items-start gap-2.5">
-              <div className="mt-0.5 flex-shrink-0 w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
-                <Check className="w-3.5 h-3.5 text-primary" />
+        <div className="pointer-events-none absolute right-0 top-full z-50 mt-3 animate-fade-in" role="status">
+          <div className="absolute -top-1.5 right-4 h-3 w-3 rotate-45 border-l border-t border-border bg-card" aria-hidden />
+          <div className="surface relative w-64 px-3.5 py-3">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-success/10">
+                <Check className="h-3.5 w-3.5 text-success" strokeWidth={3} />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-primary">Added to basket</p>
-                <p className="text-sm font-semibold text-foreground truncate">
-                  {lastAdded.item.className}{" "}
-                  <span className="text-muted-foreground font-normal text-xs">
-                    ({lastAdded.item.classType === "adult" ? "Adults" : "Children"})
-                  </span>
+                <p className="text-[13px] font-medium text-muted-foreground">Added to basket</p>
+                <p className="truncate text-[15px] font-semibold text-foreground">{lastAdded.item.className}</p>
+                <p className="text-[13px] text-muted-foreground">
+                  {lastAdded.item.classType === "adult" ? "Adult class" : "Children's class"}
                 </p>
               </div>
             </div>

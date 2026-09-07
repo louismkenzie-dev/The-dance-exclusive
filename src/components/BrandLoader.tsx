@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import logo from "@/assets/logo-avatar-512.png";
 
 /** Full-screen branded loading state: the logo splat animation (rendered with
- *  Remotion, public/brand/loading-splat.mp4) on the app's dark background.
+ *  Remotion, public/brand/loading-splat.mp4) on the app's background.
  *  Falls back to the static logo for reduced-motion users or if the video
- *  can't play. The backdrop colour matches the video's baked-in background so
- *  the frame edge is invisible. */
+ *  can't play. On the dark themes the backdrop matches the video's baked-in
+ *  background so the frame edge is invisible; on the light booking theme the
+ *  animation sits as a rounded brand tile. */
 /** The splat animation on its own, for inline loading states (e.g. payment
  *  confirmation). Renders the static logo for reduced-motion users or when
  *  the video can't play. Give it a size via className; note the video has the
@@ -23,7 +24,7 @@ export const SplatVideo = ({ className = "" }: { className?: string }) => {
   }, []);
 
   if (reducedMotion || videoFailed) {
-    return <img src={logo} alt="" className={`animate-pulse ${className}`} />;
+    return <img src={logo} alt="" className={`animate-pulse rounded-2xl ${className}`} />;
   }
   return (
     <video
@@ -42,16 +43,10 @@ const BrandLoader = ({ label = "Loading" }: { label?: string }) => (
   <div
     role="status"
     aria-label={label}
-    className="min-h-screen flex flex-col items-center justify-center"
-    style={{ backgroundColor: "hsl(220, 20%, 4%)" }}
+    className="flex min-h-screen flex-col items-center justify-center gap-5 bg-background text-foreground"
   >
-    <SplatVideo className="w-56 h-56 md:w-72 md:h-72" />
-    <p
-      className="text-xs uppercase tracking-[0.3em] animate-pulse"
-      style={{ color: "hsl(193, 100%, 44%)", fontFamily: "var(--font-body)" }}
-    >
-      {label}
-    </p>
+    <SplatVideo className="h-48 w-48 md:h-56 md:w-56" />
+    <p className="animate-pulse text-[13px] font-medium text-muted-foreground">{label}</p>
   </div>
 );
 

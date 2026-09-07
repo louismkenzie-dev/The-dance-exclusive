@@ -1,15 +1,35 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
+import { Bone, SectionHeading, SuccessCheck, TextSkeleton } from "@/components/booking";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react";
-import logo from "@/assets/logo-dark.png";
+import { Eye, EyeOff } from "lucide-react";
+import logo from "@/assets/logo.png";
 
 type Status = "verifying" | "ready" | "invalid" | "success";
+
+const inputClass = "h-12 rounded-xl text-base";
+const labelClass = "text-[13px] font-medium text-foreground";
+const eyeButtonClass =
+  "absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
+/** Same shell as the sign-in page: light product theme, centred card. */
+const AuthShell = ({ title, subtitle, children }: { title?: ReactNode; subtitle?: ReactNode; children: ReactNode }) => (
+  <div className="theme-children portal-ui min-h-screen bg-background text-foreground">
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-4 py-10">
+      <div className="w-full animate-rise-in">
+        <div className="mb-6 text-center">
+          <img src={logo} alt="The Dance Exclusive" className="mx-auto mb-4 h-20 w-20 object-contain" />
+          {title && <SectionHeading as="h1" size="page" title={title} subtitle={subtitle} className="justify-center text-center" />}
+        </div>
+        <div className="surface p-5 sm:p-8">{children}</div>
+      </div>
+    </div>
+  </div>
+);
 
 const ResetPassword = () => {
   const [password, setPassword] = useState("");
@@ -141,124 +161,93 @@ const ResetPassword = () => {
     setTimeout(() => navigate(isAdmin ? "/admin" : isStaff ? "/staff" : "/", { replace: true }), 1200);
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 relative">
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-primary/5 rounded-full blur-3xl" />
-      </div>
-
-      <div className="w-full max-w-md animate-fade-in relative z-10">
-        <div className="text-center mb-8">
-          <img src={logo} alt="The Dance Exclusive" className="w-24 h-24 object-contain mx-auto mb-4" />
+  if (status === "verifying") {
+    return (
+      <AuthShell>
+        <div role="status" aria-live="polite">
+          <Bone className="mx-auto h-6 w-48" />
+          <TextSkeleton lines={2} className="mt-5" />
+          <p className="mt-5 text-center text-[13px] text-muted-foreground">Verifying your reset link…</p>
         </div>
+      </AuthShell>
+    );
+  }
 
-        {status === "verifying" && (
-          <Card className="border-border/50 bg-card/80 backdrop-blur">
-            <CardContent className="pt-6 pb-6 text-center">
-              <div className="w-10 h-10 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-muted-foreground text-sm">Verifying your reset link...</p>
-            </CardContent>
-          </Card>
-        )}
+  if (status === "invalid") {
+    return (
+      <AuthShell title="Link expired" subtitle="This reset link is no longer valid">
+        <p className="text-[15px] leading-relaxed text-muted-foreground">
+          {isStaffInvite
+            ? "This invite link has already been used or has expired — each link only works once. Pop your email in on the next screen and we'll send you a fresh one straight away."
+            : (errorMsg || "This password reset link is invalid or has expired. Please request a new one.")}
+        </p>
+        <Button onClick={() => navigate("/auth?forgot=1")} size="xl" className="mt-6 w-full rounded-full">
+          Send me a new link
+        </Button>
+      </AuthShell>
+    );
+  }
 
-        {status === "invalid" && (
-          <>
-            <div className="text-center mb-6">
-              <h1 className="text-3xl font-display font-bold text-foreground tracking-wide">Link expired</h1>
-              <p className="text-muted-foreground mt-2 text-sm">This reset link is no longer valid</p>
-            </div>
-            <Card className="border-destructive/30 bg-card/80 backdrop-blur">
-              <CardContent className="pt-6 pb-6">
-                <div className="flex items-start gap-3 mb-5">
-                  <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {isStaffInvite
-                      ? "This invite link has already been used or has expired — each link only works once. Pop your email in on the next screen and we'll send you a fresh one straight away."
-                      : (errorMsg || "This password reset link is invalid or has expired. Please request a new one.")}
-                  </p>
-                </div>
-                <Button onClick={() => navigate("/auth?forgot=1")} className="w-full font-semibold">
-                  Send me a new link
-                </Button>
-              </CardContent>
-            </Card>
-          </>
-        )}
+  if (status === "success") {
+    return (
+      <AuthShell title="Password set">
+        <div className="text-center" role="status">
+          <SuccessCheck size={72} />
+          <p className="mt-4 text-[15px] text-muted-foreground">You're signed in — taking you through now…</p>
+        </div>
+      </AuthShell>
+    );
+  }
 
-        {status === "success" && (
-          <>
-            <div className="text-center mb-6">
-              <h1 className="text-3xl font-display font-bold text-foreground tracking-wide">Password set</h1>
-            </div>
-            <Card className="border-border/50 bg-card/80 backdrop-blur">
-              <CardContent className="pt-6 pb-6 text-center">
-                <CheckCircle2 className="h-12 w-12 text-primary mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">You're signed in — taking you through now…</p>
-              </CardContent>
-            </Card>
-          </>
-        )}
-
-        {status === "ready" && (
-          <>
-            <div className="text-center mb-6">
-              <h1 className="text-3xl font-display font-bold text-foreground tracking-wide">
-                {isStaffInvite ? "Welcome to the team" : "Set new password"}
-              </h1>
-              <p className="text-muted-foreground mt-2 text-sm">
-                {isStaffInvite
-                  ? "Choose a password for your staff login — you'll use it with your email address from now on"
-                  : "Choose a new password for your account"}
-              </p>
-            </div>
-            <Card className="border-border/50 bg-card/80 backdrop-blur">
-              <CardContent className="pt-6">
-                <form onSubmit={handleReset} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="new-password">New password</Label>
-                    <div className="relative">
-                      <Input
-                        id="new-password"
-                        type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        minLength={6}
-                        placeholder="Min 6 characters"
-                        className="pr-10"
-                        autoFocus
-                      />
-                      <button
-                        type="button"
-                        aria-label={showPassword ? "Hide password" : "Show password"}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="confirm-password">Confirm password</Label>
-                    <Input
-                      id="confirm-password"
-                      type={showPassword ? "text" : "password"}
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required
-                      placeholder="Repeat password"
-                    />
-                  </div>
-                  <Button type="submit" className="w-full font-semibold" disabled={loading}>
-                    {loading ? "Updating..." : "Update password"}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </>
-        )}
-      </div>
-    </div>
+  return (
+    <AuthShell
+      title={isStaffInvite ? "Welcome to the team" : "Set new password"}
+      subtitle={isStaffInvite
+        ? "Choose a password for your staff login — you'll use it with your email address from now on"
+        : "Choose a new password for your account"}
+    >
+      <form onSubmit={handleReset} className="space-y-5">
+        <div className="space-y-2">
+          <Label htmlFor="new-password" className={labelClass}>New password</Label>
+          <div className="relative">
+            <Input
+              id="new-password"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              placeholder="Min 6 characters"
+              className={`${inputClass} pr-12`}
+              autoFocus
+            />
+            <button
+              type="button"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              className={eyeButtonClass}
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            </button>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="confirm-password" className={labelClass}>Confirm password</Label>
+          <Input
+            id="confirm-password"
+            type={showPassword ? "text" : "password"}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+            placeholder="Repeat password"
+            className={inputClass}
+          />
+        </div>
+        <Button type="submit" size="xl" className="w-full rounded-full" disabled={loading}>
+          {loading ? "Updating…" : "Update password"}
+        </Button>
+      </form>
+    </AuthShell>
   );
 };
 

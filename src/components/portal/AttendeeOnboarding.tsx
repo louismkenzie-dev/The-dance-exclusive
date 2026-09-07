@@ -1,18 +1,18 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+import { ResponsiveSheet } from "@/components/booking";
 import { Button } from "@/components/ui/button";
-import { Baby, User, Users, Sparkles } from "lucide-react";
+import { Baby, ChevronRight, User, Users, type LucideIcon } from "lucide-react";
 import { ChildFormDialog } from "@/components/portal/ChildFormDialog";
 
 type Choice = "parent_only" | "adult_dancer" | "both";
+
+const OPTIONS: { id: Choice; title: string; subtitle: string; icon: LucideIcon }[] = [
+  { id: "parent_only", title: "My child / children", subtitle: "Add their details to book kids' classes", icon: Baby },
+  { id: "adult_dancer", title: "Me — I'm the dancer", subtitle: "Set up your own profile for adult classes", icon: User },
+  { id: "both", title: "Both", subtitle: "Me and my children", icon: Users },
+];
 
 /**
  * First-run onboarding for a freshly signed-up parent: as soon as they reach
@@ -78,46 +78,43 @@ const AttendeeOnboarding = () => {
 
   return (
     <>
-      <Dialog open={show} onOpenChange={(o) => { if (!o) dismiss(); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" /> Welcome to The Dance Exclusive!
-            </DialogTitle>
-            <DialogDescription>
-              Let's set up who'll be dancing so you can book classes. Who are you booking for?
-            </DialogDescription>
-          </DialogHeader>
+      <ResponsiveSheet
+        open={show}
+        onOpenChange={(o) => { if (!o) dismiss(); }}
+        title="Welcome to The Dance Exclusive"
+        description="Let's set up who'll be dancing so you can book classes. Who are you booking for?"
+        themeClass="portal-ui"
+      >
+        <div className="space-y-2 pt-1" role="group" aria-label="Who are you booking for?">
+          {OPTIONS.map(({ id, title, subtitle, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => choose(id)}
+              className="pressable flex w-full items-center gap-3 rounded-2xl border border-border bg-card px-3.5 py-3 text-left transition-colors hover:border-foreground/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-foreground">
+                <Icon className="h-5 w-5" strokeWidth={1.75} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-semibold text-foreground">{title}</span>
+                <span className="block text-[13px] text-muted-foreground">{subtitle}</span>
+              </span>
+              <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+            </button>
+          ))}
+        </div>
 
-          <div className="grid gap-3 py-2">
-            <Button variant="outline" className="h-auto py-3 justify-start gap-3" onClick={() => choose("parent_only")}>
-              <Baby className="w-5 h-5 text-primary shrink-0" />
-              <span className="text-left">
-                <span className="block font-semibold">My child / children</span>
-                <span className="block text-xs text-muted-foreground normal-case">Add their details to book kids' classes</span>
-              </span>
-            </Button>
-            <Button variant="outline" className="h-auto py-3 justify-start gap-3" onClick={() => choose("adult_dancer")}>
-              <User className="w-5 h-5 text-accent shrink-0" />
-              <span className="text-left">
-                <span className="block font-semibold">Me — I'm the dancer</span>
-                <span className="block text-xs text-muted-foreground normal-case">Set up your own profile for adult classes</span>
-              </span>
-            </Button>
-            <Button variant="outline" className="h-auto py-3 justify-start gap-3" onClick={() => choose("both")}>
-              <Users className="w-5 h-5 text-primary shrink-0" />
-              <span className="text-left">
-                <span className="block font-semibold">Both</span>
-                <span className="block text-xs text-muted-foreground normal-case">Me and my children</span>
-              </span>
-            </Button>
-          </div>
-
-          <button onClick={dismiss} className="text-xs text-muted-foreground hover:text-foreground mx-auto">
-            I'll do this later
-          </button>
-        </DialogContent>
-      </Dialog>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={dismiss}
+          className="mt-4 w-full text-muted-foreground hover:text-foreground"
+        >
+          I'll do this later
+        </Button>
+      </ResponsiveSheet>
 
       <ChildFormDialog
         open={childOpen}

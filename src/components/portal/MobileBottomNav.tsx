@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { CalendarDays, Home, Sparkles, Ticket, User } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 /**
  * App-style tab bar for phones. The five places a parent actually goes live
@@ -20,29 +21,27 @@ const MobileBottomNav = () => {
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur-md"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur-md md:hidden"
       aria-label="Main"
     >
-      <div className="grid grid-cols-5">
+      <div className="grid h-14 grid-cols-5">
         {TABS.map(({ to, label, icon: Icon, active }) => {
           const isActive = active(pathname);
           return (
             <Link
               key={to}
               to={to}
-              className={`flex flex-col items-center justify-center gap-0.5 py-2 min-h-[52px] transition-colors ${
-                isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
-              }`}
+              className={cn(
+                "relative flex flex-col items-center justify-center gap-1 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+              )}
               aria-current={isActive ? "page" : undefined}
             >
-              <Icon className={`w-5 h-5 ${isActive ? "" : "opacity-80"}`} />
-              <span
-                className="text-[10px] font-semibold tracking-wide"
-                style={{ textTransform: "none", letterSpacing: "0.02em", fontFamily: "var(--font-body)" }}
-              >
-                {label}
-              </span>
+              {isActive && (
+                <span className="absolute left-1/2 top-0 h-0.5 w-8 -translate-x-1/2 rounded-b-full bg-foreground" aria-hidden />
+              )}
+              <Icon className="h-[22px] w-[22px]" strokeWidth={isActive ? 2.25 : 1.75} />
+              <span className={cn("text-[11px] leading-none", isActive ? "font-semibold" : "font-medium")}>{label}</span>
             </Link>
           );
         })}

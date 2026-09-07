@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
+import { MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -674,8 +675,9 @@ const ClassBrowser = () => {
                   <button
                     type="button"
                     onClick={() => setSearchOpen(true)}
-                    className="rounded-md font-medium text-foreground underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+                    className="pressable -my-2 inline-flex min-h-10 items-center gap-1.5 rounded-md font-medium text-foreground underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
                   >
+                    <MapPin className="h-3.5 w-3.5 text-primary" aria-hidden />
                     Near me
                   </button>
                 )}

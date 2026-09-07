@@ -46,6 +46,9 @@ const toValue = ({ day, month, year }: Parts) =>
     ? `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
     : "";
 
+// The same premium field shape as the journey's inputs (h-12, 12px radius).
+const TRIGGER_CLASS = "h-12 rounded-xl border-input bg-background px-3 text-base";
+
 /**
  * Fast date-of-birth entry for parents: three dropdowns (Day / Month / Year)
  * instead of a calendar to page through. Controlled on a yyyy-MM-dd string —
@@ -80,26 +83,26 @@ const DateOfBirthPicker = ({ value, onChange, minYear, maxYear, id, className, p
   return (
     <div className={cn("grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1.2fr)] gap-2", className)}>
       <Select value={parts.day != null ? String(parts.day) : ""} onValueChange={(v) => setPart({ day: Number(v) })}>
-        <SelectTrigger id={id} aria-label="Day of birth" className="px-2.5">
+        <SelectTrigger id={id} aria-label="Day of birth" className={TRIGGER_CLASS}>
           <SelectValue placeholder="Day" />
         </SelectTrigger>
-        <SelectContent className={popoverClassName}>
+        <SelectContent className={cn("rounded-xl", popoverClassName)}>
           {days.map((d) => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}
         </SelectContent>
       </Select>
       <Select value={parts.month != null ? String(parts.month) : ""} onValueChange={(v) => setPart({ month: Number(v) })}>
-        <SelectTrigger aria-label="Month of birth" className="px-2.5">
+        <SelectTrigger aria-label="Month of birth" className={TRIGGER_CLASS}>
           <SelectValue placeholder="Month" />
         </SelectTrigger>
-        <SelectContent className={popoverClassName}>
+        <SelectContent className={cn("rounded-xl", popoverClassName)}>
           {MONTHS.map((m, i) => <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>)}
         </SelectContent>
       </Select>
       <Select value={parts.year != null ? String(parts.year) : ""} onValueChange={(v) => setPart({ year: Number(v) })}>
-        <SelectTrigger aria-label="Year of birth" className="px-2.5">
+        <SelectTrigger aria-label="Year of birth" className={TRIGGER_CLASS}>
           <SelectValue placeholder="Year" />
         </SelectTrigger>
-        <SelectContent className={popoverClassName}>
+        <SelectContent className={cn("rounded-xl", popoverClassName)}>
           {years.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
         </SelectContent>
       </Select>

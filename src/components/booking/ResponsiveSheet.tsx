@@ -65,8 +65,8 @@ export function ResponsiveSheet({
               {children}
             </div>
             {footer && (
-              <div className="shrink-0 border-t border-border bg-card px-5 pt-3 pb-3 pb-safe">
-                {footer}
+              <div className="shrink-0 border-t border-border bg-card pb-safe">
+                <div className="px-5 py-3">{footer}</div>
               </div>
             )}
           </DrawerPrimitive.Content>

@@ -37,7 +37,7 @@ export function DateStrip({ days, value, onChange, className, showMonths = true 
   return (
     <div
       ref={scroller}
-      className={cn("no-scrollbar -mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0", className)}
+      className={cn("no-scrollbar -mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1 scroll-pl-4 sm:mx-0 sm:px-0 sm:scroll-pl-0", className)}
       role="listbox"
       aria-label="Choose a date"
     >

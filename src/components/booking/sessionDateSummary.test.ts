@@ -1,19 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { allSelected, selectableIds, summariseSelection } from "./sessionDateSummary";
+import { allSelected, summariseSelection } from "./sessionDateSummary";
 
 const sessions = [
   { id: "a", date: "2026-09-14" },
-  { id: "b", date: "2026-09-21", inBasket: true },
+  { id: "b", date: "2026-09-21" },
   { id: "c", date: "2026-09-28" },
   { id: "d", date: "2026-10-05" },
 ];
 
-describe("selectableIds / allSelected", () => {
-  it("leaves out sessions already in the basket", () => {
-    expect(selectableIds(sessions)).toEqual(["a", "c", "d"]);
-  });
-  it("counts 'all' against the selectable ones only", () => {
-    expect(allSelected(sessions, ["a", "c", "d"])).toBe(true);
+describe("allSelected", () => {
+  it("is true only when every session is chosen", () => {
+    expect(allSelected(sessions, ["a", "b", "c", "d"])).toBe(true);
     expect(allSelected(sessions, ["a", "c"])).toBe(false);
     expect(allSelected([], [])).toBe(false);
   });

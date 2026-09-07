@@ -55,10 +55,10 @@ export function PlanPicker<T extends string>({ options, value, onChange, classNa
               {selected && <Check className="h-3 w-3" strokeWidth={3} />}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-2">
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="text-[15px] font-semibold text-foreground">{o.title}</span>
                 {o.badge && (
-                  <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-background">
+                  <span className="rounded-full bg-foreground px-2 py-0.5 text-[11px] font-semibold tracking-wide text-background">
                     {o.badge}
                   </span>
                 )}

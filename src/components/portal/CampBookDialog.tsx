@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
-import { CalendarDays, ShoppingCart, UserPlus } from "lucide-react";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { supabase } from "@/integrations/supabase/client";
 import { isAttendeeProfileComplete } from "@/lib/attendeeProfile";
 import { round2 } from "@/lib/pricing";
+import { formatPrice, initialsFor } from "@/lib/bookingFormat";
+import { ResponsiveSheet, AttendeePicker, Bone, type AttendeeOption } from "@/components/booking";
+import { BookingSection } from "@/components/booking/BookingSection";
+import { BookingSheetFooter } from "@/components/booking/BookingSheetFooter";
+import { BookingPromptCard } from "@/components/booking/BookingPromptCard";
+import { SessionDatePicker } from "@/components/booking/SessionDatePicker";
 
 interface CampSessionRow {
   id: string;
@@ -60,6 +64,8 @@ const getAge = (dob: string) => {
   return age;
 };
 
+const joinNotes = (parts: (string | null | false | undefined)[]) => parts.filter(Boolean).join(" · ");
+
 /** Book a holiday workshop (camp): pick days at the drop-in day price. */
 export function CampBookDialog({ open, onOpenChange, camp, children, onNeedChild }: CampBookDialogProps) {
   const { user } = useAuth();
@@ -68,11 +74,14 @@ export function CampBookDialog({ open, onOpenChange, camp, children, onNeedChild
   const [sessions, setSessions] = useState<CampSessionRow[]>([]);
   const [selDays, setSelDays] = useState<string[]>([]);
   const [selKids, setSelKids] = useState<string[]>([]);
+  // Presentation only: a skeleton row while the days load.
+  const [sessionsLoaded, setSessionsLoaded] = useState(false);
 
   useEffect(() => {
     if (!open || !camp) return;
     setSelDays([]);
     setSelKids([]);
+    setSessionsLoaded(false);
     const today = new Date().toISOString().split("T")[0];
     supabase
       .from("camp_sessions")
@@ -80,7 +89,7 @@ export function CampBookDialog({ open, onOpenChange, camp, children, onNeedChild
       .eq("camp_id", camp.id)
       .gte("session_date", today)
       .order("session_date")
-      .then(({ data }) => setSessions((data as any) ?? []));
+      .then(({ data }) => { setSessions((data as any) ?? []); setSessionsLoaded(true); });
   }, [open, camp?.id]);
 
   const eligibleChildren = useMemo(() => children.map((ch) => {
@@ -107,9 +116,6 @@ export function CampBookDialog({ open, onOpenChange, camp, children, onNeedChild
   const noKids = selKids.length === 0;
   const noDays = !wholeCampOnly && selDays.length === 0;
   const total = round2(pricePerChild * Math.max(selKids.length, 1));
-
-  const toggle = (list: string[], setList: (v: string[]) => void, id: string) =>
-    setList(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
 
   const handleAdd = () => {
     if (!user) { navigate("/auth"); return; }
@@ -171,135 +177,130 @@ export function CampBookDialog({ open, onOpenChange, camp, children, onNeedChild
     }
   };
 
+  // ── Presentation ──────────────────────────────────────────────────────
+
+  const themeClass = `${camp.class_type === "adult" ? "theme-adult" : "theme-children"} portal-ui`;
+  const people = isAdultCamp ? "people" : "children";
+  const person = isAdultCamp ? "person" : "child";
+
+  const attendeeOptions: AttendeeOption[] = eligibleChildren.map((ch) => ({
+    id: ch.id,
+    name: `${ch.first_name} ${ch.last_name}`,
+    subtitle: joinNotes([`Age ${ch.age}`, ch.alreadyAdded && "in basket"]),
+    initials: initialsFor(ch.first_name, ch.last_name),
+    disabled: !ch.eligible || ch.alreadyAdded,
+    disabledReason: !ch.eligible ? "Not in this age group" : "Already in your basket",
+  }));
+
+  const dayOptions = sessions.map((s) => ({ id: s.id, date: s.session_date, startTime: s.start_time, endTime: s.end_time }));
+
+  const kids = selKids.length;
+  const priceSummary = total > 0
+    ? {
+        amount: formatPrice(total),
+        note: wholeCampOnly
+          ? joinNotes([
+              sessions.length > 1 ? `Whole event · ${sessions.length} days` : "Whole event",
+              kids > 1 && `${formatPrice(pricePerChild)} × ${kids} ${people}`,
+            ])
+          : dayCount > 0
+            ? joinNotes([
+                `${formatPrice(perDay ?? 0)} × ${dayCount} ${dayCount === 1 ? "day" : "days"}`,
+                kids > 1 && `× ${kids} ${people}`,
+              ])
+            : "",
+      }
+    : null;
+
+  const ctaLabel = !user ? "Sign in to book"
+    : children.length === 0 ? (isAdultCamp ? "Complete profile" : "Add a child")
+    : noKids ? (isAdultCamp ? "Select attendee" : "Select child")
+    : noDays ? "Select days"
+    : "Add to basket";
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`max-w-lg max-h-dialog flex flex-col p-0 gap-0 ${camp.class_type === "adult" ? "theme-adult" : "theme-children"}`}>
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50">
-          <DialogTitle className="text-xl font-display">{camp.name}</DialogTitle>
-          <DialogDescription className="text-xs uppercase tracking-widest text-muted-foreground">
-            {isAdultCamp ? "Workshop / Event" : "Holiday Workshop"}
-            {camp.venues && <> · {camp.venues.name}</>}
-            {perDay != null && <> · £{perDay}/day</>}
-          </DialogDescription>
-        </DialogHeader>
+    <ResponsiveSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      title={camp.name}
+      description={joinNotes([
+        isAdultCamp ? "Workshop / event" : "Holiday workshop",
+        camp.venues?.name,
+        perDay != null && `${formatPrice(perDay, { trimZeros: true })}/day`,
+      ])}
+      themeClass={themeClass}
+      bodyClassName="pt-1"
+      footer={
+        <BookingSheetFooter
+          amount={priceSummary?.amount}
+          note={priceSummary?.note || undefined}
+          hint={wholeCampOnly ? `Choose who's attending` : "Pick your days to see the price"}
+          action={
+            <Button
+              size="xl"
+              className="rounded-full px-6"
+              disabled={!!user && children.length > 0 && (noKids || noDays)}
+              onClick={() => {
+                if (!user) { navigate("/auth"); return; }
+                if (children.length === 0) { onNeedChild(null); return; }
+                handleAdd();
+              }}
+            >
+              {ctaLabel}
+            </Button>
+          }
+        />
+      }
+    >
+      <div className="space-y-7 pb-2">
+        {user && children.length === 0 && (
+          <BookingSection label="Who's attending">
+            <BookingPromptCard
+              title={isAdultCamp ? "Complete your attendee profile" : "Add your child to book them in"}
+              body={isAdultCamp
+                ? "We need your details for the register before you can book on."
+                : "Add your child's details and we'll keep them for every booking."}
+              actionLabel={isAdultCamp ? "Complete profile" : "Add a child"}
+              onAction={() => onNeedChild(null)}
+            />
+          </BookingSection>
+        )}
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
-          {user && children.length === 0 && (
-            <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/5 text-sm space-y-2">
-              <p>{isAdultCamp ? "Complete your attendee profile to book on." : "Add your child's details to book them in."}</p>
-              <Button size="sm" onClick={() => onNeedChild(null)} className="gap-1.5">
-                <UserPlus className="w-3.5 h-3.5" /> {isAdultCamp ? "Complete Profile" : "Add a Child"}
-              </Button>
+        {user && children.length > 0 && (
+          <BookingSection label={isAdultCamp ? "Booking for" : "Who's attending"}>
+            <AttendeePicker options={attendeeOptions} value={selKids} onChange={setSelKids} multiple />
+          </BookingSection>
+        )}
+
+        <BookingSection label="Days">
+          {!sessionsLoaded ? (
+            <div className="flex gap-2" aria-hidden>
+              {Array.from({ length: 4 }).map((_, i) => <Bone key={i} className="h-[68px] w-[54px] rounded-2xl" />)}
             </div>
-          )}
-
-          {user && children.length > 0 && (
-            <div className="space-y-1.5">
-              <p className="text-[11px] text-muted-foreground font-medium">{isAdultCamp ? "Booking for:" : "Select who to book on:"}</p>
-              {eligibleChildren.map((ch) => (
-                <label
-                  key={ch.id}
-                  className={`flex items-center gap-2.5 p-2 rounded-lg border text-sm transition-all ${
-                    !ch.eligible
-                      ? "opacity-40 cursor-not-allowed border-border/30 bg-muted/20"
-                      : ch.alreadyAdded
-                        ? "opacity-60 cursor-not-allowed border-green-500/30 bg-green-500/5"
-                        : selKids.includes(ch.id)
-                          ? "border-primary bg-primary/10 ring-1 ring-primary/30 cursor-pointer"
-                          : "border-border/50 bg-background/50 hover:border-border cursor-pointer"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selKids.includes(ch.id) || ch.alreadyAdded}
-                    disabled={!ch.eligible || ch.alreadyAdded}
-                    onChange={() => toggle(selKids, setSelKids, ch.id)}
-                    className="rounded border-border accent-primary w-4 h-4"
-                  />
-                  <span className="flex-1 text-foreground font-medium">
-                    {ch.first_name} {ch.last_name}
-                    <span className="text-muted-foreground font-normal ml-1">(age {ch.age})</span>
-                  </span>
-                  {!ch.eligible && <span className="text-[10px] text-amber-500">not in age group</span>}
-                  {ch.alreadyAdded && <span className="text-[10px] text-green-400">in basket</span>}
-                </label>
-              ))}
+          ) : !wholeCampOnly && sessions.length > 0 ? (
+            <SessionDatePicker
+              sessions={dayOptions}
+              value={selDays}
+              onChange={setSelDays}
+              multiple
+              selectAll
+              noun="day"
+              ariaLabel="Choose the days to attend"
+            />
+          ) : wholeCampOnly ? (
+            <div className="space-y-3">
+              {sessions.length > 0 && (
+                <SessionDatePicker sessions={dayOptions} value={[]} onChange={() => {}} readOnly noun="day" ariaLabel="Event days" />
+              )}
+              <p className="text-[13px] leading-relaxed text-muted-foreground">
+                Booked as the whole event{sessions.length > 1 ? ` (${sessions.length} days)` : ""} — {formatPrice(Number(camp.price_total || 0))} per {person}.
+              </p>
             </div>
+          ) : (
+            <p className="text-[13px] text-muted-foreground">No upcoming days to book yet.</p>
           )}
-
-          {!wholeCampOnly && sessions.length > 0 && (
-            <div className="space-y-2 pt-2 border-t border-border/30">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] text-muted-foreground font-medium">Pick the days to attend:</p>
-                <button
-                  onClick={() => setSelDays(selDays.length === sessions.length ? [] : sessions.map((s) => s.id))}
-                  className="text-[10px] text-primary hover:underline"
-                >
-                  {selDays.length === sessions.length ? "Deselect all" : "Select all"}
-                </button>
-              </div>
-              <div className="grid gap-1.5 max-h-48 overflow-y-auto pr-1">
-                {sessions.map((s) => (
-                  <label
-                    key={s.id}
-                    className={`flex items-center gap-2.5 p-2 rounded-lg border text-sm cursor-pointer transition-all ${
-                      selDays.includes(s.id)
-                        ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-                        : "border-border/50 bg-background/50 hover:border-border"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selDays.includes(s.id)}
-                      onChange={() => toggle(selDays, setSelDays, s.id)}
-                      className="rounded border-border accent-primary w-4 h-4"
-                    />
-                    <CalendarDays className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                    <span className="flex-1 text-foreground font-medium">{format(parseISO(s.session_date), "EEE d MMM yyyy")}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {s.start_time?.slice(0, 5)}{s.end_time ? ` – ${s.end_time.slice(0, 5)}` : ""}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {wholeCampOnly && (
-            <p className="text-xs text-muted-foreground">
-              Booked as the whole event{sessions.length > 1 ? ` (${sessions.length} days)` : ""} — £{Number(camp.price_total || 0).toFixed(2)} per {isAdultCamp ? "person" : "child"}.
-            </p>
-          )}
-        </div>
-
-        <div className="border-t border-border/50 px-6 py-4 flex items-center justify-between gap-3">
-          <div style={{ fontFamily: "var(--font-body)" }}>
-            {total > 0 && (
-              <span className="text-lg font-bold text-foreground">
-                £{total.toFixed(2).replace(/\.00$/, "")}
-                {!wholeCampOnly && dayCount > 0 && (
-                  <span className="text-xs font-normal text-muted-foreground ml-1">
-                    {dayCount} day{dayCount === 1 ? "" : "s"}{selKids.length > 1 ? ` × ${selKids.length} ${isAdultCamp ? "people" : "children"}` : ""}
-                  </span>
-                )}
-              </span>
-            )}
-          </div>
-          <Button
-            disabled={!!user && children.length > 0 && (noKids || noDays)}
-            onClick={() => {
-              if (!user) { navigate("/auth"); return; }
-              if (children.length === 0) { onNeedChild(null); return; }
-              handleAdd();
-            }}
-            className="uppercase tracking-wider text-xs font-semibold gap-1.5 text-white"
-            style={{ background: "hsl(193, 100%, 44%)" }}
-          >
-            <ShoppingCart className="w-3.5 h-3.5" />
-            {!user ? "Sign In to Book" : children.length === 0 ? (isAdultCamp ? "Complete Profile" : "Add a Child") : noKids ? (isAdultCamp ? "Select attendee" : "Select child") : noDays ? "Select days" : "Add to Basket"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </BookingSection>
+      </div>
+    </ResponsiveSheet>
   );
 }

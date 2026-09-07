@@ -1,31 +1,23 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
-import { CalendarDays, ShoppingCart, Sparkles, Tag, UserPlus } from "lucide-react";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart, type PricingPlan } from "@/contexts/CartContext";
 import { supabase } from "@/integrations/supabase/client";
 import { isAttendeeProfileComplete } from "@/lib/attendeeProfile";
 import { isChildAgeEligible } from "@/lib/classAudience";
 import { defaultChildPlan, offersMonthly, offersTermly, offersYearly } from "@/lib/classPlans";
+import { formatDay, formatPrice, formatTimeRange, initialsFor } from "@/lib/bookingFormat";
 import { ChildFormDialog } from "@/components/portal/ChildFormDialog";
-import TermSessionGroups from "@/components/TermSessionGroups";
+import { ResponsiveSheet, PlanPicker, AttendeePicker, type PlanOption, type AttendeeOption } from "@/components/booking";
+import { BookingSection } from "@/components/booking/BookingSection";
+import { BookingSheetFooter } from "@/components/booking/BookingSheetFooter";
+import { BookingPromptCard } from "@/components/booking/BookingPromptCard";
+import { MonthlyNoticeDialog } from "@/components/booking/MonthlyNoticeDialog";
+import { SessionDatePicker } from "@/components/booking/SessionDatePicker";
 import {
-  MONTHLY_MEMBERSHIP_NOTICE,
   MONTHLY_PAYMENT_INFO,
   UNLIMITED_CAP_INFO,
   monthlyPrice,
@@ -109,6 +101,12 @@ const getAge = (dob: string) => {
   return age;
 };
 
+const joinNotes = (parts: (string | null | false | undefined)[]) => parts.filter(Boolean).join(" · ");
+
+/**
+ * The booking sheet: a bottom sheet on a phone, a dialog on a desktop. Plan,
+ * who is attending, dates (for pay-as-you-go and trials), then one action.
+ */
 export function QuickBookDialog({
   open,
   onOpenChange,
@@ -174,16 +172,6 @@ export function QuickBookDialog({
   const priceTerm = termPrice(c, remaining);
   const termSavings = termlySavingsPercent();
   const yearlySavings = yearlySavingsPercent();
-
-  const accent = isAdult ? "hsl(330, 90%, 55%)" : "hsl(193, 100%, 44%)";
-
-  const toggleSession = (id: string) => {
-    setSelSessions(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
-  };
-
-  const toggleKid = (id: string) => {
-    setSelKids(prev => prev.includes(id) ? prev.filter(k => k !== id) : [...prev, id]);
-  };
 
   const isPickPlan = plan === "session" || plan === "trial";
 
@@ -386,372 +374,246 @@ export function QuickBookDialog({
     onOpenChange(false);
   };
 
+  // ── Presentation ──────────────────────────────────────────────────────
+
+  // Sheets portal to <body>, which carries the page theme; portal-ui keeps
+  // the title in the product face rather than the marketing headline face.
+  const themeClass = "portal-ui";
+
+  // The plan the class pre-selects for a child — the one worth recommending.
+  const recommendedPlan = isChildren ? defaultChildPlan(c, sessions.length > 0) : null;
+
+  const planOptions: PlanOption<PricingPlan>[] = [];
+  if (isChildren && isTrialEligible) {
+    planOptions.push({ id: "trial", title: "Trial class", meta: "The price of one class", price: formatPrice(priceTrial) });
+  }
+  if (!isChildren) {
+    planOptions.push({
+      id: "session",
+      title: "Pay as you go",
+      meta: "Pick your dates · move up to 24h before",
+      price: formatPrice(priceSession),
+      priceSuffix: "/class",
+    });
+  }
+  if (isChildren && offersMonthly(c)) {
+    planOptions.push({
+      id: "monthly",
+      title: "Monthly membership",
+      meta: "Rolling · billed on the 5th · 12th month free",
+      price: formatPrice(priceMonthly),
+      priceSuffix: "/month",
+      badge: recommendedPlan === "monthly" ? "Recommended" : undefined,
+    });
+  }
+  if (isChildren && offersTermly(c) && priceTerm != null && remaining > 0) {
+    planOptions.push({
+      id: "term",
+      title: "Pay for the term",
+      meta: `All ${remaining} sessions this term`,
+      price: formatPrice(priceTerm),
+      badge: `Save ${termSavings}%`,
+    });
+  }
+  if (isChildren && offersYearly(c)) {
+    planOptions.push({
+      id: "yearly",
+      title: "Pay for the year",
+      meta: "Sept–July · 38 weeks",
+      price: formatPrice(priceYearly),
+      badge: `Save ${yearlySavings}%`,
+    });
+  }
+
+  const attendeeOptions: AttendeeOption[] = eligibleChildren.map(ch => {
+    // Inline hint: only flag when at least one currently-picked session is already in THIS child's basket
+    const childBasket = isPickPlan ? childSessionsInBasket(ch.id) : new Set<string>();
+    const overlapCount = isPickPlan ? selSessions.filter(sid => childBasket.has(sid)).length : 0;
+    const showInBasketHint = (isPickPlan && overlapCount > 0) || (!isPickPlan && ch.hasFullPlanItem);
+    const hint = showInBasketHint ? (isPickPlan ? `${overlapCount} in basket` : "in basket") : null;
+    return {
+      id: ch.id,
+      name: `${ch.first_name} ${ch.last_name}`,
+      subtitle: joinNotes([`Age ${ch.age}`, hint]),
+      initials: initialsFor(ch.first_name, ch.last_name),
+      disabled: !ch.eligible,
+      disabledReason: "Not in this age group",
+    };
+  });
+
+  // Dates already in the basket for the current selection — a hint on the tile.
+  // Children: every selected child already has it. Adults: it is in their basket.
+  const adultBasket = !isChildren ? adultSessionsInBasket() : null;
+  const dateOptions = sessions.map(s => {
+    let inBasket = false;
+    if (isChildren) {
+      if (selKids.length > 0) inBasket = selKids.every(kid => childSessionsInBasket(kid).has(s.id));
+    } else {
+      inBasket = adultBasket!.has(s.id);
+    }
+    return { id: s.id, date: s.session_date, startTime: s.start_time, endTime: s.end_time, inBasket };
+  });
+
+  const kids = selKids.length;
+  const kidsNote = kids > 1 ? `${kids} children` : null;
+  const priceSummary = displayPrice
+    ? plan === "monthly"
+      ? { amount: formatPrice(displayPrice), suffix: "/month", note: joinNotes([kids > 1 && `${formatPrice(price || 0)} × ${kids} children`]) }
+      : plan === "term"
+        ? { amount: formatPrice(displayPrice), suffix: "/term", note: joinNotes([`All ${remaining} sessions`, kids > 1 && `${formatPrice(price || 0)} × ${kids} children`]) }
+        : plan === "yearly"
+          ? { amount: formatPrice(displayPrice), suffix: "/year", note: joinNotes(["Sept–July", kids > 1 && `${formatPrice(price || 0)} × ${kids} children`]) }
+          : plan === "trial"
+            ? { amount: formatPrice(displayPrice), suffix: undefined, note: joinNotes(["One trial class", kidsNote]) }
+            : {
+                amount: formatPrice(displayPrice),
+                suffix: undefined,
+                note: joinNotes([
+                  `${formatPrice(priceSession)} × ${sessionsSelected} ${sessionsSelected === 1 ? "session" : "sessions"}`,
+                  kids > 1 && `× ${kids} children`,
+                ]),
+              }
+    : null;
+  const priceHint = plan === "trial" ? "Pick a date for the trial" : "Pick your dates to see the price";
+
+  const ctaLabel = !user ? "Sign in to book"
+    : needsChild ? "Add a child"
+    : needsSelfProfile ? "Set up your profile"
+    : noSessionsSelected ? "Select dates"
+    : noKidsSelected ? "Select child"
+    : plan === "trial" ? "Book trial"
+    : selKids.length > 1 ? `Add ${selKids.length} to basket`
+    : "Add to basket";
+
+  const selfName = selfStudent ? `${selfStudent.first_name} ${selfStudent.last_name}` : null;
+
   return (
     <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-dialog flex flex-col p-0 gap-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50">
-          <DialogTitle className="text-xl font-display">{c.name}</DialogTitle>
-          <DialogDescription className="text-xs uppercase tracking-widest text-muted-foreground">
-            {c.day_of_week.charAt(0).toUpperCase() + c.day_of_week.slice(1)} · {c.start_time?.slice(0, 5)}–{c.end_time?.slice(0, 5)}
-            {c.venues && <> · {c.venues.name}</>}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
-          {/* Plan selector */}
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-widest text-muted-foreground/70 font-medium flex items-center gap-1">
-              <Tag className="w-3 h-3" /> Choose Your Plan
-            </p>
-            <div className="grid gap-2">
-              {isChildren && isTrialEligible && (
-                <button
-                  onClick={() => setPlan("trial")}
-                  className={`flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
-                    plan === "trial"
-                      ? "border-green-500 bg-green-500/10 ring-1 ring-green-500/30"
-                      : "border-green-500/30 bg-green-500/5 hover:border-green-500/50"
-                  }`}
-                >
-                  <div>
-                    <span className="font-semibold text-foreground flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-green-400" /> Trial Session
-                    </span>
-                    <span className="block text-[10px] text-muted-foreground">The price of one class — come have fun!</span>
-                  </div>
-                  <span className="font-bold text-green-400">£{priceTrial.toFixed(2).replace(/\.00$/, "")}</span>
-                </button>
-              )}
-              {!isChildren && (
-                <button
-                  onClick={() => setPlan("session")}
-                  className={`flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
-                    plan === "session"
-                      ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-                      : "border-border/50 bg-background/50 hover:border-border"
-                  }`}
-                >
-                  <div>
-                    <span className="font-semibold text-foreground">Pay As You Go</span>
-                    <span className="block text-[10px] text-muted-foreground">Pick the dates you want to attend · non-refundable, moveable up to 24h before</span>
-                  </div>
-                  <span className="font-bold text-foreground">£{priceSession}<span className="text-[10px] font-normal text-muted-foreground">/class</span></span>
-                </button>
-              )}
-              {isChildren && offersMonthly(c) && (
-                <button
-                  onClick={() => setPlan("monthly")}
-                  className={`flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
-                    plan === "monthly"
-                      ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-                      : "border-border/50 bg-background/50 hover:border-border"
-                  }`}
-                >
-                  <div>
-                    <span className="font-semibold text-foreground">Monthly Membership</span>
-                    <span className="block text-[10px] text-muted-foreground">Rolling monthly · billed on the 5th · 12th month free</span>
-                  </div>
-                  <span className="font-bold text-foreground">
-                    £{priceMonthly.toFixed(2)}
-                    <span className="text-[10px] font-normal text-muted-foreground">/mo</span>
-                  </span>
-                </button>
-              )}
-              {isChildren && offersTermly(c) && priceTerm != null && remaining > 0 && (
-                <button
-                  onClick={() => setPlan("term")}
-                  className={`flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
-                    plan === "term"
-                      ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-                      : "border-border/50 bg-background/50 hover:border-border"
-                  }`}
-                >
-                  <div>
-                    <span className="font-semibold text-foreground">Pay Termly</span>
-                    <span className="block text-[10px] text-muted-foreground">All {remaining} sessions this term, upfront</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="font-bold text-foreground">£{priceTerm.toFixed(2)}</span>
-                    <Badge className="ml-1.5 bg-green-500/20 text-green-400 border-green-500/30 text-[9px]">SAVE {termSavings}%</Badge>
-                  </div>
-                </button>
-              )}
-              {isChildren && offersYearly(c) && (
-                <button
-                  onClick={() => setPlan("yearly")}
-                  className={`relative flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
-                    plan === "yearly"
-                      ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-                      : "border-border/50 bg-background/50 hover:border-border"
-                  }`}
-                >
-                  <div className="absolute -top-2 right-2">
-                    <Badge className="bg-primary text-primary-foreground text-[9px] px-1.5 py-0">BEST DEAL</Badge>
-                  </div>
-                  <div>
-                    <span className="font-semibold text-foreground">Pay Yearly</span>
-                    <span className="block text-[10px] text-muted-foreground">Sept–July upfront · all 38 dance weeks</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="font-bold text-foreground">£{priceYearly.toFixed(2)}</span>
-                    <Badge className="ml-1.5 bg-green-500/20 text-green-400 border-green-500/30 text-[9px]">SAVE {yearlySavings}%</Badge>
-                  </div>
-                </button>
-              )}
+    <ResponsiveSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      title={c.name}
+      description={joinNotes([formatDay(c.day_of_week, "plural"), formatTimeRange(c.start_time, c.end_time), c.venues?.name])}
+      themeClass={themeClass}
+      bodyClassName="pt-1"
+      footer={
+        <BookingSheetFooter
+          amount={priceSummary?.amount}
+          amountSuffix={priceSummary?.suffix}
+          note={priceSummary?.note || undefined}
+          hint={priceHint}
+          action={
+            <Button
+              size="xl"
+              className="rounded-full px-6"
+              disabled={(needsChild || needsSelfProfile) ? false : (noKidsSelected || noSessionsSelected)}
+              onClick={() => {
+                if (needsChild) return setChildDialog({ editing: null, selfMode: false });
+                if (needsSelfProfile) return setChildDialog({ editing: selfStudent, selfMode: true });
+                // Monthly membership: explicit cancellation-notice acknowledgement first.
+                if (plan === "monthly") return setMonthlyNoticeOpen(true);
+                handleAddToCart();
+              }}
+            >
+              {ctaLabel}
+            </Button>
+          }
+        />
+      }
+    >
+      <div className="space-y-7 pb-2">
+        {/* Plan */}
+        <BookingSection label="Plan">
+          <PlanPicker<PricingPlan> options={planOptions} value={plan} onChange={setPlan} />
+          {plan === "monthly" && (
+            <div className="space-y-2 px-1 text-[13px] leading-relaxed text-muted-foreground">
+              <p>{MONTHLY_PAYMENT_INFO}</p>
+              {isChildren && <p>{UNLIMITED_CAP_INFO}</p>}
             </div>
-            {plan === "monthly" && (
-              <div className="space-y-1">
-                <p className="text-[10px] text-muted-foreground leading-relaxed">{MONTHLY_PAYMENT_INFO}</p>
-                {isChildren && (
-                  <p className="text-[10px] text-muted-foreground leading-relaxed">{UNLIMITED_CAP_INFO}</p>
-                )}
+          )}
+        </BookingSection>
+
+        {/* Who's attending — choose WHO before WHEN */}
+        {c.class_type === "children" && user && children.length > 0 && (
+          <BookingSection label="Who's attending">
+            {!hasEligible && (
+              <p className="text-[13px] text-warning">
+                None of your children are in the age range{c.age_min != null && c.age_max != null ? ` (ages ${c.age_min}–${c.age_max})` : ""}.
+              </p>
+            )}
+            <AttendeePicker
+              options={attendeeOptions}
+              value={selKids}
+              onChange={setSelKids}
+              multiple
+              onAdd={() => setChildDialog({ editing: null, selfMode: false })}
+              addLabel="Add a child"
+            />
+          </BookingSection>
+        )}
+
+        {c.class_type === "children" && user && children.length === 0 && (
+          <BookingSection label="Who's attending">
+            <BookingPromptCard
+              title="Add your child to book them in"
+              body="We'll pre-fill their arrival and pickup times from the class."
+              actionLabel="Add a child"
+              onAction={() => setChildDialog({ editing: null, selfMode: false })}
+            />
+          </BookingSection>
+        )}
+
+        {c.class_type === "adult" && user && (
+          <BookingSection label="Who's attending">
+            {needsSelfProfile ? (
+              <BookingPromptCard
+                title={selfStudent ? "Complete your attendee profile" : "Set up your attendee profile"}
+                body="We need your details for the class register — your age and any medical information."
+                actionLabel={selfStudent ? "Complete your profile" : "Set up your profile"}
+                onAction={() => setChildDialog({ editing: selfStudent, selfMode: true })}
+              />
+            ) : (
+              <div className="flex items-center gap-3 rounded-2xl border border-border bg-card px-3.5 py-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground">
+                  {initialsFor(selfStudent?.first_name, selfStudent?.last_name)}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[15px] font-semibold text-foreground">Booking for {selfName}</span>
+                  <span className="block text-[13px] text-muted-foreground">Your attendee profile</span>
+                </span>
               </div>
             )}
-          </div>
+          </BookingSection>
+        )}
 
-          {/* Children selector — choose WHO before WHEN */}
-          {c.class_type === "children" && user && children.length > 0 && (
-            <div className="space-y-1.5 pt-2 border-t border-border/30">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] text-muted-foreground font-medium">Select who to book on — add more than one and the price adds up:</p>
-                <button
-                  onClick={() => setChildDialog({ editing: null, selfMode: false })}
-                  className="text-[10px] text-primary hover:underline inline-flex items-center gap-0.5 shrink-0"
-                >
-                  <UserPlus className="w-3 h-3" /> Add a child
-                </button>
-              </div>
-              {!hasEligible && (
-                <p className="text-[11px] text-amber-500">
-                  None of your children are in the age range{c.age_min != null && c.age_max != null ? ` (ages ${c.age_min}–${c.age_max})` : ""}.
-                </p>
-              )}
-              {eligibleChildren.map(ch => {
-                // Inline hint: only flag when at least one currently-picked session is already in THIS child's basket
-                const childBasket = isPickPlan ? childSessionsInBasket(ch.id) : new Set<string>();
-                const overlapCount = isPickPlan
-                  ? selSessions.filter(sid => childBasket.has(sid)).length
-                  : 0;
-                const showInBasketHint = (isPickPlan && overlapCount > 0) || (!isPickPlan && ch.hasFullPlanItem);
-                return (
-                  <label
-                    key={ch.id}
-                    className={`flex items-center gap-2.5 p-2 rounded-lg border text-sm transition-all ${
-                      !ch.eligible
-                        ? "opacity-40 cursor-not-allowed border-border/30 bg-muted/20"
-                        : selKids.includes(ch.id)
-                          ? "border-primary bg-primary/10 ring-1 ring-primary/30 cursor-pointer"
-                          : "border-border/50 bg-background/50 hover:border-border cursor-pointer"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selKids.includes(ch.id)}
-                      disabled={!ch.eligible}
-                      onChange={() => toggleKid(ch.id)}
-                      className="rounded border-border accent-primary w-4 h-4"
-                    />
-                    <span className="flex-1 text-foreground font-medium">
-                      {ch.first_name} {ch.last_name}
-                      <span className="text-muted-foreground font-normal ml-1">(age {ch.age})</span>
-                    </span>
-                    {!ch.eligible && <span className="text-[10px] text-amber-500">not in age group</span>}
-                    {ch.eligible && showInBasketHint && (
-                      <span className="text-[10px] text-muted-foreground italic">
-                        {isPickPlan ? `${overlapCount} in basket` : "in basket"}
-                      </span>
-                    )}
-                  </label>
-                );
-              })}
-            </div>
-          )}
-
-          {c.class_type === "children" && user && children.length === 0 && (
-            <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/5 text-sm space-y-2">
-              <p>Add your child's details to book them in — we'll pre-fill their arrival and pickup times from the class.</p>
-              <Button size="sm" onClick={() => setChildDialog({ editing: null, selfMode: false })} className="gap-1.5">
-                <UserPlus className="w-3.5 h-3.5" /> Add a Child
-              </Button>
-            </div>
-          )}
-
-          {/* Drop-in: pick dates */}
-          {plan === "session" && sessions.length > 0 && (
-            <div className="space-y-2 pt-2 border-t border-border/30">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] text-muted-foreground font-medium">Select sessions to attend:</p>
-                <button
-                  onClick={() => setSelSessions(selSessions.length === sessions.length ? [] : sessions.map(s => s.id))}
-                  className="text-[10px] text-primary hover:underline"
-                >
-                  {selSessions.length === sessions.length ? "Deselect all" : "Select all"}
-                </button>
-              </div>
-              <div className="max-h-56 overflow-y-auto pr-1">
-                <TermSessionGroups
-                  sessions={sessions}
-                  dateOf={(s) => s.session_date}
-                  className="grid gap-1.5"
-                  renderSession={(s) => {
-                    const isSel = selSessions.includes(s.id);
-                    // Inline hint: only show "in basket" if relevant for the user's current selection.
-                    // Children: show when EVERY selected kid already has this session.
-                    // Adults: show when this session is in the adult cart.
-                    let inBasketForSelection = false;
-                    if (c.class_type === "children") {
-                      if (selKids.length > 0) {
-                        inBasketForSelection = selKids.every(kid => childSessionsInBasket(kid).has(s.id));
-                      }
-                    } else {
-                      inBasketForSelection = adultSessionsInBasket().has(s.id);
-                    }
-                    return (
-                      <label
-                        key={s.id}
-                        className={`flex items-center gap-2.5 p-2 rounded-lg border text-sm transition-all cursor-pointer ${
-                          isSel
-                            ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-                            : "border-border/50 bg-background/50 hover:border-border"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSel}
-                          onChange={() => toggleSession(s.id)}
-                          className="rounded border-border accent-primary w-4 h-4"
-                        />
-                        <CalendarDays className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                        <span className="flex-1 text-foreground font-medium">{format(parseISO(s.session_date), "EEE d MMM yyyy")}</span>
-                        {inBasketForSelection ? (
-                          <span className="text-[10px] text-muted-foreground italic">in basket</span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">{s.start_time?.slice(0, 5)} – {s.end_time?.slice(0, 5)}</span>
-                        )}
-                      </label>
-                    );
-                  }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Trial: pick one */}
-          {plan === "trial" && sessions.length > 0 && (
-            <div className="space-y-2 pt-2 border-t border-border/30">
-              <p className="text-[11px] text-muted-foreground font-medium">Pick your trial session:</p>
-              <div className="max-h-56 overflow-y-auto pr-1">
-                <TermSessionGroups
-                  sessions={sessions}
-                  dateOf={(s) => s.session_date}
-                  className="grid gap-1.5"
-                  renderSession={(s) => {
-                    const isSel = selSessions.includes(s.id);
-                    let inBasketForSelection = false;
-                    if (c.class_type === "children") {
-                      if (selKids.length > 0) {
-                        inBasketForSelection = selKids.every(kid => childSessionsInBasket(kid).has(s.id));
-                      }
-                    } else {
-                      inBasketForSelection = adultSessionsInBasket().has(s.id);
-                    }
-                    return (
-                      <label
-                        key={s.id}
-                        className={`flex items-center gap-2.5 p-2 rounded-lg border text-sm transition-all cursor-pointer ${
-                          isSel
-                            ? "border-green-500 bg-green-500/10 ring-1 ring-green-500/30"
-                            : "border-border/50 bg-background/50 hover:border-border"
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name={`qb-trial-${c.id}`}
-                          checked={isSel}
-                          onChange={() => setSelSessions([s.id])}
-                          className="accent-green-500 w-4 h-4"
-                        />
-                        <CalendarDays className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
-                        <span className="flex-1 text-foreground font-medium">{format(parseISO(s.session_date), "EEE d MMM yyyy")}</span>
-                        {inBasketForSelection ? (
-                          <span className="text-[10px] text-muted-foreground italic">in basket</span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">{s.start_time?.slice(0, 5)} – {s.end_time?.slice(0, 5)}</span>
-                        )}
-                      </label>
-                    );
-                  }}
-                />
-              </div>
-            </div>
-          )}
-
-        </div>
-
-
-        {/* Sticky footer */}
-        <div className="border-t border-border/50 px-6 py-4 flex items-center justify-between gap-3">
-          <div style={{ fontFamily: "var(--font-body)" }}>
-            {displayPrice ? (
-              <span className={`text-lg font-bold ${plan === "trial" ? "text-green-400" : "text-foreground"}`}>
-                £{displayPrice.toFixed(2).replace(/\.00$/, "")}
-                <span className="text-xs font-normal text-muted-foreground ml-0.5">
-                  /{plan === "term" ? "term" : plan === "monthly" ? "mo" : plan === "yearly" ? "year" : plan === "trial" ? "trial" : sessionsSelected > 1 ? `${sessionsSelected} sessions` : "session"}
-                </span>
-                {selKids.length > 1 && (
-                  <span className="text-xs font-normal text-muted-foreground ml-1">× {selKids.length} children</span>
-                )}
-              </span>
-            ) : null}
-          </div>
-          <Button
-            disabled={(needsChild || needsSelfProfile) ? false : (noKidsSelected || noSessionsSelected)}
-            onClick={() => {
-              if (needsChild) return setChildDialog({ editing: null, selfMode: false });
-              if (needsSelfProfile) return setChildDialog({ editing: selfStudent, selfMode: true });
-              // Monthly membership: explicit cancellation-notice acknowledgement first.
-              if (plan === "monthly") return setMonthlyNoticeOpen(true);
-              handleAddToCart();
-            }}
-            className="uppercase tracking-wider text-xs font-semibold gap-1.5"
-            style={{
-              background: plan === "trial" ? "hsl(142, 71%, 45%)" : accent,
-              color: "white",
-            }}
-          >
-            {(needsChild || needsSelfProfile) ? <UserPlus className="w-3.5 h-3.5" /> : <ShoppingCart className="w-3.5 h-3.5" />}
-            {!user ? "Sign In to Book"
-              : needsChild ? "Add a Child"
-              : needsSelfProfile ? "Set Up Your Profile"
-              : noSessionsSelected ? "Select sessions"
-              : noKidsSelected ? "Select child"
-              : plan === "trial" ? "Book Trial"
-              : selKids.length > 1 ? `Add ${selKids.length} to Basket`
-              : "Add to Basket"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+        {/* Dates — pay as you go picks several, a trial picks one */}
+        {(plan === "session" || plan === "trial") && (
+          <BookingSection label={plan === "trial" ? "Trial date" : "Dates"}>
+            {sessions.length > 0 ? (
+              <SessionDatePicker
+                sessions={dateOptions}
+                value={selSessions}
+                onChange={setSelSessions}
+                multiple={plan === "session"}
+                emptySummary={plan === "trial" ? "Pick the date of your trial" : undefined}
+                ariaLabel={plan === "trial" ? "Choose your trial date" : "Choose dates"}
+              />
+            ) : (
+              <p className="text-[13px] text-muted-foreground">No upcoming dates to book yet.</p>
+            )}
+          </BookingSection>
+        )}
+      </div>
+    </ResponsiveSheet>
 
     {/* Monthly membership cancellation notice — must be acknowledged before basket add */}
-    <AlertDialog open={monthlyNoticeOpen} onOpenChange={setMonthlyNoticeOpen}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Monthly Membership</AlertDialogTitle>
-          <AlertDialogDescription className="space-y-3">
-            <span className="block">{MONTHLY_MEMBERSHIP_NOTICE}</span>
-            <span className="block text-xs">{MONTHLY_PAYMENT_INFO}</span>
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Go back</AlertDialogCancel>
-          <AlertDialogAction onClick={() => { setMonthlyNoticeOpen(false); handleAddToCart(); }}>
-            I agree — add to basket
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <MonthlyNoticeDialog
+      open={monthlyNoticeOpen}
+      onOpenChange={setMonthlyNoticeOpen}
+      onAgree={handleAddToCart}
+      agreeLabel="I agree, add to basket"
+      themeClass={themeClass}
+    />
 
     {/* Add / complete an attendee profile in place */}
     <ChildFormDialog

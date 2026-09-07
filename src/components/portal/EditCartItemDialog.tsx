@@ -1,25 +1,17 @@
 import { useEffect, useState } from "react";
 import { format, parseISO } from "date-fns";
-import { CalendarDays, Tag } from "lucide-react";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { offersMonthly, offersTermly, offersYearly, type PlanFlags } from "@/lib/classPlans";
 import { useCart, cartItemKind, type CartItem, type PricingPlan } from "@/contexts/CartContext";
+import { formatPrice } from "@/lib/bookingFormat";
+import { ResponsiveSheet, PlanPicker, Bone, type PlanOption } from "@/components/booking";
+import { BookingSection } from "@/components/booking/BookingSection";
+import { BookingSheetFooter } from "@/components/booking/BookingSheetFooter";
+import { MonthlyNoticeDialog } from "@/components/booking/MonthlyNoticeDialog";
+import { SessionDatePicker } from "@/components/booking/SessionDatePicker";
 import {
-  MONTHLY_MEMBERSHIP_NOTICE,
   MONTHLY_PAYMENT_INFO,
   UNLIMITED_CAP_INFO,
   monthlyPrice,
@@ -104,14 +96,6 @@ export function EditCartItemDialog({ open, onOpenChange, item }: EditCartItemDia
   const termSavings = termlySavingsPercent();
   const yearlySavings = yearlySavingsPercent();
 
-  const toggleSession = (id: string) => {
-    if (isTrial) {
-      setSelSessions([id]);
-      return;
-    }
-    setSelSessions(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
-  };
-
   const planLabel: Partial<Record<PricingPlan, string>> = {
     monthly: "Monthly Membership",
     term: "Pay Termly",
@@ -186,180 +170,144 @@ export function EditCartItemDialog({ open, onOpenChange, item }: EditCartItemDia
 
   const canSave = canSwitchPlan ? (!loading && !!classRow) : selSessions.length > 0;
 
-  const planButton = (
-    p: PricingPlan,
-    title: string,
-    subtitle: string,
-    priceEl: React.ReactNode,
-    badge?: React.ReactNode,
-  ) => (
-    <button
-      onClick={() => setPlan(p)}
-      className={`relative flex items-center justify-between p-2.5 rounded-lg border text-left text-sm transition-all ${
-        plan === p
-          ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-          : "border-border/50 bg-background/50 hover:border-border"
-      }`}
-    >
-      {badge}
-      <div>
-        <span className="font-semibold text-foreground">{title}</span>
-        <span className="block text-[10px] text-muted-foreground">{subtitle}</span>
-      </div>
-      <div className="text-right flex-shrink-0 ml-2">{priceEl}</div>
-    </button>
+  // ── Presentation ──────────────────────────────────────────────────────
+
+  // The dialog portals to <body>, which carries the page theme.
+  const themeClass = "portal-ui";
+
+  // Same options as the booking sheet; the item's current plan is always
+  // listed so it can be seen (and kept) even if the class no longer offers it.
+  const planOptions: PlanOption<PricingPlan>[] = [];
+  if (classRow) {
+    if (priceMonthly != null && (offersMonthly(classRow) || item.pricingPlan === "monthly")) {
+      planOptions.push({
+        id: "monthly",
+        title: "Monthly membership",
+        meta: "Rolling · billed on the 5th · 12th month free",
+        price: formatPrice(priceMonthly),
+        priceSuffix: "/month",
+      });
+    }
+    if (priceTerm != null && remaining > 0 && (offersTermly(classRow) || item.pricingPlan === "term")) {
+      planOptions.push({
+        id: "term",
+        title: "Pay for the term",
+        meta: `All ${remaining} sessions this term`,
+        price: formatPrice(priceTerm),
+        badge: `Save ${termSavings}%`,
+      });
+    }
+    if (priceYearly != null && (offersYearly(classRow) || item.pricingPlan === "yearly")) {
+      planOptions.push({
+        id: "yearly",
+        title: "Pay for the year",
+        meta: "Sept–July · 38 weeks",
+        price: formatPrice(priceYearly),
+        badge: `Save ${yearlySavings}%`,
+      });
+    }
+  }
+
+  const dateOptions = sessions.map(s => ({ id: s.id, date: s.session_date, startTime: s.start_time, endTime: s.end_time }));
+
+  const showPrice = !isLocked && !canSwitchPlan && isDropIn;
+  const count = selSessions.length;
+
+  const skeleton = (
+    <div className="space-y-2" aria-hidden>
+      <Bone className="h-[68px] w-full rounded-2xl" />
+      <Bone className="h-[68px] w-full rounded-2xl" />
+      <Bone className="h-[68px] w-full rounded-2xl" />
+    </div>
+  );
+
+  const note = (text: string) => (
+    <p className="rounded-2xl border border-border bg-muted/40 px-4 py-3 text-[13px] leading-relaxed text-muted-foreground">{text}</p>
   );
 
   return (
     <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-dialog flex flex-col p-0 gap-0">
-        <DialogHeader className="px-6 pt-6 pb-3 border-b border-border/50">
-          <DialogTitle className="text-lg font-display">{canSwitchPlan ? "Change plan" : "Edit dates"}</DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground">
-            {item.className} {item.studentName && <>· for {item.studentName}</>}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-3">
-          {canSwitchPlan ? (
-            loading ? (
-              <div className="text-sm text-muted-foreground text-center py-6">Loading plans...</div>
+    <ResponsiveSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      title={canSwitchPlan ? "Change plan" : "Edit dates"}
+      description={`${item.className}${item.studentName ? ` · for ${item.studentName}` : ""}`}
+      themeClass={themeClass}
+      bodyClassName="pt-1"
+      footer={
+        <BookingSheetFooter
+          amount={showPrice && count > 0 ? formatPrice(item.unitPrice * count) : null}
+          note={showPrice && count > 0 ? `${formatPrice(item.unitPrice)} × ${count} ${count === 1 ? "session" : "sessions"}` : undefined}
+          hint={showPrice ? "Pick at least one date" : undefined}
+          action={
+            <>
+              <Button variant="soft" size="xl" className="rounded-full px-5" onClick={() => onOpenChange(false)}>
+                {isLocked ? "Close" : "Cancel"}
+              </Button>
+              {!isLocked && (
+                <Button size="xl" className="rounded-full px-6" onClick={handleSave} disabled={!canSave}>
+                  Save changes
+                </Button>
+              )}
+            </>
+          }
+        />
+      }
+    >
+      <div className="space-y-7 pb-2">
+        {canSwitchPlan ? (
+          <BookingSection label="Plan">
+            {loading ? (
+              skeleton
             ) : !classRow ? (
-              <div className="text-sm text-muted-foreground text-center py-6">Couldn't load this class's pricing. Please try again.</div>
+              note("Couldn't load this class's pricing. Please try again.")
             ) : (
               <>
-                <p className="text-xs uppercase tracking-widest text-muted-foreground/70 font-medium flex items-center gap-1">
-                  <Tag className="w-3 h-3" /> Choose Your Plan
-                </p>
-                <div className="grid gap-2">
-                  {priceMonthly != null && (offersMonthly(classRow) || item.pricingPlan === "monthly") && planButton(
-                    "monthly",
-                    "Monthly Membership",
-                    "Rolling monthly · billed on the 5th · 12th month free",
-                    <span className="font-bold text-foreground">
-                      £{priceMonthly.toFixed(2)}
-                      <span className="text-[10px] font-normal text-muted-foreground">/mo</span>
-                    </span>,
-                  )}
-                  {priceTerm != null && remaining > 0 && (offersTermly(classRow) || item.pricingPlan === "term") && planButton(
-                    "term",
-                    "Pay Termly",
-                    `All ${remaining} sessions this term, upfront`,
-                    <>
-                      <span className="font-bold text-foreground">£{priceTerm.toFixed(2)}</span>
-                      <Badge className="ml-1.5 bg-green-500/20 text-green-400 border-green-500/30 text-[9px]">SAVE {termSavings}%</Badge>
-                    </>,
-                  )}
-                  {priceYearly != null && (offersYearly(classRow) || item.pricingPlan === "yearly") && planButton(
-                    "yearly",
-                    "Pay Yearly",
-                    "Sept–July upfront · all 38 dance weeks",
-                    <>
-                      <span className="font-bold text-foreground">£{priceYearly.toFixed(2)}</span>
-                      <Badge className="ml-1.5 bg-green-500/20 text-green-400 border-green-500/30 text-[9px]">SAVE {yearlySavings}%</Badge>
-                    </>,
-                    <div className="absolute -top-2 right-2">
-                      <Badge className="bg-primary text-primary-foreground text-[9px] px-1.5 py-0">BEST DEAL</Badge>
-                    </div>,
-                  )}
-                </div>
+                <PlanPicker<PricingPlan> options={planOptions} value={plan} onChange={setPlan} />
                 {plan === "monthly" && (
-                  <div className="space-y-1">
-                    <p className="text-[10px] text-muted-foreground leading-relaxed">{MONTHLY_PAYMENT_INFO}</p>
-                    <p className="text-[10px] text-muted-foreground leading-relaxed">{UNLIMITED_CAP_INFO}</p>
+                  <div className="space-y-2 px-1 text-[13px] leading-relaxed text-muted-foreground">
+                    <p>{MONTHLY_PAYMENT_INFO}</p>
+                    <p>{UNLIMITED_CAP_INFO}</p>
                   </div>
                 )}
-                <p className="text-[11px] text-muted-foreground bg-muted/30 rounded-lg p-2.5">
-                  Multi-class and sibling discounts stay applied — they're worked out automatically at checkout, whichever plan you pick.
-                </p>
+                {note("Multi-class and sibling discounts stay applied — they're worked out automatically at checkout, whichever plan you pick.")}
               </>
-            )
-          ) : isLocked ? (
-            <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-3">
-              This booking covers all sessions in the {item.pricingPlan === "term" ? "term" : "subscription"} and can't be edited here — remove and re-add to change it.
-            </div>
-          ) : loading ? (
-            <div className="text-sm text-muted-foreground text-center py-6">Loading sessions...</div>
-          ) : sessions.length === 0 ? (
-            <div className="text-sm text-muted-foreground text-center py-6">No upcoming sessions available.</div>
-          ) : (
-            <>
-              {!isTrial && (
-                <div className="flex items-center justify-between">
-                  <p className="text-[11px] text-muted-foreground font-medium">
-                    {selSessions.length} session{selSessions.length !== 1 ? "s" : ""} selected
-                  </p>
-                  <button
-                    onClick={() => setSelSessions(selSessions.length === sessions.length ? [] : sessions.map(s => s.id))}
-                    className="text-[10px] text-primary hover:underline"
-                  >
-                    {selSessions.length === sessions.length ? "Deselect all" : "Select all"}
-                  </button>
-                </div>
-              )}
-              <div className="grid gap-1.5">
-                {sessions.map(s => {
-                  const isSel = selSessions.includes(s.id);
-                  return (
-                    <label
-                      key={s.id}
-                      className={`flex items-center gap-2.5 p-2 rounded-lg border text-sm cursor-pointer transition-all ${
-                        isSel ? "border-primary bg-primary/10 ring-1 ring-primary/30" : "border-border/50 bg-background/50 hover:border-border"
-                      }`}
-                    >
-                      <input
-                        type={isTrial ? "radio" : "checkbox"}
-                        name={isTrial ? `edit-trial-${item.id}` : undefined}
-                        checked={isSel}
-                        onChange={() => toggleSession(s.id)}
-                        className="accent-primary w-4 h-4"
-                      />
-                      <CalendarDays className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                      <span className="flex-1 text-foreground font-medium">{format(parseISO(s.session_date), "EEE d MMM yyyy")}</span>
-                      <span className="text-xs text-muted-foreground">{s.start_time?.slice(0, 5)}–{s.end_time?.slice(0, 5)}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </div>
-
-        <DialogFooter className="px-6 py-4 border-t border-border/50 flex-row sm:justify-between items-center gap-2">
-          {!isLocked && !canSwitchPlan && isDropIn && (
-            <span className="text-sm font-bold text-foreground">
-              £{(item.unitPrice * selSessions.length).toFixed(2)}
-            </span>
-          )}
-          <div className="flex gap-2 ml-auto">
-            <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
-            {!isLocked && (
-              <Button size="sm" onClick={handleSave} disabled={!canSave}>Save changes</Button>
             )}
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </BookingSection>
+        ) : isLocked ? (
+          note(`This booking covers all sessions in the ${item.pricingPlan === "term" ? "term" : "subscription"} and can't be edited here — remove and re-add to change it.`)
+        ) : (
+          <BookingSection label={isTrial ? "Trial date" : "Dates"}>
+            {loading ? (
+              <div className="flex gap-2" aria-hidden>
+                {Array.from({ length: 5 }).map((_, i) => <Bone key={i} className="h-[68px] w-[54px] rounded-2xl" />)}
+              </div>
+            ) : sessions.length === 0 ? (
+              note("No upcoming sessions available.")
+            ) : (
+              <SessionDatePicker
+                sessions={dateOptions}
+                value={selSessions}
+                onChange={setSelSessions}
+                multiple={!isTrial}
+                selectAll={!isTrial}
+                emptySummary={isTrial ? "Pick the date of the trial" : undefined}
+                ariaLabel={isTrial ? "Choose the trial date" : "Choose dates"}
+              />
+            )}
+          </BookingSection>
+        )}
+      </div>
+    </ResponsiveSheet>
 
     {/* Monthly membership cancellation notice — same acknowledgement as when adding from the timetable */}
-    <AlertDialog open={monthlyNoticeOpen} onOpenChange={setMonthlyNoticeOpen}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Monthly Membership</AlertDialogTitle>
-          <AlertDialogDescription className="space-y-3">
-            <span className="block">{MONTHLY_MEMBERSHIP_NOTICE}</span>
-            <span className="block text-xs">{MONTHLY_PAYMENT_INFO}</span>
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Go back</AlertDialogCancel>
-          <AlertDialogAction onClick={() => { setMonthlyNoticeOpen(false); applyPlanChange(); }}>
-            I agree — switch plan
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <MonthlyNoticeDialog
+      open={monthlyNoticeOpen}
+      onOpenChange={setMonthlyNoticeOpen}
+      onAgree={applyPlanChange}
+      agreeLabel="I agree, switch plan"
+      themeClass={themeClass}
+    />
     </>
   );
 }

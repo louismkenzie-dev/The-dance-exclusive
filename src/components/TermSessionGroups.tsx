@@ -131,7 +131,7 @@ export function TermSessionGroups<S>({
                 return (
                   <div key={d + si}>
                     {newMonth && (
-                      <div className="text-[11px] uppercase tracking-wider text-muted-foreground/70 pl-1 pb-0.5 pt-1">
+                      <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground pl-1 pb-0.5 pt-1">
                         {format(parseISO(d), "MMMM")}
                       </div>
                     )}

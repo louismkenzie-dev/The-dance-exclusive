@@ -119,7 +119,7 @@ const PortalLayout = () => {
     ? "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
     : "text-foreground hover:bg-muted/60 hover:text-foreground";
   const navMuted = j
-    ? "text-muted-foreground/60 hover:text-muted-foreground"
+    ? "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
     : "text-muted-foreground/50 hover:text-muted-foreground text-xs";
   const menuRow = j
     ? "flex items-center gap-2 rounded-xl px-3 py-2.5 text-[15px] font-medium leading-6 text-foreground transition-colors hover:bg-muted"
@@ -446,7 +446,7 @@ const PortalLayout = () => {
             </div>
             <div className="mt-10 flex flex-col gap-1.5 border-t border-border pt-6 text-[13px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
               <p>© {new Date().getFullYear()} The Dance Exclusive · Essex, UK</p>
-              <p className="text-muted-foreground/70">Step in, stand out</p>
+              <p className="italic">Step in, stand out</p>
             </div>
           </div>
         </footer>

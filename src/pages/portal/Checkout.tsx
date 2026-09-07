@@ -961,7 +961,7 @@ const CheckoutPage = () => {
             <button
               type="button"
               onClick={() => setIsOpen(true)}
-              className="pressable -mr-2 rounded-md px-2 py-1.5 text-sm font-medium text-primary hover:underline underline-offset-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+              className="pressable -my-2 -mr-2 inline-flex min-h-10 items-center rounded-md px-2 text-sm font-medium text-primary hover:underline underline-offset-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
             >
               Edit basket
             </button>

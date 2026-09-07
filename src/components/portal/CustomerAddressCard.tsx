@@ -162,7 +162,7 @@ const CustomerAddressCard = ({ userId, onValidChange }: CustomerAddressCardProps
           <button
             type="button"
             onClick={() => { setEditing(true); onValidChange(false); }}
-            className="pressable -mr-2 shrink-0 rounded-md px-2 py-1.5 text-sm font-medium text-primary hover:underline underline-offset-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+            className="pressable -my-2 -mr-2 inline-flex min-h-10 shrink-0 items-center rounded-md px-2 text-sm font-medium text-primary hover:underline underline-offset-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
           >
             Edit
           </button>

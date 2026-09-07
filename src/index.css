@@ -77,8 +77,9 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 16% 11%;
 
-    /* Deep enough for white text to pass AA at button sizes */
-    --primary: 193 100% 36%;
+    /* 30% lightness: brand blue as small text passes AA on the off-white
+       ground (4.8:1) and white text on it passes at button sizes (5.1:1). */
+    --primary: 193 100% 30%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 36 14% 94%;
@@ -96,11 +97,13 @@
 
     --border: 36 12% 89%;
     --input: 36 12% 84%;
-    --ring: 193 100% 36%;
+    --ring: 193 100% 30%;
 
-    --success: 152 58% 34%;
+    /* Status colours tuned so they read as small text on the ground:
+       success 4.9:1, warning 4.8:1. */
+    --success: 152 58% 31%;
     --success-foreground: 0 0% 100%;
-    --warning: 32 92% 42%;
+    --warning: 32 92% 34%;
     --warning-foreground: 0 0% 100%;
 
     --radius: 0.75rem;

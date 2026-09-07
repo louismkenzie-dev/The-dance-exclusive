@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
-import { CalendarDays, Ticket } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { PassRedeemDialog, type SessionOption } from "@/components/portal/PassRedeemDialog";
 import { passLabelOf, usePassCatalog } from "@/lib/passCatalog";
+import { EmptyState } from "@/components/booking/EmptyState";
+import { QuietPill } from "@/components/booking/QuietPill";
+import { RecordCardSkeleton } from "@/components/booking/PortalSkeletons";
 
 interface PassRow {
   id: string;
@@ -102,118 +101,106 @@ export function ClassPassesPanel({ onPassesChanged }: ClassPassesPanelProps) {
   const pastPasses = passes.filter((p) => !isActivePass(p));
 
   if (loading) {
-    return <div className="text-muted-foreground py-8">Loading your passes...</div>;
+    return (
+      <div className="space-y-4">
+        <RecordCardSkeleton />
+      </div>
+    );
   }
   if (loadError) {
-    return <div className="text-muted-foreground py-8">Could not load your passes right now. Please try again later.</div>;
+    return (
+      <EmptyState
+        tone="error"
+        title="Couldn't load your passes"
+        body="Please try again in a moment."
+      />
+    );
   }
 
   return (
     <div className="space-y-6">
       {passes.length === 0 ? (
-        <Card className="card-elevated">
-          <CardContent className="py-16 text-center space-y-4">
-            <Ticket className="w-12 h-12 mx-auto text-muted-foreground/40" />
-            <div>
-              <p className="text-lg font-semibold">No class passes yet</p>
-              <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-                Buy a 2, 4, 6 or 8-class pass and mix and match any adult classes.
-                Passes are valid for 6 weeks from purchase — and booking with a pass
-                needs no payment.
-              </p>
-            </div>
-            <Button asChild size="lg">
-              <Link to="/classes/adult">
-                <Ticket className="w-4 h-4 mr-2" /> Buy a Class Pass
-              </Link>
+        <EmptyState
+          title="No class passes yet"
+          body="Buy a 2, 4, 6 or 8-class pass and mix and match any adult classes. Passes are valid for 6 weeks from purchase, and booking with a pass needs no payment."
+          action={
+            <Button asChild size="lg" className="rounded-full">
+              <Link to="/classes/adult">Buy a class pass</Link>
             </Button>
-          </CardContent>
-        </Card>
+          }
+        />
       ) : (
         <>
           {activePasses.map((p) => {
             const daysLeft = differenceInCalendarDays(new Date(p.expires_at), new Date());
             const expiringSoon = daysLeft <= 7;
+            const pct = Math.max(0, Math.min(100, (p.sessions_remaining / p.sessions_total) * 100));
             return (
-              <Card key={p.id} className="card-elevated border-primary/30">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Ticket className="w-4 h-4 text-primary" /> {passLabel(p.pass_type)}
-                    </CardTitle>
-                    <Badge
-                      variant="outline"
-                      className={expiringSoon
-                        ? "border-amber-500/40 bg-amber-500/10 text-amber-500"
-                        : "border-primary/30 text-primary"}
-                    >
-                      {daysLeft} day{daysLeft === 1 ? "" : "s"} left
-                    </Badge>
+              <div key={p.id} className="surface animate-rise-in p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-medium text-muted-foreground">Class pass</p>
+                    <h3 className="mt-1 text-[19px] font-semibold leading-snug tracking-tight text-foreground">{passLabel(p.pass_type)}</h3>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <p className="text-3xl font-bold text-foreground">
-                      {p.sessions_remaining} <span className="text-base font-medium text-muted-foreground">of {p.sessions_total} classes left</span>
-                    </p>
-                    <Progress
-                      value={(p.sessions_remaining / p.sessions_total) * 100}
-                      className="h-2 mt-2"
-                    />
+                  <QuietPill tone={expiringSoon ? "warning" : "neutral"}>
+                    {daysLeft} day{daysLeft === 1 ? "" : "s"} left
+                  </QuietPill>
+                </div>
+
+                <div className="mt-5">
+                  <p className="text-[28px] font-semibold leading-none tracking-tight tabular-nums text-foreground">
+                    {p.sessions_remaining}
+                    <span className="ml-2 text-[15px] font-normal text-muted-foreground">of {p.sessions_total} classes left</span>
+                  </p>
+                  <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={p.sessions_remaining} aria-valuemin={0} aria-valuemax={p.sessions_total}>
+                    <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${pct}%` }} />
                   </div>
-                  <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                    <CalendarDays className="w-3.5 h-3.5 text-primary" />
+                  <p className="mt-3 text-[15px] text-muted-foreground">
                     Valid until {format(parseISO(p.expires_at), "d MMM yyyy")}
                   </p>
-                  <Button
-                    size="lg"
-                    className="w-full sm:w-auto uppercase tracking-wider text-xs font-bold"
-                    onClick={() => setRedeemPass(p)}
-                  >
-                    Book your classes — no payment needed
-                  </Button>
-                </CardContent>
-              </Card>
+                </div>
+
+                <Button size="xl" className="mt-5 w-full rounded-full sm:w-auto" onClick={() => setRedeemPass(p)}>
+                  Book your classes
+                </Button>
+                <p className="mt-2 text-[13px] text-muted-foreground">No payment needed — your pass covers it.</p>
+              </div>
             );
           })}
 
           {activePasses.length === 0 && (
-            <Card className="card-elevated">
-              <CardContent className="py-10 text-center space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  You have no active passes. Grab a new one to keep dancing!
-                </p>
-                <Button asChild>
-                  <Link to="/classes/adult">
-                    <Ticket className="w-4 h-4 mr-2" /> Buy a Class Pass
-                  </Link>
+            <EmptyState
+              title="No active passes"
+              body="Grab a new pass to keep dancing."
+              action={
+                <Button asChild size="lg" className="rounded-full">
+                  <Link to="/classes/adult">Buy a class pass</Link>
                 </Button>
-              </CardContent>
-            </Card>
+              }
+            />
           )}
 
           {pastPasses.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-[11px] uppercase tracking-widest text-muted-foreground/70 font-semibold">Past passes</p>
-              {pastPasses.map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between gap-3 p-2.5 rounded-lg border border-border/40 bg-muted/20"
-                >
-                  <div>
-                    <span className="text-sm font-medium text-muted-foreground">{passLabel(p.pass_type)}</span>
-                    <span className="block text-[10px] text-muted-foreground/70">
-                      Used {p.sessions_total - p.sessions_remaining} of {p.sessions_total} classes
-                      {new Date(p.expires_at).getTime() >= Date.now() ? " · expires " : " · expired "}
-                      {format(parseISO(p.expires_at), "d MMM yyyy")}
+            <section>
+              <h3 className="mb-3 text-[15px] font-semibold text-foreground">Past passes</h3>
+              <div className="surface divide-y divide-border/70 overflow-hidden">
+                {pastPasses.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between gap-3 px-5 py-4">
+                    <div className="min-w-0">
+                      <p className="text-[15px] font-medium text-foreground">{passLabel(p.pass_type)}</p>
+                      <p className="mt-0.5 text-[13px] text-muted-foreground">
+                        Used {p.sessions_total - p.sessions_remaining} of {p.sessions_total} classes
+                        {new Date(p.expires_at).getTime() >= Date.now() ? " · expires " : " · expired "}
+                        {format(parseISO(p.expires_at), "d MMM yyyy")}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-[13px] text-muted-foreground">
+                      {p.sessions_remaining === 0 ? "Used up" : "Expired"}
                     </span>
                   </div>
-                  <Badge variant="secondary" className="text-[10px]">
-                    {p.sessions_remaining === 0 ? "Used up" : "Expired"}
-                  </Badge>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </section>
           )}
         </>
       )}

@@ -4,11 +4,10 @@ import { format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { CalendarDays, Clock, MapPin, Sparkles } from "lucide-react";
 import { classBrowserPath } from "@/lib/classLinks";
+import { formatPrice, formatTimeRange } from "@/lib/bookingFormat";
 
 interface PortalInvite {
   id: string;
@@ -134,58 +133,51 @@ const OneToOneInvites = () => {
   };
 
   return (
-    <div className="space-y-3 mb-4">
+    <div className="mb-6 space-y-3">
       {invites.map((invite) => {
         const session = sessions[invite.class_id];
         const cls = invite.classes;
+        const whenLine = [
+          session
+            ? session.dates.length === 1
+              ? format(parseISO(session.dates[0]), "EEEE d MMMM")
+              : `${session.dates.length} sessions: ${session.dates.map((d) => format(parseISO(d), "d MMM")).join(", ")}`
+            : null,
+          cls ? formatTimeRange(cls.start_time, cls.end_time) : null,
+        ].filter(Boolean).join(" · ");
+        const whereLine = cls?.venues?.name ?? cls?.location_note ?? null;
         return (
-          <Card key={invite.id} className="border-pink-500/40 bg-pink-500/5 animate-fade-in">
-            <CardContent className="py-4 flex items-center justify-between gap-4 flex-wrap">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-pink-400" />
+          <div key={invite.id} className="surface animate-rise-in border-primary/30 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+              <div className="min-w-0 flex-1 basis-64">
+                <p className="text-[13px] font-medium text-primary">
+                  {cls?.invite_only ? "Invitation" : "A place saved for you"}
+                </p>
+                <h3 className="mt-1 text-[17px] font-semibold leading-snug tracking-tight text-foreground">
                   {cls?.invite_only
                     ? `${invite.students?.first_name ?? "Your dancer"} is invited: ${cls?.name}`
                     : `We've saved ${invite.students?.first_name ?? "you"} a place: ${cls?.name}`}
-                </p>
+                </h3>
                 {!cls?.invite_only && (
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                  <p className="mt-1 text-[13px] text-muted-foreground">
                     {PLAN_LABEL[invite.plan] ?? "Booking"} — confirm it to secure the place
                   </p>
                 )}
-                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-3 flex-wrap">
-                  {session && (
-                    <span className="flex items-center gap-1">
-                      <CalendarDays className="w-3 h-3" />
-                      {session.dates.length === 1
-                        ? format(parseISO(session.dates[0]), "EEEE d MMMM")
-                        : `${session.dates.length} sessions: ${session.dates.map((d) => format(parseISO(d), "d MMM")).join(", ")}`}
-                    </span>
-                  )}
-                  {cls && (
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> {cls.start_time.slice(0, 5)} – {cls.end_time.slice(0, 5)}
-                    </span>
-                  )}
-                  {(cls?.venues?.name || cls?.location_note) && (
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-3 h-3" /> {cls.venues?.name ?? cls.location_note}
-                    </span>
-                  )}
-                </p>
+                {whenLine && <p className="mt-2 text-[15px] text-foreground/90">{whenLine}</p>}
+                {whereLine && <p className="mt-0.5 text-[15px] text-muted-foreground">{whereLine}</p>}
                 {cls?.invite_only && session && session.dates.length > 1 && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    £{Number(invite.price).toFixed(2)} per session
+                  <p className="mt-1 text-[13px] text-muted-foreground">
+                    {formatPrice(Number(invite.price))} per session
                   </p>
                 )}
               </div>
-              <Button size="sm" className="bg-pink-600 hover:bg-pink-700 text-white" onClick={() => bookInvite(invite)}>
+              <Button size="lg" className="h-12 shrink-0 rounded-full px-6" onClick={() => bookInvite(invite)}>
                 {cls?.invite_only
-                  ? `Book & pay £${(Number(invite.price) * Math.max(1, session?.ids.length ?? 1)).toFixed(2)}`
-                  : "Confirm & pay"}
+                  ? `Book and pay ${formatPrice(Number(invite.price) * Math.max(1, session?.ids.length ?? 1))}`
+                  : "Confirm and pay"}
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         );
       })}
     </div>

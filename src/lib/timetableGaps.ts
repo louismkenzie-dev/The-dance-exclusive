@@ -64,3 +64,32 @@ export function missingSessionDates(expected: string[], existing: Iterable<strin
   const have = new Set(existing);
   return expected.filter((d) => !have.has(d));
 }
+
+export interface TimetableStripDay {
+  /** YYYY-MM-DD */
+  date: string;
+  /** Sessions on that day (after whatever filter the caller applied). */
+  count: number;
+  /** Nothing to show that day, so it cannot be picked. */
+  disabled: boolean;
+}
+
+/**
+ * Every calendar day of the timetable window, in order, with how many of the
+ * given session dates fall on it — the shape a day strip wants. An empty or
+ * inverted window yields no days.
+ */
+export function timetableStripDays(
+  sessionDates: Iterable<string>,
+  windowStart: string | null | undefined,
+  windowEnd: string | null | undefined,
+): TimetableStripDay[] {
+  if (!windowStart || !windowEnd || windowStart > windowEnd) return [];
+  const counts = new Map<string, number>();
+  for (const d of sessionDates) counts.set(d, (counts.get(d) ?? 0) + 1);
+  return eachDayOfInterval({ start: parseISO(windowStart), end: parseISO(windowEnd) }).map((d) => {
+    const iso = format(d, "yyyy-MM-dd");
+    const count = counts.get(iso) ?? 0;
+    return { date: iso, count, disabled: count === 0 };
+  });
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { expectedSessionDates, missingSessionDates } from "./timetableGaps";
+import { expectedSessionDates, missingSessionDates, timetableStripDays } from "./timetableGaps";
 
 // Essex autumn 2026: term 1 Tue 1 Sep – Fri 23 Oct, half term, term 2 Mon 2 Nov – Fri 18 Dec.
 const terms = [
@@ -70,5 +70,31 @@ describe("missingSessionDates", () => {
 
   it("is empty when every expected date has a row", () => {
     expect(missingSessionDates(["2026-09-07", "2026-09-14"], ["2026-09-14", "2026-09-07", "2026-09-21"])).toEqual([]);
+  });
+});
+
+describe("timetableStripDays", () => {
+  it("lists every day of the window with its session count, disabling empty days", () => {
+    const days = timetableStripDays(
+      ["2026-09-07", "2026-09-07", "2026-09-09"],
+      "2026-09-07",
+      "2026-09-10",
+    );
+    expect(days).toEqual([
+      { date: "2026-09-07", count: 2, disabled: false },
+      { date: "2026-09-08", count: 0, disabled: true },
+      { date: "2026-09-09", count: 1, disabled: false },
+      { date: "2026-09-10", count: 0, disabled: true },
+    ]);
+  });
+
+  it("ignores sessions outside the window", () => {
+    const days = timetableStripDays(["2026-09-01", "2026-09-30"], "2026-09-07", "2026-09-08");
+    expect(days.map((d) => d.count)).toEqual([0, 0]);
+  });
+
+  it("yields nothing for a missing or inverted window", () => {
+    expect(timetableStripDays(["2026-09-07"], null, "2026-09-10")).toEqual([]);
+    expect(timetableStripDays(["2026-09-07"], "2026-09-10", "2026-09-07")).toEqual([]);
   });
 });

@@ -1,18 +1,15 @@
 import { useEffect, useState } from "react";
 import { format, parseISO } from "date-fns";
-import { CalendarDays, Clock, Loader2, MapPin } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { ADULT_CANCELLATION_INFO, sessionPrice } from "@/lib/pricing";
+import { ResponsiveSheet } from "@/components/booking/ResponsiveSheet";
+import { OptionRow } from "@/components/booking/OptionRow";
+import { OptionRowsSkeleton } from "@/components/booking/PortalSkeletons";
+import { QuietNotice } from "@/components/booking/QuietNotice";
+import { formatDay, formatPrice, formatTimeRange } from "@/lib/bookingFormat";
 
 interface SessionRow {
   id: string;
@@ -188,124 +185,97 @@ const MoveSessionDialog = ({ open, onOpenChange, booking, onMoved }: MoveSession
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!submitting) onOpenChange(o); }}>
-      <DialogContent className="max-w-md max-h-dialog flex flex-col p-0 gap-0">
-        <DialogHeader className="px-6 pt-6 pb-3 border-b border-border/50">
-          <DialogTitle className="text-lg font-display">Move session</DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground">
-            {booking.className} {booking.studentName && <>· for {booking.studentName}</>} · currently{" "}
-            {format(parseISO(booking.sessionDate), "EEE d MMM yyyy")}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-3">
-          <p className="text-[11px] text-muted-foreground bg-muted/30 rounded-lg p-2.5">
-            {ADULT_CANCELLATION_INFO}
-          </p>
-
-          {!isTrial && (
-            loadingClasses ? (
-              <div className="text-sm text-muted-foreground text-center py-6">Loading classes...</div>
-            ) : classes.length > 1 ? (
-              <>
-                <p className="text-[11px] text-muted-foreground font-medium">Move to class:</p>
-                <div className="grid gap-1.5">
-                  {classes.map((c) => {
-                    const isSel = selectedClassId === c.id;
-                    const day = c.day_of_week ? c.day_of_week.charAt(0).toUpperCase() + c.day_of_week.slice(1) : null;
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => setSelectedClassId(c.id)}
-                        className={`flex items-center justify-between gap-2 p-2.5 rounded-lg border text-left text-sm transition-all ${
-                          isSel
-                            ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-                            : "border-border/50 bg-background/50 hover:border-border"
-                        }`}
-                      >
-                        <div className="min-w-0">
-                          <span className="font-semibold text-foreground block truncate">
-                            {c.name}
-                            {c.id === booking.classId && (
-                              <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">(current)</span>
-                            )}
-                          </span>
-                          <span className="flex items-center gap-2 text-[10px] text-muted-foreground flex-wrap">
-                            {day && <span>{day}s</span>}
-                            {c.start_time && (
-                              <span className="flex items-center gap-0.5">
-                                <Clock className="w-2.5 h-2.5" />
-                                {c.start_time.slice(0, 5)}{c.end_time ? `–${c.end_time.slice(0, 5)}` : ""}
-                              </span>
-                            )}
-                            {c.venues?.name && (
-                              <span className="flex items-center gap-0.5">
-                                <MapPin className="w-2.5 h-2.5" /> {c.venues.name}
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                        <span className="text-xs font-bold text-foreground whitespace-nowrap flex-shrink-0">
-                          £{priceOf(c).toFixed(2).replace(/\.00$/, "")}
-                          <span className="text-[10px] font-normal text-muted-foreground">/class</span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            ) : null
-          )}
-
-          {loadingSessions ? (
-            <div className="text-sm text-muted-foreground text-center py-6">Loading sessions...</div>
-          ) : sessions.length === 0 ? (
-            <div className="text-sm text-muted-foreground text-center py-6">
-              No dates are available to move to{isTrial ? " for this class" : ""}.
-            </div>
-          ) : (
-            <>
-              <p className="text-[11px] text-muted-foreground font-medium">Pick the new date:</p>
-              <div className="grid gap-1.5">
-                {sessions.map((s) => {
-                  const isSel = selectedSessionId === s.id;
-                  return (
-                    <label
-                      key={s.id}
-                      className={`flex items-center gap-2.5 p-2 rounded-lg border text-sm cursor-pointer transition-all ${
-                        isSel ? "border-primary bg-primary/10 ring-1 ring-primary/30" : "border-border/50 bg-background/50 hover:border-border"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name={`move-session-${booking.id}`}
-                        checked={isSel}
-                        onChange={() => setSelectedSessionId(s.id)}
-                        className="accent-primary w-4 h-4"
-                      />
-                      <CalendarDays className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                      <span className="flex-1 text-foreground font-medium">{format(parseISO(s.session_date), "EEE d MMM yyyy")}</span>
-                      <span className="text-xs text-muted-foreground">{s.start_time?.slice(0, 5)}–{s.end_time?.slice(0, 5)}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </div>
-
-        <DialogFooter className="px-6 py-4 border-t border-border/50 flex-row justify-end gap-2">
-          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} disabled={submitting}>
+    <ResponsiveSheet
+      open={open}
+      onOpenChange={(o) => { if (!submitting) onOpenChange(o); }}
+      title="Move session"
+      description={
+        <>
+          {booking.className}
+          {booking.studentName && <> · for {booking.studentName}</>}
+          {" · currently "}
+          {format(parseISO(booking.sessionDate), "EEE d MMM yyyy")}
+        </>
+      }
+      themeClass="portal-ui"
+      footer={
+        <div className="flex gap-2">
+          <Button variant="soft" className="h-12 flex-1 rounded-xl" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
-          <Button size="sm" onClick={handleMove} disabled={!selectedSessionId || submitting}>
-            {submitting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+          <Button className="h-12 flex-1 rounded-xl" onClick={handleMove} disabled={!selectedSessionId || submitting}>
+            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
             Move session
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      }
+    >
+      <div className="space-y-5">
+        <QuietNotice>{ADULT_CANCELLATION_INFO}</QuietNotice>
+
+        {!isTrial && (
+          loadingClasses ? (
+            <OptionRowsSkeleton rows={3} />
+          ) : classes.length > 1 ? (
+            <div>
+              <p className="mb-2 text-[13px] font-medium text-foreground">Move to class</p>
+              <div role="radiogroup" aria-label="Move to class" className="space-y-2">
+                {classes.map((c) => (
+                  <OptionRow
+                    key={c.id}
+                    selected={selectedClassId === c.id}
+                    onSelect={() => setSelectedClassId(c.id)}
+                    title={
+                      <>
+                        {c.name}
+                        {c.id === booking.classId && (
+                          <span className="ml-1.5 text-[13px] font-normal text-muted-foreground">(current)</span>
+                        )}
+                      </>
+                    }
+                    meta={[
+                      c.day_of_week ? formatDay(c.day_of_week, "plural") : null,
+                      c.start_time ? formatTimeRange(c.start_time, c.end_time) : null,
+                      c.venues?.name ?? null,
+                    ].filter(Boolean).join(" · ")}
+                    trailing={
+                      <>
+                        {formatPrice(priceOf(c), { trimZeros: true })}
+                        <span className="text-[13px] font-normal text-muted-foreground">/class</span>
+                      </>
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null
+        )}
+
+        {loadingSessions ? (
+          <OptionRowsSkeleton rows={4} />
+        ) : sessions.length === 0 ? (
+          <p className="py-6 text-center text-[15px] text-muted-foreground">
+            No dates are available to move to{isTrial ? " for this class" : ""}.
+          </p>
+        ) : (
+          <div>
+            <p className="mb-2 text-[13px] font-medium text-foreground">Pick the new date</p>
+            <div role="radiogroup" aria-label="Pick the new date" className="space-y-2">
+              {sessions.map((s) => (
+                <OptionRow
+                  key={s.id}
+                  name={`move-session-${booking.id}`}
+                  selected={selectedSessionId === s.id}
+                  onSelect={() => setSelectedSessionId(s.id)}
+                  title={format(parseISO(s.session_date), "EEEE d MMMM yyyy")}
+                  trailing={<span className="text-[13px] font-medium text-muted-foreground">{formatTimeRange(s.start_time, s.end_time)}</span>}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </ResponsiveSheet>
   );
 };
 

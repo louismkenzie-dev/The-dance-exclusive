@@ -1,11 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
 import { getOrCreateBookingQrToken, buildQrPayload } from "@/lib/qrTokens";
 import { format } from "date-fns";
-import { Loader2, ShieldCheck, Calendar as CalendarIcon } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { ResponsiveSheet } from "@/components/booking/ResponsiveSheet";
+import { Bone } from "@/components/booking/Skeletons";
 
 interface Props {
   open: boolean;
@@ -108,79 +107,69 @@ const BookingQrDialog = ({ open, onOpenChange, booking }: Props) => {
   const nextSession = upcomingSessions[0];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 sm:max-w-md w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] max-h-[calc(100dvh-2rem)] overflow-y-auto p-4 sm:p-6"
-      >
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-primary" /> Sign-in QR Code
-          </DialogTitle>
-          <DialogDescription>
-            Show this QR code at drop-off and pick-up. Anyone collecting your child must present this code for safeguarding.
-          </DialogDescription>
-        </DialogHeader>
-
-        {loading ? (
-          <div className="py-12 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-        ) : !token ? (
-          <p className="text-sm text-muted-foreground py-8 text-center">Couldn't generate a QR code for this booking.</p>
-        ) : (
-          <div className="space-y-4">
-            <Card className="p-4 sm:p-6 flex flex-col items-center gap-4 bg-white w-full">
-              <div
-                ref={qrWrapRef}
-                className="w-full max-w-[240px] aspect-square flex items-center justify-center"
-              >
-                <QRCodeSVG
-                  value={buildQrPayload(token.token)}
-                  size={qrSize}
-                  level="M"
-                  includeMargin
-                />
-              </div>
-              <div className="text-center space-y-1">
-                {/* Card is always white — force dark text so it's readable in dark mode too. */}
-                <p className="font-semibold text-black">
-                  {covered.length > 1 ? covered.join(" · ") : studentName}
-                </p>
-                {className && <p className="text-xs text-gray-600">{className}</p>}
-                {covered.length > 1 && (
-                  <p className="text-[11px] text-gray-600">
-                    One scan covers all {covered.length} — staff mark each person in individually.
-                  </p>
-                )}
-                {nextSession && (
-                  <p className="text-xs text-gray-600 flex items-center justify-center gap-1 pt-1">
-                    <CalendarIcon className="w-3 h-3" />
-                    Next: {format(new Date(nextSession.session_date), "EEE d MMM")} · {nextSession.start_time?.slice(0, 5)}
-                  </p>
-                )}
-              </div>
-            </Card>
-
-            <p className="text-[11px] text-muted-foreground text-center px-2">
-              One QR code covers everyone you've booked on this class — use the same code at every
-              drop-off and pick-up. Save it to your phone or take a screenshot.
-            </p>
-
-            {familyPin && (
-              <div className="rounded-lg border border-border bg-muted/40 p-3 text-center">
-                <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
-                  No phone or QR? Your Family PIN
-                </p>
-                <p className="font-mono font-bold text-xl tracking-[0.35em] mt-0.5">{familyPin}</p>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  Quote this 4-digit PIN to a member of staff and they can sign
-                  {covered.length > 1 ? " everyone" : ""} in without the code. Keep it private —
-                  anyone collecting on your behalf will need it.
-                </p>
-              </div>
-            )}
+    <ResponsiveSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Sign-in QR code"
+      description="Show this at drop-off and pick-up. Anyone collecting your child must present it."
+      themeClass="portal-ui"
+    >
+      {loading ? (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-border p-5">
+            <Bone className="mx-auto aspect-square w-full max-w-[240px] rounded-xl" />
+            <Bone className="mx-auto mt-4 h-4 w-1/2" />
+            <Bone className="mx-auto mt-2 h-3 w-1/3" />
           </div>
-        )}
-      </DialogContent>
-    </Dialog>
+          <Bone className="mx-auto h-3 w-3/4" />
+        </div>
+      ) : !token ? (
+        <p className="py-8 text-center text-[15px] text-muted-foreground">Couldn't generate a QR code for this booking.</p>
+      ) : (
+        <div className="space-y-4">
+          {/* The QR panel is always white so it scans reliably in the dark
+              adult theme too — the one deliberately fixed colour here. */}
+          <div className="flex w-full flex-col items-center gap-4 rounded-2xl border border-border bg-white p-5 sm:p-6">
+            <div ref={qrWrapRef} className="flex aspect-square w-full max-w-[240px] items-center justify-center">
+              <QRCodeSVG value={buildQrPayload(token.token)} size={qrSize} level="M" includeMargin />
+            </div>
+            <div className="space-y-1 text-center">
+              <p className="text-[17px] font-semibold tracking-tight text-neutral-900">
+                {covered.length > 1 ? covered.join(" · ") : studentName}
+              </p>
+              {className && <p className="text-[13px] text-neutral-600">{className}</p>}
+              {covered.length > 1 && (
+                <p className="text-[13px] text-neutral-600">
+                  One scan covers all {covered.length} — staff mark each person in individually.
+                </p>
+              )}
+              {nextSession && (
+                <p className="pt-1 text-[13px] text-neutral-600">
+                  Next: {format(new Date(nextSession.session_date), "EEE d MMM")} · {nextSession.start_time?.slice(0, 5)}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <p className="px-2 text-center text-[13px] leading-relaxed text-muted-foreground">
+            One QR code covers everyone you've booked on this class — use the same code at every
+            drop-off and pick-up. Save it to your phone or take a screenshot.
+          </p>
+
+          {familyPin && (
+            <div className="rounded-2xl bg-muted/60 p-4 text-center">
+              <p className="text-[13px] font-medium text-muted-foreground">No phone or QR? Your family PIN</p>
+              <p className="mt-1 font-mono text-2xl font-semibold tracking-[0.35em] text-foreground">{familyPin}</p>
+              <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
+                Quote this 4-digit PIN to a member of staff and they can sign
+                {covered.length > 1 ? " everyone" : ""} in without the code. Keep it private —
+                anyone collecting on your behalf will need it.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </ResponsiveSheet>
   );
 };
 

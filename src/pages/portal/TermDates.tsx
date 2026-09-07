@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { format, parseISO } from "date-fns";
-import { CalendarDays, Clock, MapPin, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TermSessionGroups } from "@/components/TermSessionGroups";
 import {
@@ -15,12 +12,13 @@ import {
   type CalendarTerm,
   type YearRow,
 } from "@/lib/termCalendar";
-
-const bodyFont = {
-  textTransform: "none",
-  letterSpacing: "normal",
-  fontFamily: "var(--font-body)",
-} as const;
+import { SectionHeading } from "@/components/booking/SectionHeading";
+import { Chip, ChipRow } from "@/components/booking/Chips";
+import { EmptyState } from "@/components/booking/EmptyState";
+import { QuietPill } from "@/components/booking/QuietPill";
+import { ListRowsSkeleton, RecordCardSkeleton } from "@/components/booking/PortalSkeletons";
+import { formatDay, formatTimeRange } from "@/lib/bookingFormat";
+import { cn } from "@/lib/utils";
 
 interface TermRow extends CalendarTerm {
   academic_year: string;
@@ -58,7 +56,8 @@ const fmtRange = (start: string, end: string) =>
     ? format(parseISO(start), "EEE d MMM yyyy")
     : `${format(parseISO(start), "EEE d MMM")} – ${format(parseISO(end), "EEE d MMM yyyy")}`;
 
-const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const joinNames = (names: string[]) =>
+  names.length <= 2 ? names.join(" and ") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 
 /**
  * Term dates for parents: the year's terms, breaks and bank holidays, and —
@@ -205,38 +204,37 @@ const TermDates = () => {
 
   const renderYearRow = (r: YearRow) => {
     const isTerm = r.kind === "term";
+    const kindLabel = isTerm ? "Term" : r.kind === "bank_holiday" ? "Bank holiday" : "Break";
     return (
       <div
         key={`${r.kind}-${r.start_date}-${r.name}`}
-        className={`flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 px-4 py-3 ${
-          r.current ? "bg-primary/5" : ""
-        } ${r.past ? "opacity-50" : ""}`}
+        className={cn(
+          "grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 px-5 py-4 sm:grid-cols-[15rem_1fr_auto]",
+          r.current && "bg-primary/5",
+          r.past && "opacity-60",
+        )}
       >
-        <div className="sm:w-60 shrink-0 text-sm font-semibold text-foreground tabular-nums" style={bodyFont}>
+        <div className="text-[15px] font-semibold tabular-nums text-foreground sm:col-start-1 sm:row-start-1">
           {fmtRange(r.start_date, r.end_date)}
         </div>
-        <div className="flex-1 min-w-0" style={bodyFont}>
-          <span className={`text-sm ${isTerm ? "font-semibold text-foreground" : "text-foreground"}`}>
-            {r.name}
-          </span>
-          <span className="text-sm text-muted-foreground">
-            {isTerm ? ` · ${r.weeks} weeks of classes` : " · no classes"}
-          </span>
-          {r.backOn && (
-            <span className="block text-xs text-muted-foreground">
-              Classes back {format(parseISO(r.backOn), "EEEE d MMMM")}
-            </span>
+        <div className="justify-self-end sm:col-start-3 sm:row-start-1">
+          {r.current ? (
+            <QuietPill tone="brand">Now</QuietPill>
+          ) : (
+            <span className="text-[13px] text-muted-foreground">{kindLabel}</span>
           )}
         </div>
-        <div className="shrink-0">
-          {r.current ? (
-            <Badge className="bg-primary text-primary-foreground text-[10px]">Now</Badge>
-          ) : isTerm ? (
-            <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">Term</Badge>
-          ) : (
-            <Badge variant="outline" className="text-[10px] border-pink-500/40 text-pink-500">
-              {r.kind === "bank_holiday" ? "Bank holiday" : "Break"}
-            </Badge>
+        <div className="col-span-2 min-w-0 sm:col-span-1 sm:col-start-2 sm:row-start-1">
+          <p className="text-[15px] text-foreground">
+            <span className={isTerm ? "font-semibold" : "font-medium"}>{r.name}</span>
+            <span className="text-muted-foreground">
+              {isTerm ? ` · ${r.weeks} weeks of classes` : " · no classes"}
+            </span>
+          </p>
+          {r.backOn && (
+            <p className="text-[13px] text-muted-foreground">
+              Classes back {format(parseISO(r.backOn), "EEEE d MMMM")}
+            </p>
           )}
         </div>
       </div>
@@ -245,69 +243,60 @@ const TermDates = () => {
 
   return (
     <div className="min-h-[80vh] bg-background">
-      <div className="container py-12 max-w-4xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-display font-bold flex items-center gap-2.5">
-            <CalendarDays className="w-7 h-7 text-primary" /> Term Dates
-          </h1>
-          <p className="text-sm text-muted-foreground mt-2 max-w-2xl" style={bodyFont}>
-            Weekly classes run every week during term time and stop for half term, the school
-            holidays and bank holidays. A few adult classes carry on through half term — the
-            dates below and the Timetable always show what is actually on.
-          </p>
-        </div>
+      <div className="container max-w-4xl py-8 sm:py-12">
+        <SectionHeading
+          as="h1"
+          size="page"
+          title="Term dates"
+          subtitle="Weekly classes run every week during term time and stop for half term, the school holidays and bank holidays. A few adult classes carry on through half term — the dates below and the timetable always show what is actually on."
+        />
 
         {/* The year at a glance */}
-        <section className="mb-10">
-          <div className="flex items-baseline justify-between gap-3 mb-3">
-            <h2 className="text-sm font-display font-bold uppercase tracking-widest text-foreground">
-              The year {yearLabel && <span className="text-muted-foreground font-normal">· {yearLabel}</span>}
-            </h2>
-          </div>
+        <section className="mt-10">
+          <SectionHeading
+            title="The year"
+            aside={yearLabel ? <span className="text-[13px] font-medium text-muted-foreground">{yearLabel}</span> : undefined}
+            className="mb-4"
+          />
           {yearLoading ? (
-            <div className="text-muted-foreground py-8 text-center">Loading term dates...</div>
+            <ListRowsSkeleton rows={5} />
           ) : rows.length === 0 ? (
-            <Card className="card-elevated border-border/50">
-              <CardContent className="py-12 text-center text-muted-foreground" style={bodyFont}>
-                This year&apos;s term dates haven&apos;t been published yet — check back soon.
-              </CardContent>
-            </Card>
+            <EmptyState
+              title="Term dates coming soon"
+              body="This year's term dates haven't been published yet — check back soon."
+            />
           ) : (
-            <Card className="card-elevated border-border/50 bg-card/80 overflow-hidden">
-              <CardContent className="p-0 divide-y divide-border/50">{rows.map(renderYearRow)}</CardContent>
-            </Card>
+            <div className="surface divide-y divide-border/70 overflow-hidden">{rows.map(renderYearRow)}</div>
           )}
         </section>
 
         {/* The family's own classes, date by date */}
-        <section className="mb-10">
-          <h2 className="text-sm font-display font-bold uppercase tracking-widest text-foreground mb-3">
-            Your classes
-          </h2>
+        <section className="mt-10">
+          <SectionHeading title="Your classes" className="mb-4" />
           {!user ? (
-            <Card className="card-elevated border-border/50">
-              <CardContent className="py-10 text-center space-y-3">
-                <p className="text-sm text-muted-foreground" style={bodyFont}>
-                  Sign in to see every date for the classes you&apos;ve booked, term by term.
-                </p>
-                <Button asChild size="sm">
+            <EmptyState
+              title="Sign in to see your class dates"
+              body="Every date for the classes you've booked, term by term."
+              action={
+                <Button asChild size="lg" className="rounded-full">
                   <Link to="/auth">Sign in</Link>
                 </Button>
-              </CardContent>
-            </Card>
+              }
+            />
           ) : classesLoading ? (
-            <div className="text-muted-foreground py-8 text-center">Loading your classes...</div>
+            <div className="space-y-4">
+              <RecordCardSkeleton />
+            </div>
           ) : classes.length === 0 ? (
-            <Card className="card-elevated border-border/50">
-              <CardContent className="py-10 text-center space-y-3">
-                <p className="text-sm text-muted-foreground" style={bodyFont}>
-                  Book a class and its dates will appear here.
-                </p>
-                <Button asChild size="sm" variant="outline">
+            <EmptyState
+              title="No classes yet"
+              body="Book a class and its dates will appear here."
+              action={
+                <Button asChild variant="soft" size="lg" className="rounded-full">
                   <Link to="/classes/children">Browse classes</Link>
                 </Button>
-              </CardContent>
-            </Card>
+              }
+            />
           ) : (
             <div className="space-y-4">
               {classes.map((cls) => {
@@ -320,113 +309,95 @@ const TermDates = () => {
                 const hidden = all.length - shown.length;
                 const isAdult = cls.class_type === "adult";
                 const who = attendees[cls.id] ?? [];
+                const whenLine = [
+                  cls.day_of_week ? formatDay(cls.day_of_week, "plural") : null,
+                  cls.start_time ? formatTimeRange(cls.start_time, cls.end_time) : null,
+                ].filter(Boolean).join(" · ");
                 return (
-                  <Card
+                  <article
                     key={cls.id}
                     id={`class-${cls.id}`}
-                    className="card-elevated border-border/50 bg-card/80 scroll-mt-28 animate-fade-in"
+                    className="surface animate-rise-in scroll-mt-28 p-5"
                   >
-                    <CardContent className="p-4 space-y-3">
-                      <div className="flex items-start justify-between gap-3 flex-wrap">
-                        <div className="min-w-0 space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-semibold text-base">{cls.name}</h3>
-                            <span
-                              className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white"
-                              style={{ background: isAdult ? "hsl(330, 90%, 55%)" : "hsl(193, 100%, 44%)" }}
-                            >
-                              {isAdult ? "Adults" : "Children"}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap" style={bodyFont}>
-                            {cls.day_of_week && (
-                              <span className="flex items-center gap-1">
-                                <CalendarDays className="w-3.5 h-3.5" /> {capitalise(cls.day_of_week)}s
-                              </span>
-                            )}
-                            {cls.start_time && (
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3.5 h-3.5" /> {cls.start_time.slice(0, 5)}
-                                {cls.end_time && <> – {cls.end_time.slice(0, 5)}</>}
-                              </span>
-                            )}
-                            {cls.venues?.name && (
-                              <span className="flex items-center gap-1">
-                                <MapPin className="w-3.5 h-3.5" /> {cls.venues.name}
-                              </span>
-                            )}
-                          </div>
-                          {who.length > 0 && (
-                            <p className="text-sm flex items-center gap-1.5" style={bodyFont}>
-                              <Users className="w-3.5 h-3.5 text-muted-foreground" /> {who.join(" · ")}
-                            </p>
-                          )}
-                        </div>
-                        <div className="text-right shrink-0" style={bodyFont}>
-                          {next ? (
-                            <>
-                              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Next class</p>
-                              <p className="text-sm font-semibold text-foreground">
-                                {format(parseISO(next.session_date), "EEE d MMM")}
-                              </p>
-                            </>
-                          ) : (
-                            <p className="text-xs text-muted-foreground max-w-[12rem]">
-                              No more dates scheduled yet — next term&apos;s appear here as soon as they&apos;re added.
-                            </p>
-                          )}
-                        </div>
+                    <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+                      <div className="min-w-0 flex-1 basis-48">
+                        <p className="text-[13px] font-medium text-muted-foreground">
+                          {[isAdult ? "Adults" : "Children", who.length > 0 ? `For ${joinNames(who)}` : null].filter(Boolean).join(" · ")}
+                        </p>
+                        <h3 className="mt-1 text-[19px] font-semibold leading-snug tracking-tight text-foreground">{cls.name}</h3>
+                        {whenLine && <p className="mt-2 text-[15px] text-foreground/90">{whenLine}</p>}
+                        {cls.venues?.name && <p className="mt-0.5 text-[15px] text-muted-foreground">{cls.venues.name}</p>}
                       </div>
+                      <div className="ml-auto shrink-0 text-right">
+                        {next ? (
+                          <>
+                            <p className="text-[13px] text-muted-foreground">Next class</p>
+                            <p className="text-[15px] font-semibold text-foreground">
+                              {format(parseISO(next.session_date), "EEE d MMM")}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="max-w-[14rem] text-[13px] leading-relaxed text-muted-foreground">
+                            No more dates scheduled yet — next term's appear here as soon as they're added.
+                          </p>
+                        )}
+                      </div>
+                    </div>
 
-                      {shown.length > 0 && (
-                        <TermSessionGroups
-                          sessions={shown}
-                          dateOf={(s) => s.session_date}
-                          className="grid gap-1"
-                          renderSession={(s) => {
-                            const cancelled = s.status === "cancelled";
-                            return (
-                              <div
-                                className={`flex items-center justify-between rounded-md px-2.5 py-1.5 text-sm ${
-                                  cancelled ? "text-muted-foreground line-through" : "bg-muted/30 text-foreground"
-                                }`}
-                                style={bodyFont}
-                              >
-                                <span>{format(parseISO(s.session_date), "EEE d MMM")}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {cancelled ? "Cancelled" : `${s.start_time.slice(0, 5)} – ${s.end_time.slice(0, 5)}`}
-                                </span>
-                              </div>
-                            );
-                          }}
-                        />
-                      )}
-
-                      {(hidden > 0 || wholeYear) && (
-                        <button
-                          type="button"
-                          onClick={() => setShowWholeYear((prev) => ({ ...prev, [cls.id]: !wholeYear }))}
-                          className="text-xs text-primary hover:underline"
-                          style={bodyFont}
+                    {(hidden > 0 || wholeYear) && (
+                      <ChipRow wrap className="mt-4">
+                        <Chip
+                          selected={!wholeYear}
+                          onClick={() => setShowWholeYear((prev) => ({ ...prev, [cls.id]: false }))}
                         >
-                          {wholeYear ? "Show this term only" : `Show the rest of the year (${hidden} more dates)`}
-                        </button>
-                      )}
-                    </CardContent>
-                  </Card>
+                          This term
+                        </Chip>
+                        <Chip
+                          selected={wholeYear}
+                          onClick={() => setShowWholeYear((prev) => ({ ...prev, [cls.id]: true }))}
+                          trailing={!wholeYear ? `+${hidden}` : undefined}
+                        >
+                          Whole year
+                        </Chip>
+                      </ChipRow>
+                    )}
+
+                    {shown.length > 0 && (
+                      <TermSessionGroups
+                        sessions={shown}
+                        dateOf={(s) => s.session_date}
+                        className="mt-4 grid gap-1"
+                        renderSession={(s) => {
+                          const cancelled = s.status === "cancelled";
+                          return (
+                            <div
+                              key={s.id}
+                              className={cn(
+                                "flex items-center justify-between rounded-lg px-3 py-2 text-[15px]",
+                                cancelled ? "text-muted-foreground line-through" : "bg-muted/40 text-foreground",
+                              )}
+                            >
+                              <span>{format(parseISO(s.session_date), "EEE d MMM")}</span>
+                              <span className="text-[13px] tabular-nums text-muted-foreground">
+                                {cancelled ? "Cancelled" : formatTimeRange(s.start_time, s.end_time)}
+                              </span>
+                            </div>
+                          );
+                        }}
+                      />
+                    )}
+                  </article>
                 );
               })}
             </div>
           )}
         </section>
 
-        <div className="flex flex-wrap gap-3">
-          <Button asChild variant="outline" size="sm" className="uppercase tracking-wider text-xs font-bold">
-            <Link to="/timetable">
-              <CalendarDays className="w-3.5 h-3.5 mr-1.5" /> Timetable — next 3 weeks
-            </Link>
+        <div className="mt-10 flex flex-wrap gap-3">
+          <Button asChild variant="soft" size="lg" className="rounded-full">
+            <Link to="/timetable">Timetable — next 3 weeks</Link>
           </Button>
-          <Button asChild size="sm" className="uppercase tracking-wider text-xs font-bold">
+          <Button asChild size="lg" className="rounded-full">
             <Link to="/classes/children">Browse classes</Link>
           </Button>
         </div>

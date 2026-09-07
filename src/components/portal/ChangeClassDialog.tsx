@@ -1,20 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { CalendarDays, Clock, Loader2, MapPin, Repeat } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { monthlyPrice } from "@/lib/pricing";
-import { cn } from "@/lib/utils";
+import { ResponsiveSheet } from "@/components/booking/ResponsiveSheet";
+import { OptionRow } from "@/components/booking/OptionRow";
+import { OptionRowsSkeleton } from "@/components/booking/PortalSkeletons";
+import { formatDay, formatPrice, formatTimeRange } from "@/lib/bookingFormat";
 
 interface CandidateClass {
   id: string;
@@ -135,92 +129,65 @@ const ChangeClassDialog = ({ open, onOpenChange, membership, onSwitched }: Chang
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!switching) onOpenChange(o); }}>
-      <DialogContent className="max-w-lg max-h-dialog flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Repeat className="w-5 h-5" /> Change class
-          </DialogTitle>
-          <DialogDescription>
-            Move {membership?.studentName ? <strong>{membership.studentName}&#39;s</strong> : "this"} membership
-            from <strong>{membership?.className}</strong> to a different weekly class. The register updates
-            straight away and your monthly payment continues on the new class — this is an ongoing change,
-            not a one-week swap.
-          </DialogDescription>
-        </DialogHeader>
-
-        <ScrollArea className="flex-1 min-h-0 -mx-1 px-1">
-          {loading ? (
-            <div className="py-10 text-center text-muted-foreground text-sm">Loading classes...</div>
-          ) : candidates.length === 0 ? (
-            <div className="py-10 text-center text-muted-foreground text-sm">
-              No other suitable classes are open for booking right now.
-            </div>
-          ) : (
-            <div className="space-y-2 py-1">
-              {candidates.map((c) => {
-                const day = c.day_of_week ? c.day_of_week.charAt(0).toUpperCase() + c.day_of_week.slice(1) : null;
-                const selected = selectedId === c.id;
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => setSelectedId(c.id)}
-                    className={cn(
-                      "w-full text-left rounded-lg border p-3 transition-colors",
-                      selected ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-border hover:border-primary/50",
-                    )}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="font-semibold text-sm truncate">{c.name}</p>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
-                          {day && (
-                            <span className="flex items-center gap-1">
-                              <CalendarDays className="w-3 h-3" /> {day}s
-                            </span>
-                          )}
-                          {c.start_time && (
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" /> {c.start_time.slice(0, 5)}
-                              {c.end_time ? `–${c.end_time.slice(0, 5)}` : ""}
-                            </span>
-                          )}
-                          {c.venues?.name && (
-                            <span className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" /> {c.venues.name}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <span className="text-sm font-bold whitespace-nowrap">
-                        £{monthlyPrice(c).toFixed(2)}
-                        <span className="text-xs font-normal text-muted-foreground">/mo</span>
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </ScrollArea>
-
-        <p className="text-xs text-muted-foreground">
-          Prices shown are the standard monthly rate — your exact price is confirmed when you switch
-          (any sibling discount, additional-class rate or the £110 unlimited cap still applies).
-        </p>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={switching}>
+    <ResponsiveSheet
+      open={open}
+      onOpenChange={(o) => { if (!switching) onOpenChange(o); }}
+      title="Change class"
+      description={
+        <>
+          Move {membership?.studentName ? <span className="font-medium text-foreground">{membership.studentName}'s</span> : "this"} membership
+          from <span className="font-medium text-foreground">{membership?.className}</span> to a different weekly class.
+          The register updates straight away and your monthly payment continues on the new class — an ongoing change, not a one-week swap.
+        </>
+      }
+      themeClass="portal-ui"
+      footer={
+        <div className="flex gap-2">
+          <Button variant="soft" className="h-12 flex-1 rounded-xl" onClick={() => onOpenChange(false)} disabled={switching}>
             Keep current class
           </Button>
-          <Button onClick={confirmSwitch} disabled={!selectedId || switching}>
-            {switching && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+          <Button className="h-12 flex-1 rounded-xl" onClick={confirmSwitch} disabled={!selectedId || switching}>
+            {switching && <Loader2 className="h-4 w-4 animate-spin" />}
             Confirm change
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      }
+    >
+      {loading ? (
+        <OptionRowsSkeleton rows={4} />
+      ) : candidates.length === 0 ? (
+        <p className="py-10 text-center text-[15px] text-muted-foreground">
+          No other suitable classes are open for booking right now.
+        </p>
+      ) : (
+        <div role="radiogroup" aria-label="Choose a class" className="space-y-2">
+          {candidates.map((c) => (
+            <OptionRow
+              key={c.id}
+              selected={selectedId === c.id}
+              onSelect={() => setSelectedId(c.id)}
+              title={c.name}
+              meta={[
+                c.day_of_week ? formatDay(c.day_of_week, "plural") : null,
+                c.start_time ? formatTimeRange(c.start_time, c.end_time) : null,
+                c.venues?.name ?? null,
+              ].filter(Boolean).join(" · ")}
+              trailing={
+                <>
+                  {formatPrice(monthlyPrice(c))}
+                  <span className="text-[13px] font-normal text-muted-foreground">/month</span>
+                </>
+              }
+            />
+          ))}
+        </div>
+      )}
+
+      <p className="mt-4 text-[13px] leading-relaxed text-muted-foreground">
+        Prices shown are the standard monthly rate — your exact price is confirmed when you switch
+        (any sibling discount, additional-class rate or the £110 unlimited cap still applies).
+      </p>
+    </ResponsiveSheet>
   );
 };
 

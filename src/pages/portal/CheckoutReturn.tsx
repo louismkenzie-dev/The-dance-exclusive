@@ -4,61 +4,26 @@ import { supabase } from "@/integrations/supabase/client";
 import { getStripe } from "@/lib/stripe";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { SplatVideo } from "@/components/BrandLoader";
-import {
-  CheckCircle2,
-  XCircle,
-  Loader2,
-  Calendar,
-  Clock,
-  MapPin,
-  User,
-  Mail,
-  Receipt,
-  Sparkles,
-  QrCode,
-} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
+import { Bone, EmptyState, SuccessCheck } from "@/components/booking";
+import { ConfirmationBookingCard } from "@/components/booking/ConfirmationBookingCard";
+import type { ConfirmationBooking } from "@/components/booking/confirmationBooking";
+import { formatPrice } from "@/lib/bookingFormat";
 
 type Status = "loading" | "success" | "processing" | "error";
 
-interface BookingDetail {
-  id: string;
-  status: string;
-  booking_type: string;
-  amount: number | null;
-  created_at: string;
-  notes: string | null;
-  classes?: {
-    name: string;
-    start_time: string;
-    end_time: string;
-    day_of_week: string;
-    venues?: { name: string; city: string | null } | null;
-  } | null;
-  camps?: {
-    name: string;
-    start_date: string | null;
-    end_date: string | null;
-    venues?: { name: string; city: string | null } | null;
-  } | null;
-  students?: { first_name: string; last_name: string } | null;
-}
+/** The booking row as selected below; `classes.term_end` feeds the calendar link's weekly repeat. */
+type BookingDetail = ConfirmationBooking;
 
-const planLabel: Record<string, string> = {
-  trial: "Trial",
-  session: "Per Session",
-  monthly: "Monthly Membership",
-  term: "Full Term",
-  year: "Full Year",
-  yearly: "Full Year",
-  pass: "Class Pass",
-  camp: "Holiday Workshop",
-  birthday: "Birthday Class",
-};
+/** "5 October" in the studio's zone, or the standing fallback when the server has not said. */
+const formatFirstPayment = (iso: string | null): string =>
+  iso
+    ? new Date(iso).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        timeZone: "Europe/London",
+      })
+    : "the 5th of next month";
 
 const CheckoutReturn = () => {
   const [searchParams] = useSearchParams();
@@ -97,7 +62,7 @@ const CheckoutReturn = () => {
           .from("bookings")
           .select(
             `id, status, booking_type, amount, created_at, notes,
-             classes:class_id ( name, start_time, end_time, day_of_week,
+             classes:class_id ( name, start_time, end_time, day_of_week, term_end,
                                venues:venue_id ( name, city ) ),
              camps:camp_id ( name, start_date, end_date,
                              venues:venue_id ( name, city ) ),
@@ -281,271 +246,162 @@ const CheckoutReturn = () => {
 
   if (status === "loading") {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center px-4">
-        <div className="text-center space-y-4">
-          <SplatVideo className="w-44 h-44 mx-auto" />
-          <h1 className="text-xl font-bold text-foreground">
-            Confirming your payment…
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            This will only take a moment.
-          </p>
+      <div className="container max-w-2xl py-10 pb-16 sm:py-16" aria-busy="true">
+        <div className="flex flex-col items-center">
+          <Bone className="h-[88px] w-[88px] rounded-full" />
+          <Bone className="mt-6 h-8 w-44 rounded-lg" />
+          <Bone className="mt-3 h-4 w-64" />
         </div>
+        <div className="surface mt-10 p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 space-y-2.5">
+              <Bone className="h-5 w-2/5" />
+              <Bone className="h-4 w-1/3" />
+              <Bone className="h-3 w-1/4" />
+            </div>
+            <Bone className="h-5 w-14" />
+          </div>
+          <div className="mt-5 space-y-2.5">
+            <Bone className="h-4 w-3/5" />
+            <Bone className="h-4 w-1/2" />
+          </div>
+        </div>
+        <p role="status" className="mt-8 text-center text-sm text-muted-foreground">
+          Confirming your payment…
+        </p>
       </div>
     );
   }
 
   if (status === "processing") {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center px-4">
-        <div className="text-center max-w-md space-y-4">
-          <Loader2 className="w-12 h-12 text-primary mx-auto animate-spin" />
-          <h1 className="text-xl font-bold text-foreground">
-            Payment processing
-          </h1>
-          <p className="text-muted-foreground">
-            Your payment is being processed. We'll email you once it's
-            confirmed.
-          </p>
-          <Button asChild>
-            <Link to="/account/bookings">View My Bookings</Link>
-          </Button>
-        </div>
+      <div className="container max-w-lg py-12 pb-16 sm:py-20">
+        <EmptyState
+          title="Payment processing"
+          body="Your payment is being processed. We'll email you once it's confirmed."
+          action={
+            <Button asChild variant="soft" size="xl" className="pressable w-full rounded-full sm:w-auto sm:px-10">
+              <Link to="/account/bookings">View my bookings</Link>
+            </Button>
+          }
+        />
       </div>
     );
   }
 
   if (status === "error") {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center px-4">
-        <div className="text-center max-w-md space-y-4">
-          <XCircle className="w-16 h-16 text-destructive mx-auto" />
-          <h1 className="text-2xl font-bold text-foreground">
-            Something went wrong
-          </h1>
-          <p className="text-muted-foreground">
-            We couldn't confirm your payment. Please check your bookings or try
-            again.
-          </p>
-          <div className="flex gap-3 justify-center pt-4">
-            <Button asChild>
-              <Link to="/account/bookings">Check My Bookings</Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to="/">Go Home</Link>
-            </Button>
-          </div>
-        </div>
+      <div className="container max-w-lg py-12 pb-16 sm:py-20">
+        <EmptyState
+          tone="error"
+          title="We couldn't confirm your payment"
+          body="If money has left your account, your booking will appear in My Bookings within a few minutes and you'll get an email. Otherwise nothing has been taken."
+          action={
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+              <Button asChild size="xl" className="pressable rounded-full sm:px-8">
+                <Link to="/account/bookings">Check my bookings</Link>
+              </Button>
+              <Button asChild variant="soft" size="xl" className="pressable rounded-full sm:px-8">
+                <Link to="/classes/children">Back to classes</Link>
+              </Button>
+            </div>
+          }
+        />
       </div>
     );
   }
 
   // SUCCESS
+  const reference = (paymentIntentId || sessionId)?.slice(-12).toUpperCase();
+
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container max-w-3xl mx-auto px-4 py-12 space-y-8">
-        {/* Hero */}
-        <div className="text-center space-y-4">
-          <div className="relative inline-flex">
-            <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" />
-            <CheckCircle2
-              className="relative w-24 h-24 text-primary mx-auto"
-              strokeWidth={1.5}
-            />
-          </div>
-          <div className="space-y-2">
-            <Badge className="uppercase tracking-wider text-xs">
-              <Sparkles className="w-3 h-3 mr-1" />{" "}
-              {isSetup ? "Membership Confirmed" : "Booking Confirmed"}
-            </Badge>
-            <h1 className="text-4xl md:text-5xl font-black text-foreground tracking-tight">
-              {isSetup
-                ? "Membership set up — nothing to pay today"
-                : "You're all booked in!"}
-            </h1>
-            {isSetup ? (
-              <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-                Your card is saved and your classes are booked. Your first
-                payment is on{" "}
-                <span className="text-foreground font-medium">
-                  {firstPaymentDate
-                    ? new Date(firstPaymentDate).toLocaleDateString("en-GB", {
-                        day: "numeric",
-                        month: "long",
-                        timeZone: "Europe/London",
-                      })
-                    : "the 5th of next month"}
-                </span>
-                .
-              </p>
-            ) : (
-              <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-                Thank you for booking with The Dance Exclusive.
-                {email && (
-                  <>
-                    {" "}
-                    A receipt has been sent to{" "}
-                    <span className="text-foreground font-medium">{email}</span>.
-                  </>
-                )}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Payment summary */}
-        {(amount !== null || paymentIntentId) && (
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <Receipt className="w-5 h-5 text-primary" />
-              <h2 className="font-bold uppercase tracking-wider text-sm">
-                Payment Summary
-              </h2>
-            </div>
-            <dl className="space-y-2 text-sm">
-              {amount !== null && (
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Total paid</dt>
-                  <dd className="font-bold text-lg">£{amount.toFixed(2)}</dd>
-                </div>
-              )}
+    <div className="container max-w-2xl py-10 pb-16 sm:py-16">
+      {/* Hero */}
+      <header className="animate-rise-in text-center">
+        <SuccessCheck />
+        <h1 className="mt-6 text-[28px] font-semibold leading-[1.15] tracking-tight text-foreground sm:text-4xl">
+          {isSetup ? "Membership set up" : "You're booked"}
+        </h1>
+        <p className="mx-auto mt-3 max-w-md text-balance text-[15px] leading-relaxed text-muted-foreground">
+          {isSetup ? (
+            <>
+              Nothing to pay today — your first payment is on{" "}
+              <span className="font-medium text-foreground">{formatFirstPayment(firstPaymentDate)}</span>.
+            </>
+          ) : (
+            <>
+              Thanks for booking with The Dance Exclusive.
               {email && (
-                <div className="flex justify-between items-center">
-                  <dt className="text-muted-foreground flex items-center gap-1.5">
-                    <Mail className="w-3.5 h-3.5" /> Receipt sent to
-                  </dt>
-                  <dd className="font-medium">{email}</dd>
-                </div>
+                <>
+                  {" "}
+                  A receipt has been sent to <span className="font-medium text-foreground">{email}</span>.
+                </>
               )}
-              {(paymentIntentId || sessionId) && (
-                <div className="flex justify-between items-center">
-                  <dt className="text-muted-foreground">Reference</dt>
-                  <dd className="font-mono text-xs">
-                    {(paymentIntentId || sessionId)!.slice(-12).toUpperCase()}
-                  </dd>
-                </div>
-              )}
-            </dl>
-          </Card>
-        )}
+            </>
+          )}
+        </p>
+      </header>
 
-        {/* Booking details */}
-        {bookings.length > 0 && (
-          <div className="space-y-3">
-            <h2 className="font-bold uppercase tracking-wider text-sm text-muted-foreground">
-              Your Bookings ({bookings.length})
-            </h2>
-            {bookings.map((b) => (
-              <Card key={b.id} className="p-5 space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-lg text-foreground">
-                      {b.classes?.name || b.camps?.name || "Class"}
-                    </h3>
-                    {b.students && (
-                      <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                        <User className="w-3.5 h-3.5" />
-                        {b.students.first_name} {b.students.last_name}
-                      </p>
-                    )}
-                  </div>
-                  <Badge variant="secondary" className="capitalize">
-                    {planLabel[b.booking_type] || b.booking_type}
-                  </Badge>
-                </div>
-
-                <div className="grid sm:grid-cols-2 gap-2 text-sm pt-2 border-t border-border">
-                  {b.classes?.day_of_week && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Calendar className="w-4 h-4 text-primary" />
-                      <span className="capitalize">
-                        {b.classes.day_of_week}s
-                      </span>
-                    </div>
-                  )}
-                  {b.classes?.start_time && b.classes?.end_time && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Clock className="w-4 h-4 text-primary" />
-                      <span>
-                        {b.classes.start_time.slice(0, 5)} –{" "}
-                        {b.classes.end_time.slice(0, 5)}
-                      </span>
-                    </div>
-                  )}
-                  {b.camps?.start_date && b.camps?.end_date && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Calendar className="w-4 h-4 text-primary" />
-                      <span>
-                        {b.camps.start_date.slice(8, 10)}/{b.camps.start_date.slice(5, 7)} – {b.camps.end_date.slice(8, 10)}/{b.camps.end_date.slice(5, 7)}
-                      </span>
-                    </div>
-                  )}
-                  {(b.classes?.venues?.name || b.camps?.venues?.name) && (
-                    <div className="flex items-center gap-2 text-muted-foreground sm:col-span-2">
-                      <MapPin className="w-4 h-4 text-primary" />
-                      <span>
-                        {(b.classes?.venues?.name || b.camps?.venues?.name)}
-                        {(b.classes?.venues?.city || b.camps?.venues?.city) &&
-                          `, ${b.classes?.venues?.city || b.camps?.venues?.city}`}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {b.amount !== null && (
-                  <div className="flex justify-between items-center pt-2 border-t border-border">
-                    <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                      Amount
-                    </span>
-                    <span className="font-bold">£{Number(b.amount).toFixed(2)}</span>
-                  </div>
-                )}
-
-                <div className="text-xs text-muted-foreground">
-                  Booked on{" "}
-                  {format(new Date(b.created_at), "do MMM yyyy 'at' HH:mm")}
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-
+      {/* Bookings — success never waits for these; pass-only purchases have none. */}
+      <section className="mt-10 space-y-3" aria-label="Your bookings">
+        {bookings.map((b, i) => (
+          <ConfirmationBookingCard key={b.id} booking={b} index={i} />
+        ))}
         {bookings.length === 0 && (
-          <Card className="p-6 text-center text-sm text-muted-foreground">
-            Your booking is being created — it may take a few moments to appear
-            in your account.
-          </Card>
-        )}
-
-        {/* QR check-in reminder */}
-        <Card className="p-5 border-primary/30 bg-primary/5">
-          <div className="flex items-start gap-3">
-            <QrCode className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-            <div className="text-sm">
-              <p className="font-semibold text-foreground">Before your first class — grab your QR code</p>
-              <p className="text-muted-foreground mt-1">
-                Each booking has a QR code in <Link to="/account/bookings" className="text-primary underline font-medium">My Bookings</Link>.
-                Show it to a member of staff when you arrive (and when you leave) so they can scan you in and mark attendance.
-                Save it to your phone or screenshot it for quick access.
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
-          <Button asChild size="lg" className="font-bold uppercase tracking-wider">
-            <Link to="/account/bookings">View My Bookings</Link>
-          </Button>
-          <Button
-            asChild
-            size="lg"
-            variant="outline"
-            className="font-bold uppercase tracking-wider"
+          <div
+            className="surface animate-rise-in text-balance px-5 py-6 text-center text-sm leading-relaxed text-muted-foreground"
+            style={{ animationDelay: "120ms" }}
+            role="status"
           >
-            <Link to="/classes/children">Browse More Classes</Link>
-          </Button>
-        </div>
+            Your booking is being created… it will appear in My Bookings in a few moments.
+          </div>
+        )}
+      </section>
+
+      {/* Payment details */}
+      {(amount !== null || paymentIntentId) && (
+        <dl className="mt-8 divide-y divide-border/70 rounded-2xl bg-muted/50 px-5 text-sm">
+          {amount !== null && (
+            <div className="flex items-baseline justify-between gap-4 py-3">
+              <dt className="text-muted-foreground">Total paid</dt>
+              <dd className="font-semibold tabular-nums text-foreground">{formatPrice(amount)}</dd>
+            </div>
+          )}
+          {email && (
+            <div className="flex items-baseline justify-between gap-4 py-3">
+              <dt className="shrink-0 text-muted-foreground">Receipt sent to</dt>
+              <dd className="min-w-0 break-words text-right text-foreground">{email}</dd>
+            </div>
+          )}
+          {reference && (
+            <div className="flex items-baseline justify-between gap-4 py-3">
+              <dt className="text-muted-foreground">Reference</dt>
+              <dd className="font-mono text-[13px] text-foreground">{reference}</dd>
+            </div>
+          )}
+        </dl>
+      )}
+
+      {/* Next step */}
+      <p className="mx-auto mt-8 max-w-md text-balance text-center text-sm leading-relaxed text-muted-foreground">
+        Show the QR code in{" "}
+        <Link
+          to="/account/bookings"
+          className="font-medium text-foreground underline decoration-border underline-offset-4 transition-colors hover:decoration-foreground"
+        >
+          My Bookings
+        </Link>{" "}
+        when you arrive and leave.
+      </p>
+
+      {/* Actions */}
+      <div className="mt-8 flex flex-col gap-3 sm:flex-row-reverse sm:justify-center">
+        <Button asChild size="xl" className="pressable w-full rounded-full sm:w-auto sm:min-w-[220px]">
+          <Link to="/account/bookings">View my bookings</Link>
+        </Button>
+        <Button asChild variant="soft" size="xl" className="pressable w-full rounded-full sm:w-auto sm:min-w-[220px]">
+          <Link to="/classes/children">Back to classes</Link>
+        </Button>
       </div>
     </div>
   );

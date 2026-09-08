@@ -19,6 +19,9 @@ export interface MoveMembershipTarget {
   childName: string;
   className: string;
   classId: string | null;
+  /** The audience of the class being left — only classes of the same kind
+   *  are offered. Defaults to children when the caller doesn't know. */
+  classType?: string | null;
 }
 
 interface ClassOption {
@@ -48,12 +51,15 @@ const MoveMembershipDialog = ({ target, onOpenChange, onMoved }: MoveMembershipD
   useEffect(() => {
     if (!target) return;
     setNewClassId("");
+    // Same audience only — an adult membership must never be offered a
+    // children's class — and never someone else's invite-only 1:1.
     supabase
       .from("classes")
       .select("id, name, day_of_week, start_time, venues:venue_id(name)")
-      .eq("class_type", "children")
+      .eq("class_type", (target.classType || "children") as "children" | "adult")
       .eq("is_active", true)
       .eq("status", "confirmed")
+      .neq("invite_only", true)
       .order("name")
       .then(({ data }) => setClasses((data as unknown as ClassOption[]) ?? []));
   }, [target]);

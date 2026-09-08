@@ -1022,13 +1022,14 @@ const AdminBookings = () => {
       childName: b.students ? `${b.students.first_name} ${b.students.last_name}` : "—",
       className: b.classes?.name ?? "—",
       classId: data.class_id ?? b.class_id,
+      classType: b.classes?.class_type ?? null,
     });
   };
 
   // "Paid for the wrong class" fix: move a booking to another class in place,
   // keeping the child and the payment.
   const [moveBooking, setMoveBooking] = useState<Booking | null>(null);
-  const [moveClasses, setMoveClasses] = useState<{ id: string; name: string; class_type: string; day_of_week: string; start_time: string | null }[]>([]);
+  const [moveClasses, setMoveClasses] = useState<{ id: string; name: string; class_type: string; day_of_week: string; start_time: string | null; venues: { name: string } | null }[]>([]);
   const [moveClassId, setMoveClassId] = useState("");
   const [moveSessions, setMoveSessions] = useState<{ id: string; session_date: string; start_time: string }[]>([]);
   const [moveSessionDate, setMoveSessionDate] = useState("");
@@ -1041,11 +1042,18 @@ const AdminBookings = () => {
     setMoveClassId("");
     setMoveSessions([]);
     setMoveSessionDate("");
-    const { data } = await supabase
+    // Only classes this booking could actually move to: the same audience
+    // (an adult never belongs on a children's register, or the other way
+    // round) and never someone else's invite-only 1:1 session.
+    let query = supabase
       .from("classes")
-      .select("id, name, class_type, day_of_week, start_time")
+      .select("id, name, class_type, day_of_week, start_time, venues:venue_id(name)")
       .eq("is_active", true)
+      .neq("invite_only", true)
       .order("name");
+    const audience = b.classes?.class_type;
+    if (audience) query = query.eq("class_type", audience);
+    const { data } = await query;
     setMoveClasses(((data as any[]) ?? []).filter((c) => c.id !== b.class_id));
   };
 
@@ -1327,8 +1335,10 @@ const AdminBookings = () => {
               {moveBooking?.students
                 ? `${moveBooking.students.first_name} ${moveBooking.students.last_name}`
                 : "This booking"}{" "}
-              — currently {moveBooking?.classes?.name ?? "unassigned"}. The child and the amount
-              already paid stay exactly as they are; only the class changes.
+              — currently {moveBooking?.classes?.name ?? "unassigned"}. Only{" "}
+              {moveBooking?.classes?.class_type === "adult" ? "adult" : "children's"} classes are
+              listed. The dancer and the amount already paid stay exactly as they are; only the
+              class changes.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -1337,11 +1347,15 @@ const AdminBookings = () => {
               <Select value={moveClassId} onValueChange={onMoveClassPicked}>
                 <SelectTrigger><SelectValue placeholder="Choose a class..." /></SelectTrigger>
                 <SelectContent>
-                  {moveClasses.map((c) => (
+                  {moveClasses.length === 0 ? (
+                    <div className="px-2 py-3 text-sm text-muted-foreground">
+                      No other {moveBooking?.classes?.class_type === "adult" ? "adult" : "children's"} classes to move this to.
+                    </div>
+                  ) : moveClasses.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name} · {c.day_of_week.charAt(0).toUpperCase() + c.day_of_week.slice(1)}
                       {c.start_time ? ` ${c.start_time.slice(0, 5)}` : ""}
-                      {` (${c.class_type === "children" ? "Children" : "Adults"})`}
+                      {c.venues?.name ? ` · ${c.venues.name}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>

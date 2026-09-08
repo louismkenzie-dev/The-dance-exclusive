@@ -5,18 +5,42 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarDays, Clock, Mail, MapPin, Phone, Sparkles, User } from "lucide-react";
+import BookingBreakdown, { type PaymentSibling } from "@/components/admin/BookingBreakdown";
+import { BookingActions, type BookingActionHandlers } from "@/components/admin/BookingActions";
 
 interface TrialRow {
   id: string;
   parent_id: string;
   student_id: string | null;
   class_id: string | null;
+  camp_id: string | null;
   status: string;
+  booking_type: string;
   amount: number | null;
   booked_at: string;
   notes: string | null;
-  classes: { name: string; day_of_week: string | null; start_time: string | null; venues: { name: string } | null } | null;
+  classes: {
+    name: string;
+    class_type: "children" | "adult";
+    day_of_week: string | null;
+    start_time: string | null;
+    end_time: string | null;
+    price_per_session: number | null;
+    price_per_term: number | null;
+    price_per_month: number | null;
+    price_per_year: number | null;
+    term_end: string | null;
+    venues: { name: string } | null;
+  } | null;
   students: { first_name: string; last_name: string } | null;
+}
+
+interface TrialsTabProps {
+  /** The same row actions the Bookings tab uses. */
+  actions: BookingActionHandlers;
+  paymentSiblings: (b: TrialRow) => PaymentSibling[];
+  /** Bumped by the Bookings page when an action changed something. */
+  changeToken: number;
 }
 
 /** Trials carry their session date in the notes: "... | session YYYY-MM-DD". */
@@ -30,7 +54,7 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
  * they went on to book something. Trials are the studio's main conversion
  * step, so they get their own view rather than being buried in bookings.
  */
-const TrialsTab = () => {
+const TrialsTab = ({ actions, paymentSiblings, changeToken }: TrialsTabProps) => {
   const [trials, setTrials] = useState<TrialRow[]>([]);
   const [parents, setParents] = useState<Record<string, { full_name: string; email: string; phone: string | null }>>({});
   const [attended, setAttended] = useState<Record<string, { checked_in_at: string | null; status: string }>>({});
@@ -41,8 +65,9 @@ const TrialsTab = () => {
   const load = useCallback(async () => {
     const { data } = await supabase
       .from("bookings")
-      .select(`id, parent_id, student_id, class_id, status, amount, booked_at, notes,
-        classes:class_id ( name, day_of_week, start_time, venues:venue_id ( name ) ),
+      .select(`id, parent_id, student_id, class_id, camp_id, status, booking_type, amount, booked_at, notes,
+        classes:class_id ( name, class_type, day_of_week, start_time, end_time, price_per_session,
+          price_per_term, price_per_month, price_per_year, term_end, venues:venue_id ( name ) ),
         students:student_id ( first_name, last_name )`)
       .eq("booking_type", "trial")
       .order("booked_at", { ascending: false });
@@ -83,7 +108,7 @@ const TrialsTab = () => {
     }
     setLoading(false);
   }, []);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); }, [load, changeToken]);
 
   const visible = useMemo(() => {
     const today = todayISO();
@@ -146,7 +171,8 @@ const TrialsTab = () => {
             const converted = convertedParents.has(t.parent_id);
             return (
               <Card key={t.id} className="animate-fade-in">
-                <CardContent className="py-4 flex items-start justify-between gap-4 flex-wrap">
+                <CardContent className="py-4">
+                  <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="min-w-0 space-y-1.5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold flex items-center gap-1.5">
@@ -214,7 +240,20 @@ const TrialsTab = () => {
                     {t.amount != null && Number(t.amount) > 0 && (
                       <span className="text-sm font-semibold">£{Number(t.amount).toFixed(2)}</span>
                     )}
+                    <BookingActions
+                      booking={{ ...t, profiles: parent ?? null }}
+                      actions={actions}
+                    />
                   </div>
+                  </div>
+
+                  {actions.breakdownId === t.id && (
+                    <BookingBreakdown
+                      booking={t as any}
+                      parent={parent ?? null}
+                      samePayment={paymentSiblings(t)}
+                    />
+                  )}
                 </CardContent>
               </Card>
             );

@@ -19,6 +19,12 @@ import OneToOneTab from "@/components/admin/OneToOneTab";
 import TrialsTab from "@/components/admin/TrialsTab";
 import AddBookingDialog from "@/components/admin/AddBookingDialog";
 import BookingBreakdown, { type PaymentSibling } from "@/components/admin/BookingBreakdown";
+import {
+  BookingActions,
+  MOVABLE_TYPES,
+  type ActionableBooking,
+  type BookingActionHandlers,
+} from "@/components/admin/BookingActions";
 import { paymentRefOf } from "@/lib/bookingBreakdown";
 
 interface Booking {
@@ -45,11 +51,6 @@ interface Booking {
   profiles: { full_name: string; email: string; phone?: string | null } | null;
   camps?: { name: string } | null;
 }
-
-/** Booking types the admin can move to another class in place. Monthly
- *  memberships are excluded — they're Stripe subscriptions with their own
- *  change-class flow; camps/passes have no class to move. */
-const MOVABLE_TYPES = ["trial", "session", "term", "yearly"];
 
 const statusColors: Record<string, "default" | "secondary" | "destructive"> = {
   confirmed: "default",
@@ -918,9 +919,14 @@ const AdminBookings = () => {
   const [breakdownId, setBreakdownId] = useState<string | null>(null);
   const { toast } = useToast();
 
+  // Bumped whenever an action changes a booking, so the Trials and
+  // One-to-ones tabs reload the row they just acted on.
+  const [changeToken, setChangeToken] = useState(0);
+  const bookingsChanged = () => { fetchBookings(); setChangeToken((n) => n + 1); };
+
   // Every booking paid in the same Stripe payment as this one — so the panel
   // can show the whole checkout (both siblings, all classes) in one place.
-  const paymentSiblings = (b: Booking): PaymentSibling[] => {
+  const paymentSiblings = (b: { id: string; notes: string | null; students?: { first_name: string; last_name: string } | null; classes?: { name: string } | null; booking_type: string; amount: number | null }): PaymentSibling[] => {
     const ref = paymentRefOf(b.notes);
     const group = ref ? bookings.filter((o) => paymentRefOf(o.notes) === ref) : [b];
     return group.map((o) => ({
@@ -934,12 +940,12 @@ const AdminBookings = () => {
 
   // Admin refund: pick any card-paid booking, choose the amount, and the
   // money goes back to the parent's card via Stripe.
-  const [refundBooking, setRefundBooking] = useState<Booking | null>(null);
+  const [refundBooking, setRefundBooking] = useState<ActionableBooking | null>(null);
   const [refundAmount, setRefundAmount] = useState("");
   const [refundReason, setRefundReason] = useState("");
   const [refunding, setRefunding] = useState(false);
 
-  const openRefund = (b: Booking) => {
+  const openRefund = (b: ActionableBooking) => {
     setRefundBooking(b);
     setRefundAmount(b.amount ? Number(b.amount).toFixed(2) : "");
     setRefundReason("");
@@ -978,7 +984,7 @@ const AdminBookings = () => {
         description: "The money is on its way back to the parent's card (usually 5–10 working days).",
       });
       setRefundBooking(null);
-      fetchBookings();
+      bookingsChanged();
     } finally {
       setRefunding(false);
     }
@@ -989,7 +995,7 @@ const AdminBookings = () => {
   // membership up from the booking row and open that flow right here, so
   // Amie doesn't have to know it lives on the Memberships & Plans tab.
   const [bookingMoveTarget, setBookingMoveTarget] = useState<MoveMembershipTarget | null>(null);
-  const openMonthlyMove = async (b: Booking) => {
+  const openMonthlyMove = async (b: ActionableBooking) => {
     const { data, error } = await (supabase as any)
       .from("memberships")
       .select("id, class_id, status")
@@ -1028,16 +1034,16 @@ const AdminBookings = () => {
 
   // "Paid for the wrong class" fix: move a booking to another class in place,
   // keeping the child and the payment.
-  const [moveBooking, setMoveBooking] = useState<Booking | null>(null);
+  const [moveBooking, setMoveBooking] = useState<ActionableBooking | null>(null);
   const [moveClasses, setMoveClasses] = useState<{ id: string; name: string; class_type: string; day_of_week: string; start_time: string | null; venues: { name: string } | null }[]>([]);
   const [moveClassId, setMoveClassId] = useState("");
   const [moveSessions, setMoveSessions] = useState<{ id: string; session_date: string; start_time: string }[]>([]);
   const [moveSessionDate, setMoveSessionDate] = useState("");
   const [moveSaving, setMoveSaving] = useState(false);
 
-  const bookedSessionDate = (b: Booking | null) => /session (\d{4}-\d{2}-\d{2})/.exec(b?.notes || "")?.[1] ?? null;
+  const bookedSessionDate = (b: { notes: string | null } | null) => /session (\d{4}-\d{2}-\d{2})/.exec(b?.notes || "")?.[1] ?? null;
 
-  const openMove = async (b: Booking) => {
+  const openMove = async (b: ActionableBooking) => {
     setMoveBooking(b);
     setMoveClassId("");
     setMoveSessions([]);
@@ -1114,16 +1120,17 @@ const AdminBookings = () => {
         : "They now appear on the new class's register. The amount already paid is unchanged.",
     });
     setMoveBooking(null);
-    fetchBookings();
+    bookingsChanged();
   };
 
   const fetchBookings = async () => {
-    let query = supabase
+    // Always load every booking and filter below: the breakdown groups a
+    // booking with the others paid for in the same Stripe payment, and those
+    // siblings can be trials or cancelled rows the status filter would hide.
+    const query = supabase
       .from("bookings")
       .select("*, classes(name, class_type, start_time, end_time, price_per_session, price_per_term, price_per_month, price_per_year, term_end), students(first_name, last_name), camps:camp_id(name)")
       .order("booked_at", { ascending: false });
-
-    if (filter !== "all") query = query.eq("status", filter as "confirmed" | "pending_payment" | "cancelled");
 
     const { data } = await query;
     if (data) {
@@ -1137,15 +1144,28 @@ const AdminBookings = () => {
     setLoading(false);
   };
 
-  useEffect(() => { fetchBookings(); }, [filter]);
+  useEffect(() => { fetchBookings(); }, []);
 
   const updateStatus = async (id: string, status: string) => {
     const { error } = await supabase.from("bookings").update({ status: status as any }).eq("id", id);
     if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
-    else { toast({ title: "Booking updated" }); fetchBookings(); }
+    else { toast({ title: "Booking updated" }); bookingsChanged(); }
+  };
+
+  // One set of row actions, shared by the Bookings, Trials and One-to-ones
+  // tabs so every booking offers the same things wherever it is listed.
+  const bookingActions: BookingActionHandlers = {
+    breakdownId,
+    toggleBreakdown: (id) => setBreakdownId(breakdownId === id ? null : id),
+    onConfirm: (id) => updateStatus(id, "confirmed"),
+    onCancel: (id) => updateStatus(id, "cancelled"),
+    onMove: openMove,
+    onMoveMembership: openMonthlyMove,
+    onRefund: openRefund,
   };
 
   const filtered = bookings.filter((b) => {
+    if (filter !== "all" && b.status !== filter) return false;
     if (!search) return true;
     const s = search.toLowerCase();
     return (
@@ -1218,38 +1238,7 @@ const AdminBookings = () => {
                       })}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant={breakdownId === b.id ? "secondary" : "outline"}
-                      onClick={() => setBreakdownId(breakdownId === b.id ? null : b.id)}
-                    >
-                      Breakdown
-                      <ChevronDown className={`w-3.5 h-3.5 ml-1 transition-transform ${breakdownId === b.id ? "rotate-180" : ""}`} />
-                    </Button>
-                    {b.status === "pending_payment" && (
-                      <Button size="sm" onClick={() => updateStatus(b.id, "confirmed")}>Confirm</Button>
-                    )}
-                    {b.status === "confirmed" && b.class_id && MOVABLE_TYPES.includes(b.booking_type) && (
-                      <Button size="sm" variant="outline" onClick={() => openMove(b)}>Move class</Button>
-                    )}
-                    {b.status === "confirmed" && b.class_id && b.booking_type === "monthly" && (
-                      <Button size="sm" variant="outline" onClick={() => openMonthlyMove(b)}>Move class</Button>
-                    )}
-                    {Number(b.amount) > 0 && /pi_[A-Za-z0-9]+/.test(b.notes || "") && !/refunded £/.test(b.notes || "") && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        onClick={() => openRefund(b)}
-                      >
-                        Refund
-                      </Button>
-                    )}
-                    {b.status !== "cancelled" && (
-                      <Button size="sm" variant="outline" onClick={() => updateStatus(b.id, "cancelled")}>Cancel</Button>
-                    )}
-                  </div>
+                  <BookingActions booking={b} actions={bookingActions} />
                 </div>
 
                 {breakdownId === b.id && (
@@ -1267,11 +1256,11 @@ const AdminBookings = () => {
         </TabsContent>
 
         <TabsContent value="trials">
-          <TrialsTab />
+          <TrialsTab actions={bookingActions} paymentSiblings={paymentSiblings} changeToken={changeToken} />
         </TabsContent>
 
         <TabsContent value="one-to-ones">
-          <OneToOneTab />
+          <OneToOneTab actions={bookingActions} paymentSiblings={paymentSiblings} changeToken={changeToken} />
         </TabsContent>
 
         <TabsContent value="passes">

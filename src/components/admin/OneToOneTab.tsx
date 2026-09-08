@@ -13,6 +13,23 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useToast } from "@/hooks/use-toast";
 import { CalendarDays, Check, ChevronsUpDown, Clock, MapPin, Plus, User, X } from "lucide-react";
 import TimeSelect, { addMinutes, prettyTime } from "@/components/TimeSelect";
+import BookingBreakdown, { type PaymentSibling } from "@/components/admin/BookingBreakdown";
+import { BookingActions, type ActionableBooking, type BookingActionHandlers } from "@/components/admin/BookingActions";
+
+/** The booking a parent made against a one-to-one invite, once they've paid. */
+interface OneToOneBooking extends ActionableBooking {
+  parent_id: string;
+  booked_at: string;
+  camp_id: string | null;
+}
+
+interface OneToOneTabProps {
+  /** The same row actions the Bookings tab uses. */
+  actions: BookingActionHandlers;
+  paymentSiblings: (b: OneToOneBooking) => PaymentSibling[];
+  /** Bumped by the Bookings page when an action changed something. */
+  changeToken: number;
+}
 
 interface InviteRow {
   id: string;
@@ -57,11 +74,15 @@ const CUSTOM_VENUE = "__custom__";
 
 /** Amie's one-to-one area: invite a specific child to a private session
  *  they book and pay for in the portal. */
-const OneToOneTab = () => {
+const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps) => {
   const { toast } = useToast();
   const [invites, setInvites] = useState<InviteRow[]>([]);
   const [sessionDates, setSessionDates] = useState<Record<string, { dates: string[]; start: string; end: string }>>({});
   const [bookedClassIds, setBookedClassIds] = useState<Set<string>>(new Set());
+  /** The paid booking behind each invite, keyed by class — this is what the
+   *  Breakdown / Move / Refund / Cancel actions act on. */
+  const [bookingByClass, setBookingByClass] = useState<Record<string, OneToOneBooking>>({});
+  const [parents, setParents] = useState<Record<string, { full_name: string; email: string; phone: string | null }>>({});
   const [parentNames, setParentNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
@@ -92,8 +113,18 @@ const OneToOneTab = () => {
     if (classIds.length > 0) {
       const [{ data: sessions }, { data: bookings }] = await Promise.all([
         supabase.from("class_sessions").select("class_id, session_date, start_time, end_time").in("class_id", classIds),
-        supabase.from("bookings").select("class_id").in("class_id", classIds).eq("status", "confirmed"),
+        supabase
+          .from("bookings")
+          .select(`id, parent_id, student_id, class_id, camp_id, status, booking_type, amount, booked_at, notes,
+            classes:class_id ( name, class_type, start_time, end_time, price_per_session, price_per_term,
+              price_per_month, price_per_year, term_end ),
+            students:student_id ( first_name, last_name )`)
+          .in("class_id", classIds)
+          .neq("status", "cancelled"),
       ]);
+      const byClassBooking: Record<string, OneToOneBooking> = {};
+      for (const b of ((bookings as any[]) ?? [])) if (b.class_id) byClassBooking[b.class_id] = b as OneToOneBooking;
+      setBookingByClass(byClassBooking);
       const byClass: Record<string, { dates: string[]; start: string; end: string }> = {};
       for (const s of (sessions as any[]) ?? []) {
         const entry = byClass[s.class_id] ?? { dates: [], start: s.start_time, end: s.end_time };
@@ -102,15 +133,16 @@ const OneToOneTab = () => {
       }
       for (const entry of Object.values(byClass)) entry.dates.sort();
       setSessionDates(byClass);
-      setBookedClassIds(new Set(((bookings as any[]) ?? []).map((b) => b.class_id)));
+      setBookedClassIds(new Set(((bookings as any[]) ?? []).filter((b) => b.status === "confirmed").map((b) => b.class_id)));
     }
     if (parentIds.length > 0) {
-      const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", parentIds);
+      const { data: profiles } = await supabase.from("profiles").select("user_id, full_name, email, phone").in("user_id", parentIds);
+      setParents(Object.fromEntries(((profiles as any[]) ?? []).map((p) => [p.user_id, p])));
       setParentNames(Object.fromEntries(((profiles as any[]) ?? []).map((p) => [p.user_id, p.full_name])));
     }
     setLoading(false);
   }, []);
-  useEffect(() => { void fetchInvites(); }, [fetchInvites]);
+  useEffect(() => { void fetchInvites(); }, [fetchInvites, changeToken]);
 
   const openCreate = async () => {
     setForm({
@@ -132,6 +164,97 @@ const OneToOneTab = () => {
     setStaff(((staffRows as any[]) ?? []) as StaffOption[]);
     const byUser = Object.fromEntries(((profileRows as any[]) ?? []).map((p) => [p.user_id, p.full_name]));
     setStudentParent(Object.fromEntries(rows.map((s) => [s.id, byUser[s.parent_id] ?? ""])));
+  };
+
+  // ── Editing a one-to-one after it's been created ────────────────────────
+  // A 1:1 gets rearranged more than anything else on the timetable, and until
+  // now the only way was to cancel the invite and start again.
+  const [editInvite, setEditInvite] = useState<InviteRow | null>(null);
+  const [editDates, setEditDates] = useState<string[]>([""]);
+  const [editStart, setEditStart] = useState("");
+  const [editEnd, setEditEnd] = useState("");
+  const [editPrice, setEditPrice] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+
+  const openEdit = (invite: InviteRow) => {
+    const session = sessionDates[invite.class_id];
+    setEditInvite(invite);
+    setEditDates(session?.dates.length ? [...session.dates] : [""]);
+    setEditStart(session?.start?.slice(0, 5) ?? "");
+    setEditEnd(session?.end?.slice(0, 5) ?? "");
+    setEditPrice(String(invite.price ?? ""));
+  };
+
+  const editCleanDates = useMemo(
+    () => [...new Set(editDates.map((d) => d.trim()).filter(Boolean))].sort(),
+    [editDates],
+  );
+  const paidFor = editInvite ? bookedClassIds.has(editInvite.class_id) : false;
+
+  const saveEdit = async () => {
+    if (!editInvite) return;
+    if (editCleanDates.length === 0 || !editStart || !editEnd) {
+      toast({ title: "Missing details", description: "Keep at least one date and both times.", variant: "destructive" });
+      return;
+    }
+    if (editEnd <= editStart) {
+      toast({ title: "Check the times", description: "The end time needs to be after the start time.", variant: "destructive" });
+      return;
+    }
+    setEditSaving(true);
+    try {
+      const classId = editInvite.class_id;
+      const { data: existing } = await supabase
+        .from("class_sessions")
+        .select("id, session_date")
+        .eq("class_id", classId)
+        .order("session_date");
+      const rows = ((existing as any[]) ?? []);
+      const times = { start_time: `${editStart}:00`, end_time: `${editEnd}:00` };
+
+      // Re-point the sessions we already have, add any new dates, and retire
+      // the surplus. A session someone has already been marked on is never
+      // deleted — it's cancelled, so the register history survives.
+      for (let i = 0; i < Math.max(rows.length, editCleanDates.length); i++) {
+        if (i < rows.length && i < editCleanDates.length) {
+          await supabase.from("class_sessions")
+            .update({ session_date: editCleanDates[i], status: "scheduled", ...times })
+            .eq("id", rows[i].id);
+        } else if (i >= rows.length) {
+          await supabase.from("class_sessions")
+            .insert({ class_id: classId, session_date: editCleanDates[i], status: "scheduled", ...times } as any);
+        } else {
+          const { count } = await supabase
+            .from("attendance")
+            .select("id", { count: "exact", head: true })
+            .eq("class_session_id", rows[i].id);
+          if (count) await supabase.from("class_sessions").update({ status: "cancelled" }).eq("id", rows[i].id);
+          else await supabase.from("class_sessions").delete().eq("id", rows[i].id);
+        }
+      }
+
+      await supabase.from("classes").update({ start_time: times.start_time, end_time: times.end_time }).eq("id", classId);
+
+      // The price is only theirs to change while nobody has paid it.
+      const price = Number(editPrice);
+      if (!paidFor && editPrice !== "" && Number.isFinite(price) && price !== Number(editInvite.price)) {
+        await (supabase as any).from("class_invites").update({ price }).eq("id", editInvite.id);
+        await supabase.from("classes").update({ price_per_session: price }).eq("id", classId);
+      }
+
+      toast({
+        title: "One-to-one updated",
+        description: paidFor
+          ? "The new date and time are on the register. Let the family know it's changed."
+          : "The new details are on the invite the parent sees.",
+      });
+      setEditInvite(null);
+      await fetchInvites();
+    } catch (e: any) {
+      toast({ title: "Couldn't save the changes", description: e?.message, variant: "destructive" });
+    } finally {
+      setEditSaving(false);
+    }
   };
 
   const selectedStudent = useMemo(
@@ -254,9 +377,11 @@ const OneToOneTab = () => {
           {invites.map((invite) => {
             const s = statusFor(invite);
             const session = sessionDates[invite.class_id];
+            const booking = bookingByClass[invite.class_id];
             return (
               <Card key={invite.id} className="animate-fade-in">
-                <CardContent className="flex items-center justify-between py-4 gap-4 flex-wrap">
+                <CardContent className="py-4">
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold">{invite.classes?.name ?? "One-to-one"}</span>
@@ -295,7 +420,7 @@ const OneToOneTab = () => {
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
                     <span className="font-bold">
                       £{(Number(invite.price) * Math.max(1, session?.dates.length ?? 1)).toFixed(2)}
                       {session && session.dates.length > 1 && (
@@ -304,10 +429,25 @@ const OneToOneTab = () => {
                         </span>
                       )}
                     </span>
-                    {invite.status === "pending" && !bookedClassIds.has(invite.class_id) && (
-                      <Button size="sm" variant="outline" onClick={() => cancelInvite(invite)}>Cancel invite</Button>
-                    )}
+                    <div className="flex items-center justify-end gap-2 flex-wrap">
+                      <Button size="sm" variant="outline" onClick={() => openEdit(invite)}>Edit</Button>
+                      {invite.status === "pending" && !bookedClassIds.has(invite.class_id) && (
+                        <Button size="sm" variant="outline" onClick={() => cancelInvite(invite)}>Cancel invite</Button>
+                      )}
+                    </div>
+                    {/* Once they've paid, the booking behind the invite gets
+                        the same actions as any other booking. */}
+                    {booking && <BookingActions booking={booking} actions={actions} />}
                   </div>
+                  </div>
+
+                  {booking && actions.breakdownId === booking.id && (
+                    <BookingBreakdown
+                      booking={booking as any}
+                      parent={parents[invite.parent_id] ?? null}
+                      samePayment={paymentSiblings(booking)}
+                    />
+                  )}
                 </CardContent>
               </Card>
             );
@@ -478,6 +618,100 @@ const OneToOneTab = () => {
               <Button variant="outline" disabled={saving} onClick={() => setOpen(false)}>Cancel</Button>
               <Button disabled={saving} onClick={submit}>{saving ? "Creating…" : "Create & send invite"}</Button>
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rearrange a one-to-one that's already been set up */}
+      <Dialog open={!!editInvite} onOpenChange={(o) => { if (!o && !editSaving) setEditInvite(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit one-to-one</DialogTitle>
+            <DialogDescription>
+              {editInvite?.students
+                ? `${editInvite.students.first_name} ${editInvite.students.last_name}`
+                : "This session"}
+              {editInvite && parentNames[editInvite.parent_id] ? ` (${parentNames[editInvite.parent_id]})` : ""} —
+              change the dates and times. {paidFor
+                ? "This one is already paid for, so the price is fixed — tell the family about any change."
+                : "The parent sees the new details on their invite."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Dates</Label>
+              {editDates.map((d, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <Input
+                    type="date"
+                    value={d}
+                    onChange={(e) => setEditDates((prev) => prev.map((x, xi) => (xi === i ? e.target.value : x)))}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Remove this date"
+                    onClick={() => setEditDates((prev) => (prev.length === 1 ? [""] : prev.filter((_, xi) => xi !== i)))}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setEditDates((prev) => {
+                  const last = [...prev].reverse().find(Boolean);
+                  if (!last) return [...prev, ""];
+                  const next = new Date(`${last}T00:00:00`);
+                  next.setDate(next.getDate() + 7);
+                  return [...prev, next.toISOString().slice(0, 10)];
+                })}
+              >
+                <Plus className="w-4 h-4 mr-1.5" /> Add another date
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Start</Label>
+                <TimeSelect
+                  value={editStart}
+                  onChange={(v) => { setEditStart(v); if (!editEnd || editEnd <= v) setEditEnd(addMinutes(v, 30)); }}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>End</Label>
+                <TimeSelect value={editEnd} onChange={setEditEnd} />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-1to1-price">Price per session (£)</Label>
+              <Input
+                id="edit-1to1-price"
+                type="number"
+                step="0.01"
+                min="0"
+                value={editPrice}
+                disabled={paidFor}
+                onChange={(e) => setEditPrice(e.target.value)}
+              />
+              {paidFor && (
+                <p className="text-xs text-muted-foreground">
+                  Already paid — use Refund on the booking below if the price needs to change.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" disabled={editSaving} onClick={() => setEditInvite(null)}>Cancel</Button>
+            <Button disabled={editSaving} onClick={saveEdit}>{editSaving ? "Saving…" : "Save changes"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

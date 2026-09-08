@@ -3,7 +3,7 @@
 // things being right: which London calendar day a Stripe UTC timestamp falls
 // on, and Stripe's payment-method precedence. Both are tested here.
 import { describe, expect, it } from "vitest";
-// @ts-expect-error — plain .mjs operator script, deliberately dependency-free.
+// Plain .mjs operator script, deliberately dependency-free.
 import {
   cardExpired,
   dueOnDay,

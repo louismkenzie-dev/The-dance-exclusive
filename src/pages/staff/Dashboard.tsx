@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useStaffMember, getStaffPhotoUrl } from "@/hooks/useStaffMember";
+import { mergeSessions } from "@/lib/registerAccess";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -82,56 +83,31 @@ const StaffDashboard = () => {
         `)
         .in("class_id", classIds);
 
-      // Filter out sessions that have explicit overrides (any session_instructors row)
-      const overrideIds = new Set<string>();
-      const { data: overrides } = await supabase
-        .from("session_instructors")
-        .select("session_id")
-        .in(
-          "session_id",
-          (data ?? []).map((s) => s.id),
-        );
-      overrides?.forEach((o: any) => overrideIds.add(o.session_id));
-      defaultSessions = (data ?? []).filter((s) => !overrideIds.has(s.id));
+      // Every session of an assigned class. Somebody else being booked on a
+      // session no longer removes it from this class's own team.
+      defaultSessions = data ?? [];
     }
 
-    const allSessions: SessionLite[] = [
-      ...(explicitSessions ?? []).map((row: any) => ({
-        id: row.class_sessions.id,
-        session_date: row.class_sessions.session_date,
-        start_time: row.class_sessions.start_time,
-        end_time: row.class_sessions.end_time,
-        class_id: row.class_sessions.class_id,
-        class: row.class_sessions.classes
-          ? {
-              name: row.class_sessions.classes.name,
-              class_type: row.class_sessions.classes.class_type,
-              venue: row.class_sessions.classes.venues ?? null,
-            }
-          : null,
-      })),
-      ...defaultSessions.map((s: any) => ({
-        id: s.id,
-        session_date: s.session_date,
-        start_time: s.start_time,
-        end_time: s.end_time,
-        class_id: s.class_id,
-        class: s.classes
-          ? {
-              name: s.classes.name,
-              class_type: s.classes.class_type,
-              venue: s.classes.venues ?? null,
-            }
-          : null,
-      })),
-    ];
-
-    // Sort
-    allSessions.sort((a, b) =>
-      a.session_date === b.session_date
-        ? a.start_time.localeCompare(b.start_time)
-        : a.session_date.localeCompare(b.session_date),
-    );
+    // De-duplicated and date/time sorted. This stays personal even for the
+    // studio lead, who sees every register but whose own hours below must
+    // only count the sessions they are actually assigned to.
+    const allSessions: SessionLite[] = mergeSessions<any>([
+      (explicitSessions ?? []).map((row: any) => row.class_sessions),
+      defaultSessions,
+    ]).map((s: any) => ({
+      id: s.id,
+      session_date: s.session_date,
+      start_time: s.start_time,
+      end_time: s.end_time,
+      class_id: s.class_id,
+      class: s.classes
+        ? {
+            name: s.classes.name,
+            class_type: s.classes.class_type,
+            venue: s.classes.venues ?? null,
+          }
+        : null,
+    }));
 
     setToday(allSessions.filter((s) => s.session_date === todayStr));
     setUpcoming(allSessions.filter((s) => s.session_date > todayStr).slice(0, 6));

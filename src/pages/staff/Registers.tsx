@@ -22,6 +22,7 @@ import { arrivalOpensLabel, arrivalsOpen, registerState, type RegisterState } fr
 import { timetableStripDays } from "@/lib/timetableGaps";
 import { formatTimeRange } from "@/lib/bookingFormat";
 import { cn } from "@/lib/utils";
+import { isStudioLead, mergeSessions } from "@/lib/registerAccess";
 
 /** How far the day strip reaches either side of today. */
 const DAYS_BACK = 7;
@@ -106,9 +107,10 @@ const StaffRegisters = () => {
     return date > e ? date : e;
   }, [date]);
 
-  // Sessions across the window: explicit per-session assignments plus the
-  // sessions of the classes this member usually teaches (unless another
-  // member has been assigned that session instead).
+  // Sessions across the window: every session of the classes this member is
+  // assigned to, plus any session they have been named on individually. A
+  // per-session assignment adds cover staff; it never takes a session away
+  // from the class's own team. The studio lead sees every session.
   useEffect(() => {
     if (!staff?.id) return;
     let cancelled = false;
@@ -119,35 +121,41 @@ const StaffRegisters = () => {
         .select(`class_sessions!inner ( ${SESSION_SELECT} )`)
         .eq("staff_id", staff.id);
 
-      const { data: classAssignments } = await supabase
-        .from("class_instructors")
-        .select("class_id")
-        .eq("staff_id", staff.id);
-
+      // The studio lead runs every register, not just their own classes.
       let defaults: any[] = [];
-      const classIds = (classAssignments ?? []).map((c) => c.class_id);
-      if (classIds.length > 0) {
+      if (isStudioLead(staff)) {
         const { data } = await supabase
           .from("class_sessions")
           .select(SESSION_SELECT)
-          .in("class_id", classIds)
           .gte("session_date", windowStart)
           .lte("session_date", windowEnd);
-        const ids = (data ?? []).map((s) => s.id);
-        const { data: overrides } = ids.length
-          ? await supabase.from("session_instructors").select("session_id").in("session_id", ids)
-          : { data: [] as any[] };
-        const overrideIds = new Set((overrides ?? []).map((o: any) => o.session_id));
-        defaults = (data ?? []).filter((s) => !overrideIds.has(s.id));
+        defaults = data ?? [];
+      } else {
+        const { data: classAssignments } = await supabase
+          .from("class_instructors")
+          .select("class_id")
+          .eq("staff_id", staff.id);
+        const classIds = (classAssignments ?? []).map((c) => c.class_id);
+        if (classIds.length > 0) {
+          // Every session of an assigned class. Somebody else being booked on
+          // a session no longer takes it away from the class's own team.
+          const { data } = await supabase
+            .from("class_sessions")
+            .select(SESSION_SELECT)
+            .in("class_id", classIds)
+            .gte("session_date", windowStart)
+            .lte("session_date", windowEnd);
+          defaults = data ?? [];
+        }
       }
 
-      const byId = new Map<string, any>();
-      for (const s of [...((explicit ?? []).map((r: any) => r.class_sessions)), ...defaults]) {
-        if (!s || s.session_date < windowStart || s.session_date > windowEnd) continue;
-        byId.set(s.id, s);
-      }
       if (cancelled) return;
-      setWindowSessions([...byId.values()]);
+      setWindowSessions(
+        mergeSessions<any>(
+          [(explicit ?? []).map((r: any) => r.class_sessions), defaults],
+          { fromDate: windowStart, toDate: windowEnd },
+        ),
+      );
       setWindowLoaded(true);
     })();
     return () => { cancelled = true; };

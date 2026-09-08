@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useStaffMember } from "@/hooks/useStaffMember";
+import { mergeSessions } from "@/lib/registerAccess";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, MapPin, Clock } from "lucide-react";
@@ -46,24 +47,15 @@ const MyClasses = () => {
         .in("class_id", classIds)
         .gte("session_date", todayStr);
 
-      const { data: overrides } = await supabase
-        .from("session_instructors")
-        .select("session_id")
-        .in("session_id", (data ?? []).map((s) => s.id));
-      const overrideIds = new Set((overrides ?? []).map((o: any) => o.session_id));
-      defaults = (data ?? []).filter((s) => !overrideIds.has(s.id));
+      // Every session of an assigned class. Somebody else being booked on a
+      // session no longer removes it from this class's own team.
+      defaults = data ?? [];
     }
 
-    const all = [
-      ...(explicit ?? []).map((r: any) => r.class_sessions),
-      ...defaults,
-    ]
-      .filter((s) => s.session_date >= todayStr)
-      .sort((a, b) =>
-        a.session_date === b.session_date
-          ? a.start_time.localeCompare(b.start_time)
-          : a.session_date.localeCompare(b.session_date),
-      );
+    const all = mergeSessions<any>(
+      [(explicit ?? []).map((r: any) => r.class_sessions), defaults],
+      { fromDate: todayStr },
+    );
 
     setSessions(all);
     setLoading(false);

@@ -1054,15 +1054,21 @@ const AdminBookings = () => {
     const audience = b.classes?.class_type;
     if (audience) query = query.eq("class_type", audience);
     const { data } = await query;
-    setMoveClasses(((data as any[]) ?? []).filter((c) => c.id !== b.class_id));
+    // A booking for a particular date can stay on its class and just change
+    // date, so its own class belongs in the list. One with no date (a term
+    // or year place) can only change class, so its own class doesn't.
+    const dated = !!bookedSessionDate(b);
+    setMoveClasses(((data as any[]) ?? []).filter((c) => dated || c.id !== b.class_id));
   };
 
   // Per-date bookings (trial / drop-in) need a date at the new class too.
   const onMoveClassPicked = async (classId: string) => {
     setMoveClassId(classId);
     setMoveSessionDate("");
-    if (!bookedSessionDate(moveBooking)) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const bookedDate = bookedSessionDate(moveBooking);
+    if (!bookedDate) return;
+    // Local date, not UTC — after 11pm BST toISOString() names tomorrow.
+    const today = format(new Date(), "yyyy-MM-dd");
     const { data } = await supabase
       .from("class_sessions")
       .select("id, session_date, start_time")
@@ -1070,7 +1076,11 @@ const AdminBookings = () => {
       .eq("status", "scheduled")
       .gte("session_date", today)
       .order("session_date");
-    setMoveSessions((data as any[]) ?? []);
+    // Staying on the same class means picking a different date, so the one
+    // they already hold is not an option. Cancelled dates never are.
+    setMoveSessions(((data as any[]) ?? []).filter(
+      (s) => classId !== moveBooking?.class_id || s.session_date !== bookedDate,
+    ));
   };
 
   const saveMove = async () => {
@@ -1096,7 +1106,13 @@ const AdminBookings = () => {
       toast({ title: "Couldn't move the booking", description: error.message, variant: "destructive" });
       return;
     }
-    toast({ title: "Booking moved", description: "The child now appears on the new class's register. The amount already paid is unchanged." });
+    const sameClass = moveClassId === moveBooking.class_id;
+    toast({
+      title: "Booking moved",
+      description: sameClass
+        ? `Now on ${format(new Date(moveSessionDate + "T00:00:00"), "EEE d MMM")} — the registers are updated and the amount already paid is unchanged.`
+        : "They now appear on the new class's register. The amount already paid is unchanged.",
+    });
     setMoveBooking(null);
     fetchBookings();
   };
@@ -1330,20 +1346,23 @@ const AdminBookings = () => {
       <Dialog open={!!moveBooking} onOpenChange={(o) => !o && setMoveBooking(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Move booking to another class</DialogTitle>
+            <DialogTitle>Move this booking</DialogTitle>
             <DialogDescription>
               {moveBooking?.students
                 ? `${moveBooking.students.first_name} ${moveBooking.students.last_name}`
                 : "This booking"}{" "}
-              — currently {moveBooking?.classes?.name ?? "unassigned"}. Only{" "}
+              — currently {moveBooking?.classes?.name ?? "unassigned"}
+              {bookedSessionDate(moveBooking)
+                ? `, ${format(new Date(bookedSessionDate(moveBooking) + "T00:00:00"), "EEE d MMM")}`
+                : ""}
+              . Change the date, the class, or both — only{" "}
               {moveBooking?.classes?.class_type === "adult" ? "adult" : "children's"} classes are
-              listed. The dancer and the amount already paid stay exactly as they are; only the
-              class changes.
+              listed. The dancer and the amount already paid stay exactly as they are.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <p className="text-sm font-medium">New class</p>
+              <p className="text-sm font-medium">Class</p>
               <Select value={moveClassId} onValueChange={onMoveClassPicked}>
                 <SelectTrigger><SelectValue placeholder="Choose a class..." /></SelectTrigger>
                 <SelectContent>
@@ -1356,6 +1375,7 @@ const AdminBookings = () => {
                       {c.name} · {c.day_of_week.charAt(0).toUpperCase() + c.day_of_week.slice(1)}
                       {c.start_time ? ` ${c.start_time.slice(0, 5)}` : ""}
                       {c.venues?.name ? ` · ${c.venues.name}` : ""}
+                      {c.id === moveBooking?.class_id ? " — same class, new date" : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1364,9 +1384,13 @@ const AdminBookings = () => {
 
             {bookedSessionDate(moveBooking) && moveClassId && (
               <div className="space-y-1.5">
-                <p className="text-sm font-medium">New session date</p>
+                <p className="text-sm font-medium">New date</p>
                 {moveSessions.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No upcoming sessions at that class — pick a different one.</p>
+                  <p className="text-sm text-muted-foreground">
+                    {moveClassId === moveBooking?.class_id
+                      ? "No other dates left at this class — pick a different class."
+                      : "No upcoming sessions at that class — pick a different one."}
+                  </p>
                 ) : (
                   <Select value={moveSessionDate} onValueChange={setMoveSessionDate}>
                     <SelectTrigger><SelectValue placeholder="Choose a date..." /></SelectTrigger>

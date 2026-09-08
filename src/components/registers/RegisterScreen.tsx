@@ -44,7 +44,7 @@ export type RegisterScope = { kind: "staff"; staffId: string | null } | { kind: 
 const DAYS_BACK = 7;
 const DAYS_AHEAD = 14;
 
-const CLASS_SELECT = `id, session_date, start_time, end_time, class_id, classes:class_id ( name, class_type, location_note, venue_id, venues:venue_id ( name ) )`;
+const CLASS_SELECT = `id, session_date, start_time, end_time, status, class_id, classes:class_id ( name, class_type, location_note, venue_id, venues:venue_id ( name ) )`;
 const CLASS_SELECT_WITH_STAFF = `${CLASS_SELECT}, session_instructors ( staff:staff_id ( id, first_name, last_name, full_name ) )`;
 const BOOKING_SELECT = `id, student_id, parent_id, notes, students:student_id ( first_name, last_name, preferred_name, profile_photo, avatar_url, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info, photo_consent )`;
 
@@ -56,6 +56,8 @@ interface RegisterSession {
   session_date: string;
   start_time: string;
   end_time: string;
+  /** 'scheduled' normally; 'cancelled' when the studio has called it off. */
+  status?: string | null;
   classes: {
     name: string | null;
     class_type?: string | null;
@@ -181,7 +183,11 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
   );
 
   const stripDays = useMemo(
-    () => timetableStripDays(windowSessions.map((s) => s.session_date), windowStart, windowEnd).map((d) => ({ ...d, disabled: false })),
+    () => timetableStripDays(
+      windowSessions.filter((s) => s.status !== "cancelled").map((s) => s.session_date),
+      windowStart,
+      windowEnd,
+    ).map((d) => ({ ...d, disabled: false })),
     [windowSessions, windowStart, windowEnd],
   );
 
@@ -195,6 +201,8 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
   const load = async () => {
     setLoading(true);
     const entries = await Promise.all(daySessions.map(async (s) => {
+      // A cancelled class has no register: nobody is expected, nothing to mark.
+      if (s.status === "cancelled") return [s.id, [] as any[]] as const;
       const isCamp = s.kind === "camp";
       const [{ data: bookings }, { data: att }, { data: unpaidRows }] = await Promise.all([
         isCamp
@@ -553,26 +561,34 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
             );
             const sessionLabel = `${s.classes?.name ?? "Class"} · ${formatTimeRange(s.start_time, s.end_time)}`;
             const teachers = showAll ? s.instructors.map(firstNameOf).filter(Boolean).join(", ") : "";
+            const cancelled = s.status === "cancelled";
             return (
-              <section key={s.id} className="surface overflow-hidden" aria-label={sessionLabel}>
-                <header className="border-b border-border/70 px-4 py-3">
+              <section key={s.id} className={cn("surface overflow-hidden", cancelled && "opacity-80")} aria-label={cancelled ? `${sessionLabel} (cancelled)` : sessionLabel}>
+                <header className={cn("px-4 py-3", !cancelled && "border-b border-border/70")}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h2 className="flex items-center gap-2 text-[17px] font-semibold text-foreground">
+                      <h2 className={cn("flex items-center gap-2 text-[17px] font-semibold", cancelled ? "text-muted-foreground line-through decoration-muted-foreground/60" : "text-foreground")}>
                         <span className="truncate">{s.classes?.name ?? (s.kind === "camp" ? "Event" : "Class")}</span>
                         {s.kind === "camp" && (
-                          <span className="shrink-0 rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[hsl(var(--warning-strong))]">Event</span>
+                          <span className="shrink-0 rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide no-underline text-[hsl(var(--warning-strong))]">Event</span>
                         )}
                       </h2>
                       <p className="text-[13px] text-muted-foreground">
                         {formatTimeRange(s.start_time, s.end_time)} · {venueLine(s)}{teachers ? ` · with ${teachers}` : ""}
                       </p>
                     </div>
-                    <p className="shrink-0 text-right text-[13px] tabular-nums text-muted-foreground">
-                      <span className="text-[17px] font-semibold text-foreground">{totals.in + totals.out}</span>/{rows.length}
-                    </p>
+                    {cancelled ? (
+                      <span className="shrink-0 rounded-full bg-destructive/15 px-2.5 py-1 text-[12px] font-semibold uppercase tracking-wide text-[hsl(var(--destructive-strong))]">Cancelled</span>
+                    ) : (
+                      <p className="shrink-0 text-right text-[13px] tabular-nums text-muted-foreground">
+                        <span className="text-[17px] font-semibold text-foreground">{totals.in + totals.out}</span>/{rows.length}
+                      </p>
+                    )}
                   </div>
-                  {rows.length > 0 && (
+                  {cancelled && (
+                    <p className="mt-1.5 text-[13px] text-muted-foreground">This class isn't running today — nothing to mark.</p>
+                  )}
+                  {!cancelled && rows.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1.5 text-[12px] font-semibold">
                       {totals.unaccounted > 0 && <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">{totals.unaccounted} to come</span>}
                       {totals.in > 0 && <span className="rounded-full bg-success/15 px-2 py-0.5 text-[hsl(var(--success-strong))]">{totals.in} in</span>}
@@ -580,12 +596,12 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
                       {totals.absent > 0 && <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[hsl(var(--destructive-strong))]">{totals.absent} absent</span>}
                     </div>
                   )}
-                  {opensLabel && (
+                  {!cancelled && opensLabel && (
                     <p className="mt-2 text-[13px] text-warning">Arrivals {opensLabel.toLowerCase().replace(/^opens/, "open")} — 15 minutes before the class.</p>
                   )}
                 </header>
 
-                {rows.length === 0 ? (
+                {cancelled ? null : rows.length === 0 ? (
                   <p className="px-4 py-6 text-center text-[15px] text-muted-foreground">No bookings yet for this {s.kind === "camp" ? "event" : "class"}.</p>
                 ) : visible.length === 0 ? (
                   <p className="px-4 py-6 text-center text-[15px] text-muted-foreground">No one matching “{query}” in this {s.kind === "camp" ? "event" : "class"}.</p>

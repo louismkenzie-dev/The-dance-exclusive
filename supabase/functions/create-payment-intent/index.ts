@@ -891,6 +891,41 @@ serve(async (req) => {
       // Clear stale placeholders from abandoned checkouts, then record each
       // membership as incomplete until the first invoice is paid (or, for
       // August signups, until the card save succeeds).
+      //
+      // The earlier attempts' Stripe subscriptions must go too. Left alive,
+      // an attempt that saved a card (or was paid after this retry began)
+      // bills alongside the new one — a family was charged twice this way.
+      // Only attempts that have taken no money are cancelled; one that has
+      // been paid is a real purchase and is reconciled by fulfilment instead.
+      const { data: staleRows } = await supabaseAdmin
+        .from("memberships")
+        .select("stripe_subscription_id")
+        .eq("user_id", userId)
+        .eq("status", "incomplete");
+      const staleSubIds = [...new Set(
+        (staleRows ?? [])
+          .map((r: any) => r.stripe_subscription_id as string | null)
+          .filter((id): id is string => !!id && id !== subscription.id),
+      )];
+      for (const staleId of staleSubIds) {
+        try {
+          const stale: any = await stripe.subscriptions.retrieve(
+            staleId,
+            { expand: ["latest_invoice"] },
+            connectOpts,
+          );
+          if (stale.metadata?.checkoutType !== "membership_checkout") continue;
+          if (!["incomplete", "trialing", "active", "past_due"].includes(stale.status)) continue;
+          if ((stale.latest_invoice?.amount_paid ?? 0) > 0) {
+            console.log("Previous checkout attempt", staleId, "has been paid — leaving it for fulfilment to reconcile");
+            continue;
+          }
+          await stripe.subscriptions.cancel(staleId, { prorate: false, invoice_now: false }, connectOpts);
+          console.log("Cancelled previous checkout attempt", staleId, "for user", userId);
+        } catch (e: any) {
+          console.error("Could not cancel previous checkout attempt", staleId, "—", e?.message);
+        }
+      }
       await supabaseAdmin
         .from("memberships")
         .delete()

@@ -4,6 +4,7 @@
 // payments-webhook (event-driven) and get-payment-intent-status (fallback
 // polling) — both paths are idempotent.
 import { loadPasses } from "./pricing.ts";
+import { freeMonthFor } from "./billing.ts";
 
 export interface FulfilmentItem {
   kind: "class" | "camp" | "pass";
@@ -310,6 +311,7 @@ export async function activateMembershipCheckout(
   supabase: any,
   sub: any,
   payment: { id: string; amountReceived: number | null; metadata?: any } | null,
+  opts: { quiet?: boolean; env?: string } = {},
 ): Promise<void> {
   const userId = sub.metadata?.userId;
   if (!userId) {
@@ -320,6 +322,11 @@ export async function activateMembershipCheckout(
   const periodEnd = sub.current_period_end
     ? new Date(sub.current_period_end * 1000).toISOString()
     : null;
+
+  // The rows this subscription activates must point at it. A checkout retry
+  // replaces the family's placeholder rows, so the subscription that was
+  // actually paid can find none — repair before activating.
+  await ensureMembershipRows(supabase, sub, opts.env ?? (sub.livemode === false ? "sandbox" : "live"));
 
   const items = parsePaymentIntentItems(sub.metadata);
   const totalAmount = await fulfillItems(supabase, userId, { id: reference }, items);
@@ -339,10 +346,106 @@ export async function activateMembershipCheckout(
     .eq("status", "incomplete");
   if (error) console.error("Failed to activate memberships:", error);
 
+  if (opts.quiet) return;
   const charged = payment
     ? (payment.amountReceived != null ? payment.amountReceived / 100 : totalAmount)
     : 0;
   await sendBookingConfirmationEmail(supabase, userId, reference, charged || null);
+}
+
+/**
+ * Every monthly membership on a Stripe subscription has a row pointing at
+ * it. A checkout retry deletes the previous attempt's placeholder rows and
+ * writes new ones for the new subscription — so if the family then pays (or
+ * saves a card against) the EARLIER subscription, it has no rows, and the
+ * family's rows point at an attempt that will never start. This re-points
+ * such rows to the live subscription, or creates them from its metadata.
+ * Rows are (re)written as 'incomplete' so the normal activation applies.
+ * Returns the number of rows repaired.
+ */
+export async function ensureMembershipRows(supabase: any, sub: any, env: string): Promise<number> {
+  const userId = sub.metadata?.userId;
+  if (!userId) return 0;
+  const monthly = parsePaymentIntentItems(sub.metadata).filter(
+    (i) => i.kind === "class" && i.pricingPlan === "monthly" && i.classId,
+  );
+  if (monthly.length === 0) return 0;
+
+  const { data: existing } = await supabase
+    .from("memberships")
+    .select("id, class_id, student_id")
+    .eq("stripe_subscription_id", sub.id);
+  const have = new Set((existing ?? []).map((r: any) => `${r.class_id}|${r.student_id ?? ""}`));
+  if (monthly.every((i) => have.has(`${i.classId}|${i.studentId ?? ""}`))) return 0;
+
+  const subItems: any[] = sub.items?.data ?? [];
+  const usedItems = new Set<string>();
+  const periodEnd = sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null;
+  const createdAt = sub.created ? new Date(sub.created * 1000) : new Date();
+  const nowIso = new Date().toISOString();
+  let repaired = 0;
+
+  for (let n = 0; n < monthly.length; n++) {
+    const item = monthly[n];
+    const key = `${item.classId}|${item.studentId ?? ""}`;
+    if (have.has(key)) {
+      const pence = Math.round(item.totalPrice * 100);
+      const taken = subItems.find((x) => !usedItems.has(x.id) && x.price?.unit_amount === pence) ?? subItems[n];
+      if (taken) usedItems.add(taken.id);
+      continue;
+    }
+    // Which subscription item is this membership? Each membership gets its
+    // own recurring price at its exact amount, so match by amount first and
+    // fall back to position (the items were created in basket order).
+    const pence = Math.round(item.totalPrice * 100);
+    const si = subItems.find((x) => !usedItems.has(x.id) && x.price?.unit_amount === pence)
+      ?? subItems.find((x) => !usedItems.has(x.id));
+    if (si) usedItems.add(si.id);
+
+    const fields = {
+      stripe_subscription_id: sub.id,
+      stripe_subscription_item_id: si?.id ?? null,
+      stripe_price_id: si?.price?.id ?? null,
+      monthly_amount: si?.price?.unit_amount != null ? si.price.unit_amount / 100 : item.totalPrice,
+      status: "incomplete",
+      stripe_env: env,
+      current_period_end: periodEnd,
+      stripe_setup_intent_id: null,
+      updated_at: nowIso,
+    };
+
+    // Prefer the family's own placeholder for this class and dancer (left
+    // behind by the attempt that never started) over creating a second row.
+    let staleQuery = supabase
+      .from("memberships")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("class_id", item.classId)
+      .eq("status", "incomplete")
+      .neq("stripe_subscription_id", sub.id)
+      .limit(1);
+    staleQuery = item.studentId ? staleQuery.eq("student_id", item.studentId) : staleQuery.is("student_id", null);
+    const { data: stale } = await staleQuery;
+
+    if (stale?.[0]?.id) {
+      const { error } = await supabase.from("memberships").update(fields).eq("id", stale[0].id);
+      if (error) { console.error("Could not re-point membership row", stale[0].id, error); continue; }
+      console.log("Re-pointed membership row", stale[0].id, "to subscription", sub.id);
+    } else {
+      const { error } = await supabase.from("memberships").insert({
+        user_id: userId,
+        student_id: item.studentId ?? null,
+        class_id: item.classId,
+        free_month: freeMonthFor(createdAt),
+        ...fields,
+      });
+      if (error) { console.error("Could not create membership row for", sub.id, item.classId, error); continue; }
+      console.log("Created missing membership row for subscription", sub.id, "class", item.classId);
+    }
+    have.add(key);
+    repaired++;
+  }
+  return repaired;
 }
 
 /**
@@ -351,7 +454,12 @@ export async function activateMembershipCheckout(
  * from the client finalize step AND the daily maintenance fallback.
  * Returns true when activation ran.
  */
-export async function activateMembershipSetup(supabase: any, sub: any): Promise<boolean> {
+export async function activateMembershipSetup(
+  supabase: any,
+  sub: any,
+  opts: { quiet?: boolean; env?: string } = {},
+): Promise<boolean> {
+  await ensureMembershipRows(supabase, sub, opts.env ?? (sub.livemode === false ? "sandbox" : "live"));
   const { data: incompleteRows } = await supabase
     .from("memberships")
     .select("id")
@@ -359,7 +467,7 @@ export async function activateMembershipSetup(supabase: any, sub: any): Promise<
     .eq("status", "incomplete")
     .limit(1);
   if ((incompleteRows ?? []).length === 0) return false;
-  await activateMembershipCheckout(supabase, sub, null);
+  await activateMembershipCheckout(supabase, sub, null, opts);
   return true;
 }
 

@@ -84,6 +84,10 @@ import {
   renderRegisterAlert,
   type RegisterAlertData,
 } from "../_shared/email-templates/register-alert.ts";
+import {
+  renderInternalNotice,
+  type InternalNoticeData,
+} from "../_shared/email-templates/internal-notice.ts";
 import { BRAND } from "../_shared/email-templates/layout.ts";
 
 const corsHeaders = {
@@ -147,7 +151,8 @@ type Payload =
   | { template: "party_inquiry_admin"; to: string; data: PartyInquiryAdminData }
   | { template: "party_response"; to: string; data: PartyResponseData }
   | { template: "admin_booking_ready"; to: string; data: AdminBookingReadyData }
-  | { template: "register_alert"; to: string; data: RegisterAlertData };
+  | { template: "register_alert"; to: string; data: RegisterAlertData }
+  | { template: "internal_notice"; to: string; data: InternalNoticeData };
 
 function buildEmail(payload: Payload): { subject: string; html: string } {
   switch (payload.template) {
@@ -193,6 +198,8 @@ function buildEmail(payload: Payload): { subject: string; html: string } {
       return renderAdminBookingReady(payload.data);
     case "register_alert":
       return renderRegisterAlert(payload.data);
+    case "internal_notice":
+      return renderInternalNotice(payload.data);
     default:
       throw new Error(`Unknown template: ${(payload as any).template}`);
   }

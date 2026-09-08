@@ -725,8 +725,28 @@ const CheckoutPage = () => {
   // Recreate the PaymentIntent whenever the cart, pricing context or applied
   // coupon changes. Waits for the pricing context so the amounts sent match
   // what the server will re-compute.
+  //
+  // Every request here creates a fresh Stripe subscription when the basket
+  // holds a membership, so it must run once per real change and never
+  // because a context object was rebuilt. The effect keys on the values it
+  // actually sends (not on the user/profile objects), and a request whose
+  // body is identical to the one that produced the current PaymentIntent is
+  // skipped outright.
+  const lastIntentRequest = useRef<string | null>(null);
+  const intentInFlight = useRef(false);
+  const intentRequestKey = [
+    itemsKey,
+    items.map((i) => adjusted.charges.get(i.id) ?? i.totalPrice).join(","),
+    user?.email || profile?.email || "",
+    user?.id || "",
+    coupon?.code || "",
+    retryKey,
+  ].join("§");
   useEffect(() => {
     if (isHydrating || items.length === 0 || !pricingCtx) return;
+    if (lastIntentRequest.current === intentRequestKey && (clientSecret || intentInFlight.current)) return;
+    lastIntentRequest.current = intentRequestKey;
+    intentInFlight.current = true;
     let cancelled = false;
 
     (async () => {
@@ -811,8 +831,10 @@ const CheckoutPage = () => {
       } catch (e: any) {
         if (!cancelled) {
           setInitError(e?.message || "Failed to initialise payment");
+          lastIntentRequest.current = null;
         }
       } finally {
+        intentInFlight.current = false;
         if (!cancelled) setInitializing(false);
       }
     })();
@@ -821,7 +843,7 @@ const CheckoutPage = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHydrating, itemsKey, pricingCtx, user, profile, coupon, retryKey]);
+  }, [isHydrating, intentRequestKey, pricingCtx]);
 
   const handleApplyCoupon = async () => {
     const code = couponInput.trim();

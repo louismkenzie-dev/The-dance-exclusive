@@ -23,7 +23,11 @@ import {
   createStripeClient,
 } from "../_shared/stripe.ts";
 import { londonYMD, resumeAfterFreeMonth } from "../_shared/billing.ts";
-import { activateMembershipSetup } from "../_shared/fulfilment.ts";
+import {
+  activateMembershipSetup,
+  ensureMembershipRows,
+  parsePaymentIntentItems,
+} from "../_shared/fulfilment.ts";
 import {
   ensureAdjustmentInvoiceItem,
   markAdjustmentApplied,
@@ -51,10 +55,49 @@ serve(async (_req) => {
     resumed: 0,
     activatedSetups: 0,
     cancelledAbandoned: 0,
+    cancelledDuplicates: 0,
+    adopted: 0,
     adjustmentsApplied: 0,
     errors: 0,
   };
   const nowIso = new Date().toISOString();
+
+  // Operational notices go to the studio owner.
+  const notifyOwner = async (data: Record<string, unknown>) => {
+    try {
+      const { data: owners } = await supabase
+        .from("staff")
+        .select("email")
+        .eq("role", "ceo_owner")
+        .eq("is_active", true)
+        .not("email", "is", null);
+      for (const o of owners ?? []) {
+        await supabase.functions.invoke("send-email", {
+          headers: { "x-internal-auth": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
+          body: { template: "internal_notice", to: o.email, data },
+        });
+      }
+    } catch (e) {
+      console.error("Owner notice failed:", e);
+    }
+  };
+
+  const describeFamily = async (userId: string) => {
+    const { data: p } = await supabase.from("profiles").select("full_name, email").eq("user_id", userId).maybeSingle();
+    return p?.full_name ? `${p.full_name}${p.email ? ` (${p.email})` : ""}` : userId;
+  };
+
+  const describeItems = async (items: { classId: string | null; studentId: string | null; totalPrice: number }[]) => {
+    const out: string[] = [];
+    for (const i of items) {
+      const [{ data: cls }, { data: st }] = await Promise.all([
+        i.classId ? supabase.from("classes").select("name").eq("id", i.classId).maybeSingle() : Promise.resolve({ data: null }),
+        i.studentId ? supabase.from("students").select("first_name, last_name").eq("id", i.studentId).maybeSingle() : Promise.resolve({ data: null }),
+      ]);
+      out.push(`${cls?.name ?? "Class"}${st ? ` — ${st.first_name} ${st.last_name}` : ""} · £${Number(i.totalPrice).toFixed(2)}/month`);
+    }
+    return out;
+  };
 
   const sendEmail = async (userId: string, template: string, data: Record<string, unknown>) => {
     try {
@@ -353,25 +396,106 @@ serve(async (_req) => {
 
     // ── 4. Orphan sweep ─────────────────────────────────────────────────
     // A re-checkout deletes a user's 'incomplete' membership rows, so the
-    // abandoned subscription from the earlier attempt never appears in the
-    // grouping above. Cancel any card-less membership-checkout trial older
-    // than 24h so it can't start billing when the trial ends.
+    // subscription from the earlier attempt never appears in the grouping
+    // above. Every live membership-checkout subscription with no rows is
+    // one of three things:
+    //   - a duplicate: the family already holds a live membership for the
+    //     same class and dancer on another subscription → cancel it, and if
+    //     it has taken money tell the studio so it can be refunded;
+    //   - a real signup our records lost (paid, or card saved) → adopt it by
+    //     repairing the rows, so it is managed and billed like any other;
+    //   - an abandoned card-less checkout older than 24h → cancel quietly.
     try {
-      const trialing: any = await stripe.subscriptions.list(
-        { status: "trialing", limit: 100 },
-        connectOpts,
-      );
-      for (const orphan of trialing?.data ?? []) {
-        if (bySub.has(orphan.id)) continue; // handled with its DB rows above
-        if (orphan.metadata?.checkoutType !== "membership_checkout") continue;
-        if (orphan.default_payment_method) continue;
-        if (!orphan.created || orphan.created * 1000 >= Date.now() - 24 * 3600_000) continue;
+      const orphans: any[] = [];
+      for (const status of ["trialing", "active", "past_due"]) {
+        let starting_after: string | undefined;
+        for (let page = 0; page < 10; page++) {
+          const res: any = await stripe.subscriptions.list(
+            { status, limit: 100, ...(starting_after ? { starting_after } : {}) } as any,
+            connectOpts,
+          );
+          for (const s of res?.data ?? []) {
+            if (bySub.has(s.id)) continue; // handled with its DB rows above
+            if (s.metadata?.checkoutType !== "membership_checkout") continue;
+            orphans.push(s);
+          }
+          if (!res?.has_more || !res.data?.length) break;
+          starting_after = res.data[res.data.length - 1].id;
+        }
+      }
+
+      for (const orphan of orphans) {
         try {
-          await stripe.subscriptions.cancel(orphan.id, {}, connectOpts);
-          summary.cancelledAbandoned++;
-          console.log("Cancelled orphaned trialing subscription:", orphan.id);
+          const userId = orphan.metadata?.userId as string | undefined;
+          const items = parsePaymentIntentItems(orphan.metadata).filter(
+            (i) => i.kind === "class" && i.pricingPlan === "monthly" && i.classId,
+          );
+          const { data: paidInvoices } = await stripe.invoices.list(
+            { subscription: orphan.id, status: "paid", limit: 10 },
+            connectOpts,
+          );
+          const paidPence = (paidInvoices ?? []).reduce((n: number, inv: any) => n + (inv.amount_paid ?? 0), 0);
+
+          // Already covered on another live subscription?
+          let duplicateOf: string | null = null;
+          if (userId && items.length > 0) {
+            const { data: liveRows } = await supabase
+              .from("memberships")
+              .select("class_id, student_id, stripe_subscription_id")
+              .eq("user_id", userId)
+              .eq("stripe_env", env)
+              .in("status", ["active", "past_due", "paused", "cancel_scheduled"])
+              .neq("stripe_subscription_id", orphan.id);
+            const hit = (liveRows ?? []).find((r: any) =>
+              items.some((i) => i.classId === r.class_id && (i.studentId ?? "") === (r.student_id ?? "")),
+            );
+            duplicateOf = hit?.stripe_subscription_id ?? null;
+          }
+
+          if (duplicateOf) {
+            await stripe.subscriptions.cancel(orphan.id, { prorate: false, invoice_now: false } as any, connectOpts);
+            summary.cancelledDuplicates++;
+            console.log("Cancelled duplicate subscription", orphan.id, "(family already on", duplicateOf + ")");
+            if (paidPence > 0) {
+              const who = await describeFamily(userId!);
+              await notifyOwner({
+                title: "Duplicate membership charged — refund needed",
+                intro: `${who} was billed on a duplicate membership subscription that our records didn't hold. It has been cancelled so it can't bill again, but the money it took needs refunding from Stripe.`,
+                rows: [
+                  { label: "Family", value: who },
+                  { label: "Taken", value: `£${(paidPence / 100).toFixed(2)}` },
+                  { label: "Duplicate subscription", value: orphan.id },
+                  { label: "Their real subscription", value: duplicateOf },
+                ],
+                listTitle: "Classes on the duplicate",
+                list: await describeItems(items),
+                ctaLabel: "Open Stripe payments",
+                ctaUrl: "https://dashboard.stripe.com/payments",
+                urgent: true,
+              });
+            }
+            continue;
+          }
+
+          if (paidPence > 0 || orphan.default_payment_method) {
+            // A real signup whose rows were lost: bring it back under management.
+            const repaired = await ensureMembershipRows(supabase, orphan, env);
+            if (await activateMembershipSetup(supabase, orphan, { quiet: true, env })) summary.activatedSetups++;
+            if (repaired > 0) {
+              summary.adopted++;
+              console.log("Adopted untracked subscription", orphan.id, "— rows repaired:", repaired);
+            }
+            continue;
+          }
+
+          if (orphan.status === "trialing" && orphan.created && orphan.created * 1000 < Date.now() - 24 * 3600_000) {
+            await stripe.subscriptions.cancel(orphan.id, {}, connectOpts);
+            summary.cancelledAbandoned++;
+            console.log("Cancelled orphaned trialing subscription:", orphan.id);
+          }
         } catch (e) {
-          console.error("Failed to cancel orphaned subscription", orphan.id, e);
+          summary.errors++;
+          console.error("Orphan handling failed for", orphan.id, e);
         }
       }
     } catch (e) {

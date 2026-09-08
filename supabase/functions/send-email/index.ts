@@ -88,6 +88,10 @@ import {
   renderInternalNotice,
   type InternalNoticeData,
 } from "../_shared/email-templates/internal-notice.ts";
+import {
+  renderSessionCancelled,
+  type SessionCancelledData,
+} from "../_shared/email-templates/session-cancelled.ts";
 import { BRAND } from "../_shared/email-templates/layout.ts";
 
 const corsHeaders = {
@@ -152,7 +156,8 @@ type Payload =
   | { template: "party_response"; to: string; data: PartyResponseData }
   | { template: "admin_booking_ready"; to: string; data: AdminBookingReadyData }
   | { template: "register_alert"; to: string; data: RegisterAlertData }
-  | { template: "internal_notice"; to: string; data: InternalNoticeData };
+  | { template: "internal_notice"; to: string; data: InternalNoticeData }
+  | { template: "session_cancelled"; to: string; data: SessionCancelledData };
 
 function buildEmail(payload: Payload): { subject: string; html: string } {
   switch (payload.template) {
@@ -200,6 +205,8 @@ function buildEmail(payload: Payload): { subject: string; html: string } {
       return renderRegisterAlert(payload.data);
     case "internal_notice":
       return renderInternalNotice(payload.data);
+    case "session_cancelled":
+      return renderSessionCancelled(payload.data);
     default:
       throw new Error(`Unknown template: ${(payload as any).template}`);
   }

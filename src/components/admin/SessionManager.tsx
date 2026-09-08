@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO, isPast, isToday } from "date-fns";
 import { UserCheck, UserX, Clock, User, Check, X, ChevronDown, ChevronUp } from "lucide-react";
+import { CancelSessionSheet } from "@/components/admin/CancelSessionSheet";
 
 interface SessionData {
   id: string;
@@ -65,6 +66,9 @@ export default function SessionManager({ classId, className, defaultInstructorId
   const [attendance, setAttendance] = useState<Record<string, AttendanceRecord[]>>({});
   const [sessionInstructors, setSessionInstructors] = useState<Record<string, string[]>>({});
   const [savingSession, setSavingSession] = useState<string | null>(null);
+  // Cancelling goes through the sheet, which moves dated bookings and tells
+  // the families — never a bare status flip.
+  const [cancelSessionId, setCancelSessionId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchSessions = async () => {
@@ -184,6 +188,10 @@ export default function SessionManager({ classId, className, defaultInstructorId
   };
 
   const updateSessionStatus = async (sessionId: string, status: string) => {
+    if (status === "cancelled") {
+      setCancelSessionId(sessionId);
+      return;
+    }
     const { error } = await supabase.from("class_sessions").update({ status }).eq("id", sessionId);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -236,6 +244,15 @@ export default function SessionManager({ classId, className, defaultInstructorId
   };
 
   return (
+    <>
+    <CancelSessionSheet
+      open={!!cancelSessionId}
+      onOpenChange={(o) => !o && setCancelSessionId(null)}
+      sessionId={cancelSessionId}
+      onCancelled={({ sessionId }) => {
+        setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, status: "cancelled" } : s));
+      }}
+    />
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-dialog overflow-y-auto">
         <DialogHeader>
@@ -448,5 +465,6 @@ export default function SessionManager({ classId, className, defaultInstructorId
         )}
       </DialogContent>
     </Dialog>
+    </>
   );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { addDays, differenceInYears, format, isToday, isTomorrow, isYesterday, parseISO } from "date-fns";
-import { AlertTriangle, Cake, CalendarDays, CameraOff, Check, LogIn, LogOut, MapPin, ScanLine, Search, Star, X } from "lucide-react";
+import { AlertTriangle, Cake, CalendarDays, CameraOff, Check, LogIn, LogOut, MapPin, ScanLine, Search, Star, X, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import StudentProfileDrawer from "@/components/staff/StudentProfileDrawer";
 import QrScannerDialog from "@/components/staff/QrScannerDialog";
 import FamilyCheckInSheet from "@/components/staff/FamilyCheckInSheet";
 import { CollectorSheet } from "@/components/staff/CollectorSheet";
+import { CancelSessionSheet } from "@/components/admin/CancelSessionSheet";
 import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
 import { initialsOf } from "@/lib/initials";
 import { birthdayInWeekOf, birthdayLabel } from "@/lib/birthdays";
@@ -116,6 +117,8 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [collectorPrompt, setCollectorPrompt] = useState<{ booking: any; sessionId: string; method: "qr" | "manual" } | null>(null);
   const [collectorName, setCollectorName] = useState("");
+  // The studio's emergency button: cancel a class from the door.
+  const [cancelSessionId, setCancelSessionId] = useState<string | null>(null);
   // A scanned family QR opens this sheet — one scan covers every attendee the
   // parent booked on the class; nothing is marked until staff tap the buttons.
   const [familySheet, setFamilySheet] = useState<{ sessionId: string; parentId: string; parentName: string | null } | null>(null);
@@ -588,6 +591,15 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
                   {cancelled && (
                     <p className="mt-1.5 text-[13px] text-muted-foreground">This class isn't running today — nothing to mark.</p>
                   )}
+                  {showAll && !cancelled && s.kind === "class" && (
+                    <button
+                      type="button"
+                      onClick={() => setCancelSessionId(s.id)}
+                      className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-full border border-border px-3 text-[12px] font-semibold text-muted-foreground hover:border-destructive/50 hover:text-[hsl(var(--destructive-strong))]"
+                    >
+                      <XCircle className="h-3.5 w-3.5" aria-hidden /> Cancel this class
+                    </button>
+                  )}
                   {!cancelled && rows.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1.5 text-[12px] font-semibold">
                       {totals.unaccounted > 0 && <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">{totals.unaccounted} to come</span>}
@@ -842,6 +854,19 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
           />
         );
       })()}
+
+      {showAll && (
+        <CancelSessionSheet
+          open={!!cancelSessionId}
+          onOpenChange={(o) => !o && setCancelSessionId(null)}
+          sessionId={cancelSessionId}
+          onCancelled={({ sessionId }) => {
+            // The rows reload from the window list, so flipping the status
+            // here is enough for the register to show it as cancelled.
+            setWindowSessions((prev) => prev.map((s) => (s.id === sessionId ? { ...s, status: "cancelled" } : s)));
+          }}
+        />
+      )}
 
       <CollectorSheet
         open={!!collectorPrompt}

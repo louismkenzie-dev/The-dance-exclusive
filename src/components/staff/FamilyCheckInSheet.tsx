@@ -1,10 +1,10 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { AlertTriangle, LogIn, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { AlertTriangle, LogIn, LogOut, ShieldCheck, Users } from "lucide-react";
+import { ResponsiveSheet } from "@/components/booking/ResponsiveSheet";
 import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
 import { initialsOf } from "@/lib/initials";
+import { registerState } from "@/lib/registerRules";
+import { cn } from "@/lib/utils";
 
 interface FamilyRow {
   id: string; // booking id
@@ -36,10 +36,13 @@ interface Props {
   rows: FamilyRow[];
   onMarkArrived: (booking: FamilyRow) => void;
   onMarkDeparted: (booking: FamilyRow) => void;
+  /** Arrivals may only be recorded from 15 minutes before the class. */
+  arrivalsOpen?: boolean;
+  /** "Opens at 16:45" — shown while arrivals are closed. */
+  arrivalsOpenLabel?: string | null;
 }
 
-const fmt = (d: string) =>
-  new Date(d).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+const fmt = (d: string) => new Date(d).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
 /**
  * Shown after a staff member scans a family QR code. One scan covers every
@@ -56,128 +59,131 @@ const FamilyCheckInSheet = ({
   rows,
   onMarkArrived,
   onMarkDeparted,
+  arrivalsOpen = true,
+  arrivalsOpenLabel,
 }: Props) => {
   const displayName = (r: FamilyRow) =>
     r.students
-      ? r.students.is_self
-        ? `${r.students.first_name} ${r.students.last_name} (adult)`
-        : `${r.students.first_name} ${r.students.last_name}`
+      ? `${r.students.preferred_name || r.students.first_name} ${r.students.last_name}${r.students.is_self ? " (adult)" : ""}`
       : "Adult attendee";
 
-  const notArrived = rows.filter((r) => !r.attendance?.checked_in_at && r.attendance?.status !== "absent");
-  const arrivedNotDeparted = rows.filter((r) => r.attendance?.checked_in_at && !r.attendance?.checked_out_at);
+  const notArrived = rows.filter((r) => registerState(r.attendance) === "unaccounted");
+  const inRoom = rows.filter((r) => registerState(r.attendance) === "in");
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-dialog overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-primary" /> QR Scanned — Family Check-In
-          </DialogTitle>
-          <DialogDescription>
-            {className} · {sessionTime}
-            {parentName && <> · booked by <span className="font-medium text-foreground">{parentName}</span></>}
-          </DialogDescription>
-        </DialogHeader>
-
-        <p className="text-xs text-muted-foreground -mt-1">
-          Nobody has been marked yet. Tap <span className="font-semibold text-foreground">Arrived</span> or{" "}
-          <span className="font-semibold text-foreground">Departed</span> next to each name, or use the
-          mark-everyone shortcuts below.
-        </p>
-
-        {/* Shortcuts — clearly labelled as ALL */}
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            className="gap-1.5 bg-success text-success-foreground hover:bg-success/90 h-auto py-2.5 flex-col"
-            disabled={notArrived.length === 0}
-            onClick={() => notArrived.forEach(onMarkArrived)}
-          >
-            <span className="flex items-center gap-1.5"><LogIn className="w-4 h-4" /> Mark ALL arrived</span>
-            <span className="text-[10px] font-normal opacity-80">
-              {notArrived.length === 0 ? "everyone is in" : `${notArrived.length} ${notArrived.length === 1 ? "person" : "people"}`}
-            </span>
-          </Button>
-          <Button
-            className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 h-auto py-2.5 flex-col"
-            disabled={arrivedNotDeparted.length === 0}
-            onClick={() => arrivedNotDeparted.forEach(onMarkDeparted)}
-          >
-            <span className="flex items-center gap-1.5"><LogOut className="w-4 h-4" /> Mark ALL departed</span>
-            <span className="text-[10px] font-normal opacity-80">
-              {arrivedNotDeparted.length === 0 ? "no one to sign out" : `${arrivedNotDeparted.length} ${arrivedNotDeparted.length === 1 ? "person" : "people"}`}
-            </span>
-          </Button>
-        </div>
-
-        {/* Individual attendees */}
-        <div className="space-y-2">
-          <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
-            <Users className="w-3.5 h-3.5" /> On this booking ({rows.length})
-          </p>
-          {rows.map((r) => {
-            const att = r.attendance;
-            const isIn = !!att?.checked_in_at && !att?.checked_out_at;
-            const isOut = !!att?.checked_out_at;
-            const isAbsent = att?.status === "absent";
-            const s = r.students;
-            const urgent = s?.has_epipen || s?.has_inhaler;
-            return (
-              <Card key={r.id} className="p-3">
-                <div className="flex items-center gap-3">
-                  <PhotoAvatarDuo
-                    photoUrl={s?.profile_photo}
-                    avatarUrl={s?.avatar_url}
-                    initials={initialsOf(s?.first_name, s?.last_name)}
-                    size="sm"
-                    expandable
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate flex items-center gap-1.5">
-                      {displayName(r)}
-                      {urgent && (
-                        <span title="EpiPen / Inhaler"><AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0" /></span>
-                      )}
-                      {s?.has_send && <Badge className="text-[9px] bg-amber-500 hover:bg-amber-600">SEND</Badge>}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {isAbsent ? "Marked absent"
-                        : isOut ? `In ${fmt(att!.checked_in_at!)} · Out ${fmt(att!.checked_out_at!)}`
-                        : isIn ? `Arrived ${fmt(att!.checked_in_at!)}`
-                        : "Not arrived yet"}
-                    </p>
-                  </div>
-                  <div className="flex gap-1.5 shrink-0">
-                    <Button
-                      size="sm"
-                      className="gap-1 h-8 px-2.5 bg-success text-success-foreground hover:bg-success/90 disabled:opacity-40"
-                      disabled={isIn || isOut}
-                      onClick={() => onMarkArrived(r)}
-                      title={`Mark ${displayName(r)} arrived`}
-                    >
-                      <LogIn className="w-3.5 h-3.5" /> Arrived
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="gap-1 h-8 px-2.5 bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-40"
-                      disabled={!isIn}
-                      onClick={() => onMarkDeparted(r)}
-                      title={`Mark ${displayName(r)} departed`}
-                    >
-                      <LogOut className="w-3.5 h-3.5" /> Departed
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-
-        <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full">
+    <ResponsiveSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Family check-in"
+      description={
+        <>
+          {className} · {sessionTime}
+          {parentName && <> · booked by <span className="font-medium text-foreground">{parentName}</span></>}
+        </>
+      }
+      footer={
+        <Button type="button" variant="ink" size="xl" className="w-full rounded-xl" onClick={() => onOpenChange(false)}>
           Done
         </Button>
-      </DialogContent>
-    </Dialog>
+      }
+    >
+      <p className="text-[13px] text-muted-foreground">
+        Nobody is marked automatically. Mark each person, or everyone at once.
+      </p>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <Button
+          type="button"
+          className="h-12 rounded-xl bg-success text-success-foreground hover:bg-success/90 disabled:opacity-50"
+          disabled={notArrived.length === 0 || !arrivalsOpen}
+          onClick={() => notArrived.forEach(onMarkArrived)}
+        >
+          <LogIn className="h-4 w-4" /> All arrived{notArrived.length > 0 ? ` (${notArrived.length})` : ""}
+        </Button>
+        <Button
+          type="button"
+          className="h-12 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          disabled={inRoom.length === 0}
+          onClick={() => inRoom.forEach(onMarkDeparted)}
+        >
+          <LogOut className="h-4 w-4" /> All departed{inRoom.length > 0 ? ` (${inRoom.length})` : ""}
+        </Button>
+      </div>
+      {!arrivalsOpen && arrivalsOpenLabel && (
+        <p className="mt-2 text-[13px] text-warning">Arrivals {arrivalsOpenLabel.toLowerCase().replace(/^opens/, "open")}.</p>
+      )}
+
+      <p className="mt-5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        On this booking · {rows.length}
+      </p>
+      <div className="mt-2 space-y-2">
+        {rows.map((r) => {
+          const state = registerState(r.attendance);
+          const att = r.attendance;
+          const s = r.students;
+          const urgent = s?.has_epipen || s?.has_inhaler;
+          return (
+            <div
+              key={r.id}
+              className={cn(
+                "surface flex items-center gap-3 px-3 py-3",
+                state === "in" && "border-success/40 bg-success/10",
+                state === "out" && "border-primary/40 bg-primary/10",
+                state === "absent" && "border-destructive/40 bg-destructive/10",
+              )}
+            >
+              <PhotoAvatarDuo
+                photoUrl={s?.profile_photo}
+                avatarUrl={s?.avatar_url}
+                initials={initialsOf(s?.first_name, s?.last_name)}
+                size="sm"
+                expandable
+              />
+              <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-1.5 truncate text-[15px] font-semibold text-foreground">
+                  {displayName(r)}
+                  {urgent && <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-destructive" aria-label="EpiPen or inhaler" />}
+                  {s?.has_send && <span className="rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-[hsl(var(--warning-strong))]">SEND</span>}
+                </p>
+                <p className="text-[13px] text-muted-foreground">
+                  {state === "absent"
+                    ? "Marked absent"
+                    : state === "out"
+                      ? `In ${fmt(att!.checked_in_at!)} · Out ${fmt(att!.checked_out_at!)}`
+                      : state === "in"
+                        ? `Arrived ${fmt(att!.checked_in_at!)}`
+                        : "Not arrived yet"}
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-1.5">
+                {state === "in" ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-10 rounded-full bg-primary px-3.5 text-primary-foreground hover:bg-primary/90"
+                    onClick={() => onMarkDeparted(r)}
+                    aria-label={`Mark ${displayName(r)} departed`}
+                  >
+                    <LogOut className="h-4 w-4" /> Departed
+                  </Button>
+                ) : state === "unaccounted" ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-10 rounded-full bg-success px-3.5 text-success-foreground hover:bg-success/90 disabled:opacity-50"
+                    disabled={!arrivalsOpen}
+                    onClick={() => onMarkArrived(r)}
+                    aria-label={`Mark ${displayName(r)} arrived`}
+                  >
+                    <LogIn className="h-4 w-4" /> Arrived
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </ResponsiveSheet>
   );
 };
 

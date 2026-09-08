@@ -695,6 +695,16 @@ const AdminRegisters = () => {
         booking={profileBooking?.booking ?? null}
         sessionId={profileBooking?.sessionId ?? null}
         classId={profileBooking?.classId ?? null}
+        {...(() => {
+          // The 15-minute arrival rule applies to class sessions; camps have no timed rule.
+          const s = profileBooking ? sessions.find((x) => x.id === profileBooking.sessionId) : null;
+          if (!s || (s as any).kind === "camp") return {};
+          return {
+            sessionDate: s.session_date ?? null,
+            sessionStart: s.start_time ?? null,
+            sessionLabel: `${s.classes?.name ?? "Class"} · ${String(s.start_time ?? "").slice(0, 5)}–${String(s.end_time ?? "").slice(0, 5)}`,
+          };
+        })()}
         onCheckIn={profileBooking ? () => { checkIn(profileBooking.booking); setProfileBooking(null); } : undefined}
         onCheckOut={profileBooking ? () => { checkOut(profileBooking.booking); setProfileBooking(null); } : undefined}
         onMarkAbsent={profileBooking ? () => { markAbsent(profileBooking.booking); setProfileBooking(null); } : undefined}

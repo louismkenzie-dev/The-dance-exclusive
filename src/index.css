@@ -47,6 +47,7 @@
        "strong" shades are lighter here. */
     --success-strong: 152 69% 62%;
     --warning-strong: 38 92% 66%;
+    --destructive-strong: 0 90% 72%;
 
     /* Sidebar — admin panel */
     --sidebar-background: 220 22% 6%;
@@ -113,6 +114,7 @@
        where the tinted ground costs a little contrast: both clear 5:1. */
     --success-strong: 152 60% 25%;
     --warning-strong: 30 92% 28%;
+    --destructive-strong: 0 68% 40%;
 
     --radius: 0.75rem;
   }
@@ -411,6 +413,18 @@
 }
 
 /* Horizontal scrollers (chips, date strips) hide their scrollbar */
+/* A screen used like a native app: no double-tap zoom, no tap flash, and
+   fields at 16px so iOS never zooms into them */
+.app-screen {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.app-screen input,
+.app-screen textarea,
+.app-screen select {
+  font-size: 16px;
+}
+
 .no-scrollbar {
   scrollbar-width: none;
   -ms-overflow-style: none;

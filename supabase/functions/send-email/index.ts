@@ -80,6 +80,10 @@ import {
   renderAdminBookingReady,
   type AdminBookingReadyData,
 } from "../_shared/email-templates/admin-booking-ready.ts";
+import {
+  renderRegisterAlert,
+  type RegisterAlertData,
+} from "../_shared/email-templates/register-alert.ts";
 import { BRAND } from "../_shared/email-templates/layout.ts";
 
 const corsHeaders = {
@@ -142,7 +146,8 @@ type Payload =
   | { template: "one_to_one_invite"; to: string; data: OneToOneInviteData }
   | { template: "party_inquiry_admin"; to: string; data: PartyInquiryAdminData }
   | { template: "party_response"; to: string; data: PartyResponseData }
-  | { template: "admin_booking_ready"; to: string; data: AdminBookingReadyData };
+  | { template: "admin_booking_ready"; to: string; data: AdminBookingReadyData }
+  | { template: "register_alert"; to: string; data: RegisterAlertData };
 
 function buildEmail(payload: Payload): { subject: string; html: string } {
   switch (payload.template) {
@@ -186,6 +191,8 @@ function buildEmail(payload: Payload): { subject: string; html: string } {
       return renderPartyResponse(payload.data);
     case "admin_booking_ready":
       return renderAdminBookingReady(payload.data);
+    case "register_alert":
+      return renderRegisterAlert(payload.data);
     default:
       throw new Error(`Unknown template: ${(payload as any).template}`);
   }

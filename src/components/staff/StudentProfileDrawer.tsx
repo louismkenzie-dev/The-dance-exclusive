@@ -1,15 +1,15 @@
-import { useEffect, useState } from "react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { useEffect, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Phone, AlertTriangle, Heart, Shield, User, Camera, Sparkles, Users, LogIn, LogOut, XCircle, QrCode, Cake, HelpCircle } from "lucide-react";
+import { Loader2, Phone, AlertTriangle, Heart, User, Camera, Sparkles, Users, LogIn, LogOut, XCircle, QrCode, RotateCcw, Star } from "lucide-react";
 import { format, differenceInYears } from "date-fns";
 import { QRCodeSVG } from "qrcode.react";
 import { getOrCreateBookingQrToken, buildQrPayload } from "@/lib/qrTokens";
 import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
 import { initialsOf } from "@/lib/initials";
+import { ResponsiveSheet } from "@/components/booking/ResponsiveSheet";
+import { arrivalOpensLabel, arrivalsOpen, registerState } from "@/lib/registerRules";
+import { cn } from "@/lib/utils";
 
 interface Props {
   open: boolean;
@@ -18,29 +18,74 @@ interface Props {
   booking?: any | null;
   sessionId?: string | null;
   classId?: string | null;
+  /** The session's date and start, for the 15-minute arrival rule. */
+  sessionDate?: string | null;
+  sessionStart?: string | null;
+  /** "Mini Street · 17:00–17:45" */
+  sessionLabel?: string | null;
   onCheckIn?: () => void;
   onCheckOut?: () => void;
   onMarkAbsent?: () => void;
   onClearAttendance?: () => void;
+  /** Dancer of the Week — stored on the session's attendance row. */
+  onToggleDancerOfWeek?: () => void;
 }
 
-const Section = ({ title, icon: Icon, children }: any) => (
-  <div className="space-y-2">
-    <h4 className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 font-semibold">
-      <Icon className="w-3 h-3" /> {title}
+const Section = ({ title, icon: Icon, children }: { title: string; icon: any; children: ReactNode }) => (
+  <section className="space-y-2">
+    <h4 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <Icon className="h-3.5 w-3.5" /> {title}
     </h4>
-    <div className="text-sm">{children}</div>
-  </div>
+    <div className="text-[15px]">{children}</div>
+  </section>
 );
 
-const Row = ({ label, value }: { label: string; value: any }) => (
-  <div className="flex justify-between gap-3 py-1 text-sm">
+const Row = ({ label, value }: { label: string; value: ReactNode }) => (
+  <div className="flex justify-between gap-3 py-1.5 text-[15px]">
     <span className="text-muted-foreground">{label}</span>
-    <span className="font-medium text-right">{value || "—"}</span>
+    <span className="text-right font-medium text-foreground">{value || "—"}</span>
   </div>
 );
 
-const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionId, onCheckIn, onCheckOut, onMarkAbsent, onClearAttendance }: Props) => {
+const Flag = ({ tone, children }: { tone: "danger" | "warning" | "quiet"; children: ReactNode }) => (
+  <span
+    className={cn(
+      "inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold",
+      tone === "danger" && "bg-destructive/15 text-[hsl(var(--destructive-strong))]",
+      tone === "warning" && "bg-warning/15 text-[hsl(var(--warning-strong))]",
+      tone === "quiet" && "bg-muted text-muted-foreground",
+    )}
+  >
+    {children}
+  </span>
+);
+
+const Note = ({ children }: { children: ReactNode }) => (
+  <p className="whitespace-pre-wrap rounded-xl bg-muted/60 px-3 py-2 text-[15px] leading-relaxed text-foreground">{children}</p>
+);
+
+const fmtTime = (d: string) => new Date(d).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+
+/**
+ * Everything the door team needs about one dancer, in a sheet: who they are,
+ * what to know before they walk in, how to verify a collector, and the four
+ * register actions under the thumb.
+ */
+const StudentProfileDrawer = ({
+  open,
+  onOpenChange,
+  studentId,
+  booking,
+  sessionId,
+  sessionDate,
+  sessionStart,
+  sessionLabel,
+  onCheckIn,
+  onCheckOut,
+  onMarkAbsent,
+  onClearAttendance,
+  onToggleDancerOfWeek,
+}: Props) => {
   const [loading, setLoading] = useState(false);
   const [student, setStudent] = useState<any | null>(null);
   const [parent, setParent] = useState<any | null>(null);
@@ -97,10 +142,9 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
 
   const age = student?.date_of_birth ? differenceInYears(new Date(), new Date(student.date_of_birth)) : null;
   const att = booking?.attendance;
-  const isIn = att?.checked_in_at && !att?.checked_out_at;
-  const isOut = !!att?.checked_out_at;
-  const isAbsent = att?.status === "absent";
-  const isUnaccounted = !att || (!att.checked_in_at && !isAbsent);
+  const state = registerState(att);
+  const canArrive = sessionDate && sessionStart ? arrivalsOpen(sessionDate, sessionStart) : true;
+  const opensLabel = sessionDate && sessionStart && !canArrive ? arrivalOpensLabel(sessionDate, sessionStart) : null;
 
   const openQr = async () => {
     if (!booking?.id) return;
@@ -115,135 +159,153 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
     setQrLoading(false);
   };
 
+  const bookingStudent = booking?.students;
+  const title = student
+    ? `${student.first_name} ${student.last_name}`
+    : bookingStudent
+      ? `${bookingStudent.first_name} ${bookingStudent.last_name}`
+      : "Adult attendee";
+  const description = student
+    ? [student.preferred_name ? `"${student.preferred_name}"` : null, age != null ? `${age} years old` : "Age not on file", sessionLabel]
+        .filter(Boolean)
+        .join(" · ")
+    : sessionLabel ?? "Booked before attendee profiles were required — no details on file.";
+
+  const statusLine =
+    state === "absent"
+      ? "Marked absent"
+      : state === "out"
+        ? `In ${fmtTime(att.checked_in_at)} · Out ${fmtTime(att.checked_out_at)}${att.collector_name ? ` · ${att.collector_name}` : ""}`
+        : state === "in"
+          ? `Arrived ${fmtTime(att.checked_in_at)}${att.collector_name ? ` · dropped off by ${att.collector_name}` : ""}`
+          : "Not marked yet";
+
+  const hasActions = booking && (onCheckIn || onCheckOut || onMarkAbsent || onClearAttendance);
+
+  const footer = hasActions ? (
+    <div>
+      <div className="grid grid-cols-2 gap-2">
+        {onCheckIn && (
+          <Button
+            type="button"
+            onClick={onCheckIn}
+            disabled={state === "in" || state === "out" || !canArrive}
+            className="h-12 rounded-xl bg-success text-[15px] font-semibold text-success-foreground hover:bg-success/90 disabled:opacity-50"
+          >
+            <LogIn className="h-4 w-4" /> Arrived
+          </Button>
+        )}
+        {onCheckOut && (
+          <Button
+            type="button"
+            onClick={onCheckOut}
+            disabled={state !== "in"}
+            className="h-12 rounded-xl bg-primary text-[15px] font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            <LogOut className="h-4 w-4" /> Departed
+          </Button>
+        )}
+        {onMarkAbsent && (
+          <Button
+            type="button"
+            variant="soft"
+            onClick={onMarkAbsent}
+            disabled={state === "absent"}
+            className="h-12 rounded-xl border-destructive/40 text-[15px] font-semibold text-[hsl(var(--destructive-strong))] hover:bg-destructive/10 disabled:opacity-50"
+          >
+            <XCircle className="h-4 w-4" /> Absent
+          </Button>
+        )}
+        {onClearAttendance && (
+          <Button
+            type="button"
+            variant="soft"
+            onClick={onClearAttendance}
+            disabled={state === "unaccounted"}
+            className="h-12 rounded-xl text-[15px] font-semibold disabled:opacity-50"
+          >
+            <RotateCcw className="h-4 w-4" /> Clear
+          </Button>
+        )}
+      </div>
+      {opensLabel && (
+        <p className="mt-2 text-center text-[13px] text-warning">Arrivals {opensLabel.toLowerCase().replace(/^opens/, "open")}, 15 minutes before the class.</p>
+      )}
+    </div>
+  ) : undefined;
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-        {loading ? (
-          <div className="py-20 flex justify-center">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : !student ? (
-          // Legacy adult self-booking without an attendee profile — still allow marking.
-          <>
-            <SheetHeader className="text-left">
-              <div className="flex items-center gap-3">
-                <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center text-lg font-bold">A</div>
-                <div>
-                  <SheetTitle>Adult attendee</SheetTitle>
-                  <SheetDescription>
-                    Booked before attendee profiles were required — no age or medical details on file.
-                  </SheetDescription>
-                </div>
-              </div>
-            </SheetHeader>
-            {booking && (onCheckIn || onCheckOut || onMarkAbsent || onClearAttendance) && (
-              <div className="space-y-2 pt-6 mt-6 border-t border-border">
-                <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Mark as</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  {onCheckIn && (
-                    <Button onClick={onCheckIn} disabled={isIn} className="gap-1.5 bg-success text-success-foreground hover:bg-success/90 disabled:opacity-60">
-                      <LogIn className="w-4 h-4" /> Arrived
-                    </Button>
-                  )}
-                  {onCheckOut && (
-                    <Button onClick={onCheckOut} disabled={!isIn} className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-60">
-                      <LogOut className="w-4 h-4" /> Departed
-                    </Button>
-                  )}
-                  {onClearAttendance && (
-                    <Button onClick={onClearAttendance} disabled={isUnaccounted} className="gap-1.5 bg-muted text-foreground hover:bg-muted/80 disabled:opacity-60">
-                      <HelpCircle className="w-4 h-4" /> Unaccounted
-                    </Button>
-                  )}
-                  {onMarkAbsent && (
-                    <Button onClick={onMarkAbsent} disabled={isAbsent} className="gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-60">
-                      <XCircle className="w-4 h-4" /> Absent
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <SheetHeader className="text-left">
-              <div className="flex items-center gap-3">
-                {/* Safeguarding view — the real photo must stay the primary circle */}
-                <PhotoAvatarDuo
-                  photoUrl={student.profile_photo}
-                  avatarUrl={student.avatar_url}
-                  initials={initialsOf(student.first_name, student.last_name)}
-                  size="md"
-                  photoPrimary
-                  expandable
-                />
-                <div>
-                  <SheetTitle>{student.first_name} {student.last_name}</SheetTitle>
-                  <SheetDescription>
-                    {student.preferred_name && <>"{student.preferred_name}" · </>}
-                    {age != null ? `${age} years old` : "Age not on file"}
-                  </SheetDescription>
-                </div>
-              </div>
-            </SheetHeader>
-
-            {/* QR */}
-            {booking && sessionId && (
-              <div className="mt-4">
-                <Button onClick={openQr} variant="outline" className="gap-1.5 w-full">
-                    <QrCode className="w-4 h-4" /> View booking QR code
-                  </Button>
-              </div>
-            )}
-
-            {showQr && (
-              <Card className="mt-4 p-4 bg-white flex flex-col items-center gap-2">
-                {qrLoading || !qrToken ? (
-                  <div className="py-8"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /></div>
-                ) : (
-                  <>
-                    <QRCodeSVG value={buildQrPayload(qrToken.token)} size={180} level="M" includeMargin />
-                    <p className="text-[11px] text-gray-600">Valid until {format(new Date(qrToken.validUntil), "d MMM HH:mm")}</p>
-                    <p className="text-[11px] text-gray-600 text-center">Show to parent — they can photograph it for pickup.</p>
-                  </>
+    <ResponsiveSheet open={open} onOpenChange={onOpenChange} title={title} description={description} footer={footer} size="md">
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Who, and where they are on the register */}
+          <div className="flex items-center gap-3">
+            <PhotoAvatarDuo
+              photoUrl={student?.profile_photo ?? bookingStudent?.profile_photo}
+              avatarUrl={student?.avatar_url ?? bookingStudent?.avatar_url}
+              initials={initialsOf(student?.first_name ?? bookingStudent?.first_name, student?.last_name ?? bookingStudent?.last_name)}
+              size="md"
+              photoPrimary
+              expandable
+            />
+            <div className="min-w-0 flex-1">
+              <p
+                className={cn(
+                  "inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold",
+                  state === "in" && "bg-success/15 text-[hsl(var(--success-strong))]",
+                  state === "out" && "bg-primary/15 text-primary",
+                  state === "absent" && "bg-destructive/15 text-[hsl(var(--destructive-strong))]",
+                  state === "unaccounted" && "bg-muted text-muted-foreground",
                 )}
-              </Card>
-            )}
-
-            {/* Critical safeguarding flags */}
-            <div className="flex flex-wrap gap-1.5 mt-4">
-              {student.has_epipen && <Badge variant="destructive">EpiPen</Badge>}
-              {student.has_inhaler && <Badge variant="destructive">Inhaler</Badge>}
-              {student.has_send && <Badge className="bg-amber-500 hover:bg-amber-600">SEND</Badge>}
-              {student.ehcp_in_place && <Badge className="bg-amber-500 hover:bg-amber-600">EHCP</Badge>}
-              {student.one_to_one_required && <Badge className="bg-amber-500 hover:bg-amber-600">1:1 Required</Badge>}
-              {!student.is_toilet_trained && <Badge variant="outline">Not toilet trained</Badge>}
-              {student.wears_nappies && <Badge variant="outline">Wears nappies</Badge>}
-              {student.prone_to_accidents && <Badge variant="outline">Prone to accidents</Badge>}
-              {!student.photo_consent && <Badge variant="outline">No photo consent</Badge>}
+              >
+                {state === "in" ? "In the room" : state === "out" ? "Departed" : state === "absent" ? "Absent" : "Not marked"}
+              </p>
+              <p className="mt-1 text-[13px] text-muted-foreground">{statusLine}</p>
             </div>
+          </div>
 
-            <div className="mt-6 space-y-6">
+          {student && (
+            <>
+              {/* Critical safeguarding flags */}
+              {(student.has_epipen || student.has_inhaler || student.has_send || student.ehcp_in_place || student.one_to_one_required ||
+                !student.is_toilet_trained || student.wears_nappies || student.prone_to_accidents || !student.photo_consent) && (
+                <div className="flex flex-wrap gap-1.5">
+                  {student.has_epipen && <Flag tone="danger">EpiPen</Flag>}
+                  {student.has_inhaler && <Flag tone="danger">Inhaler</Flag>}
+                  {student.has_send && <Flag tone="warning">SEND</Flag>}
+                  {student.ehcp_in_place && <Flag tone="warning">EHCP</Flag>}
+                  {student.one_to_one_required && <Flag tone="warning">1:1 required</Flag>}
+                  {!student.is_toilet_trained && <Flag tone="quiet">Not toilet trained</Flag>}
+                  {student.wears_nappies && <Flag tone="quiet">Wears nappies</Flag>}
+                  {student.prone_to_accidents && <Flag tone="quiet">Prone to accidents</Flag>}
+                  {!student.photo_consent && <Flag tone="quiet">No photo consent</Flag>}
+                </div>
+              )}
+
               {/* Medical */}
               {(student.allergies_list?.length > 0 || student.medical_conditions_list?.length > 0 || student.medical_info) && (
                 <Section title="Medical & allergies" icon={Heart}>
                   {student.allergies_list?.length > 0 && (
                     <div className="mb-2">
-                      <p className="text-xs text-muted-foreground mb-1">Allergies</p>
+                      <p className="mb-1 text-[13px] text-muted-foreground">Allergies</p>
                       <div className="flex flex-wrap gap-1">
-                        {student.allergies_list.map((a: string) => <Badge key={a} variant="destructive" className="text-[10px]">{a}</Badge>)}
+                        {student.allergies_list.map((a: string) => <Flag key={a} tone="danger">{a}</Flag>)}
                       </div>
                     </div>
                   )}
                   {student.medical_conditions_list?.length > 0 && (
                     <div className="mb-2">
-                      <p className="text-xs text-muted-foreground mb-1">Conditions</p>
+                      <p className="mb-1 text-[13px] text-muted-foreground">Conditions</p>
                       <div className="flex flex-wrap gap-1">
-                        {student.medical_conditions_list.map((a: string) => <Badge key={a} variant="secondary" className="text-[10px]">{a}</Badge>)}
+                        {student.medical_conditions_list.map((a: string) => <Flag key={a} tone="quiet">{a}</Flag>)}
                       </div>
                     </div>
                   )}
-                  {student.medical_info && <p className="text-sm bg-muted/50 p-2 rounded">{student.medical_info}</p>}
+                  {student.medical_info && <Note>{student.medical_info}</Note>}
                 </Section>
               )}
 
@@ -251,18 +313,18 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
               {student.has_send && (student.send_conditions_list?.length > 0 || student.send_details) && (
                 <Section title="SEND details" icon={Sparkles}>
                   {student.send_conditions_list?.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {student.send_conditions_list.map((a: string) => <Badge key={a} variant="secondary" className="text-[10px]">{a}</Badge>)}
+                    <div className="mb-2 flex flex-wrap gap-1">
+                      {student.send_conditions_list.map((a: string) => <Flag key={a} tone="quiet">{a}</Flag>)}
                     </div>
                   )}
-                  {student.send_details && <p className="text-sm bg-muted/50 p-2 rounded whitespace-pre-wrap">{student.send_details}</p>}
+                  {student.send_details && <Note>{student.send_details}</Note>}
                 </Section>
               )}
 
               {/* Toileting */}
               {(student.toileting_notes || student.wears_nappies || !student.is_toilet_trained) && (
                 <Section title="Toileting" icon={AlertTriangle}>
-                  {student.toileting_notes && <p className="text-sm bg-muted/50 p-2 rounded">{student.toileting_notes}</p>}
+                  {student.toileting_notes ? <Note>{student.toileting_notes}</Note> : <p className="text-[15px] text-muted-foreground">See flags above.</p>}
                 </Section>
               )}
 
@@ -270,14 +332,13 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
                   details are deliberately not shown to staff */}
               {parent?.pickup_pin && (
                 <Section title="Pickup verification" icon={User}>
-                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-amber-600">No QR? Family PIN</span>
-                      <span className="font-mono font-bold text-lg tracking-[0.3em]">{parent.pickup_pin}</span>
+                  <div className="rounded-xl border border-warning/30 bg-warning/10 px-3 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[12px] font-semibold uppercase tracking-wider text-[hsl(var(--warning-strong))]">No QR? Family PIN</span>
+                      <span className="font-mono text-xl font-bold tracking-[0.3em] text-foreground">{parent.pickup_pin}</span>
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      If the collector has no QR code, ask them for this 4-digit Family PIN before
-                      signing in/out, and record their name when prompted.
+                    <p className="mt-1 text-[13px] text-muted-foreground">
+                      Ask a collector without a QR code for this PIN before signing out, and record their name when prompted.
                     </p>
                   </div>
                 </Section>
@@ -287,28 +348,46 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
               {(student.emergency_contact_name || student.emergency_contact_phone) && (
                 <Section title="Emergency contact" icon={Phone}>
                   <Row label="Name" value={student.emergency_contact_name} />
-                  <Row label="Phone" value={student.emergency_contact_phone} />
+                  <Row
+                    label="Phone"
+                    value={
+                      student.emergency_contact_phone ? (
+                        <a href={`tel:${String(student.emergency_contact_phone).replace(/\s+/g, "")}`} className="text-primary underline-offset-4 hover:underline">
+                          {student.emergency_contact_phone}
+                        </a>
+                      ) : null
+                    }
+                  />
                 </Section>
               )}
 
               {/* Backup contact — who to try when the first one doesn't pick up */}
-              {((student as any).emergency_contact_2_name || (student as any).emergency_contact_2_phone) && (
+              {(student.emergency_contact_2_name || student.emergency_contact_2_phone) && (
                 <Section title="Second emergency contact" icon={Phone}>
-                  <Row label="Name" value={(student as any).emergency_contact_2_name} />
-                  <Row label="Phone" value={(student as any).emergency_contact_2_phone} />
-                  <Row label="Relationship" value={(student as any).emergency_contact_2_relationship} />
+                  <Row label="Name" value={student.emergency_contact_2_name} />
+                  <Row
+                    label="Phone"
+                    value={
+                      student.emergency_contact_2_phone ? (
+                        <a href={`tel:${String(student.emergency_contact_2_phone).replace(/\s+/g, "")}`} className="text-primary underline-offset-4 hover:underline">
+                          {student.emergency_contact_2_phone}
+                        </a>
+                      ) : null
+                    }
+                  />
+                  <Row label="Relationship" value={student.emergency_contact_2_relationship} />
                 </Section>
               )}
 
               {/* Authorized collectors */}
               {collectors.length > 0 && (
-                <Section title="Authorized collectors" icon={Users}>
+                <Section title="Authorised collectors" icon={Users}>
                   <div className="space-y-2">
                     {collectors.map((c, i) => (
-                      <Card key={i} className="p-2.5 text-sm">
-                        <div className="font-medium">{c.name}</div>
-                        <div className="text-xs text-muted-foreground">{c.relationship} · {c.phone || c.email || ""}</div>
-                      </Card>
+                      <div key={i} className="rounded-xl border border-border bg-card px-3 py-2.5">
+                        <p className="text-[15px] font-medium text-foreground">{c.name}</p>
+                        <p className="text-[13px] text-muted-foreground">{[c.relationship, c.phone || c.email].filter(Boolean).join(" · ")}</p>
+                      </div>
                     ))}
                   </div>
                 </Section>
@@ -316,58 +395,49 @@ const StudentProfileDrawer = ({ open, onOpenChange, studentId, booking, sessionI
 
               {/* Consent */}
               <Section title="Consent" icon={Camera}>
-                <Row label="Photo & media consent" value={student.photo_consent ? "✓ Yes" : "✗ No"} />
+                <Row label="Photo & media" value={student.photo_consent ? "Yes" : "No"} />
               </Section>
+            </>
+          )}
 
-              {/* Mark as — register status */}
-              {booking && (onCheckIn || onCheckOut || onMarkAbsent || onClearAttendance) && (
-                <div className="space-y-2 pt-2 border-t border-border">
-                  <h4 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Mark as</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    {onCheckIn && (
-                      <Button
-                        onClick={onCheckIn}
-                        disabled={isIn}
-                        className="gap-1.5 bg-success text-success-foreground hover:bg-success/90 disabled:opacity-60"
-                      >
-                        <LogIn className="w-4 h-4" /> Arrived
-                      </Button>
-                    )}
-                    {onCheckOut && (
-                      <Button
-                        onClick={onCheckOut}
-                        disabled={!isIn}
-                        className="gap-1.5 bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-60"
-                      >
-                        <LogOut className="w-4 h-4" /> Departed
-                      </Button>
-                    )}
-                    {onClearAttendance && (
-                      <Button
-                        onClick={onClearAttendance}
-                        disabled={isUnaccounted}
-                        className="gap-1.5 bg-muted text-foreground hover:bg-muted/80 disabled:opacity-60"
-                      >
-                        <HelpCircle className="w-4 h-4" /> Unaccounted
-                      </Button>
-                    )}
-                    {onMarkAbsent && (
-                      <Button
-                        onClick={onMarkAbsent}
-                        disabled={isAbsent}
-                        className="gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-60"
-                      >
-                        <XCircle className="w-4 h-4" /> Absent
-                      </Button>
-                    )}
-                  </div>
+          {/* Dancer of the Week — a tick on this session's register */}
+          {booking && sessionId && onToggleDancerOfWeek && (
+            <Button
+              type="button"
+              variant="soft"
+              onClick={onToggleDancerOfWeek}
+              className={cn("h-11 w-full rounded-xl", att?.dancer_of_week && "border-warning/50 bg-warning/10 text-[hsl(var(--warning-strong))]")}
+            >
+              <Star className={cn("h-4 w-4", att?.dancer_of_week && "fill-current")} />
+              {att?.dancer_of_week ? "Dancer of the Week ⭐" : "Make Dancer of the Week"}
+            </Button>
+          )}
+
+          {/* QR — for a parent who wants to photograph their code */}
+          {booking && sessionId && (
+            <div>
+              {!showQr ? (
+                <Button type="button" onClick={openQr} variant="soft" className="h-11 w-full rounded-xl">
+                  <QrCode className="h-4 w-4" /> Show booking QR code
+                </Button>
+              ) : (
+                <div className="flex flex-col items-center gap-2 rounded-2xl bg-white p-4">
+                  {qrLoading || !qrToken ? (
+                    <div className="py-8"><Loader2 className="h-5 w-5 animate-spin text-gray-500" /></div>
+                  ) : (
+                    <>
+                      <QRCodeSVG value={buildQrPayload(qrToken.token)} size={180} level="M" includeMargin />
+                      <p className="text-[12px] text-gray-600">Valid until {format(new Date(qrToken.validUntil), "d MMM HH:mm")}</p>
+                      <p className="text-center text-[12px] text-gray-600">Show to the parent — they can photograph it for pickup.</p>
+                    </>
+                  )}
                 </div>
               )}
             </div>
-          </>
-        )}
-      </SheetContent>
-    </Sheet>
+          )}
+        </div>
+      )}
+    </ResponsiveSheet>
   );
 };
 

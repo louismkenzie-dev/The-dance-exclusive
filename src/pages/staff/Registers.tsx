@@ -1,41 +1,71 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { addDays, differenceInYears, format, isToday, isTomorrow, isYesterday, parseISO } from "date-fns";
+import { AlertTriangle, Cake, CameraOff, Check, LogIn, LogOut, ScanLine, Search, Star, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useStaffMember } from "@/hooks/useStaffMember";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, LogIn, LogOut, ScanLine, AlertTriangle, CameraOff, Heart, Check, CalendarDays, Star, Cake } from "lucide-react";
-import { birthdayInWeekOf, birthdayLabel } from "@/lib/birthdays";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { addDays, differenceInYears, format, parseISO } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { DateStrip } from "@/components/booking/DateStrip";
+import { EmptyState } from "@/components/booking/EmptyState";
+import { Bone } from "@/components/booking/Skeletons";
+import { ListRowsSkeleton } from "@/components/booking/PortalSkeletons";
 import StudentProfileDrawer from "@/components/staff/StudentProfileDrawer";
 import QrScannerDialog from "@/components/staff/QrScannerDialog";
 import FamilyCheckInSheet from "@/components/staff/FamilyCheckInSheet";
+import { CollectorSheet } from "@/components/staff/CollectorSheet";
 import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { initialsOf } from "@/lib/initials";
+import { birthdayInWeekOf, birthdayLabel } from "@/lib/birthdays";
+import { arrivalOpensLabel, arrivalsOpen, registerState, type RegisterState } from "@/lib/registerRules";
+import { timetableStripDays } from "@/lib/timetableGaps";
+import { formatTimeRange } from "@/lib/bookingFormat";
+import { cn } from "@/lib/utils";
 
+/** How far the day strip reaches either side of today. */
+const DAYS_BACK = 7;
+const DAYS_AHEAD = 14;
+
+const SESSION_SELECT = `id, session_date, start_time, end_time, class_id, classes:class_id ( name, class_type, location_note, venues:venue_id ( name ) )`;
+
+const fmtTime = (d: string) => new Date(d).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+
+const TONE: Record<RegisterState, { row: string; label: string }> = {
+  unaccounted: { row: "", label: "Not marked" },
+  in: { row: "bg-success/10", label: "In" },
+  out: { row: "bg-primary/10", label: "Departed" },
+  absent: { row: "bg-destructive/10", label: "Absent" },
+};
+
+/**
+ * The register at the door, as an app: pick the day, see each class with
+ * everyone booked on it, tap a name for everything you need to know, and
+ * mark them in or out with one thumb. Rows change colour as they're marked.
+ */
 const StaffRegisters = () => {
   const { staff } = useStaffMember();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   // Local date, not UTC — toISOString() opens yesterday's register after 11pm BST.
-  const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [calendarOpen, setCalendarOpen] = useState(false);
-  const [sessions, setSessions] = useState<any[]>([]);
+  const today = format(new Date(), "yyyy-MM-dd");
+  const dateParam = searchParams.get("date");
+  const date = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : today;
+  const setDate = (next: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (next === today) params.delete("date");
+    else params.set("date", next);
+    setSearchParams(params, { replace: true });
+  };
+
+  // Every session this member teaches across the strip's window; the day's
+  // sessions are a slice of it.
+  const [windowSessions, setWindowSessions] = useState<any[]>([]);
+  const [windowLoaded, setWindowLoaded] = useState(false);
   const [attendance, setAttendance] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
   const [profileBooking, setProfileBooking] = useState<{ booking: any; sessionId: string; classId: string } | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [collectorPrompt, setCollectorPrompt] = useState<{
@@ -54,47 +84,96 @@ const StaffRegisters = () => {
     parentName: string | null;
   } | null>(null);
 
+  // The arrival window is judged against the clock; keep it fresh.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(t);
+  }, []);
+
+  // Sheets portal to <body>; carry the product typography with them.
+  useEffect(() => {
+    document.body.classList.add("portal-ui");
+    return () => document.body.classList.remove("portal-ui");
+  }, []);
+
+  const windowStart = useMemo(() => {
+    const s = format(addDays(new Date(), -DAYS_BACK), "yyyy-MM-dd");
+    return date < s ? date : s;
+  }, [date]);
+  const windowEnd = useMemo(() => {
+    const e = format(addDays(new Date(), DAYS_AHEAD), "yyyy-MM-dd");
+    return date > e ? date : e;
+  }, [date]);
+
+  // Sessions across the window: explicit per-session assignments plus the
+  // sessions of the classes this member usually teaches (unless another
+  // member has been assigned that session instead).
   useEffect(() => {
     if (!staff?.id) return;
+    let cancelled = false;
+    (async () => {
+      setWindowLoaded(false);
+      const { data: explicit } = await supabase
+        .from("session_instructors")
+        .select(`class_sessions!inner ( ${SESSION_SELECT} )`)
+        .eq("staff_id", staff.id);
+
+      const { data: classAssignments } = await supabase
+        .from("class_instructors")
+        .select("class_id")
+        .eq("staff_id", staff.id);
+
+      let defaults: any[] = [];
+      const classIds = (classAssignments ?? []).map((c) => c.class_id);
+      if (classIds.length > 0) {
+        const { data } = await supabase
+          .from("class_sessions")
+          .select(SESSION_SELECT)
+          .in("class_id", classIds)
+          .gte("session_date", windowStart)
+          .lte("session_date", windowEnd);
+        const ids = (data ?? []).map((s) => s.id);
+        const { data: overrides } = ids.length
+          ? await supabase.from("session_instructors").select("session_id").in("session_id", ids)
+          : { data: [] as any[] };
+        const overrideIds = new Set((overrides ?? []).map((o: any) => o.session_id));
+        defaults = (data ?? []).filter((s) => !overrideIds.has(s.id));
+      }
+
+      const byId = new Map<string, any>();
+      for (const s of [...((explicit ?? []).map((r: any) => r.class_sessions)), ...defaults]) {
+        if (!s || s.session_date < windowStart || s.session_date > windowEnd) continue;
+        byId.set(s.id, s);
+      }
+      if (cancelled) return;
+      setWindowSessions([...byId.values()]);
+      setWindowLoaded(true);
+    })();
+    return () => { cancelled = true; };
+  }, [staff?.id, windowStart, windowEnd]);
+
+  const sessions = useMemo(
+    () => windowSessions.filter((s) => s.session_date === date).sort((a, b) => a.start_time.localeCompare(b.start_time)),
+    [windowSessions, date],
+  );
+
+  const stripDays = useMemo(
+    () => timetableStripDays(windowSessions.map((s) => s.session_date), windowStart, windowEnd).map((d) => ({ ...d, disabled: false })),
+    [windowSessions, windowStart, windowEnd],
+  );
+
+  useEffect(() => {
+    if (!windowLoaded) return;
     void load();
-  }, [staff?.id, date]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [windowLoaded, date, windowSessions]);
 
+  // Bookings + attendance per session, the register's rows.
   const load = async () => {
-    if (!staff) return;
     setLoading(true);
-
-    const { data: explicit } = await supabase
-      .from("session_instructors")
-      .select(`class_sessions!inner ( id, session_date, start_time, end_time, class_id, classes:class_id ( name, class_type, location_note, venues:venue_id ( name ) ) )`)
-      .eq("staff_id", staff.id);
-
-    const { data: classAssignments } = await supabase
-      .from("class_instructors")
-      .select("class_id")
-      .eq("staff_id", staff.id);
-
-    let defaults: any[] = [];
-    const classIds = (classAssignments ?? []).map((c) => c.class_id);
-    if (classIds.length > 0) {
-      const { data } = await supabase
-        .from("class_sessions")
-        .select(`id, session_date, start_time, end_time, class_id, classes:class_id ( name, class_type, location_note, venues:venue_id ( name ) )`)
-        .in("class_id", classIds)
-        .eq("session_date", date);
-      const { data: overrides } = await supabase.from("session_instructors").select("session_id").in("session_id", (data ?? []).map((s) => s.id));
-      const overrideIds = new Set((overrides ?? []).map((o: any) => o.session_id));
-      defaults = (data ?? []).filter((s) => !overrideIds.has(s.id));
-    }
-
-    const all = [...((explicit ?? []).map((r: any) => r.class_sessions)), ...defaults]
-      .filter((s) => s.session_date === date)
-      .sort((a, b) => a.start_time.localeCompare(b.start_time));
-
-    setSessions(all);
-
-    // Fetch attendance + bookings per session
     const map: Record<string, any[]> = {};
-    for (const s of all) {
+    for (const s of sessions) {
       const { data: bookings } = await supabase
         .from("bookings")
         .select(`id, student_id, parent_id, notes, students:student_id ( first_name, last_name, preferred_name, profile_photo, avatar_url, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info, photo_consent )`)
@@ -180,7 +259,7 @@ const StaffRegisters = () => {
   };
 
   const performCheckIn = async (booking: any, sessionId: string, classId: string, method: "qr" | "manual", collector: string | null) => {
-    const now = new Date().toISOString();
+    const nowIso = new Date().toISOString();
     const { error } = await supabase.from("attendance").upsert({
       booking_id: booking.id,
       class_id: classId,
@@ -188,7 +267,7 @@ const StaffRegisters = () => {
       student_id: booking.student_id ?? null,
       session_date: date,
       status: "present",
-      checked_in_at: now,
+      checked_in_at: nowIso,
       checked_out_at: null,
       check_in_method: method,
       collector_name: collector,
@@ -220,9 +299,9 @@ const StaffRegisters = () => {
 
   const performCheckOut = async (booking: any, method: "qr" | "manual", collector: string | null) => {
     if (!booking.attendance) return;
-    const now = new Date().toISOString();
+    const nowIso = new Date().toISOString();
     const { error } = await supabase.from("attendance").update({
-      checked_out_at: now,
+      checked_out_at: nowIso,
       check_out_method: method,
       collector_name: collector ?? booking.attendance.collector_name,
     }).eq("id", booking.attendance.id);
@@ -231,7 +310,7 @@ const StaffRegisters = () => {
     void load();
   };
 
-  // Triggered by clicking "In" / "Out" buttons → asks for collector name
+  // Manual marks ask for the collector's name first (optional).
   const beginManualCheckIn = (sessionId: string, classId: string, booking: any) => {
     setCollectorName("");
     setCollectorPrompt({ booking, sessionId, classId, method: "manual" });
@@ -241,17 +320,16 @@ const StaffRegisters = () => {
     setCollectorPrompt({ booking, sessionId: booking.attendance.class_session_id, classId: booking.attendance.class_id, method: "manual" });
   };
 
-  const submitCollectorPrompt = async () => {
+  const submitCollectorPrompt = async (name: string | null) => {
     if (!collectorPrompt) return;
     const { booking, sessionId, classId, method } = collectorPrompt;
     const isCheckOut = !!booking.attendance?.checked_in_at && !booking.attendance?.checked_out_at;
-    const trimmed = collectorName.trim() || null;
-    if (isCheckOut) await performCheckOut(booking, method, trimmed);
-    else await performCheckIn(booking, sessionId, classId, method, trimmed);
     setCollectorPrompt(null);
+    if (isCheckOut) await performCheckOut(booking, method, name);
+    else await performCheckIn(booking, sessionId, classId, method, name);
   };
 
-  // Scanner result → look up token and toggle in/out
+  // Scanner result → look up token and open the family sheet
   const handleScannedToken = async (token: string) => {
     setScannerOpen(false);
     const { data: t } = await supabase
@@ -308,218 +386,281 @@ const StaffRegisters = () => {
     });
   };
 
-  const shiftDate = (days: number) => {
-    setDate(format(addDays(parseISO(date), days), "yyyy-MM-dd"));
+  // ── Presentation ──────────────────────────────────────────────────────
+  const q = query.trim().toLowerCase();
+  const matches = (b: any) => {
+    if (!q) return true;
+    const s = b.students;
+    const hay = s ? `${s.first_name} ${s.last_name} ${s.preferred_name ?? ""}`.toLowerCase() : "adult attendee";
+    return hay.includes(q);
   };
 
-  const statusInfo = (att: any) => {
-    if (att?.status === "absent") return { label: "Absent", badge: "bg-destructive text-destructive-foreground hover:bg-destructive", row: "border-l-2 border-l-destructive" };
-    if (att?.checked_out_at) return { label: "Departed", badge: "bg-blue-500 text-white hover:bg-blue-500", row: "border-l-2 border-l-blue-500" };
-    if (att?.checked_in_at) return { label: "Arrived", badge: "bg-success text-success-foreground hover:bg-success", row: "border-l-2 border-l-success" };
-    return { label: "Unaccounted", badge: "bg-muted text-foreground hover:bg-muted", row: "border-l-2 border-l-border" };
-  };
+  const dayLabel = (() => {
+    const d = parseISO(date);
+    const rel = isToday(d) ? "Today" : isTomorrow(d) ? "Tomorrow" : isYesterday(d) ? "Yesterday" : format(d, "EEEE");
+    return { rel, long: format(d, "d MMMM yyyy") };
+  })();
+
+  const dayTotals = sessions.reduce(
+    (acc, s) => {
+      for (const b of attendance[s.id] ?? []) acc[registerState(b.attendance)]++;
+      return acc;
+    },
+    { unaccounted: 0, in: 0, out: 0, absent: 0 } as Record<RegisterState, number>,
+  );
+
+  const profileSession = profileBooking ? sessions.find((s) => s.id === profileBooking.sessionId) : null;
 
   return (
-    <div className="p-6 md:p-8 max-w-5xl mx-auto">
-      <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
-        <div>
-          <h1 className="text-3xl font-display font-bold mb-1">Registers</h1>
-          <p className="text-muted-foreground">Mark attendance for your classes</p>
+    <div className="app-screen portal-ui min-h-[100dvh] bg-background pb-28">
+      {/* Day picker — stays put while the register scrolls */}
+      <div className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
+        <div className="mx-auto max-w-3xl px-4 pb-3 pt-3">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">Registers</h1>
+              <p className="text-[13px] text-muted-foreground">
+                {dayLabel.rel} · {dayLabel.long}
+              </p>
+            </div>
+            {!loading && sessions.length > 0 && (
+              <p className="text-right text-[13px] tabular-nums text-muted-foreground">
+                <span className="font-semibold text-foreground">{dayTotals.in + dayTotals.out}</span> of {dayTotals.unaccounted + dayTotals.in + dayTotals.out + dayTotals.absent} in
+              </p>
+            )}
+          </div>
+          {stripDays.length > 0 ? (
+            <DateStrip className="mt-3" days={stripDays} value={date} onChange={setDate} relativeLabels />
+          ) : (
+            <div className="mt-3 flex gap-2 overflow-hidden">
+              {Array.from({ length: 7 }).map((_, i) => (
+                <Bone key={i} className="h-[68px] w-[54px] shrink-0 rounded-2xl" />
+              ))}
+            </div>
+          )}
         </div>
-        <Button onClick={() => setScannerOpen(true)} size="lg" className="gap-2">
-          <ScanLine className="w-4 h-4" /> Scan QR
-        </Button>
       </div>
 
-      <div className="flex items-center justify-between mb-6 gap-3">
-        <Button variant="outline" size="icon" onClick={() => shiftDate(-1)}><ChevronLeft className="w-4 h-4" /></Button>
-        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-          <PopoverTrigger asChild>
-            <button className="flex-1 text-center group" title="Open calendar">
-              <p className="text-lg font-semibold group-hover:text-primary transition-colors">
-                {new Date(date).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-              </p>
-              <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                <CalendarDays className="w-3 h-3" /> Tap to pick a date
-              </p>
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="center">
-            <Calendar
-              mode="single"
-              selected={parseISO(date)}
-              defaultMonth={parseISO(date)}
-              onSelect={(d) => {
-                if (d) {
-                  setDate(format(d, "yyyy-MM-dd"));
-                  setCalendarOpen(false);
-                }
-              }}
-              initialFocus
+      <div className="mx-auto max-w-3xl space-y-4 px-4 pt-4">
+        {/* Find a name across the day's classes */}
+        {!loading && sessions.length > 0 && (
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            <Input
+              type="search"
+              inputMode="search"
+              enterKeyHint="search"
+              aria-label="Find a dancer"
+              placeholder="Find a dancer"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="h-12 rounded-xl pl-10 pr-10 text-base"
             />
-          </PopoverContent>
-        </Popover>
-        <Button variant="outline" size="icon" onClick={() => shiftDate(1)}><ChevronRight className="w-4 h-4" /></Button>
-      </div>
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        )}
 
-      {loading ? (
-        <p className="text-muted-foreground text-sm">Loading...</p>
-      ) : sessions.length === 0 ? (
-        <Card><CardContent className="py-12 text-center text-muted-foreground">No classes scheduled for this day.</CardContent></Card>
-      ) : (
-        <div className="space-y-4">
-          {sessions.map((s) => (
-            <Card key={s.id}>
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between mb-4 pb-4 border-b border-border">
-                  <div>
-                    <h3 className="font-semibold text-lg">{s.classes?.name}</h3>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                      <Clock className="w-3 h-3" /> {s.start_time.slice(0, 5)} – {s.end_time.slice(0, 5)} • {s.classes?.venues?.name || s.classes?.location_note || "Venue TBC"}
+        {loading || !windowLoaded ? (
+          <div className="space-y-4">
+            <div className="surface p-4">
+              <Bone className="h-5 w-40" />
+              <Bone className="mt-2 h-3.5 w-56" />
+            </div>
+            <ListRowsSkeleton rows={6} />
+          </div>
+        ) : sessions.length === 0 ? (
+          <EmptyState
+            title={`No classes for you ${
+              dayLabel.rel === "Today" ? "today" : dayLabel.rel === "Tomorrow" ? "tomorrow" : dayLabel.rel === "Yesterday" ? "yesterday" : `on ${dayLabel.rel}`
+            }`}
+            body="Pick another day above. Classes appear here once you're assigned to them."
+          />
+        ) : (
+          sessions.map((s) => {
+            const rows = (attendance[s.id] || []) as any[];
+            const visible = rows.filter(matches);
+            const open = arrivalsOpen(s.session_date, s.start_time, now);
+            const opensLabel = open ? null : arrivalOpensLabel(s.session_date, s.start_time, now);
+            const totals = rows.reduce(
+              (acc, b) => { acc[registerState(b.attendance)]++; return acc; },
+              { unaccounted: 0, in: 0, out: 0, absent: 0 } as Record<RegisterState, number>,
+            );
+            const sessionLabel = `${s.classes?.name ?? "Class"} · ${formatTimeRange(s.start_time, s.end_time)}`;
+            return (
+              <section key={s.id} className="surface overflow-hidden" aria-label={sessionLabel}>
+                <header className="border-b border-border/70 px-4 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h2 className="truncate text-[17px] font-semibold text-foreground">{s.classes?.name}</h2>
+                      <p className="text-[13px] text-muted-foreground">
+                        {formatTimeRange(s.start_time, s.end_time)} · {s.classes?.venues?.name || s.classes?.location_note || "Venue TBC"}
+                      </p>
+                    </div>
+                    <p className="shrink-0 text-right text-[13px] tabular-nums text-muted-foreground">
+                      <span className="text-[17px] font-semibold text-foreground">{totals.in + totals.out}</span>/{rows.length}
                     </p>
                   </div>
-                  <Badge variant="outline">{(attendance[s.id] || []).length} students</Badge>
-                </div>
-                {(attendance[s.id] || []).length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">No bookings yet for this class.</p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[30%]">Student</TableHead>
-                        <TableHead className="w-[80px]">Age</TableHead>
-                        <TableHead className="w-[90px] text-center">Medical</TableHead>
-                        <TableHead className="w-[70px] text-center">SEND</TableHead>
-                        <TableHead className="w-[96px] text-center">
-                          <span className="inline-flex flex-col items-center gap-0.5 py-1">
-                            <Star className="w-4 h-4 text-amber-400" />
-                            <span className="text-[9px] font-semibold uppercase tracking-wide leading-tight whitespace-nowrap">Dancer of<br />the Week</span>
-                          </span>
-                        </TableHead>
-                        <TableHead>Arrival / Departure</TableHead>
-                        <TableHead className="text-right w-[130px]">Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {attendance[s.id].map((b: any) => {
-                        const att = b.attendance;
-                        const isIn = att?.checked_in_at && !att?.checked_out_at;
-                        const isOut = !!att?.checked_out_at;
-                        const isAbsent = att?.status === "absent";
-                        const student = b.students;
-                        const age = student?.date_of_birth ? differenceInYears(new Date(), new Date(student.date_of_birth)) : null;
-                        const hasMedical = !!(
-                          student?.has_epipen || student?.has_inhaler ||
-                          student?.allergies_list?.length || student?.medical_conditions_list?.length ||
-                          student?.medical_info
-                        );
-                        const hasUrgent = student?.has_epipen || student?.has_inhaler;
-                        const fmt = (d: string) => new Date(d).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-                        const status = statusInfo(att);
+                  {rows.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5 text-[12px] font-semibold">
+                      {totals.unaccounted > 0 && <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">{totals.unaccounted} to come</span>}
+                      {totals.in > 0 && <span className="rounded-full bg-success/15 px-2 py-0.5 text-[hsl(var(--success-strong))]">{totals.in} in</span>}
+                      {totals.out > 0 && <span className="rounded-full bg-primary/15 px-2 py-0.5 text-primary">{totals.out} out</span>}
+                      {totals.absent > 0 && <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[hsl(var(--destructive-strong))]">{totals.absent} absent</span>}
+                    </div>
+                  )}
+                  {opensLabel && (
+                    <p className="mt-2 text-[13px] text-warning">Arrivals {opensLabel.toLowerCase().replace(/^opens/, "open")} — 15 minutes before the class.</p>
+                  )}
+                </header>
 
-                        return (
-                          <TableRow
-                            key={b.id}
-                            className={`cursor-pointer ${status.row}`}
-                            onClick={() => setProfileBooking({ booking: b, sessionId: s.id, classId: s.class_id })}
+                {rows.length === 0 ? (
+                  <p className="px-4 py-6 text-center text-[15px] text-muted-foreground">No bookings yet for this class.</p>
+                ) : visible.length === 0 ? (
+                  <p className="px-4 py-6 text-center text-[15px] text-muted-foreground">No one matching “{query}” in this class.</p>
+                ) : (
+                  <ul className="divide-y divide-border/70">
+                    {visible.map((b: any) => {
+                      const att = b.attendance;
+                      const state = registerState(att);
+                      const tone = TONE[state];
+                      const student = b.students;
+                      const age = student?.date_of_birth ? differenceInYears(new Date(), new Date(student.date_of_birth)) : null;
+                      const hasMedical = !!(
+                        student?.has_epipen || student?.has_inhaler ||
+                        student?.allergies_list?.length || student?.medical_conditions_list?.length ||
+                        student?.medical_info
+                      );
+                      const hasUrgent = student?.has_epipen || student?.has_inhaler;
+                      const name = student
+                        ? `${student.preferred_name || student.first_name} ${student.last_name}`
+                        : "Adult attendee";
+                      const bd = student?.date_of_birth ? birthdayInWeekOf(student.date_of_birth, s.session_date) : null;
+                      const statusLine =
+                        state === "absent"
+                          ? "Absent"
+                          : state === "out"
+                            ? `In ${fmtTime(att.checked_in_at)} · Out ${fmtTime(att.checked_out_at)}${att.collector_name ? ` · ${att.collector_name}` : ""}`
+                            : state === "in"
+                              ? `In ${fmtTime(att.checked_in_at)}${att.collector_name ? ` · ${att.collector_name}` : ""}`
+                              : "Not marked";
+                      const openProfile = () => setProfileBooking({ booking: b, sessionId: s.id, classId: s.class_id });
+                      return (
+                        <li key={b.id} className={cn("flex items-center gap-2 py-2 pl-3 pr-2 transition-colors", tone.row)}>
+                          <button
+                            type="button"
+                            onClick={openProfile}
+                            className="flex min-w-0 flex-1 items-center gap-3 rounded-xl py-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            aria-label={`${name}, ${tone.label}. Open details`}
                           >
-                            <TableCell>
-                              <div className="flex items-center gap-3">
-                                <PhotoAvatarDuo
-                                  photoUrl={student?.profile_photo}
-                                  avatarUrl={student?.avatar_url}
-                                  initials={initialsOf(student?.first_name, student?.last_name)}
-                                  size="sm"
-                                  expandable
-                                />
-                                <div className="min-w-0">
-                                  <p className="font-medium text-sm flex items-center gap-1.5">
-                                    {student ? `${student.first_name} ${student.last_name}` : "Adult attendee"}
-                                    {student && student.photo_consent === false && (
-                                      <CameraOff className="w-3.5 h-3.5 text-destructive flex-shrink-0" aria-label="No photo consent" />
-                                    )}
-                                    {student?.date_of_birth && (() => {
-                                      const bd = birthdayInWeekOf(student.date_of_birth, s.session_date);
-                                      if (!bd) return null;
-                                      const label = bd === "today"
-                                        ? `It's ${student.first_name}'s birthday today! 🎂`
-                                        : `${student.first_name}'s birthday is this week (${birthdayLabel(student.date_of_birth, s.session_date)}) 🎂`;
-                                      return (
-                                        <span title={label} aria-label={label}>
-                                          <Cake className={`w-4 h-4 flex-shrink-0 ${bd === "today" ? "text-pink-500" : "text-pink-400/70"}`} />
-                                        </span>
-                                      );
-                                    })()}
-                                  </p>
-                                  <div className="flex gap-1 mt-0.5">
-                                    {b.unpaid && <Badge variant="destructive" className="text-[10px]">Unpaid</Badge>}
-                                    {student?.is_self && <Badge variant="outline" className="text-[10px]">Adult</Badge>}
-                                    {!student && <Badge variant="outline" className="text-[10px] text-muted-foreground">No profile</Badge>}
-                                  </div>
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-sm">{age != null ? `${age}y` : "—"}</TableCell>
-                            <TableCell className="text-center">
-                              {hasMedical ? (
-                                hasUrgent ? (
-                                  <span title="Urgent: EpiPen / Inhaler" className="inline-flex items-center gap-1 text-destructive">
-                                    <AlertTriangle className="w-4 h-4" />
-                                  </span>
-                                ) : (
-                                  <Check className="w-4 h-4 inline text-success" />
-                                )
-                              ) : (
-                                <span className="text-muted-foreground/50">—</span>
+                            <PhotoAvatarDuo
+                              photoUrl={student?.profile_photo}
+                              avatarUrl={student?.avatar_url}
+                              initials={initialsOf(student?.first_name, student?.last_name)}
+                              size="sm"
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="flex items-center gap-1.5">
+                                <span className="truncate text-[15px] font-semibold text-foreground">{name}</span>
+                                {att?.dancer_of_week && <Star className="h-3.5 w-3.5 shrink-0 fill-warning text-warning" aria-label="Dancer of the Week" />}
+                                {hasUrgent ? (
+                                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-destructive" aria-label="EpiPen or inhaler" />
+                                ) : hasMedical ? (
+                                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-warning" aria-label="Medical notes" />
+                                ) : null}
+                                {bd && <Cake className={cn("h-3.5 w-3.5 shrink-0", bd === "today" ? "text-accent" : "text-accent/60")} aria-label={bd === "today" ? "Birthday today" : `Birthday ${birthdayLabel(student.date_of_birth, s.session_date)}`} />}
+                                {student && student.photo_consent === false && <CameraOff className="h-3.5 w-3.5 shrink-0 text-destructive" aria-label="No photo consent" />}
+                              </span>
+                              <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">
+                                {[age != null ? `${age}y` : null, statusLine].filter(Boolean).join(" · ")}
+                              </span>
+                              {(b.unpaid || student?.has_send || student?.is_self || !student) && (
+                                <span className="mt-1 flex flex-wrap gap-1 text-[10px] font-semibold uppercase tracking-wide">
+                                  {b.unpaid && <span className="rounded-full bg-destructive/15 px-1.5 py-0.5 text-[hsl(var(--destructive-strong))]">Unpaid</span>}
+                                  {student?.has_send && <span className="rounded-full bg-warning/15 px-1.5 py-0.5 text-[hsl(var(--warning-strong))]">SEND</span>}
+                                  {student?.is_self && <span className="rounded-full bg-muted px-1.5 py-0.5 text-muted-foreground">Adult</span>}
+                                  {!student && <span className="rounded-full bg-muted px-1.5 py-0.5 text-muted-foreground">No profile</span>}
+                                </span>
                               )}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              {student?.has_send ? (
-                                <Badge className="text-[10px] bg-amber-500 hover:bg-amber-600">SEND</Badge>
-                              ) : (
-                                <span className="text-muted-foreground/50">—</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-center">
+                            </span>
+                          </button>
+
+                          {/* The one next step, under the thumb */}
+                          <div className="shrink-0">
+                            {state === "unaccounted" && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                disabled={!open}
+                                onClick={() => beginManualCheckIn(s.id, s.class_id, b)}
+                                aria-label={open ? `Mark ${name} arrived` : `Arrivals ${opensLabel?.toLowerCase()}`}
+                                className="h-10 rounded-full bg-success px-3.5 text-[14px] font-semibold text-success-foreground hover:bg-success/90 disabled:opacity-40"
+                              >
+                                <LogIn className="h-4 w-4" /> Arrived
+                              </Button>
+                            )}
+                            {state === "in" && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => beginManualCheckOut(b)}
+                                aria-label={`Mark ${name} departed`}
+                                className="h-10 rounded-full bg-primary px-3.5 text-[14px] font-semibold text-primary-foreground hover:bg-primary/90"
+                              >
+                                <LogOut className="h-4 w-4" /> Departed
+                              </Button>
+                            )}
+                            {state === "out" && (
                               <button
                                 type="button"
-                                title={att?.dancer_of_week ? "Remove Dancer of the Week" : "Make Dancer of the Week"}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  void toggleDancerOfWeek(s.id, s.class_id, b);
-                                }}
-                                className="p-1 rounded hover:bg-muted transition-colors"
+                                onClick={openProfile}
+                                aria-label={`${name} departed. Open details`}
+                                className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-primary"
                               >
-                                <Star
-                                  className={`w-5 h-5 ${att?.dancer_of_week ? "text-amber-400 fill-amber-400" : "text-muted-foreground/40"}`}
-                                />
+                                <Check className="h-5 w-5" strokeWidth={2.5} />
                               </button>
-                            </TableCell>
-                            <TableCell className="text-xs tabular-nums">
-                              {att?.checked_in_at || att?.checked_out_at ? (
-                                <div className="flex flex-col gap-0.5">
-                                  {att?.checked_in_at && <span className="text-foreground">In {fmt(att.checked_in_at)}</span>}
-                                  {att?.checked_out_at && <span className="text-foreground">Out {fmt(att.checked_out_at)}</span>}
-                                  {att?.collector_name && <span className="text-[11px] text-muted-foreground">{att.collector_name}</span>}
-                                </div>
-                              ) : (
-                                <span className="opacity-50">—</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Badge className={status.badge}>{status.label}</Badge>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                            )}
+                            {state === "absent" && (
+                              <button
+                                type="button"
+                                onClick={openProfile}
+                                className="inline-flex h-10 items-center rounded-full bg-destructive/15 px-3.5 text-[13px] font-semibold text-[hsl(var(--destructive-strong))]"
+                              >
+                                Absent
+                              </button>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 )}
-              </CardContent>
-            </Card>
-          ))}
+              </section>
+            );
+          })
+        )}
+      </div>
+
+      {/* Scan — always a thumb away */}
+      <div className="pb-safe fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 backdrop-blur md:left-64">
+        <div className="mx-auto max-w-3xl px-4 py-3">
+          <Button
+            type="button"
+            onClick={() => setScannerOpen(true)}
+            className="h-14 w-full rounded-xl bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90"
+          >
+            <ScanLine className="h-5 w-5" /> Scan a family's QR code
+          </Button>
         </div>
-      )}
+      </div>
 
       <StudentProfileDrawer
         open={!!profileBooking}
@@ -528,6 +669,9 @@ const StaffRegisters = () => {
         booking={profileBooking?.booking ?? null}
         sessionId={profileBooking?.sessionId ?? null}
         classId={profileBooking?.classId ?? null}
+        sessionDate={profileSession?.session_date ?? null}
+        sessionStart={profileSession?.start_time ?? null}
+        sessionLabel={profileSession ? `${profileSession.classes?.name ?? "Class"} · ${formatTimeRange(profileSession.start_time, profileSession.end_time)}` : null}
         onCheckIn={() => {
           if (!profileBooking) return;
           beginManualCheckIn(profileBooking.sessionId, profileBooking.classId, profileBooking.booking);
@@ -548,6 +692,11 @@ const StaffRegisters = () => {
           clearAttendance(profileBooking.booking);
           setProfileBooking(null);
         }}
+        onToggleDancerOfWeek={() => {
+          if (!profileBooking) return;
+          void toggleDancerOfWeek(profileBooking.sessionId, profileBooking.classId, profileBooking.booking);
+          setProfileBooking(null);
+        }}
       />
 
       <QrScannerDialog
@@ -563,48 +712,36 @@ const StaffRegisters = () => {
         const rows = (attendance[familySheet.sessionId] || []).filter(
           (b: any) => b.parent_id === familySheet.parentId,
         );
+        const open = session ? arrivalsOpen(session.session_date, session.start_time, now) : true;
         return (
           <FamilyCheckInSheet
             open={!!familySheet}
             onOpenChange={(o) => !o && setFamilySheet(null)}
             className={session?.classes?.name ?? "Class"}
-            sessionTime={session ? `${session.start_time?.slice(0, 5)} – ${session.end_time?.slice(0, 5)}` : ""}
+            sessionTime={session ? formatTimeRange(session.start_time, session.end_time) : ""}
             parentName={familySheet.parentName}
             rows={rows}
+            arrivalsOpen={open}
+            arrivalsOpenLabel={session && !open ? arrivalOpensLabel(session.session_date, session.start_time, now) : null}
             onMarkArrived={(b) => void performCheckIn(b, familySheet.sessionId, familySheet.classId, "qr", null)}
             onMarkDeparted={(b) => void performCheckOut(b, "qr", null)}
           />
         );
       })()}
 
-      <Dialog open={!!collectorPrompt} onOpenChange={(o) => !o && setCollectorPrompt(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>
-              {collectorPrompt?.booking?.attendance?.checked_in_at && !collectorPrompt?.booking?.attendance?.checked_out_at
-                ? "Who's collecting?"
-                : "Who dropped off?"}
-            </DialogTitle>
-            <DialogDescription>
-              Recording the collector's name keeps a safeguarding audit trail. Leave blank if a parent on file is doing it.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="collector">Collector name (optional)</Label>
-            <Input
-              id="collector"
-              value={collectorName}
-              onChange={(e) => setCollectorName(e.target.value)}
-              placeholder="e.g. Sarah Smith (Aunt)"
-              autoFocus
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCollectorPrompt(null)}>Cancel</Button>
-            <Button onClick={submitCollectorPrompt}>Confirm</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CollectorSheet
+        open={!!collectorPrompt}
+        onOpenChange={(o) => !o && setCollectorPrompt(null)}
+        mode={collectorPrompt?.booking?.attendance?.checked_in_at && !collectorPrompt?.booking?.attendance?.checked_out_at ? "out" : "in"}
+        attendeeName={
+          collectorPrompt?.booking?.students
+            ? `${collectorPrompt.booking.students.preferred_name || collectorPrompt.booking.students.first_name} ${collectorPrompt.booking.students.last_name}`
+            : "Adult attendee"
+        }
+        value={collectorName}
+        onChange={setCollectorName}
+        onConfirm={(name) => void submitCollectorPrompt(name)}
+      />
     </div>
   );
 };

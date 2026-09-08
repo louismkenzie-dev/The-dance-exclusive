@@ -57,6 +57,7 @@ serve(async (_req) => {
     cancelledAbandoned: 0,
     cancelledDuplicates: 0,
     adopted: 0,
+    unadoptable: 0,
     adjustmentsApplied: 0,
     errors: 0,
   };
@@ -405,8 +406,28 @@ serve(async (_req) => {
     //   - a real signup our records lost (paid, or card saved) → adopt it by
     //     repairing the rows, so it is managed and billed like any other;
     //   - an abandoned card-less checkout older than 24h → cancel quietly.
+    // Checkout attempts that never took a card ('incomplete', and
+    // 'incomplete_expired' after 23h) are not orphans: Stripe already refuses
+    // to bill them and refuses to cancel them ("No such subscription").
+    // Stripe's status-filtered list still returns them under 'trialing'
+    // while their trial date is ahead, so every candidate is re-checked
+    // against its actual status.
+    const LIVE_STATUSES = new Set(["trialing", "active", "past_due"]);
+    const cancelSubscription = async (id: string): Promise<boolean> => {
+      try {
+        await stripe.subscriptions.cancel(id, { prorate: false, invoice_now: false } as any, connectOpts);
+        return true;
+      } catch (e: any) {
+        if ((e?.code ?? e?.raw?.code) === "resource_missing") {
+          console.log("Subscription already gone, nothing to cancel:", id);
+          return false;
+        }
+        throw e;
+      }
+    };
     try {
       const orphans: any[] = [];
+      const seen = new Set<string>();
       for (const status of ["trialing", "active", "past_due"]) {
         let starting_after: string | undefined;
         for (let page = 0; page < 10; page++) {
@@ -415,6 +436,9 @@ serve(async (_req) => {
             connectOpts,
           );
           for (const s of res?.data ?? []) {
+            if (seen.has(s.id)) continue;
+            seen.add(s.id);
+            if (!LIVE_STATUSES.has(s.status)) continue; // never-started attempt, see above
             if (bySub.has(s.id)) continue; // handled with its DB rows above
             if (s.metadata?.checkoutType !== "membership_checkout") continue;
             orphans.push(s);
@@ -453,8 +477,7 @@ serve(async (_req) => {
           }
 
           if (duplicateOf) {
-            await stripe.subscriptions.cancel(orphan.id, { prorate: false, invoice_now: false } as any, connectOpts);
-            summary.cancelledDuplicates++;
+            if (await cancelSubscription(orphan.id)) summary.cancelledDuplicates++;
             console.log("Cancelled duplicate subscription", orphan.id, "(family already on", duplicateOf + ")");
             if (paidPence > 0) {
               const who = await describeFamily(userId!);
@@ -485,12 +508,43 @@ serve(async (_req) => {
               summary.adopted++;
               console.log("Adopted untracked subscription", orphan.id, "— rows repaired:", repaired);
             }
+
+            // Nothing could hold it: the class or dancer it names no longer
+            // exists here. Test-mode leftovers are cancelled; a live one is
+            // real money with nothing behind it, so the studio is told.
+            const { count: rowCount } = await supabase
+              .from("memberships")
+              .select("id", { count: "exact", head: true })
+              .eq("stripe_subscription_id", orphan.id);
+            if (!rowCount) {
+              summary.unadoptable++;
+              if (env === "sandbox") {
+                await cancelSubscription(orphan.id);
+                console.log("Cancelled unadoptable sandbox subscription", orphan.id);
+              } else {
+                console.error("Live subscription cannot be matched to any class or dancer:", orphan.id);
+                const who = userId ? await describeFamily(userId) : "Unknown family";
+                await notifyOwner({
+                  title: "Membership subscription needs a manual check",
+                  intro: `${who} has a live membership subscription in Stripe that can't be matched to a class or dancer in the system (the class or dancer it was bought for no longer exists). It has been left running so nothing is lost, but it needs a manual look — either cancel it in Stripe or re-create the class/dancer so it can be linked.`,
+                  rows: [
+                    { label: "Family", value: who },
+                    { label: "Subscription", value: orphan.id },
+                    { label: "Taken so far", value: `£${(paidPence / 100).toFixed(2)}` },
+                  ],
+                  listTitle: "What it was bought for",
+                  list: await describeItems(items),
+                  ctaLabel: "Open Stripe subscriptions",
+                  ctaUrl: "https://dashboard.stripe.com/subscriptions",
+                  urgent: paidPence > 0,
+                });
+              }
+            }
             continue;
           }
 
           if (orphan.status === "trialing" && orphan.created && orphan.created * 1000 < Date.now() - 24 * 3600_000) {
-            await stripe.subscriptions.cancel(orphan.id, {}, connectOpts);
-            summary.cancelledAbandoned++;
+            if (await cancelSubscription(orphan.id)) summary.cancelledAbandoned++;
             console.log("Cancelled orphaned trialing subscription:", orphan.id);
           }
         } catch (e) {

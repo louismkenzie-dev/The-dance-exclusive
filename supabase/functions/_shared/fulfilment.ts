@@ -376,7 +376,21 @@ export async function ensureMembershipRows(supabase: any, sub: any, env: string)
     .select("id, class_id, student_id")
     .eq("stripe_subscription_id", sub.id);
   const have = new Set((existing ?? []).map((r: any) => `${r.class_id}|${r.student_id ?? ""}`));
-  if (monthly.every((i) => have.has(`${i.classId}|${i.studentId ?? ""}`))) return 0;
+  const missing = monthly.filter((i) => !have.has(`${i.classId}|${i.studentId ?? ""}`));
+  if (missing.length === 0) return 0;
+
+  // A row can only point at a class and dancer that still exist — a deleted
+  // one is skipped (and logged) rather than failing the whole repair.
+  const classIds = [...new Set(missing.map((i) => i.classId as string))];
+  const studentIds = [...new Set(missing.map((i) => i.studentId).filter((s): s is string => !!s))];
+  const [{ data: knownClasses }, { data: knownStudents }] = await Promise.all([
+    supabase.from("classes").select("id").in("id", classIds),
+    studentIds.length > 0
+      ? supabase.from("students").select("id").in("id", studentIds)
+      : Promise.resolve({ data: [] as { id: string }[] }),
+  ]);
+  const classExists = new Set((knownClasses ?? []).map((c: any) => c.id));
+  const studentExists = new Set((knownStudents ?? []).map((s: any) => s.id));
 
   const subItems: any[] = sub.items?.data ?? [];
   const usedItems = new Set<string>();
@@ -401,6 +415,14 @@ export async function ensureMembershipRows(supabase: any, sub: any, env: string)
     const si = subItems.find((x) => !usedItems.has(x.id) && x.price?.unit_amount === pence)
       ?? subItems.find((x) => !usedItems.has(x.id));
     if (si) usedItems.add(si.id);
+
+    if (!classExists.has(item.classId) || (item.studentId && !studentExists.has(item.studentId))) {
+      console.warn(
+        "Skipping membership row for subscription", sub.id,
+        "— class or dancer no longer exists (class", item.classId, "dancer", item.studentId ?? "none", ")",
+      );
+      continue;
+    }
 
     const fields = {
       stripe_subscription_id: sub.id,

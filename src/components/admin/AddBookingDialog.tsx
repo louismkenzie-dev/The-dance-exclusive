@@ -84,18 +84,22 @@ const AddBookingDialog = ({ open, onOpenChange, onDone }: Props) => {
     })();
   }, [open]);
 
-  // Upcoming dates for the chosen class, for the dated plans.
+  // Dates for the chosen class. Recent ones that have already run are
+  // included: someone turns up, doesn't pay, and the studio needs to charge
+  // them for the class they were actually at.
   useEffect(() => {
     if (!form.classId) { setSessions([]); return; }
     void (async () => {
+      const from = new Date();
+      from.setDate(from.getDate() - 42);
       const { data } = await supabase
         .from("class_sessions")
         .select("id, session_date")
         .eq("class_id", form.classId)
-        .gte("session_date", new Date().toISOString().slice(0, 10))
+        .gte("session_date", format(from, "yyyy-MM-dd"))
         .neq("status", "cancelled")
         .order("session_date")
-        .limit(30);
+        .limit(40);
       setSessions(((data as any[]) ?? []) as { id: string; session_date: string }[]);
     })();
     setDates([]);
@@ -110,6 +114,9 @@ const AddBookingDialog = ({ open, onOpenChange, onDone }: Props) => {
   const plan = PLANS.find((p) => p.value === form.plan);
   const needsDates = what === "class" && !!plan?.dated;
   const monthlyRecordBlocked = what === "class" && form.plan === "monthly" && mode === "record";
+  /** Setting a place up for them to pay for, at a price the studio names. */
+  const chargingByLink = what === "class" && mode === "invite" && !!plan?.dated;
+  const todayISO = format(new Date(), "yyyy-MM-dd");
 
   const reset = () => {
     setForm({
@@ -131,6 +138,12 @@ const AddBookingDialog = ({ open, onOpenChange, onDone }: Props) => {
     if (what !== "pass" && !form.studentId) { toast.error("Choose who the place is for."); return; }
     if (needsDates && effectiveMode === "record" && dates.length === 0) {
       toast.error("Pick which date(s) they're coming to.");
+      return;
+    }
+    // A price the studio names has to say what it's for, or the checkout has
+    // nothing to charge it against.
+    if (chargingByLink && Number(form.amount) > 0 && dates.length === 0) {
+      toast.error("Pick the date they're paying for — that's what the price covers.");
       return;
     }
     if (effectiveMode === "record" && !(Number(form.amount) >= 0)) {
@@ -393,48 +406,61 @@ const AddBookingDialog = ({ open, onOpenChange, onDone }: Props) => {
               )}
               {mode === "invite" && (
                 <p className="text-xs text-muted-foreground">
-                  They get an email and a card in their account. The system prices it as normal,
+                  They get an email and a card in their account. Name a price below and that's
+                  what they pay for the dates you pick — otherwise the system prices it as normal,
                   including any sibling discount or the £110 cap.
                 </p>
               )}
             </div>
           )}
 
-          {needsDates && mode === "record" && (
+          {needsDates && (
             <div className="space-y-1.5">
               <Label>Which date{dates.length === 1 ? "" : "s"}?</Label>
               <div className="max-h-40 overflow-y-auto rounded-md border p-2 space-y-1">
                 {sessions.length === 0 ? (
-                  <p className="text-xs text-muted-foreground py-1">No upcoming dates for this class.</p>
-                ) : sessions.map((s) => (
-                  <label key={s.id} className="flex items-center gap-2 text-sm py-0.5 cursor-pointer">
-                    <Checkbox
-                      checked={dates.includes(s.session_date)}
-                      onCheckedChange={(c) =>
-                        setDates((prev) =>
-                          c ? [...prev, s.session_date] : prev.filter((d) => d !== s.session_date),
-                        )}
-                    />
-                    {format(parseISO(s.session_date), "EEE d MMM yyyy")}
-                  </label>
-                ))}
+                  <p className="text-xs text-muted-foreground py-1">No dates for this class.</p>
+                ) : sessions.map((s) => {
+                  const past = s.session_date < todayISO;
+                  return (
+                    <label key={s.id} className="flex items-center gap-2 text-sm py-0.5 cursor-pointer">
+                      <Checkbox
+                        checked={dates.includes(s.session_date)}
+                        onCheckedChange={(c) =>
+                          setDates((prev) =>
+                            c ? [...prev, s.session_date] : prev.filter((d) => d !== s.session_date),
+                          )}
+                      />
+                      <span className={past ? "text-muted-foreground" : undefined}>
+                        {format(parseISO(s.session_date), "EEE d MMM yyyy")}
+                        {past && " — already run"}
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
+              {mode === "invite" && (
+                <p className="text-xs text-muted-foreground">
+                  Pick the class they actually came to — a date that's already been is fine, and
+                  they'll be charged for exactly these dates.
+                </p>
+              )}
             </div>
           )}
 
-          {(what !== "class" || mode === "record") && (
-            <div className="space-y-1.5">
-              <Label>Amount they paid (£)</Label>
-              <Input
-                type="number" min="0" step="0.01" placeholder="0.00"
-                value={form.amount}
-                onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
-              />
-              <p className="text-xs text-muted-foreground">
-                What they actually paid elsewhere — used for their records, not charged. 0 for a free place.
-              </p>
-            </div>
-          )}
+          <div className="space-y-1.5">
+            <Label>{chargingByLink ? "Amount to charge (£)" : "Amount they paid (£)"}</Label>
+            <Input
+              type="number" min="0" step="0.01" placeholder="0.00"
+              value={form.amount}
+              onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+            />
+            <p className="text-xs text-muted-foreground">
+              {chargingByLink
+                ? "What they'll pay for these dates, whatever the class normally sells — leave blank to charge the class's usual price."
+                : "What they actually paid elsewhere — used for their records, not charged. 0 for a free place."}
+            </p>
+          </div>
 
           <div className="space-y-1.5">
             <Label>Note <span className="text-muted-foreground font-normal">(optional)</span></Label>

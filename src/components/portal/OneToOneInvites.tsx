@@ -69,15 +69,28 @@ const OneToOneInvites = () => {
 
     const classIds = rows.map((r) => r.class_id);
     const today = new Date().toISOString().slice(0, 10);
+    // Normally only what's still to come is bookable. An invite that names
+    // its own dates is different — the studio may be asking them to pay for
+    // a class they've already been to — so those dates are fetched whatever
+    // day they fall on.
+    const namedDates = [...new Set(rows.flatMap((r) => r.session_dates ?? []))];
+    const earliest = namedDates.length > 0 ? [...namedDates].sort()[0] : today;
     const [{ data: sessionRows }, { data: bookingRows }] = await Promise.all([
-      supabase.from("class_sessions").select("id, class_id, session_date").in("class_id", classIds).gte("session_date", today),
+      supabase.from("class_sessions").select("id, class_id, session_date")
+        .in("class_id", classIds)
+        .gte("session_date", earliest < today ? earliest : today),
       supabase.from("bookings").select("class_id").eq("parent_id", user.id).in("class_id", classIds).in("status", ["confirmed", "pending_payment"]),
     ]);
     const booked = new Set(((bookingRows as any[]) ?? []).map((b) => b.class_id));
     // A one-to-one can run over several weeks — every upcoming session in the
     // invite is booked and paid for together.
     const sessionByClass: Record<string, InviteSessions> = {};
+    const wantedByClass = new Map(rows.map((r) => [r.class_id, new Set(r.session_dates ?? [])]));
     for (const s of ((sessionRows as any[]) ?? []).sort((a, b) => a.session_date.localeCompare(b.session_date))) {
+      // When the invite names its dates, it means exactly those; otherwise
+      // it's the whole run of upcoming sessions (a multi-week one-to-one).
+      const wanted = wantedByClass.get(s.class_id);
+      if (wanted && wanted.size > 0 ? !wanted.has(s.session_date) : s.session_date < today) continue;
       const entry = sessionByClass[s.class_id] ?? { ids: [], dates: [] };
       entry.ids.push(s.id);
       entry.dates.push(s.session_date);
@@ -100,7 +113,12 @@ const OneToOneInvites = () => {
     // the usual booking flow prices it — sibling discounts, the £110 cap and
     // the membership card setup all belong to that flow, and a price we
     // guessed here would just be rejected at checkout.
-    if (!cls.invite_only) {
+    //
+    // Unless the studio named a price for named dates. That's them saying
+    // "this is what you owe for that class", which the class's own plans may
+    // not even sell — so it goes straight in the basket at their price.
+    const pricedByStudio = Number(invite.price) > 0 && invite.plan === "session" && (invite.session_dates?.length ?? 0) > 0;
+    if (!cls.invite_only && !pricedByStudio) {
       navigate(classBrowserPath(invite.class_id, cls.class_type));
       return;
     }

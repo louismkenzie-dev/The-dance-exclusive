@@ -203,6 +203,32 @@ serve(async (req) => {
 
     // Remaining scheduled sessions per class — needed to derive term prices.
     const today = new Date().toISOString().split("T")[0];
+
+    // Places the studio set up by hand and asked the family to pay for. The
+    // invite row is the authority: it carries the price the studio named and
+    // the exact dates, which is how someone can be charged for a class that
+    // doesn't sell single sessions, or for one that has already run.
+    const invitedByClass = new Map<string, { price: number; dates: Set<string> }>();
+    {
+      const inviteClassIds = [...new Set(
+        cartItems
+          .filter((i) => kindOf(i) === "class" && i.pricingPlan === "session" && i.classId)
+          .map((i) => i.classId as string),
+      )];
+      if (inviteClassIds.length > 0) {
+        const { data: inviteRows } = await supabaseAdmin
+          .from("class_invites")
+          .select("class_id, price, plan, session_dates, status")
+          .eq("parent_id", userId)
+          .eq("status", "pending")
+          .in("class_id", inviteClassIds);
+        for (const inv of ((inviteRows ?? []) as any[])) {
+          const dates: string[] = Array.isArray(inv.session_dates) ? inv.session_dates : [];
+          if (inv.plan !== "session" || dates.length === 0 || !(Number(inv.price) > 0)) continue;
+          invitedByClass.set(inv.class_id, { price: Number(inv.price), dates: new Set(dates) });
+        }
+      }
+    }
     const remainingByClass = new Map<string, number>();
     const termClassIds = [...new Set(
       cartItems
@@ -277,9 +303,14 @@ serve(async (req) => {
         const sessById = new Map((sessRows ?? []).map((r: any) => [r.id, r]));
         for (const { item, index } of sessionEntries) {
           const dates: string[] = [];
+          const invited = invitedByClass.get(item.classId as string);
           for (const sid of new Set(item.selectedSessionIds!)) {
             const sess = sessById.get(sid);
-            if (!sess || sess.class_id !== item.classId || sess.session_date < today || sess.status === "cancelled") {
+            // A date the studio itself put on an invite stands even if it has
+            // already been — that's the point of "you owe us for Monday".
+            const onInvite = !!sess && !!invited?.dates.has(sess.session_date);
+            if (!sess || sess.class_id !== item.classId || sess.status === "cancelled" ||
+                (sess.session_date < today && !onInvite)) {
               return jsonResponse({ error: "One of your chosen dates is no longer available — please re-pick your sessions." }, 400);
             }
             dates.push(sess.session_date);
@@ -481,7 +512,14 @@ serve(async (req) => {
         const count = validatedDates
           ? validatedDates.length
           : Math.max(1, Number(item.sessionsCount || item.selectedSessionIds?.length || 1));
-        expected = round2(sessionPrice(cls) * count);
+        // A place the studio set up by hand is charged at the price they named,
+        // for the dates they named — not the class's own per-session price.
+        const invited = invitedByClass.get(cls.id);
+        const allInvited = !!invited && !!validatedDates?.length &&
+          validatedDates.every((d) => invited.dates.has(d));
+        expected = allInvited
+          ? round2(invited!.price * count)
+          : round2(sessionPrice(cls) * count);
       } else if (plan === "monthly") {
         expected = monthlyPrices.get(itemKey(item, index)) ?? monthlyPrice(cls);
       } else if (plan === "term") {

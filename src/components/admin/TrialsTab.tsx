@@ -82,20 +82,30 @@ const TrialsTab = ({ actions, paymentSiblings, changeToken }: TrialsTabProps) =>
         .in("user_id", parentIds);
       setParents(Object.fromEntries(((profs as any[]) ?? []).map((p) => [p.user_id, p])));
 
-      // "Converted" = this family holds any paying plan beyond the trial.
+      // "Converted" = they bought something after the trial. Anything they
+      // already held beforehand isn't the trial's doing, so the date matters.
       const [{ data: mems }, { data: paid }] = await Promise.all([
-        supabase.from("memberships").select("user_id")
+        supabase.from("memberships").select("user_id, created_at")
           .in("user_id", parentIds)
           .in("status", ["active", "paused", "past_due", "cancel_scheduled"]),
-        supabase.from("bookings").select("parent_id")
+        supabase.from("bookings").select("parent_id, booked_at")
           .in("parent_id", parentIds)
           .eq("status", "confirmed")
           .in("booking_type", ["monthly", "term", "yearly", "session", "camp"]),
       ]);
-      setConvertedParents(new Set([
-        ...((mems as any[]) ?? []).map((m) => m.user_id),
-        ...((paid as any[]) ?? []).map((b) => b.parent_id),
-      ]));
+      const boughtAt: Record<string, string[]> = {};
+      for (const m of ((mems as any[]) ?? [])) (boughtAt[m.user_id] ??= []).push(m.created_at);
+      for (const b of ((paid as any[]) ?? [])) (boughtAt[b.parent_id] ??= []).push(b.booked_at);
+      const firstTrialAt: Record<string, string> = {};
+      for (const t of rows) {
+        const seen = firstTrialAt[t.parent_id];
+        if (!seen || t.booked_at < seen) firstTrialAt[t.parent_id] = t.booked_at;
+      }
+      setConvertedParents(new Set(
+        Object.entries(boughtAt)
+          .filter(([userId, dates]) => dates.some((d) => d && d > (firstTrialAt[userId] ?? "")))
+          .map(([userId]) => userId),
+      ));
     }
 
     const bookingIds = rows.map((t) => t.id);
@@ -181,12 +191,11 @@ const TrialsTab = ({ actions, paymentSiblings, changeToken }: TrialsTabProps) =>
                       </span>
                       <Badge variant="outline">{t.classes?.name ?? "Class"}</Badge>
                       {t.status === "cancelled" && <Badge className="bg-muted text-muted-foreground">Cancelled</Badge>}
-                      {converted && (
-                        <Badge className="bg-emerald-600 text-white">Booked with us since</Badge>
-                      )}
-                      {past && !converted && t.status !== "cancelled" && (
-                        <Badge className="bg-amber-500 text-white">Follow up</Badge>
-                      )}
+                      {converted ? (
+                        <Badge className="bg-emerald-600 text-white">Booked since — converted</Badge>
+                      ) : past && t.status !== "cancelled" ? (
+                        <Badge className="bg-amber-500 text-white">Not booked yet — follow up</Badge>
+                      ) : null}
                     </div>
 
                     <p className="text-sm text-muted-foreground flex items-center gap-3 flex-wrap">

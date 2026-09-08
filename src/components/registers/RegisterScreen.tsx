@@ -112,6 +112,8 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [venueFilter, setVenueFilter] = useState<string>("all");
+  /** Show one class on its own — at the door you want the group in front of you. */
+  const [classFilter, setClassFilter] = useState<string>("all");
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [profileBooking, setProfileBooking] = useState<{ booking: any; sessionId: string } | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -180,10 +182,20 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
     if (venueFilter !== "all" && !venueOptions.some((v) => v.id === venueFilter)) setVenueFilter("all");
   }, [venueOptions, venueFilter]);
 
-  const sessions = useMemo(
+  const venueSessions = useMemo(
     () => (venueFilter === "all" ? daySessions : daySessions.filter((s) => s.classes?.venue_id === venueFilter)),
     [daySessions, venueFilter],
   );
+
+  const sessions = useMemo(
+    () => (classFilter === "all" ? venueSessions : venueSessions.filter((s) => s.id === classFilter)),
+    [venueSessions, classFilter],
+  );
+
+  // The class picked yesterday isn't on today's list; fall back to all.
+  useEffect(() => {
+    if (classFilter !== "all" && !venueSessions.some((s) => s.id === classFilter)) setClassFilter("all");
+  }, [venueSessions, classFilter]);
 
   const stripDays = useMemo(
     () => timetableStripDays(
@@ -494,6 +506,20 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
             {venueOptions.map((v) => (
               <Chip key={v.id} selected={venueFilter === v.id} onClick={() => setVenueFilter(v.id)}>
                 {v.name}
+              </Chip>
+            ))}
+          </ChipRow>
+        )}
+
+        {/* Jump straight to the class in front of you */}
+        {ready && venueSessions.length > 1 && (
+          <ChipRow>
+            <Chip selected={classFilter === "all"} onClick={() => setClassFilter("all")}>
+              All classes
+            </Chip>
+            {venueSessions.map((s) => (
+              <Chip key={s.id} selected={classFilter === s.id} onClick={() => setClassFilter(s.id)}>
+                {String(s.start_time).slice(0, 5)} {s.classes?.name ?? "Class"}
               </Chip>
             ))}
           </ChipRow>

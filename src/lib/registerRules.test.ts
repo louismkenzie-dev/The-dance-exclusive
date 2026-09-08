@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { arrivalOpensAt, arrivalOpensLabel, arrivalsOpen, registerState } from "./registerRules";
+import {
+  arrivalOpensAt,
+  arrivalOpensLabel,
+  arrivalsOpen,
+  attendanceTarget,
+  registerState,
+  sessionArrivalsOpen,
+} from "./registerRules";
 
 describe("arrival window", () => {
   it("opens 15 minutes before the start, local time", () => {
@@ -22,6 +29,29 @@ describe("arrival window", () => {
   it("labels today by time and other days by date", () => {
     expect(arrivalOpensLabel("2026-09-14", "17:00", new Date("2026-09-14T10:00:00"))).toBe("Opens at 16:45");
     expect(arrivalOpensLabel("2026-09-14", "17:00", new Date("2026-09-13T10:00:00"))).toBe("Opens Mon 14 Sep, 16:45");
+  });
+});
+
+describe("sessions", () => {
+  const classSession = { id: "cs1", kind: "class" as const, class_id: "c1", session_date: "2026-09-14", start_time: "17:00:00" };
+  const campDay = { id: "cd1", kind: "camp" as const, class_id: null, camp_id: "camp1", session_date: "2026-09-14", start_time: "10:00:00" };
+
+  it("applies the arrival window to class sessions only", () => {
+    const early = new Date("2026-09-14T08:00:00");
+    expect(sessionArrivalsOpen(classSession, early)).toBe(false);
+    expect(sessionArrivalsOpen(classSession, new Date("2026-09-14T16:45:00"))).toBe(true);
+    expect(sessionArrivalsOpen(campDay, early)).toBe(true);
+  });
+
+  it("keys attendance rows to the right session column", () => {
+    expect(attendanceTarget(classSession)).toEqual({
+      keys: { class_id: "c1", class_session_id: "cs1" },
+      onConflict: "booking_id,class_session_id",
+    });
+    expect(attendanceTarget(campDay)).toEqual({
+      keys: { class_id: null, camp_id: "camp1", camp_session_id: "cd1" },
+      onConflict: "booking_id,camp_session_id",
+    });
   });
 });
 

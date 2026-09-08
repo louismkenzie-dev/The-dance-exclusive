@@ -25,6 +25,43 @@ export function arrivalOpensLabel(sessionDate: string, startTime: string, now: D
   return isSameDay(opens, now) ? `Opens at ${format(opens, "HH:mm")}` : `Opens ${format(opens, "EEE d MMM, HH:mm")}`;
 }
 
+/**
+ * Which register a session belongs to. A class session has the 15-minute
+ * arrival rule; a camp (event) day has no timed rule, matching the database
+ * guard, so arrivals may be marked at any time.
+ */
+export interface RegisterSessionRef {
+  id: string;
+  kind: "class" | "camp";
+  class_id: string | null;
+  camp_id?: string | null;
+  session_date: string;
+  start_time: string;
+}
+
+export function sessionArrivalsOpen(session: RegisterSessionRef, now: Date = new Date()): boolean {
+  return session.kind === "camp" || arrivalsOpen(session.session_date, session.start_time, now);
+}
+
+/**
+ * The columns that tie an attendance row to its session, and the unique key
+ * an upsert resolves on. Class sessions and camp days keep separate keys.
+ */
+export function attendanceTarget(session: RegisterSessionRef): {
+  keys: Record<string, string | null>;
+  onConflict: string;
+} {
+  return session.kind === "camp"
+    ? {
+        keys: { class_id: null, camp_id: session.camp_id ?? null, camp_session_id: session.id },
+        onConflict: "booking_id,camp_session_id",
+      }
+    : {
+        keys: { class_id: session.class_id, class_session_id: session.id },
+        onConflict: "booking_id,class_session_id",
+      };
+}
+
 /** The register's read of an attendance row. */
 export type RegisterState = "unaccounted" | "in" | "out" | "absent";
 

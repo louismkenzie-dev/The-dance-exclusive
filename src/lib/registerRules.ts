@@ -62,6 +62,17 @@ export function attendanceTarget(session: RegisterSessionRef): {
       };
 }
 
+/**
+ * Whether a booking puts someone in the room on a given date. A booking for
+ * a particular date — a trial, a pay-as-you-go session, a pass redemption —
+ * carries that date in its notes and only counts on that day. Everything
+ * else is a standing weekly place and counts every week.
+ */
+export function bookingCountsOnDate(notes: string | null | undefined, sessionDate: string): boolean {
+  const booked = /session (\d{4}-\d{2}-\d{2})/.exec(notes ?? "")?.[1];
+  return !booked || booked === sessionDate;
+}
+
 /** The register's read of an attendance row. */
 export type RegisterState = "unaccounted" | "in" | "out" | "absent";
 

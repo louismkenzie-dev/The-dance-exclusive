@@ -4,6 +4,7 @@ import {
   arrivalOpensLabel,
   arrivalsOpen,
   attendanceTarget,
+  bookingCountsOnDate,
   registerState,
   sessionArrivalsOpen,
 } from "./registerRules";
@@ -52,6 +53,18 @@ describe("sessions", () => {
       keys: { class_id: null, camp_id: "camp1", camp_session_id: "cd1" },
       onConflict: "booking_id,camp_session_id",
     });
+  });
+});
+
+describe("bookingCountsOnDate", () => {
+  it("counts a standing place every week", () => {
+    expect(bookingCountsOnDate("Stripe PaymentIntent: pi_1 | monthly", "2026-09-14")).toBe(true);
+    expect(bookingCountsOnDate(null, "2026-09-14")).toBe(true);
+  });
+  it("counts a dated booking only on its own date", () => {
+    const notes = "Stripe PaymentIntent: pi_1 | trial | session 2026-09-14";
+    expect(bookingCountsOnDate(notes, "2026-09-14")).toBe(true);
+    expect(bookingCountsOnDate(notes, "2026-09-21")).toBe(false);
   });
 });
 

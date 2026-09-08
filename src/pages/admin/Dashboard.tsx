@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { openAdminTour } from "@/components/admin/AdminOnboardingTour";
 import { format, addDays, isAfter, isBefore, parseISO, differenceInCalendarDays } from "date-fns";
+import { bookingCountsOnDate } from "@/lib/registerRules";
 
 interface Stats {
   totalClasses: number;
@@ -25,6 +26,7 @@ interface Stats {
 
 interface UpcomingSession {
   id: string;
+  class_id: string | null;
   session_date: string;
   start_time: string;
   end_time: string;
@@ -35,6 +37,9 @@ interface UpcomingSession {
     venue: { name: string } | null;
   } | null;
 }
+
+/** Fewer than this booked on and the class needs Amie's attention. */
+const QUIET_CLASS_THRESHOLD = 3;
 
 interface AttentionItem {
   id: string;
@@ -61,6 +66,8 @@ const AdminDashboard = () => {
     childrenBookings: 0, adultBookings: 0,
   });
   const [upcomingSessions, setUpcomingSessions] = useState<UpcomingSession[]>([]);
+  /** How many are booked on each upcoming session, keyed by session id. */
+  const [bookedCounts, setBookedCounts] = useState<Record<string, number>>({});
   const [attentionItems, setAttentionItems] = useState<AttentionItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -90,7 +97,7 @@ const AdminDashboard = () => {
         supabase.from("bookings").select("id, class_id, classes!inner(class_type)", { count: "exact", head: true }).eq("classes.class_type", "children"),
         supabase.from("bookings").select("id, class_id, classes!inner(class_type)", { count: "exact", head: true }).eq("classes.class_type", "adult"),
         supabase.from("class_sessions")
-          .select("id, session_date, start_time, end_time, status, class:classes(name, class_type, venue:venues(name))")
+          .select("id, class_id, session_date, start_time, end_time, status, class:classes(name, class_type, venue:venues(name))")
           .gte("session_date", today)
           .lte("session_date", sevenDaysLater)
           .order("session_date", { ascending: true })
@@ -124,7 +131,28 @@ const AdminDashboard = () => {
         childrenBookings: childrenBookings.count || 0,
         adultBookings: adultBookings.count || 0,
       });
-      setUpcomingSessions((upcoming.data || []) as unknown as UpcomingSession[]);
+      const sessions = (upcoming.data || []) as unknown as UpcomingSession[];
+      setUpcomingSessions(sessions);
+
+      // How many will actually be in the room: standing places count every
+      // week, dated ones (trials, pay-as-you-go) only on their own date —
+      // the same rule the register reads.
+      const upcomingClassIds = [...new Set(sessions.map((s) => s.class_id).filter((id): id is string => !!id))];
+      if (upcomingClassIds.length > 0) {
+        const { data: booked } = await supabase
+          .from("bookings")
+          .select("class_id, notes")
+          .in("class_id", upcomingClassIds)
+          .eq("status", "confirmed");
+        const rows = (booked as { class_id: string | null; notes: string | null }[] | null) ?? [];
+        const counts: Record<string, number> = {};
+        for (const s of sessions) {
+          counts[s.id] = rows.filter(
+            (b) => b.class_id === s.class_id && bookingCountsOnDate(b.notes, s.session_date),
+          ).length;
+        }
+        setBookedCounts(counts);
+      }
 
       // Build "Attention needed" alerts
       const now = new Date();
@@ -369,32 +397,61 @@ const AdminDashboard = () => {
               <div className="divide-y divide-border/50">
                 {upcomingSessions.map((session) => {
                   const isChildren = session.class?.class_type === "children";
+                  const cancelled = session.status === "cancelled";
+                  const booked = bookedCounts[session.id] ?? 0;
+                  // A class that isn't running can't be quiet — it's off.
+                  const quiet = !cancelled && booked < QUIET_CLASS_THRESHOLD;
                   return (
                     <div
                       key={session.id}
-                      className="flex items-center gap-4 px-5 py-3 hover:bg-muted/30 transition-colors cursor-pointer"
+                      className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 transition-colors cursor-pointer ${
+                        quiet ? "bg-destructive/10 hover:bg-destructive/15" : "hover:bg-muted/30"
+                      }`}
                       onClick={() => navigate("/admin/calendar")}
                     >
-                      <div className={`w-1 h-10 rounded-full ${isChildren ? "bg-primary" : "bg-accent"}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">
+                      <div className={`w-1 h-10 shrink-0 rounded-full ${quiet ? "bg-destructive" : isChildren ? "bg-primary" : "bg-accent"}`} />
+                      {/* On a phone the name keeps the first line to itself and
+                          everything else wraps underneath, rather than the
+                          class being squeezed down to one letter. */}
+                      <div className="min-w-0 flex-1 basis-[55%]">
+                        <p className={`text-sm font-medium truncate ${cancelled ? "text-muted-foreground line-through" : "text-foreground"}`}>
                           {session.class?.name || "Unknown"}
                         </p>
                         <p className="text-xs text-muted-foreground truncate">
                           {session.class?.venue?.name || "No venue"}
                         </p>
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-medium text-foreground">
-                          {format(parseISO(session.session_date), "EEE d MMM")}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatTime(session.start_time)} – {formatTime(session.end_time)}
-                        </p>
+                      <div className="ml-auto flex shrink-0 items-center gap-4">
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-foreground whitespace-nowrap">
+                            {format(parseISO(session.session_date), "EEE d MMM")}
+                          </p>
+                          <p className="text-xs text-muted-foreground whitespace-nowrap">
+                            {formatTime(session.start_time)} – {formatTime(session.end_time)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          {cancelled ? (
+                            <span className="text-xs font-semibold uppercase tracking-wider text-[hsl(var(--destructive-strong))]">
+                              Cancelled
+                            </span>
+                          ) : (
+                            <>
+                              <p className={`text-sm font-semibold tabular-nums whitespace-nowrap ${quiet ? "text-[hsl(var(--destructive-strong))]" : "text-foreground"}`}>
+                                {booked} booked
+                              </p>
+                              {quiet && (
+                                <p className="text-[11px] whitespace-nowrap text-[hsl(var(--destructive-strong))]">
+                                  Under {QUIET_CLASS_THRESHOLD}
+                                </p>
+                              )}
+                            </>
+                          )}
+                        </div>
+                        <span className={`text-[10px] uppercase tracking-wider font-medium px-2 py-0.5 rounded-full ${isChildren ? "bg-primary/15 text-primary" : "bg-accent/15 text-accent"}`}>
+                          {isChildren ? "Child" : "Adult"}
+                        </span>
                       </div>
-                      <span className={`text-[10px] uppercase tracking-wider font-medium px-2 py-0.5 rounded-full ${isChildren ? "bg-primary/15 text-primary" : "bg-accent/15 text-accent"}`}>
-                        {isChildren ? "Child" : "Adult"}
-                      </span>
                     </div>
                   );
                 })}

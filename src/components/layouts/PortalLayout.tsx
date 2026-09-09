@@ -50,6 +50,17 @@ const PortalLayout = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  /**
+   * The logo greets you at full size and gets out of the way once you start
+   * reading. Phones only — there is room for it at every size on a desktop.
+   */
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -139,7 +150,13 @@ const PortalLayout = () => {
           j ? "bg-background/90" : "bg-background/95 transition-colors duration-500",
         )}
       >
-        <div className={cn("container flex items-center justify-between gap-3", j ? "h-16 md:h-20" : "h-16 md:h-28")}>
+        <div
+          className={cn(
+            "container flex items-center justify-between gap-3 transition-[height] duration-300 ease-out",
+            scrolled ? "h-16" : "h-20",
+            j ? "md:h-20" : "md:h-28",
+          )}
+        >
           <div className="flex items-center gap-1">
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
@@ -213,7 +230,11 @@ const PortalLayout = () => {
               <img
                 src={logoSrc}
                 alt="The Dance Exclusive"
-                className={cn("object-contain", j ? "h-12 w-12 md:h-14 md:w-14" : "w-14 h-14 md:w-36 md:h-36 rounded")}
+                className={cn(
+                  "object-contain transition-all duration-300 ease-out",
+                  scrolled ? "h-11 w-11" : "h-16 w-16",
+                  j ? "md:h-14 md:w-14" : "md:w-36 md:h-36 rounded",
+                )}
               />
             </Link>
           </div>

@@ -3,6 +3,7 @@ import { Link, useLocation, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { icons, LogOut, ChevronRight, ChevronDown, Menu } from "lucide-react";
 import logo from "@/assets/logo-dark.png";
+const logoMark = logo;
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useNavConfig } from "@/hooks/useNavConfig";
@@ -22,6 +23,7 @@ const AdminLayout = () => {
   const navigate = useNavigate();
   const { navConfig } = useNavConfig();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
   // Close mobile drawer on route change
   useEffect(() => {
@@ -151,7 +153,12 @@ const AdminLayout = () => {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="md:hidden sticky top-0 z-30 flex items-center gap-2 h-16 px-3 border-b border-border bg-background/95 backdrop-blur">
+        <header
+          className={cn(
+            "md:hidden sticky top-0 z-30 flex items-center gap-2 px-3 border-b border-border bg-background/95 backdrop-blur transition-[height] duration-300 ease-out",
+            scrolled ? "h-14" : "h-20",
+          )}
+        >
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" aria-label="Open menu">
@@ -162,11 +169,24 @@ const AdminLayout = () => {
               {SidebarBody}
             </SheetContent>
           </Sheet>
-          <span className="flex-1 text-center font-display font-bold text-2xl tracking-wider text-primary pr-10">DANCE EXCLUSIVE</span>
+          {/* The logo art carries the wordmark, so it greets you at full size
+              and steps back to a compact mark once you start scrolling. */}
+          <img
+            src={logoMark}
+            alt="The Dance Exclusive"
+            className={cn(
+              "flex-1 object-contain pr-10 transition-all duration-300 ease-out",
+              scrolled ? "h-9" : "h-14",
+            )}
+          />
         </header>
         {/* Only ever scrolls vertically: a wide table or chip row scrolls
-            inside its own box, never the whole screen sideways. */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+            inside its own box, never the whole screen sideways. This is the
+            scrolling element, so it is what the shrinking header listens to. */}
+        <main
+          className="flex-1 overflow-y-auto overflow-x-hidden"
+          onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 24)}
+        >
           <Outlet />
         </main>
       </div>

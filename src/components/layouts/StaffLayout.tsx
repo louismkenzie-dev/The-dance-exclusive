@@ -13,6 +13,7 @@ import {
   Menu,
 } from "lucide-react";
 import logo from "@/assets/logo-dark.png";
+const logoMark = logo;
 import { cn } from "@/lib/utils";
 import { useStaffMember, getStaffPhotoUrl } from "@/hooks/useStaffMember";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -31,6 +32,7 @@ const StaffLayout = () => {
   const { staff } = useStaffMember();
   const { pathname } = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -118,7 +120,12 @@ const StaffLayout = () => {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="md:hidden sticky top-0 z-30 flex items-center gap-2 h-16 px-3 border-b border-border bg-background/95 backdrop-blur">
+        <header
+          className={cn(
+            "md:hidden sticky top-0 z-30 flex items-center gap-2 px-3 border-b border-border bg-background/95 backdrop-blur transition-[height] duration-300 ease-out",
+            scrolled ? "h-14" : "h-20",
+          )}
+        >
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" aria-label="Open menu">
@@ -129,9 +136,21 @@ const StaffLayout = () => {
               {SidebarBody}
             </SheetContent>
           </Sheet>
-          <span className="flex-1 text-center font-display font-bold text-2xl tracking-wider text-primary pr-10">DANCE EXCLUSIVE</span>
+          {/* The logo art carries the wordmark, so it greets you at full size
+              and steps back to a compact mark once you start scrolling. */}
+          <img
+            src={logoMark}
+            alt="The Dance Exclusive"
+            className={cn(
+              "flex-1 object-contain pr-10 transition-all duration-300 ease-out",
+              scrolled ? "h-9" : "h-14",
+            )}
+          />
         </header>
-        <main className="flex-1 overflow-auto">
+        <main
+          className="flex-1 overflow-auto"
+          onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 24)}
+        >
           <Outlet />
         </main>
       </div>

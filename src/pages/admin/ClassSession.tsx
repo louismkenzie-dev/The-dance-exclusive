@@ -15,6 +15,7 @@ import { BookingActions } from "@/components/admin/BookingActions";
 import { CancelSessionSheet } from "@/components/admin/CancelSessionSheet";
 import { StatusPill, TonePill, planLabel } from "@/components/admin/StatusPill";
 import { useBookingActions } from "@/components/admin/useBookingActions";
+import { initialsFor } from "@/lib/bookingFormat";
 
 interface SessionRow {
   id: string;
@@ -51,7 +52,14 @@ interface BookingRow {
   amount: number | null;
   booked_at: string;
   notes: string | null;
-  students: { first_name: string; last_name: string; preferred_name: string | null; is_self: boolean | null } | null;
+  students: {
+    first_name: string;
+    last_name: string;
+    preferred_name: string | null;
+    is_self: boolean | null;
+    profile_photo: string | null;
+    avatar_url: string | null;
+  } | null;
   classes: {
     name: string;
     class_type: "children" | "adult";
@@ -74,6 +82,25 @@ interface AttendanceRow {
 
 const dancerName = (b: BookingRow) =>
   b.students ? `${b.students.preferred_name || b.students.first_name} ${b.students.last_name}` : "Adult booking";
+
+/** The dancer's Dance Exclusive avatar (else their photo, else initials) as
+ *  one circle, so a face goes with the name at a glance. */
+const DancerAvatar = ({ b }: { b: BookingRow }) => {
+  const st = b.students;
+  const src = st?.avatar_url || st?.profile_photo || null;
+  if (!src) {
+    return (
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground" aria-hidden>
+        {initialsFor(st?.preferred_name || st?.first_name, st?.last_name)}
+      </span>
+    );
+  }
+  return (
+    <span className="shrink-0 rounded-full bg-gradient-to-br from-sky-400 via-primary to-pink-500 p-[2px]" aria-hidden>
+      <img src={src} alt="" className="block h-10 w-10 rounded-full bg-background object-cover" />
+    </span>
+  );
+};
 
 /** The last "Cancelled …" line the cancel flow wrote on the session. */
 const cancelNoteOf = (notes: string | null) => {
@@ -125,7 +152,7 @@ const AdminClassSession = () => {
         supabase.from("class_instructors").select("staff:staff_id ( first_name, full_name )").eq("class_id", sess.class_id),
         supabase
           .from("bookings")
-          .select("id, parent_id, student_id, class_id, status, booking_type, amount, booked_at, notes, students:student_id ( first_name, last_name, preferred_name, is_self ), classes:class_id ( name, class_type, start_time, end_time, price_per_session, price_per_term, price_per_month, price_per_year, term_end )")
+          .select("id, parent_id, student_id, class_id, status, booking_type, amount, booked_at, notes, students:student_id ( first_name, last_name, preferred_name, is_self, profile_photo, avatar_url ), classes:class_id ( name, class_type, start_time, end_time, price_per_session, price_per_term, price_per_month, price_per_year, term_end )")
           .eq("class_id", sess.class_id)
           .in("status", ["confirmed", "pending_payment"]),
         supabase.from("attendance").select("booking_id, status, checked_in_at").eq("class_session_id", sess.id),
@@ -315,6 +342,7 @@ const AdminClassSession = () => {
                 <Card key={b.id} className="animate-fade-in overflow-hidden">
                   <CardContent className="p-4 md:p-5">
                     <div className="flex flex-wrap items-start gap-3 md:items-center">
+                      <DancerAvatar b={b} />
                       <div className="min-w-0 flex-1 basis-0">
                         <div className="flex items-center gap-2">
                           <span className="truncate font-semibold">{dancerName(b)}</span>

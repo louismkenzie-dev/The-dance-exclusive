@@ -96,6 +96,10 @@ import {
   renderTrialFollowUp,
   type TrialFollowUpData,
 } from "../_shared/email-templates/trial-follow-up.ts";
+import {
+  renderQuietClass,
+  type QuietClassData,
+} from "../_shared/email-templates/quiet-class.ts";
 import { BRAND } from "../_shared/email-templates/layout.ts";
 
 const corsHeaders = {
@@ -162,7 +166,8 @@ type Payload =
   | { template: "register_alert"; to: string; data: RegisterAlertData }
   | { template: "internal_notice"; to: string; data: InternalNoticeData }
   | { template: "session_cancelled"; to: string; data: SessionCancelledData }
-  | { template: "trial_follow_up"; to: string; data: TrialFollowUpData };
+  | { template: "trial_follow_up"; to: string; data: TrialFollowUpData }
+  | { template: "quiet_class"; to: string; data: QuietClassData };
 
 function buildEmail(payload: Payload): { subject: string; html: string } {
   switch (payload.template) {
@@ -214,6 +219,8 @@ function buildEmail(payload: Payload): { subject: string; html: string } {
       return renderSessionCancelled(payload.data);
     case "trial_follow_up":
       return renderTrialFollowUp(payload.data);
+    case "quiet_class":
+      return renderQuietClass(payload.data);
     default:
       throw new Error(`Unknown template: ${(payload as any).template}`);
   }

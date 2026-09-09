@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { openAdminTour } from "@/components/admin/AdminOnboardingTour";
 import { format, addDays, isAfter, isBefore, parseISO, differenceInCalendarDays } from "date-fns";
-import { bookingCountsOnDate } from "@/lib/registerRules";
+import { QUIET_CLASS_THRESHOLD, bookingCountsOnDate, isQuietClass } from "@/lib/registerRules";
 
 interface Stats {
   totalClasses: number;
@@ -34,12 +34,11 @@ interface UpcomingSession {
   class: {
     name: string;
     class_type: string;
+    invite_only?: boolean | null;
     venue: { name: string } | null;
   } | null;
 }
 
-/** Fewer than this booked on and the class needs Amie's attention. */
-const QUIET_CLASS_THRESHOLD = 3;
 
 interface AttentionItem {
   id: string;
@@ -97,7 +96,7 @@ const AdminDashboard = () => {
         supabase.from("bookings").select("id, class_id, classes!inner(class_type)", { count: "exact", head: true }).eq("classes.class_type", "children"),
         supabase.from("bookings").select("id, class_id, classes!inner(class_type)", { count: "exact", head: true }).eq("classes.class_type", "adult"),
         supabase.from("class_sessions")
-          .select("id, class_id, session_date, start_time, end_time, status, class:classes(name, class_type, venue:venues(name))")
+          .select("id, class_id, session_date, start_time, end_time, status, class:classes(name, class_type, invite_only, venue:venues(name))")
           .gte("session_date", today)
           .lte("session_date", sevenDaysLater)
           .order("session_date", { ascending: true })
@@ -399,8 +398,9 @@ const AdminDashboard = () => {
                   const isChildren = session.class?.class_type === "children";
                   const cancelled = session.status === "cancelled";
                   const booked = bookedCounts[session.id] ?? 0;
-                  // A class that isn't running can't be quiet — it's off.
-                  const quiet = !cancelled && booked < QUIET_CLASS_THRESHOLD;
+                  // Only an adult class can be "quiet" — children's classes
+                  // run however small — and one that isn't running is just off.
+                  const quiet = isQuietClass(session.class?.class_type, booked, cancelled, session.class?.invite_only);
                   return (
                     <div
                       key={session.id}

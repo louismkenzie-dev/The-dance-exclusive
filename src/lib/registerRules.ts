@@ -13,6 +13,24 @@ export const ARRIVAL_OPENS_MINUTES = 15;
 export const REGISTER_DEPARTURES = false;
 
 /**
+ * Fewer than this booked on an ADULT class and it is "quiet": it turns red
+ * on the studio's screens and the studio is told a few hours before it
+ * starts. Children's classes run however small they are, so the rule never
+ * applies to them. Mirrored by QUIET_CLASS_THRESHOLD in register-alerts.
+ */
+export const QUIET_CLASS_THRESHOLD = 3;
+
+export function isQuietClass(
+  classType: string | null | undefined,
+  booked: number,
+  cancelled = false,
+  /** A private one-to-one is meant to be small — never "quiet". */
+  inviteOnly: boolean | null | undefined = false,
+): boolean {
+  return !cancelled && !inviteOnly && classType === "adult" && booked < QUIET_CLASS_THRESHOLD;
+}
+
+/**
  * When arrivals open for a session, in the device's local time. The database
  * enforces the same rule in Europe/London; on a phone at the door the two
  * agree.

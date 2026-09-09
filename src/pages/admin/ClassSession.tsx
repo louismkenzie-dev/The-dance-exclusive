@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/booking/EmptyState";
 import { formatTimeRange } from "@/lib/bookingFormat";
-import { bookingCountsOnDate } from "@/lib/registerRules";
+import { QUIET_CLASS_THRESHOLD, bookingCountsOnDate, isQuietClass } from "@/lib/registerRules";
 import { paymentRefOf } from "@/lib/bookingBreakdown";
 import AddBookingDialog from "@/components/admin/AddBookingDialog";
 import BookingBreakdown, { type PaymentSibling } from "@/components/admin/BookingBreakdown";
@@ -15,10 +15,6 @@ import { BookingActions } from "@/components/admin/BookingActions";
 import { CancelSessionSheet } from "@/components/admin/CancelSessionSheet";
 import { StatusPill, TonePill, planLabel } from "@/components/admin/StatusPill";
 import { useBookingActions } from "@/components/admin/useBookingActions";
-
-/** Fewer than this booked on and the class needs Amie's attention — the
- *  same line the Dashboard draws. */
-const QUIET_CLASS_THRESHOLD = 3;
 
 interface SessionRow {
   id: string;
@@ -202,7 +198,8 @@ const AdminClassSession = () => {
   const cancelled = session.status === "cancelled";
   const isChildren = cls?.class_type === "children";
   const booked = confirmed.length;
-  const quiet = !cancelled && booked < QUIET_CLASS_THRESHOLD;
+  // Only an adult class can be "quiet" — children's classes run however small.
+  const quiet = isQuietClass(cls?.class_type, booked, cancelled, cls?.invite_only);
   const capacity = cls?.capacity && cls.capacity > 0 ? cls.capacity : null;
   const spacesLeft = capacity != null ? Math.max(0, capacity - booked) : null;
   const dateLabel = format(parseISO(session.session_date), "EEEE d MMMM");

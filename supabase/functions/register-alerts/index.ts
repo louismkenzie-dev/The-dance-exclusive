@@ -10,6 +10,9 @@
 //    here's how to keep the place" email. Once per trial (stamped on the
 //    booking's notes), never to a family that has since booked, and any
 //    trial from the last fortnight that was missed is caught up.
+// 4. A few hours before an ADULT class starts with fewer than three booked
+//    on → a "quiet class" email to the studio, with who is booked and a link
+//    to the session's page. Children's classes run whatever the numbers.
 //
 // Each session gets at most one email per kind: the check claims a row in
 // register_alerts first, so a re-run or an overlapping invocation can never
@@ -33,11 +36,16 @@ const APP_URL = "https://app.thedanceexclusive.co.uk";
 const DEPARTURES = false;
 /** How far back a missed trial follow-up is still worth sending. */
 const FOLLOW_UP_LOOKBACK_DAYS = 14;
+/** Mirror of QUIET_CLASS_THRESHOLD in src/lib/registerRules.ts: fewer adults
+ *  than this booked on and the class is quiet. */
+const QUIET_CLASS_THRESHOLD = 3;
+/** How long before an adult class starts the studio hears it is quiet. */
+const QUIET_NOTICE_HOURS = 3;
 
 const londonYmd = (d: Date) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
 
-type Kind = "not_marked_present" | "not_departed";
+type Kind = "not_marked_present" | "not_departed" | "quiet_class";
 
 /** A London-local date + time as an instant. */
 function londonToUtc(date: string, time: string): Date {
@@ -56,6 +64,16 @@ function londonToUtc(date: string, time: string): Date {
 
 const fmtTime = (d: Date) =>
   new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+
+/** "Trial", "Pay as you go", "Class pass" or "Weekly place", from a booking's notes. */
+const planWord = (notes: string | null) => {
+  const n = (notes ?? "").toLowerCase();
+  if (n.includes("| trial")) return "Trial";
+  if (n.includes("class pass")) return "Class pass";
+  if (n.includes("birthday")) return "Birthday class";
+  if (/session \d{4}-\d{2}-\d{2}/.test(n)) return "Pay as you go";
+  return "Weekly place";
+};
 
 serve(async (req) => {
   let opts: { dry?: boolean; test_to?: string; at?: string } = {};
@@ -80,6 +98,7 @@ serve(async (req) => {
     sessionsChecked: 0,
     presentAlerts: 0,
     departedAlerts: 0,
+    quietAlerts: 0,
     followUps: 0,
     emails: 0,
     errors: 0,
@@ -111,7 +130,7 @@ serve(async (req) => {
 
   const { data: sessions, error: sessErr } = await supabase
     .from("class_sessions")
-    .select("id, class_id, session_date, start_time, end_time, classes:class_id ( name, venues:venue_id ( name ) )")
+    .select("id, class_id, session_date, start_time, end_time, classes:class_id ( name, class_type, invite_only, venues:venue_id ( name ) )")
     .eq("session_date", today)
     .eq("status", "scheduled");
   if (sessErr) {
@@ -129,6 +148,14 @@ serve(async (req) => {
     const stale = now.getTime() - STALE_MINUTES * 60_000;
     if (presentAt.getTime() <= now.getTime() && presentAt.getTime() >= stale) due.push({ session: s, kind: "not_marked_present", at: presentAt });
     if (DEPARTURES && departedAt.getTime() <= now.getTime() && departedAt.getTime() >= stale) due.push({ session: s, kind: "not_departed", at: departedAt });
+    // Adult classes only (a private one-to-one is meant to be small): from a
+    // few hours before the start until it starts. Checked every run in that
+    // window, so a late cancellation that leaves the class short is still
+    // caught; claimed only once it is quiet.
+    const quietAt = new Date(start.getTime() - QUIET_NOTICE_HOURS * 3_600_000);
+    if (s.classes?.class_type === "adult" && !s.classes?.invite_only && quietAt.getTime() <= now.getTime() && start.getTime() > now.getTime()) {
+      due.push({ session: s, kind: "quiet_class", at: quietAt });
+    }
   }
   summary.sessionsChecked = (sessions ?? []).length;
 
@@ -174,7 +201,12 @@ serve(async (req) => {
       };
 
       let attendees: { name: string; detail?: string | null }[] = [];
-      if (item.kind === "not_marked_present") {
+      if (item.kind === "quiet_class") {
+        // Enough booked on — nothing to say, and nothing claimed, so a
+        // later drop below the line is still noticed.
+        if (register.length >= QUIET_CLASS_THRESHOLD) continue;
+        attendees = register.map((b: any) => ({ name: nameOf(b), detail: planWord(b.notes) }));
+      } else if (item.kind === "not_marked_present") {
         attendees = register
           .filter((b: any) => {
             const a = attByBooking.get(b.id);
@@ -194,7 +226,10 @@ serve(async (req) => {
       }
       attendees.sort((a, b) => a.name.localeCompare(b.name));
 
-      const shouldEmail = register.length > 0 && attendees.length > 0 && recipients.length > 0;
+      // A quiet class is worth hearing about even when nobody is booked on;
+      // a register check only when there is someone to chase.
+      const shouldEmail = recipients.length > 0 &&
+        (item.kind === "quiet_class" || (register.length > 0 && attendees.length > 0));
 
       // Claim first (real runs only) — a duplicate claim means another run
       // got here, so send nothing.
@@ -220,9 +255,24 @@ serve(async (req) => {
           teachers = (usual ?? []).map((r: any) => r.staff?.first_name || r.staff?.full_name).filter(Boolean);
         }
         for (const to of recipients) {
-          const { error } = await supabase.functions.invoke("send-email", {
-            headers: { "x-internal-auth": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
-            body: {
+          const body = item.kind === "quiet_class"
+            ? {
+              template: "quiet_class",
+              to,
+              data: {
+                className: s.classes?.name ?? "Class",
+                sessionDate: s.session_date,
+                startTime: s.start_time,
+                endTime: s.end_time,
+                venueName: s.classes?.venues?.name ?? null,
+                instructorNames: teachers,
+                booked: attendees,
+                threshold: QUIET_CLASS_THRESHOLD,
+                hoursAhead: QUIET_NOTICE_HOURS,
+                sessionUrl: `${APP_URL}/admin/sessions/${s.id}`,
+              },
+            }
+            : {
               template: "register_alert",
               to,
               data: {
@@ -235,9 +285,12 @@ serve(async (req) => {
                 instructorNames: teachers,
                 attendees,
                 registerSize: register.length,
-                registerUrl: `${APP_URL}/admin/registers`,
+                registerUrl: `${APP_URL}/admin/registers?date=${s.session_date}&session=${s.id}`,
               },
-            },
+            };
+          const { error } = await supabase.functions.invoke("send-email", {
+            headers: { "x-internal-auth": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
+            body,
           });
           if (error) throw error;
           emailed++;
@@ -248,7 +301,8 @@ serve(async (req) => {
       }
 
       summary.emails += emailed;
-      if (item.kind === "not_marked_present") summary.presentAlerts += attendees.length > 0 ? 1 : 0;
+      if (item.kind === "quiet_class") summary.quietAlerts += 1;
+      else if (item.kind === "not_marked_present") summary.presentAlerts += attendees.length > 0 ? 1 : 0;
       else summary.departedAlerts += attendees.length > 0 ? 1 : 0;
       summary.details.push({
         session: s.id,
@@ -262,6 +316,12 @@ serve(async (req) => {
     } catch (e) {
       summary.errors++;
       console.error("register-alerts: failed for session", s.id, item.kind, e);
+      // A quiet-class notice that didn't send gives its claim back, so the
+      // next run inside the window tries again. Register checks stay
+      // one-shot — a chase that late is noise.
+      if (item.kind === "quiet_class" && !dry && !testTo) {
+        await supabase.from("register_alerts").delete().eq("class_session_id", s.id).eq("kind", "quiet_class").eq("emailed", false);
+      }
     }
   }
 

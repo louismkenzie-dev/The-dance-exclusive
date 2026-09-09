@@ -5,6 +5,8 @@ import {
   arrivalsOpen,
   attendanceTarget,
   bookingCountsOnDate,
+  isQuietClass,
+  QUIET_CLASS_THRESHOLD,
   registerState,
   sessionArrivalsOpen,
 } from "./registerRules";
@@ -65,6 +67,29 @@ describe("bookingCountsOnDate", () => {
     const notes = "Stripe PaymentIntent: pi_1 | trial | session 2026-09-14";
     expect(bookingCountsOnDate(notes, "2026-09-14")).toBe(true);
     expect(bookingCountsOnDate(notes, "2026-09-21")).toBe(false);
+  });
+});
+
+describe("isQuietClass", () => {
+  it("flags an adult class with fewer than the threshold booked", () => {
+    expect(QUIET_CLASS_THRESHOLD).toBe(3);
+    expect(isQuietClass("adult", 0)).toBe(true);
+    expect(isQuietClass("adult", 2)).toBe(true);
+    expect(isQuietClass("adult", 3)).toBe(false);
+    expect(isQuietClass("adult", 12)).toBe(false);
+  });
+  it("never flags a children's class, however small", () => {
+    expect(isQuietClass("children", 0)).toBe(false);
+    expect(isQuietClass("children", 2)).toBe(false);
+    expect(isQuietClass(null, 0)).toBe(false);
+    expect(isQuietClass(undefined, 1)).toBe(false);
+  });
+  it("leaves a cancelled session alone", () => {
+    expect(isQuietClass("adult", 0, true)).toBe(false);
+  });
+  it("leaves a private one-to-one alone", () => {
+    expect(isQuietClass("adult", 1, false, true)).toBe(false);
+    expect(isQuietClass("adult", 1, false, false)).toBe(true);
   });
 });
 

@@ -30,7 +30,7 @@ import {
   type RegisterState,
 } from "@/lib/registerRules";
 import { timetableStripDays } from "@/lib/timetableGaps";
-import { formatTimeRange } from "@/lib/bookingFormat";
+import { formatTime, formatTimeRange } from "@/lib/bookingFormat";
 import { cn } from "@/lib/utils";
 
 /**
@@ -70,7 +70,10 @@ interface RegisterSession {
   instructors: { id: string; first_name?: string | null; last_name?: string | null; full_name?: string | null }[];
 }
 
-const fmtTime = (d: string) => new Date(d).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+const fmtTime = (d: string) =>
+  new Date(d)
+    .toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true })
+    .replace(/\s?([ap])\.?m\.?/i, (_, x) => x.toLowerCase() + "m");
 
 const firstNameOf = (st: { first_name?: string | null; full_name?: string | null }) =>
   st.first_name || st.full_name?.split(" ")[0] || "";
@@ -527,7 +530,7 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
             </Chip>
             {venueSessions.map((s) => (
               <Chip key={s.id} selected={classFilter === s.id} onClick={() => setClassFilter(s.id)}>
-                {String(s.start_time).slice(0, 5)} {s.classes?.name ?? "Class"}
+                {formatTime(String(s.start_time))} {s.classes?.name ?? "Class"}
               </Chip>
             ))}
           </ChipRow>

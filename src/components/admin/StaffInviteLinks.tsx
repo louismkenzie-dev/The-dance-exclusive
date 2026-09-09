@@ -125,7 +125,7 @@ const StaffInviteLinks = ({ onStaffAdded }: { onStaffAdded?: () => void }) => {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {row.used_at
-                        ? `Submitted ${format(new Date(row.used_at), "d MMM, HH:mm")}`
+                        ? `Submitted ${format(new Date(row.used_at), "d MMM, h:mmaaa")}`
                         : `Created ${format(new Date(row.created_at), "d MMM")} · expires ${format(new Date(row.expires_at), "d MMM")}`}
                     </p>
                   </div>

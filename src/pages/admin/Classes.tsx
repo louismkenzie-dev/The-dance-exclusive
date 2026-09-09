@@ -20,6 +20,7 @@ import WorkshopCover from "@/components/WorkshopCover";
 import TermSessionGroups from "@/components/TermSessionGroups";
 import { format, addDays, parseISO, eachDayOfInterval, getDay, isBefore, isWithinInterval } from "date-fns";
 import { findHeldSessions, describeHold } from "@/lib/sessionGuards";
+import { formatTimeRange } from "@/lib/bookingFormat";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
 const DAY_INDEX_MAP: Record<string, number> = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
@@ -1756,7 +1757,7 @@ const AdminClasses = () => {
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
                           {(c.days_of_week?.length ? c.days_of_week : [c.day_of_week]).map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(", ")}
-                          {" • "}{c.start_time?.slice(0, 5)} – {c.end_time?.slice(0, 5)}
+                          {" • "}{formatTimeRange(c.start_time, c.end_time)}
                           {c.venues && ` • ${(c.venues as any).name}`}
                           {(() => {
                             const ids = classInstructors[c.id] || (c.instructor_id ? [c.instructor_id] : []);
@@ -1849,7 +1850,7 @@ const AdminClasses = () => {
                             </span>
                             <span className="flex items-center gap-1 text-muted-foreground w-32">
                               <Clock className="w-3 h-3" />
-                              {session.start_time?.slice(0, 5)} – {session.end_time?.slice(0, 5)}
+                              {formatTimeRange(session.start_time, session.end_time)}
                             </span>
                             <span className="flex items-center gap-1 text-muted-foreground">
                               <User className="w-3 h-3" />

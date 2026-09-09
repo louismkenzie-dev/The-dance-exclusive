@@ -7,6 +7,7 @@ import BookingBreakdown, { type PaymentSibling } from "@/components/admin/Bookin
 import { BookingActions, type BookingActionHandlers } from "@/components/admin/BookingActions";
 import { TonePill } from "@/components/admin/StatusPill";
 import { Chip, ChipRow } from "@/components/booking/Chips";
+import { formatTime } from "@/lib/bookingFormat";
 
 interface TrialRow {
   id: string;
@@ -203,7 +204,7 @@ const TrialsTab = ({ actions, paymentSiblings, changeToken }: TrialsTabProps) =>
                         </span>
                         {t.classes?.start_time && (
                           <span className="flex items-center gap-1">
-                            <Clock className="h-3.5 w-3.5" /> {t.classes.start_time.slice(0, 5)}
+                            <Clock className="h-3.5 w-3.5" /> {formatTime(t.classes.start_time)}
                           </span>
                         )}
                         {t.classes?.venues?.name && (

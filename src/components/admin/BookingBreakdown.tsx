@@ -149,7 +149,7 @@ const BookingBreakdown = ({ booking, parent, samePayment }: Props) => {
         </p>
         <div className="space-y-1">
           <p className="text-xs text-muted-foreground">
-            {format(parseISO(booking.booked_at), "d MMM yyyy 'at' HH:mm")}
+            {format(parseISO(booking.booked_at), "d MMM yyyy 'at' h:mmaaa")}
             {payRef ? ` · card (…${payRef.slice(-6)})` : " · no card payment on record"}
           </p>
           {samePayment.length > 1 ? (

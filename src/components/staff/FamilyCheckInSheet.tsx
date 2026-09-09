@@ -40,11 +40,14 @@ interface Props {
   departures?: boolean;
   /** Arrivals may only be recorded from 15 minutes before the class. */
   arrivalsOpen?: boolean;
-  /** "Opens at 16:45" — shown while arrivals are closed. */
+  /** "Opens at 4:45pm" — shown while arrivals are closed. */
   arrivalsOpenLabel?: string | null;
 }
 
-const fmt = (d: string) => new Date(d).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+const fmt = (d: string) =>
+  new Date(d)
+    .toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true })
+    .replace(/\s?([ap])\.?m\.?/i, (_, x) => x.toLowerCase() + "m");
 
 /**
  * Shown after a staff member scans a family QR code. One scan covers every

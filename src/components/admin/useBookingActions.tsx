@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import MoveMembershipDialog, { type MoveMembershipTarget } from "@/components/admin/MoveMembershipDialog";
 import type { ActionableBooking, BookingActionHandlers } from "@/components/admin/BookingActions";
+import { formatTime } from "@/lib/bookingFormat";
 
 /** The date a per-session booking is for: "... | session YYYY-MM-DD". */
 export const bookedSessionDate = (b: { notes: string | null } | null) =>
@@ -316,7 +317,7 @@ export function useBookingActions({ onChanged }: { onChanged: () => void }): {
                   ) : moveClasses.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name} · {c.day_of_week.charAt(0).toUpperCase() + c.day_of_week.slice(1)}
-                      {c.start_time ? ` ${c.start_time.slice(0, 5)}` : ""}
+                      {c.start_time ? ` ${formatTime(c.start_time)}` : ""}
                       {c.venues?.name ? ` · ${c.venues.name}` : ""}
                       {c.id === moveBooking?.class_id ? " — same class, new date" : ""}
                     </SelectItem>
@@ -340,7 +341,7 @@ export function useBookingActions({ onChanged }: { onChanged: () => void }): {
                     <SelectContent>
                       {moveSessions.map((s) => (
                         <SelectItem key={s.id} value={s.session_date}>
-                          {format(new Date(s.session_date + "T00:00:00"), "EEE d MMM yyyy")} · {s.start_time?.slice(0, 5)}
+                          {format(new Date(s.session_date + "T00:00:00"), "EEE d MMM yyyy")} · {formatTime(s.start_time)}
                         </SelectItem>
                       ))}
                     </SelectContent>

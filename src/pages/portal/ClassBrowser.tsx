@@ -35,7 +35,7 @@ import { AdultPassesCard } from "@/components/portal/AdultPassesCard";
 import WorkshopCover from "@/components/WorkshopCover";
 import { audienceText, isChildAgeEligible } from "@/lib/classAudience";
 import { classLinkPath } from "@/lib/classLinks";
-import { availabilityFor, formatTimeRange } from "@/lib/bookingFormat";
+import { availabilityFor, formatTime, formatTimeRange } from "@/lib/bookingFormat";
 import {
   campPriceLabel,
   classCardState,
@@ -1132,7 +1132,7 @@ const ClassBrowser = () => {
                   const venue = show.venues;
                   const meta = [
                     show.show_date ? format(parseISO(show.show_date), "EEEE d MMMM yyyy") : null,
-                    show.show_time ? `Doors ${show.show_time.slice(0, 5)}${show.duration_minutes ? ` · ${show.duration_minutes} mins` : ""}` : null,
+                    show.show_time ? `Doors ${formatTime(show.show_time)}${show.duration_minutes ? ` · ${show.duration_minutes} mins` : ""}` : null,
                     venue ? `${venue.name}, ${venue.city}` : null,
                   ].filter(Boolean);
                   return (

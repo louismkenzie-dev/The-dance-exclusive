@@ -21,7 +21,7 @@ interface Props {
   /** The session's date and start, for the 15-minute arrival rule. */
   sessionDate?: string | null;
   sessionStart?: string | null;
-  /** "Mini Street · 17:00–17:45" */
+  /** "Mini Street · 5:00–5:45pm" */
   sessionLabel?: string | null;
   onCheckIn?: () => void;
   onCheckOut?: () => void;
@@ -64,7 +64,10 @@ const Note = ({ children }: { children: ReactNode }) => (
   <p className="whitespace-pre-wrap rounded-xl bg-muted/60 px-3 py-2 text-[15px] leading-relaxed text-foreground">{children}</p>
 );
 
-const fmtTime = (d: string) => new Date(d).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+const fmtTime = (d: string) =>
+  new Date(d)
+    .toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hour12: true })
+    .replace(/\s?([ap])\.?m\.?/i, (_, x) => x.toLowerCase() + "m");
 
 /**
  * Everything the door team needs about one dancer, in a sheet: who they are,
@@ -427,7 +430,7 @@ const StudentProfileDrawer = ({
                   ) : (
                     <>
                       <QRCodeSVG value={buildQrPayload(qrToken.token)} size={180} level="M" includeMargin />
-                      <p className="text-[12px] text-gray-600">Valid until {format(new Date(qrToken.validUntil), "d MMM HH:mm")}</p>
+                      <p className="text-[12px] text-gray-600">Valid until {format(new Date(qrToken.validUntil), "d MMM h:mmaaa")}</p>
                       <p className="text-center text-[12px] text-gray-600">Show to the parent — they can photograph it for pickup.</p>
                     </>
                   )}

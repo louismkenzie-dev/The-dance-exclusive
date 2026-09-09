@@ -30,7 +30,7 @@ export const summariseDates = (dates: string[] | undefined | null, max = MAX_DAT
   return `${list.slice(0, max).join(", ")} +${list.length - max} more`;
 };
 
-/** "Mondays · 17:00–17:45 · Kelvedon Institute". */
+/** "Mondays · 5:00–5:45pm · Kelvedon Institute". */
 export const scheduleLine = (item: ItemText): string => {
   const kind = cartItemKind(item);
   if (kind === "pass") return "";

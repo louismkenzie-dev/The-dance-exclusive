@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { openAdminTour } from "@/components/admin/AdminOnboardingTour";
 import { format, addDays, isAfter, isBefore, parseISO, differenceInCalendarDays } from "date-fns";
 import { QUIET_CLASS_THRESHOLD, bookingCountsOnDate, isQuietClass } from "@/lib/registerRules";
+import { formatTimeRange } from "@/lib/bookingFormat";
 
 interface Stats {
   totalClasses: number;
@@ -236,14 +237,6 @@ const AdminDashboard = () => {
     { title: "Pending Payment", value: stats.pendingPayments, icon: UserCheck, color: "text-destructive", link: "/admin/bookings" },
   ];
 
-  const formatTime = (t: string) => {
-    const [h, m] = t.split(":");
-    const hour = parseInt(h);
-    const ampm = hour >= 12 ? "pm" : "am";
-    const h12 = hour % 12 || 12;
-    return `${h12}:${m}${ampm}`;
-  };
-
   const expiredCount = attentionItems.filter((i) => i.expired).length;
 
   return (
@@ -429,7 +422,7 @@ const AdminDashboard = () => {
                             {format(parseISO(session.session_date), "EEE d MMM")}
                           </p>
                           <p className="text-xs text-muted-foreground whitespace-nowrap">
-                            {formatTime(session.start_time)} – {formatTime(session.end_time)}
+                            {formatTimeRange(session.start_time, session.end_time)}
                           </p>
                         </div>
                         <div className="text-right">

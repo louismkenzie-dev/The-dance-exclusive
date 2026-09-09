@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { availabilityFor, durationLabel, formatDay, formatPrice, formatTimeRange, initialsFor } from "./bookingFormat";
+import { availabilityFor, durationLabel, formatDay, formatPrice, formatTime, formatTimeRange, initialsFor } from "./bookingFormat";
 
 describe("durationLabel", () => {
   it("reads minutes, whole hours and mixed", () => {
@@ -25,8 +25,8 @@ describe("formatPrice", () => {
 
 describe("formatTimeRange / formatDay", () => {
   it("uses an en dash and drops seconds", () => {
-    expect(formatTimeRange("17:00:00", "17:45:00")).toBe("17:00–17:45");
-    expect(formatTimeRange("17:00:00", null)).toBe("17:00");
+    expect(formatTimeRange("17:00:00", "17:45:00")).toBe("5:00–5:45pm");
+    expect(formatTimeRange("17:00:00", null)).toBe("5:00pm");
   });
   it("pluralises and shortens days", () => {
     expect(formatDay("monday")).toBe("Monday");
@@ -56,5 +56,26 @@ describe("initialsFor", () => {
     expect(initialsFor("Maia", "Woods")).toBe("MW");
     expect(initialsFor("Ava", null)).toBe("A");
     expect(initialsFor(null, null)).toBe("?");
+  });
+});
+
+describe("12-hour times", () => {
+  it("writes a time the way the studio says it", () => {
+    expect(formatTime("17:00:00")).toBe("5:00pm");
+    expect(formatTime("09:15")).toBe("9:15am");
+    expect(formatTime("12:00")).toBe("12:00pm");
+    expect(formatTime("00:30")).toBe("12:30am");
+    expect(formatTime("23:59")).toBe("11:59pm");
+  });
+  it("leaves anything that isn't a time alone", () => {
+    expect(formatTime(null)).toBe("");
+    expect(formatTime("")).toBe("");
+    expect(formatTime("TBC")).toBe("TBC");
+  });
+  it("says am/pm once when the class doesn't straddle noon", () => {
+    expect(formatTimeRange("17:00", "17:45")).toBe("5:00–5:45pm");
+    expect(formatTimeRange("09:00", "10:00")).toBe("9:00–10:00am");
+    expect(formatTimeRange("11:30", "12:30")).toBe("11:30am–12:30pm");
+    expect(formatTimeRange("17:00", null)).toBe("5:00pm");
   });
 });

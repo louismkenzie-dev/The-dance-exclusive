@@ -11,6 +11,7 @@ import {
 import { AlertTriangle, CalendarPlus, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
 import { expectedSessionDates, missingSessionDates } from "@/lib/timetableGaps";
 import { countPinnedBookings } from "@/lib/sessionGuards";
+import { formatTimeRange } from "@/lib/bookingFormat";
 
 /**
  * "Is every class on the timetable every week it should be?"
@@ -223,7 +224,7 @@ export const TimetableGaps = () => {
           <DialogHeader>
             <DialogTitle>Add dates to {review?.name}</DialogTitle>
             <DialogDescription>
-              Tick the dates this class really runs on. Each becomes a {review?.start_time?.slice(0, 5)}–{review?.end_time?.slice(0, 5)} session
+              Tick the dates this class really runs on. Each becomes a {formatTimeRange(review?.start_time, review?.end_time)} session
               parents can book. Leave a date unticked if the class genuinely isn't on — but move any booked dancers first.
             </DialogDescription>
           </DialogHeader>

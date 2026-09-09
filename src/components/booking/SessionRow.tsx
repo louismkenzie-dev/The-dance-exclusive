@@ -43,7 +43,8 @@ export function SessionRow({ id, startTime, endTime, title, meta, sub, badge, ac
         disabled={!onOpen}
         className="group flex min-w-0 flex-1 items-start gap-3 rounded-xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-card"
       >
-        <span className="w-[62px] shrink-0 border-r border-border pr-3 pt-0.5 sm:w-[72px]">
+        {/* Wide enough for "11:45am" without wrapping. */}
+        <span className="w-[76px] shrink-0 border-r border-border pr-3 pt-0.5 sm:w-[86px]">
           <span className="block text-[17px] font-semibold leading-tight tabular-nums text-foreground">{formatTime(startTime)}</span>
           <span className="mt-0.5 block text-[12px] leading-tight tabular-nums text-muted-foreground">{duration || formatTime(endTime)}</span>
         </span>

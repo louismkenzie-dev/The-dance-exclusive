@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { addDays, differenceInCalendarDays, format, parseISO, startOfMonth, subDays, subMonths } from "date-fns";
+import { formatTime } from "@/lib/bookingFormat";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -367,7 +368,7 @@ const ClassPassesTab = () => {
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
                       {c.day_of_week ? ` — ${c.day_of_week}` : ""}
-                      {c.start_time ? ` ${c.start_time.slice(0, 5)}` : ""}
+                      {c.start_time ? ` ${formatTime(c.start_time)}` : ""}
                       {c.venues?.name ? ` · ${c.venues.name}` : ""}
                     </SelectItem>
                   ))}
@@ -653,7 +654,7 @@ const MembershipsTab = () => {
 
       const schedule = (cls: { day_of_week: string | null; start_time: string | null } | null) =>
         cls?.day_of_week
-          ? `${cls.day_of_week.charAt(0).toUpperCase() + cls.day_of_week.slice(1)}${cls.start_time ? ` ${cls.start_time.slice(0, 5)}` : ""}`
+          ? `${cls.day_of_week.charAt(0).toUpperCase() + cls.day_of_week.slice(1)}${cls.start_time ? ` ${formatTime(cls.start_time)}` : ""}`
           : null;
 
       const isLive = (s: string) => s === "active" || s === "past_due" || s === "cancel_scheduled";
@@ -1496,7 +1497,7 @@ const AdminBookings = () => {
                             {parent && parent !== dancer && ` · ${parent}`}
                           </p>
                           <p className="mt-0.5 text-xs text-muted-foreground">
-                            {planLabel(b.booking_type)} · booked {format(new Date(b.booked_at), "d MMM, HH:mm")}
+                            {planLabel(b.booking_type)} · booked {format(new Date(b.booked_at), "d MMM, h:mmaaa")}
                           </p>
                         </div>
                         {b.amount != null && (

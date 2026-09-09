@@ -12,6 +12,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Repeat } from "lucide-react";
+import { formatTime } from "@/lib/bookingFormat";
 
 export interface MoveMembershipTarget {
   membershipId: string;
@@ -71,7 +72,7 @@ const MoveMembershipDialog = ({ target, onOpenChange, onMoved }: MoveMembershipD
 
   const label = (c: ClassOption) => {
     const day = c.day_of_week ? c.day_of_week.charAt(0).toUpperCase() + c.day_of_week.slice(1) : null;
-    const bits = [day, c.start_time?.slice(0, 5), c.venues?.name].filter(Boolean).join(" · ");
+    const bits = [day, c.start_time ? formatTime(c.start_time) : null, c.venues?.name].filter(Boolean).join(" · ");
     return bits ? `${c.name} — ${bits}` : c.name;
   };
 

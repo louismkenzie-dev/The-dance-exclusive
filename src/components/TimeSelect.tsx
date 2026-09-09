@@ -1,4 +1,5 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatTime } from "@/lib/bookingFormat";
 
 interface Props {
   /** "HH:MM" (empty string when unset). */
@@ -15,14 +16,8 @@ interface Props {
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-/** "18:15" → "6:15 pm" — studio staff read times both ways, so show both. */
-export const prettyTime = (hhmm: string): string => {
-  const [h, m] = hhmm.split(":").map(Number);
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return hhmm;
-  const suffix = h < 12 ? "am" : "pm";
-  const hour12 = h % 12 === 0 ? 12 : h % 12;
-  return `${hour12}:${pad(m)} ${suffix}`;
-};
+/** "18:15" → "6:15pm" — the studio's one house style, from the shared helper. */
+export const prettyTime = (hhmm: string): string => formatTime(hhmm);
 
 /** Add minutes to "HH:MM", clamped inside the same day. */
 export const addMinutes = (hhmm: string, minutes: number): string => {

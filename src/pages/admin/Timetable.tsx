@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AlertTriangle, Crown, Loader2, MapPin, UserPlus, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import VenueFilterChips from "@/components/VenueFilterChips";
+import { formatTime, formatTimeRange } from "@/lib/bookingFormat";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
@@ -237,7 +238,7 @@ const AdminTimetable = () => {
                           <div className="flex items-center justify-between gap-3 flex-wrap">
                             <div className="flex items-center gap-3 flex-wrap">
                               <div className="text-sm font-mono font-medium text-primary">
-                                {c.start_time?.slice(0, 5)} – {c.end_time?.slice(0, 5)}
+                                {formatTimeRange(c.start_time, c.end_time)}
                               </div>
                               <span className="font-medium">{c.name}</span>
                               {c.dance_style && (
@@ -313,7 +314,7 @@ const AdminTimetable = () => {
               Choose who teaches <strong>{assignTarget?.name}</strong>
               {assignTarget?.day_of_week && (
                 <> ({assignTarget.day_of_week.charAt(0).toUpperCase() + assignTarget.day_of_week.slice(1)}s{" "}
-                {assignTarget.start_time?.slice(0, 5)})</>
+                {formatTime(assignTarget.start_time)})</>
               )}
               . They&#39;ll be emailed the class details and their register link.
             </DialogDescription>

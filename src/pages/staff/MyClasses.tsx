@@ -4,6 +4,7 @@ import { useStaffMember } from "@/hooks/useStaffMember";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, MapPin, Clock } from "lucide-react";
+import { formatTimeRange } from "@/lib/bookingFormat";
 
 const MyClasses = () => {
   const { staff } = useStaffMember();
@@ -102,7 +103,7 @@ const MyClasses = () => {
                       {s.classes?.dance_style && <Badge variant="secondary">{s.classes.dance_style}</Badge>}
                     </div>
                     <div className="text-sm text-muted-foreground mt-1 flex flex-wrap gap-3">
-                      <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {s.start_time.slice(0, 5)} – {s.end_time.slice(0, 5)}</span>
+                      <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {formatTimeRange(s.start_time, s.end_time)}</span>
                       {s.classes?.venues?.name && <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> {s.classes.venues.name}{s.classes.venues.city ? `, ${s.classes.venues.city}` : ""}</span>}
                     </div>
                   </div>

@@ -87,8 +87,8 @@ export const formatDateRange = (start: Date, end: Date | null): string => {
 };
 
 /**
- * One line saying when: "Monday 14 September · 17:45–18:45" for a dated
- * session, "Mondays · 17:45–18:45" for a standing booking, "27–29 Oct" for a camp.
+ * One line saying when: "Monday 14 September · 5:45–6:45pm" for a dated
+ * session, "Mondays · 5:45–6:45pm" for a standing booking, "27–29 Oct" for a camp.
  */
 export const whenLine = (b: ConfirmationBooking): string | null => {
   if (b.classes) {

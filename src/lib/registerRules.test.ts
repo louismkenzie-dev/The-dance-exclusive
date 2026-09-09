@@ -30,8 +30,8 @@ describe("arrival window", () => {
     expect(arrivalsOpen("2026-09-14", "17:00", new Date("2026-09-15T09:00:00"))).toBe(true);
   });
   it("labels today by time and other days by date", () => {
-    expect(arrivalOpensLabel("2026-09-14", "17:00", new Date("2026-09-14T10:00:00"))).toBe("Opens at 16:45");
-    expect(arrivalOpensLabel("2026-09-14", "17:00", new Date("2026-09-13T10:00:00"))).toBe("Opens Mon 14 Sep, 16:45");
+    expect(arrivalOpensLabel("2026-09-14", "17:00", new Date("2026-09-14T10:00:00"))).toBe("Opens at 4:45pm");
+    expect(arrivalOpensLabel("2026-09-14", "17:00", new Date("2026-09-13T10:00:00"))).toBe("Opens Mon 14 Sep, 4:45pm");
   });
 });
 

@@ -14,17 +14,17 @@ const classItem = {
 
 describe("scheduleLine", () => {
   it("reads as day · time · venue for a class", () => {
-    expect(scheduleLine(classItem)).toBe("Mondays · 17:00–17:45 · Kelvedon Institute");
+    expect(scheduleLine(classItem)).toBe("Mondays · 5:00–5:45pm · Kelvedon Institute");
   });
 
   it("drops a missing venue", () => {
-    expect(scheduleLine({ ...classItem, venueName: null })).toBe("Mondays · 17:00–17:45");
+    expect(scheduleLine({ ...classItem, venueName: null })).toBe("Mondays · 5:00–5:45pm");
   });
 
   it("uses the chosen dates for a camp instead of a weekday", () => {
     expect(
       scheduleLine({ ...classItem, itemKind: "camp", dayOfWeek: "tuesday", startTime: "10:00:00", endTime: "15:00:00", selectedSessionDates: ["27 Oct", "28 Oct", "29 Oct"] }),
-    ).toBe("27 Oct, 28 Oct, 29 Oct · 10:00–15:00 · Kelvedon Institute");
+    ).toBe("27 Oct, 28 Oct, 29 Oct · 10:00am–3:00pm · Kelvedon Institute");
   });
 
   it("says nothing for a pass (no schedule to speak of)", () => {
@@ -33,7 +33,7 @@ describe("scheduleLine", () => {
 
   it("treats legacy items with no itemKind as classes", () => {
     const { itemKind: _k, ...legacy } = classItem;
-    expect(scheduleLine(legacy)).toBe("Mondays · 17:00–17:45 · Kelvedon Institute");
+    expect(scheduleLine(legacy)).toBe("Mondays · 5:00–5:45pm · Kelvedon Institute");
   });
 });
 

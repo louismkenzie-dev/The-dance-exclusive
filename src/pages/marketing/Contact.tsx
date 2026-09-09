@@ -40,9 +40,9 @@ const VENUES_FALLBACK: { name: string; area: string; note: string }[] = [
 ];
 
 const HOURS: { day: string; time: string }[] = [
-  { day: "Mon – Thu", time: "16:00 – 21:00" },
-  { day: "Friday", time: "16:00 – 20:00" },
-  { day: "Saturday", time: "09:00 – 16:00" },
+  { day: "Mon – Thu", time: formatTimeRange("16:00", "21:00") },
+  { day: "Friday", time: formatTimeRange("16:00", "20:00") },
+  { day: "Saturday", time: formatTimeRange("09:00", "16:00") },
   { day: "Sunday", time: "Adult workshops only" },
 ];
 

@@ -1,4 +1,5 @@
 import { format, isSameDay } from "date-fns";
+import { formatTime } from "./bookingFormat";
 
 /** Arrivals may be recorded this many minutes before a class starts. */
 export const ARRIVAL_OPENS_MINUTES = 15;
@@ -46,10 +47,11 @@ export function arrivalsOpen(sessionDate: string, startTime: string, now: Date =
   return now.getTime() >= arrivalOpensAt(sessionDate, startTime).getTime();
 }
 
-/** "Opens at 16:45" today, otherwise "Opens Mon 14 Sep, 16:45". */
+/** "Opens at 4:45pm" today, otherwise "Opens Mon 14 Sep, 4:45pm". */
 export function arrivalOpensLabel(sessionDate: string, startTime: string, now: Date = new Date()): string {
   const opens = arrivalOpensAt(sessionDate, startTime);
-  return isSameDay(opens, now) ? `Opens at ${format(opens, "HH:mm")}` : `Opens ${format(opens, "EEE d MMM, HH:mm")}`;
+  const at = formatTime(format(opens, "HH:mm"));
+  return isSameDay(opens, now) ? `Opens at ${at}` : `Opens ${format(opens, "EEE d MMM")}, ${at}`;
 }
 
 /**

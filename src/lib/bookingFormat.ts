@@ -9,11 +9,42 @@ export const formatPrice = (amount: number, opts?: { trimZeros?: boolean }): str
   return opts?.trimZeros ? s.replace(/\.00$/, "") : s;
 };
 
-export const formatTime = (t?: string | null): string => (t ? t.slice(0, 5) : "");
+/**
+ * "17:00" → "5:00pm". The studio, its teachers and its parents all talk in
+ * am/pm, so every time the app shows is written that way — the 24-hour
+ * clock stays in the database and in <input type="time">, where it belongs.
+ */
+export const formatTime = (t?: string | null): string => {
+  if (!t) return "";
+  const m = /^(\d{1,2}):(\d{2})/.exec(t.trim());
+  if (!m) return t;
+  const h = Number(m[1]);
+  const mins = m[2];
+  if (!Number.isFinite(h) || h > 23) return t;
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${hour12}:${mins}${h < 12 ? "am" : "pm"}`;
+};
 
-/** "17:00–17:45" with an en dash; just the start when the end is missing. */
-export const formatTimeRange = (start?: string | null, end?: string | null): string =>
-  start && end ? `${formatTime(start)}–${formatTime(end)}` : formatTime(start);
+/** "am" or "pm" for an "HH:MM", or "" when it isn't a time. */
+const meridiem = (t?: string | null): string => {
+  const m = /^(\d{1,2}):\d{2}/.exec((t ?? "").trim());
+  if (!m) return "";
+  const h = Number(m[1]);
+  return Number.isFinite(h) && h <= 23 ? (h < 12 ? "am" : "pm") : "";
+};
+
+/**
+ * "5:00–5:45pm" with an en dash; just the start when the end is missing. A
+ * class that starts and finishes in the same half of the day says so once —
+ * "11:30am–12:30pm" only when it actually straddles noon.
+ */
+export const formatTimeRange = (start?: string | null, end?: string | null): string => {
+  if (!start || !end) return formatTime(start);
+  const from = formatTime(start);
+  const to = formatTime(end);
+  const sameHalf = meridiem(start) && meridiem(start) === meridiem(end);
+  return sameHalf ? `${from.replace(/(am|pm)$/, "")}–${to}` : `${from}–${to}`;
+};
 
 const DAY_LONG: Record<string, string> = {
   monday: "Monday", tuesday: "Tuesday", wednesday: "Wednesday", thursday: "Thursday",

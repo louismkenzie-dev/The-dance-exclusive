@@ -12,7 +12,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { CalendarDays, Check, ChevronsUpDown, Clock, MapPin, Plus, User, X } from "lucide-react";
-import TimeSelect, { addMinutes, prettyTime } from "@/components/TimeSelect";
+import TimeSelect, { addMinutes } from "@/components/TimeSelect";
+import { formatTimeRange } from "@/lib/bookingFormat";
 import BookingBreakdown, { type PaymentSibling } from "@/components/admin/BookingBreakdown";
 import { BookingActions, type ActionableBooking, type BookingActionHandlers } from "@/components/admin/BookingActions";
 
@@ -432,7 +433,7 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
                 {classSession && (
                   <span className="flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5" />
-                    {prettyTime(classSession.start.slice(0, 5))} – {prettyTime(classSession.end.slice(0, 5))}
+                    {formatTimeRange(classSession.start, classSession.end)}
                   </span>
                 )}
                 {(invite.classes?.venues?.name || invite.classes?.location_note) && (

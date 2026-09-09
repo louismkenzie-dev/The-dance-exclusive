@@ -350,7 +350,7 @@ const AdminClassSession = () => {
                           {att?.status === "absent" ? (
                             <TonePill tone="destructive">Absent</TonePill>
                           ) : att?.checked_in_at ? (
-                            <TonePill tone="success">Arrived {format(new Date(att.checked_in_at), "HH:mm")}</TonePill>
+                            <TonePill tone="success">Arrived {format(new Date(att.checked_in_at), "h:mmaaa")}</TonePill>
                           ) : null}
                         </div>
                         <p className="mt-0.5 truncate text-sm text-muted-foreground">

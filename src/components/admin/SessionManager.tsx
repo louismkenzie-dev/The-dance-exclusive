@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format, parseISO, isPast, isToday } from "date-fns";
 import { UserCheck, UserX, Clock, User, Check, X, ChevronDown, ChevronUp } from "lucide-react";
 import { CancelSessionSheet } from "@/components/admin/CancelSessionSheet";
+import { formatTimeRange } from "@/lib/bookingFormat";
 
 interface SessionData {
   id: string;
@@ -301,7 +302,7 @@ export default function SessionManager({ classId, className, defaultInstructorId
                       <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          {session.start_time?.slice(0, 5)} – {session.end_time?.slice(0, 5)}
+                          {formatTimeRange(session.start_time, session.end_time)}
                         </span>
                         <span className="flex items-center gap-1">
                           <User className="w-3 h-3" />

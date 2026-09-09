@@ -35,6 +35,7 @@ import {
   addMonths,
   subMonths,
 } from "date-fns";
+import { formatTimeRange } from "@/lib/bookingFormat";
 
 interface SessionWithDetails {
   id: string;
@@ -389,11 +390,6 @@ const AdminCalendar = () => {
     ? format(currentDate, "MMMM yyyy")
     : `${format(weekStart, "d MMM")} – ${format(weekEnd, "d MMM yyyy")}`;
 
-  const formatTime = (t: string) => {
-    const [h, m] = t.split(":");
-    return `${h}:${m}`;
-  };
-
   const invalidateCalendar = () => {
     queryClient.invalidateQueries({ queryKey: ["calendar-sessions"] });
     queryClient.invalidateQueries({ queryKey: ["calendar-camp-sessions"] });
@@ -557,7 +553,7 @@ const AdminCalendar = () => {
         <div className="space-y-1.5 text-sm">
           <div className="flex items-center gap-2">
             <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-            <span>{formatTime(session.start_time)} – {formatTime(session.end_time)}</span>
+            <span>{formatTimeRange(session.start_time, session.end_time)}</span>
           </div>
           <div className="flex items-center gap-2">
             <User className="h-3.5 w-3.5 text-muted-foreground" />
@@ -659,7 +655,7 @@ const AdminCalendar = () => {
                       <p className="text-xs font-semibold truncate">{cls?.name}</p>
                       <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
                         <Clock className="h-3 w-3 shrink-0" />
-                        <span>{formatTime(session.start_time)} – {formatTime(session.end_time)}</span>
+                        <span>{formatTimeRange(session.start_time, session.end_time)}</span>
                       </div>
                       <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground">
                         <User className="h-3 w-3 shrink-0" />
@@ -1014,7 +1010,7 @@ const AdminCalendar = () => {
                           <div className="space-y-1.5 text-sm text-muted-foreground">
                             <div className="flex items-center gap-2">
                               <Clock className="h-4 w-4" />
-                              <span>{formatTime(session.start_time)} – {formatTime(session.end_time)}</span>
+                              <span>{formatTimeRange(session.start_time, session.end_time)}</span>
                             </div>
                             <div className="flex items-center gap-2">
                               <User className="h-4 w-4" />
@@ -1246,7 +1242,7 @@ const TimetableSection = () => {
                         <div key={c.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 p-3 rounded-lg bg-muted/50">
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
                             <div className="text-xs md:text-sm font-mono font-medium text-primary whitespace-nowrap">
-                              {c.start_time?.slice(0, 5)} – {c.end_time?.slice(0, 5)}
+                              {formatTimeRange(c.start_time, c.end_time)}
                             </div>
                             <div className="min-w-0">
                               <span className="font-medium break-words">{c.name}</span>

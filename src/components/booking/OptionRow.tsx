@@ -6,7 +6,7 @@ interface OptionRowProps {
   selected: boolean;
   onSelect: () => void;
   title: ReactNode;
-  /** One quiet line under the title: "Mondays · 17:00–17:45 · Kelvedon Institute". */
+  /** One quiet line under the title: "Mondays · 5:00–5:45pm · Kelvedon Institute". */
   meta?: ReactNode;
   /** Right-hand slot: a price, a time. */
   trailing?: ReactNode;

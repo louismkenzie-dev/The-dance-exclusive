@@ -295,7 +295,7 @@ const PartyEnquiries = () => {
 
                     <div className="flex flex-col items-end gap-2 flex-shrink-0">
                       <span className="text-xs text-muted-foreground">
-                        Came in {format(parseISO(e.created_at), "d MMM yyyy 'at' HH:mm")}
+                        Came in {format(parseISO(e.created_at), "d MMM yyyy 'at' h:mmaaa")}
                       </span>
                       {e.quoted_total != null && (
                         <span className="font-bold">£{Number(e.quoted_total).toFixed(2)}</span>

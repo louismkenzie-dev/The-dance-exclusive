@@ -3,6 +3,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
 import { getOrCreateBookingQrToken, buildQrPayload } from "@/lib/qrTokens";
 import { format } from "date-fns";
+import { formatTime } from "@/lib/bookingFormat";
 import { ResponsiveSheet } from "@/components/booking/ResponsiveSheet";
 import { Bone } from "@/components/booking/Skeletons";
 
@@ -145,7 +146,7 @@ const BookingQrDialog = ({ open, onOpenChange, booking }: Props) => {
               )}
               {nextSession && (
                 <p className="pt-1 text-[13px] text-neutral-600">
-                  Next: {format(new Date(nextSession.session_date), "EEE d MMM")} · {nextSession.start_time?.slice(0, 5)}
+                  Next: {format(new Date(nextSession.session_date), "EEE d MMM")} · {formatTime(nextSession.start_time)}
                 </p>
               )}
             </div>

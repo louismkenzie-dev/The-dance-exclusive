@@ -12,7 +12,7 @@ export interface ClassCardData {
   style?: string | null;
   /** "Mondays" */
   dayLabel: string;
-  /** "17:00–17:45" */
+  /** "5:00–5:45pm" */
   timeLabel: string;
   venue?: string | null;
   /** "Ages 3–7", "Year 2–Year 6", "Adults" */

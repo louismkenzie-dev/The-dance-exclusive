@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Ticket, Pencil } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { classDurationMinutes, passCoverageLabel } from "@/lib/passEligibility";
+import { formatTime } from "@/lib/bookingFormat";
 import DescriptionAssistButton from "@/components/admin/DescriptionAssistButton";
 
 interface PassRow {
@@ -405,7 +406,7 @@ const ClassPassManager = () => {
                           {c.name}
                           <span className="text-xs text-muted-foreground">
                             {c.day_of_week ? ` · ${c.day_of_week.slice(0, 3)}` : ""}
-                            {c.start_time ? ` ${c.start_time.slice(0, 5)}` : ""}
+                            {c.start_time ? ` ${formatTime(c.start_time)}` : ""}
                             {c.minutes ? ` · ${c.minutes} min` : ""}
                             {c.venueName ? ` · ${c.venueName}` : ""}
                           </span>

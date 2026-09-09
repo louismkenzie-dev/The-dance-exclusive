@@ -9,7 +9,7 @@ import { ResponsiveSheet } from "@/components/booking/ResponsiveSheet";
 import { OptionRow } from "@/components/booking/OptionRow";
 import { OptionRowsSkeleton } from "@/components/booking/PortalSkeletons";
 import { QuietNotice } from "@/components/booking/QuietNotice";
-import { formatDay, formatPrice, formatTimeRange } from "@/lib/bookingFormat";
+import { formatDay, formatPrice, formatTime, formatTimeRange } from "@/lib/bookingFormat";
 
 interface SessionRow {
   id: string;
@@ -172,7 +172,7 @@ const MoveSessionDialog = ({ open, onOpenChange, booking, onMoved }: MoveSession
         toast.error("Could not move the session", { description: message || "Please try again" });
       } else {
         toast.success("Session moved", {
-          description: `${data.className} — ${format(parseISO(data.sessionDate), "EEE d MMM yyyy")}${data.startTime ? ` at ${String(data.startTime).slice(0, 5)}` : ""}`,
+          description: `${data.className} — ${format(parseISO(data.sessionDate), "EEE d MMM yyyy")}${data.startTime ? ` at ${formatTime(String(data.startTime))}` : ""}`,
         });
         onOpenChange(false);
         onMoved();

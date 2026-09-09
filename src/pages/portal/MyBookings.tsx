@@ -31,7 +31,7 @@ import { QuietNotice } from "@/components/booking/QuietNotice";
 import { QuietPill } from "@/components/booking/QuietPill";
 import { AttendeeAvatar } from "@/components/booking/AttendeeAvatar";
 import { RecordCardSkeleton } from "@/components/booking/PortalSkeletons";
-import { formatDay, formatPrice, formatTimeRange } from "@/lib/bookingFormat";
+import { formatDay, formatPrice, formatTime, formatTimeRange } from "@/lib/bookingFormat";
 import { cn } from "@/lib/utils";
 
 /** Dated bookings carry their session date in notes: "... | session YYYY-MM-DD". */
@@ -453,7 +453,7 @@ const MyBookings = () => {
     const cls = m.classes;
     const whenLine = [
       cls?.day_of_week ? formatDay(cls.day_of_week, "plural") : null,
-      cls?.start_time ? cls.start_time.slice(0, 5) : null,
+      cls?.start_time ? formatTime(cls.start_time) : null,
     ].filter(Boolean).join(" · ");
     // A studio credit/extra on the next payment changes the figure shown.
     const adjustment = nextPaymentAdjustment(m);

@@ -46,8 +46,8 @@ describe("confirmation booking lines", () => {
   });
 
   it("says when: dated, standing and camp bookings", () => {
-    expect(whenLine(dated)).toBe("Monday 14 September · 17:45–18:45");
-    expect(whenLine(standing)).toBe("Mondays · 17:00–17:45");
+    expect(whenLine(dated)).toBe("Monday 14 September · 5:45–6:45pm");
+    expect(whenLine(standing)).toBe("Mondays · 5:00–5:45pm");
     expect(whenLine(camp)).toBe("27–29 Oct");
     expect(whenLine({ ...base, booking_type: "pass", notes: null })).toBeNull();
   });

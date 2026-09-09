@@ -19,6 +19,7 @@ import {
   PoundSterling,
   ChevronRight,
 } from "lucide-react";
+import { formatTime } from "@/lib/bookingFormat";
 
 interface SessionLite {
   id: string;
@@ -429,9 +430,9 @@ const SessionRow = ({ session, showDate }: { session: SessionLite; showDate?: bo
       className={`flex items-center gap-3 p-3 rounded-md border border-border ${accent} border-l-4 hover:bg-accent/30 transition-colors`}
     >
       <div className="text-center px-2 shrink-0 w-16">
-        <p className="text-base font-bold tabular-nums">{session.start_time.slice(0, 5)}</p>
+        <p className="text-base font-bold tabular-nums">{formatTime(session.start_time)}</p>
         <p className="text-[10px] text-muted-foreground uppercase">
-          {session.end_time.slice(0, 5)}
+          {formatTime(session.end_time)}
         </p>
       </div>
       <div className="flex-1 min-w-0">

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { addDays, differenceInCalendarDays, format, parseISO, startOfMonth, subDays } from "date-fns";
+import { addDays, differenceInCalendarDays, format, parseISO, startOfMonth, subDays, subMonths } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -462,6 +462,49 @@ const membershipBadge: Record<string, { label: string; className: string }> = {
   incomplete: { label: "Incomplete", className: "text-muted-foreground" },
 };
 
+/**
+ * What "Payment issue ★" actually means, in the studio's words. A monthly
+ * membership is a Stripe subscription: the card on file is charged on the
+ * 5th, and when that charge is refused the membership sits here until it
+ * goes through. Amie shouldn't have to know any of that, so the card spells
+ * out what happened, who was told and when, and what to do about it.
+ */
+const PaymentIssueNote = ({ rows }: { rows: PlanRow[] }) => {
+  const failing = rows.filter((r) => r.membershipStatus === "past_due");
+  if (failing.length === 0) return null;
+
+  // The charge that bounced is the one before the period now running: Stripe
+  // bills monthly, so it is a month before the next charge date.
+  const nextCharge = failing.map((r) => r.nextCharge).filter(Boolean).sort()[0] ?? null;
+  const failedOn = nextCharge ? subMonths(new Date(nextCharge), 1) : null;
+  const told = failing.map((r) => r.paymentFailedNotifiedAt).filter(Boolean).sort()[0] ?? null;
+  const owed = failing.reduce((sum, r) => sum + r.amount, 0);
+  const places = failing.length === 1 ? "place" : "places";
+
+  return (
+    <div className="border-t border-amber-500/30 bg-amber-500/5 px-4 py-3 md:px-5">
+      <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400">
+        <span aria-hidden>★</span> What the payment issue means
+      </p>
+      <p className="mt-1.5 text-sm text-foreground/90">
+        Their card was refused when we tried to take{" "}
+        <strong>£{owed.toFixed(2)}</strong> for {failing.length} {places}
+        {failedOn ? <> on <strong>{format(failedOn, "d MMMM")}</strong></> : null}. Nothing has been
+        taken for that month.
+      </p>
+      <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+        <li>
+          {told
+            ? <>They were emailed about it on {format(new Date(told), "d MMMM")}, with a link to pay.</>
+            : <>They haven&#39;t been emailed about it yet — the nightly check will do that.</>}
+        </li>
+        <li>The card is tried again automatically over the next couple of weeks. You don&#39;t need to do anything for that to happen.</li>
+        <li>Until it goes through, that month isn&#39;t paid for — worth a friendly word before the next class if it drags on.</li>
+      </ul>
+    </div>
+  );
+};
+
 /** One row in the unified "who's on what plan" view — a monthly membership
  *  (Stripe subscription) or a one-off plan purchase (termly/yearly/trial/PAYG). */
 type PlanKind = "monthly" | "yearly" | "term" | "trial" | "session";
@@ -488,6 +531,8 @@ interface PlanRow {
   /** Raw memberships.status / free_month — for the "Adjust payment" dialog. */
   membershipStatus: string | null;
   freeMonth: number | null;
+  /** When the family was emailed that the payment had failed. */
+  paymentFailedNotifiedAt: string | null;
   /**
    * The payment date has passed and nothing rolled the membership forward, so
    * this month has not been paid. Derived from the dates rather than read from
@@ -524,6 +569,16 @@ interface FamilyGroup {
 
 const STATUS_CHIP_ORDER = ["Active", "Payment issue", "Paused", "Ending", "Incomplete", "Ended"];
 
+/** "2 payment issues", not "2 payment issue". */
+const chipWord = (label: string, count: number) => {
+  const word = label.toLowerCase();
+  return count === 1 || !word.endsWith("issue") ? word : `${word}s`;
+};
+
+/** A failed payment carries a ★ pointing at the note that explains it. */
+const statusBadgeText = (r: { statusLabel: string; membershipStatus: string | null }) =>
+  r.membershipStatus === "past_due" ? `${r.statusLabel} \u2605` : r.statusLabel;
+
 /** Admin view of every plan a family is on: monthly memberships (real Stripe
  *  subscriptions) plus termly / yearly / trial / pay-as-you-go purchases,
  *  categorised so it's easy to find who's on what. */
@@ -544,7 +599,7 @@ const MembershipsTab = () => {
       const [membershipsRes, bookingsRes] = await Promise.all([
         supabase
           .from("memberships")
-          .select("id, user_id, class_id, monthly_amount, status, started_at, current_period_end, cancel_at, free_month, students(first_name, last_name), classes(name, day_of_week, start_time)")
+          .select("id, user_id, class_id, monthly_amount, status, started_at, current_period_end, cancel_at, free_month, payment_failed_notified_at, students(first_name, last_name), classes(name, day_of_week, start_time)")
           .order("created_at", { ascending: false }),
         supabase
           .from("bookings")
@@ -626,6 +681,7 @@ const MembershipsTab = () => {
           classId: (m as any).class_id ?? null,
           membershipStatus: m.status,
           freeMonth: m.free_month ?? null,
+          paymentFailedNotifiedAt: (m as any).payment_failed_notified_at ?? null,
           paymentOverdue: overdue,
         };
       });
@@ -653,6 +709,7 @@ const MembershipsTab = () => {
           classId: null,
           membershipStatus: null,
           freeMonth: null,
+          paymentFailedNotifiedAt: null,
           paymentOverdue: false,
         };
       });
@@ -927,7 +984,7 @@ const MembershipsTab = () => {
                           </span>
                           {g.statusChips.map((c) => (
                             <Badge key={c.label} variant="outline" className={c.className}>
-                              {c.count} {c.label.toLowerCase()}
+                              {c.count} {chipWord(c.label, c.count)}
                             </Badge>
                           ))}
                           {g.unlimited && <Badge className="whitespace-nowrap">Unlimited £110</Badge>}
@@ -937,6 +994,7 @@ const MembershipsTab = () => {
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <div className="border-t border-border">
+                        <PaymentIssueNote rows={g.rows} />
                         {/* Phone: one block per membership with its two actions
                             as full-width buttons. */}
                         <div className="divide-y divide-border/70 md:hidden">
@@ -957,7 +1015,7 @@ const MembershipsTab = () => {
                                       £{r.amount.toFixed(2)}
                                       <span className="text-xs font-normal text-muted-foreground">/mo</span>
                                     </p>
-                                    <Badge variant="outline" className={`mt-1 ${r.statusClass}`}>{r.statusLabel}</Badge>
+                                    <Badge variant="outline" className={`mt-1 ${r.statusClass}`}>{statusBadgeText(r)}</Badge>
                                   </div>
                                 </div>
                                 {rowAdjustments.length > 0 && (
@@ -1023,7 +1081,7 @@ const MembershipsTab = () => {
                                   )}
                                 </TableCell>
                                 <TableCell>
-                                  <Badge variant="outline" className={r.statusClass}>{r.statusLabel}</Badge>
+                                  <Badge variant="outline" className={r.statusClass}>{statusBadgeText(r)}</Badge>
                                 </TableCell>
                                 <TableCell>{format(new Date(r.started), "d MMM yyyy")}</TableCell>
                                 <TableCell>{r.nextCharge ? format(new Date(r.nextCharge), "d MMM yyyy") : "—"}</TableCell>
@@ -1083,7 +1141,7 @@ const MembershipsTab = () => {
                           </span>
                           {g.statusChips.map((c) => (
                             <Badge key={c.label} variant="outline" className={c.className}>
-                              {c.count} {c.label.toLowerCase()}
+                              {c.count} {chipWord(c.label, c.count)}
                             </Badge>
                           ))}
                           <ChevronDown className="w-4 h-4 text-muted-foreground ml-1 transition-transform duration-200 [[data-state=open]_&]:rotate-180" />
@@ -1114,7 +1172,7 @@ const MembershipsTab = () => {
                                 </TableCell>
                                 <TableCell>£{r.amount.toFixed(2)}</TableCell>
                                 <TableCell>
-                                  <Badge variant="outline" className={r.statusClass}>{r.statusLabel}</Badge>
+                                  <Badge variant="outline" className={r.statusClass}>{statusBadgeText(r)}</Badge>
                                 </TableCell>
                                 <TableCell>{format(new Date(r.started), "d MMM yyyy")}</TableCell>
                               </TableRow>
@@ -1210,7 +1268,7 @@ const MembershipsTab = () => {
                             {r.perMonth && <span className="text-xs text-muted-foreground">/mo</span>}
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className={r.statusClass}>{r.statusLabel}</Badge>
+                            <Badge variant="outline" className={r.statusClass}>{statusBadgeText(r)}</Badge>
                           </TableCell>
                           <TableCell>{format(new Date(r.started), "d MMM yyyy")}</TableCell>
                           <TableCell>{r.nextCharge ? format(new Date(r.nextCharge), "d MMM yyyy") : "—"}</TableCell>

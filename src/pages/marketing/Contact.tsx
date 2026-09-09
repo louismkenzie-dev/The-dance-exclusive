@@ -23,6 +23,7 @@ import { useMagnetic } from "@/hooks/useMagnetic";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { capitalise, numberWord, useSiteStats } from "@/lib/siteStats";
+import { formatTimeRange } from "@/lib/bookingFormat";
 
 const bodyStyle = {
   textTransform: "none" as const,

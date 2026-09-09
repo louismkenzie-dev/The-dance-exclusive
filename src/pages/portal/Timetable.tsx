@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { addDays, format, parseISO } from "date-fns";
 import { Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { audienceText } from "@/lib/classAudience";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { PassRedeemDialog, type SessionOption } from "@/components/portal/PassRedeemDialog";
@@ -24,6 +25,11 @@ interface TimetableClass {
   dance_style: string | null;
   venue_id: string | null;
   venues: { name: string; city: string | null } | null;
+  audience_label: string | null;
+  age_min: number | null;
+  age_max: number | null;
+  school_year_min: number | null;
+  school_year_max: number | null;
 }
 
 interface SessionRow {
@@ -99,7 +105,7 @@ const Timetable = () => {
       setLoading(true);
       const { data: classData } = await supabase
         .from("classes")
-        .select("id, name, class_type, dance_style, venue_id, venues(name, city)")
+        .select("id, name, class_type, dance_style, venue_id, audience_label, age_min, age_max, school_year_min, school_year_max, venues(name, city)")
         .eq("is_active", true)
         .eq("publicly_visible", true)
         .eq("status", "confirmed")
@@ -301,9 +307,13 @@ const Timetable = () => {
   const renderRow = (s: SessionRow) => {
     const cls = classById.get(s.class_id)!;
     const isAdult = cls.class_type === "adult";
+    // Who the class is for, in the studio's own words where they set one
+    // ("O17", "Year 3–6"), else the age range. Falls back to the plain
+    // audience when a class has no age data at all.
+    const forWhom = audienceText(cls) || (isAdult ? "Adults" : "Children");
     const meta = [
       cls.dance_style,
-      isAdult ? "Adults" : "Children",
+      forWhom,
       showVenueName ? cls.venues?.name : null,
     ].filter(Boolean).join(" · ");
     return (

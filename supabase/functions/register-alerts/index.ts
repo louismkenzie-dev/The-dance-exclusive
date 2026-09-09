@@ -377,6 +377,13 @@ serve(async (req) => {
         if (error) {
           summary.errors++;
           console.error("register-alerts: follow-up failed for", g.bookings.map((b) => b.id), error);
+          // Nothing reached the family, so give the claim back and let the
+          // next run try again while the trial is still inside the window.
+          if (!testTo) {
+            for (const b of g.bookings) {
+              await supabase.from("bookings").update({ notes: b.notes }).eq("id", b.id).ilike("notes", "%follow-up sent%");
+            }
+          }
           continue;
         }
         summary.followUps++;

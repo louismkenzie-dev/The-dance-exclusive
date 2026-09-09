@@ -1,14 +1,18 @@
 // Admin-only: put someone on a class by hand.
 //
-// Two ways, chosen per booking:
-//   record — the family has already paid (a Gymcatch class or package
-//            carried over, a comp, cash at the door). Creates the booking
-//            or class pass outright; no money moves.
-//   invite — the family still owes: the booking is set up for them and they
-//            get an email with a link that drops it straight into their
-//            basket, so the ordinary checkout takes the payment. Monthly
-//            memberships always go this way, because the card and the
-//            Stripe subscription have to be created by that same flow.
+// Three ways, chosen per booking:
+//   record      — the family has already paid (a Gymcatch class or package
+//                 carried over, a comp, cash at the door). Creates the
+//                 booking or class pass outright; no money moves.
+//   invite      — the family still owes: the booking is set up for them and
+//                 they get an email with a link that drops it straight into
+//                 their basket, so the ordinary checkout takes the payment.
+//                 Monthly memberships always go this way, because the card
+//                 and the Stripe subscription have to be created by that
+//                 same flow.
+//   redeem_pass — they came to a class on a pass they hold but never booked
+//                 on with it. Takes one class off the pass and puts the
+//                 booking on that date's register, as if they had.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { loadPasses } from "../_shared/pricing.ts";
@@ -78,6 +82,116 @@ serve(async (req) => {
         return jsonResponse({ error: "That attendee belongs to a different account" }, 400);
       }
       student = data;
+    }
+
+    // ---------------------------------------------------------------
+    // Use a pass for a class they turned up to without booking on. The
+    // date is usually in the recent past — that is the whole point — so
+    // unlike self-service redemption it is allowed here.
+    // ---------------------------------------------------------------
+    if (mode === "redeem_pass") {
+      const passId = typeof body.passId === "string" ? body.passId : "";
+      const sessionDate = typeof body.sessionDate === "string" ? body.sessionDate : "";
+      if (!passId) return jsonResponse({ error: "Choose which pass to use" }, 400);
+      if (!classId || typeof classId !== "string") {
+        return jsonResponse({ error: "Choose the class they came to" }, 400);
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(sessionDate)) {
+        return jsonResponse({ error: "Pick the date they came" }, 400);
+      }
+
+      const { data: pass } = await supabase
+        .from("class_passes")
+        .select("id, user_id, student_id, sessions_remaining, expires_at")
+        .eq("id", passId)
+        .maybeSingle();
+      if (!pass) return jsonResponse({ error: "Pass not found" }, 404);
+      if (pass.user_id !== userId) {
+        return jsonResponse({ error: "That pass belongs to a different account" }, 400);
+      }
+      if (pass.sessions_remaining < 1) {
+        return jsonResponse({ error: "That pass has no classes left on it" }, 400);
+      }
+
+      // Whose place: the dancer named on the pass, else the account holder's
+      // own profile (passes are adult self-bookings), else whoever was chosen.
+      let attendee: { id: string } | null = student;
+      if (!attendee) {
+        let q = supabase.from("students").select("id").eq("parent_id", userId);
+        q = pass.student_id ? q.eq("id", pass.student_id) : q.eq("is_self", true);
+        const { data: candidates } = await q.limit(1);
+        attendee = candidates?.[0] ?? null;
+      }
+      if (!attendee) return jsonResponse({ error: "Choose who the class was for" }, 400);
+
+      const { data: session } = await supabase
+        .from("class_sessions")
+        .select("id, session_date, status, classes:class_id ( id, name, class_type )")
+        .eq("class_id", classId)
+        .eq("session_date", sessionDate)
+        .maybeSingle();
+      if (!session) return jsonResponse({ error: "That class doesn't run on that date" }, 400);
+      if (session.status === "cancelled") {
+        return jsonResponse({ error: "That class was cancelled on that date" }, 400);
+      }
+      if ((session as any).classes?.class_type !== "adult") {
+        return jsonResponse({ error: "Passes can only be used for adult classes" }, 400);
+      }
+
+      const { data: existing } = await supabase
+        .from("bookings")
+        .select("id")
+        .eq("class_id", classId)
+        .eq("student_id", attendee.id)
+        .in("status", ["confirmed", "pending_payment"])
+        .ilike("notes", `%session ${sessionDate}%`)
+        .limit(1);
+      if (existing && existing.length > 0) {
+        return jsonResponse({
+          error: "They're already booked into that class on that date",
+          code: "duplicate_booking",
+        }, 409);
+      }
+
+      // Take the class off the pass first, guarded against a concurrent
+      // redemption, then put the booking on the register.
+      const { data: updated, error: updateError } = await supabase
+        .from("class_passes")
+        .update({
+          sessions_remaining: pass.sessions_remaining - 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", pass.id)
+        .eq("sessions_remaining", pass.sessions_remaining)
+        .select("id");
+      if (updateError || !updated || updated.length === 0) {
+        return jsonResponse({ error: "Could not take a class off the pass — please try again" }, 409);
+      }
+
+      const why = typeof note === "string" && note.trim() ? ` | ${note.trim().slice(0, 120)}` : "";
+      const { data: created, error } = await supabase
+        .from("bookings")
+        .insert({
+          class_id: classId,
+          student_id: attendee.id,
+          parent_id: userId,
+          status: "confirmed",
+          booking_type: "pass",
+          amount: 0,
+          notes: `Class pass ${pass.id} — session ${sessionDate} | recorded by the studio${why}`,
+        })
+        .select("id")
+        .single();
+      if (error || !created) {
+        console.error("admin-book pass redemption insert failed:", error);
+        await supabase.rpc("refund_pass_credits", { p_pass_id: pass.id, p_amount: 1 });
+        return jsonResponse({ error: "Could not record the class" }, 500);
+      }
+      return jsonResponse({
+        success: true,
+        bookingIds: [created.id],
+        remaining: pass.sessions_remaining - 1,
+      });
     }
 
     // ---------------------------------------------------------------

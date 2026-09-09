@@ -4,6 +4,15 @@ import { format, isSameDay } from "date-fns";
 export const ARRIVAL_OPENS_MINUTES = 15;
 
 /**
+ * Whether the register records departures as well as arrivals. The studio
+ * asked for arrived-and-absent only for now — marking everyone out again at
+ * the end of a busy class was more than teachers could keep up with. Flip
+ * this back to true to restore the Departed step, the collector prompt and
+ * the not-departed alert; nothing about the data changes either way.
+ */
+export const REGISTER_DEPARTURES = false;
+
+/**
  * When arrivals open for a session, in the device's local time. The database
  * enforces the same rule in Europe/London; on a phone at the door the two
  * agree.

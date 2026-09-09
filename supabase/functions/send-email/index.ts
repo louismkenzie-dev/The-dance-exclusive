@@ -92,6 +92,10 @@ import {
   renderSessionCancelled,
   type SessionCancelledData,
 } from "../_shared/email-templates/session-cancelled.ts";
+import {
+  renderTrialFollowUp,
+  type TrialFollowUpData,
+} from "../_shared/email-templates/trial-follow-up.ts";
 import { BRAND } from "../_shared/email-templates/layout.ts";
 
 const corsHeaders = {
@@ -157,7 +161,8 @@ type Payload =
   | { template: "admin_booking_ready"; to: string; data: AdminBookingReadyData }
   | { template: "register_alert"; to: string; data: RegisterAlertData }
   | { template: "internal_notice"; to: string; data: InternalNoticeData }
-  | { template: "session_cancelled"; to: string; data: SessionCancelledData };
+  | { template: "session_cancelled"; to: string; data: SessionCancelledData }
+  | { template: "trial_follow_up"; to: string; data: TrialFollowUpData };
 
 function buildEmail(payload: Payload): { subject: string; html: string } {
   switch (payload.template) {
@@ -207,6 +212,8 @@ function buildEmail(payload: Payload): { subject: string; html: string } {
       return renderInternalNotice(payload.data);
     case "session_cancelled":
       return renderSessionCancelled(payload.data);
+    case "trial_follow_up":
+      return renderTrialFollowUp(payload.data);
     default:
       throw new Error(`Unknown template: ${(payload as any).template}`);
   }

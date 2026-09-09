@@ -36,6 +36,8 @@ interface Props {
   rows: FamilyRow[];
   onMarkArrived: (booking: FamilyRow) => void;
   onMarkDeparted: (booking: FamilyRow) => void;
+  /** Whether departures are recorded at all (see REGISTER_DEPARTURES). */
+  departures?: boolean;
   /** Arrivals may only be recorded from 15 minutes before the class. */
   arrivalsOpen?: boolean;
   /** "Opens at 16:45" — shown while arrivals are closed. */
@@ -59,6 +61,7 @@ const FamilyCheckInSheet = ({
   rows,
   onMarkArrived,
   onMarkDeparted,
+  departures = true,
   arrivalsOpen = true,
   arrivalsOpenLabel,
 }: Props) => {
@@ -100,14 +103,16 @@ const FamilyCheckInSheet = ({
         >
           <LogIn className="h-4 w-4" /> All arrived{notArrived.length > 0 ? ` (${notArrived.length})` : ""}
         </Button>
-        <Button
-          type="button"
-          className="h-12 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-          disabled={inRoom.length === 0}
-          onClick={() => inRoom.forEach(onMarkDeparted)}
-        >
-          <LogOut className="h-4 w-4" /> All departed{inRoom.length > 0 ? ` (${inRoom.length})` : ""}
-        </Button>
+        {departures && (
+          <Button
+            type="button"
+            className="h-12 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            disabled={inRoom.length === 0}
+            onClick={() => inRoom.forEach(onMarkDeparted)}
+          >
+            <LogOut className="h-4 w-4" /> All departed{inRoom.length > 0 ? ` (${inRoom.length})` : ""}
+          </Button>
+        )}
       </div>
       {!arrivalsOpen && arrivalsOpenLabel && (
         <p className="mt-2 text-[13px] text-warning">Arrivals {arrivalsOpenLabel.toLowerCase().replace(/^opens/, "open")}.</p>
@@ -156,7 +161,11 @@ const FamilyCheckInSheet = ({
                 </p>
               </div>
               <div className="flex shrink-0 gap-1.5">
-                {state === "in" ? (
+                {state === "in" && !departures ? (
+                  <span className="inline-flex h-10 items-center rounded-full bg-success/15 px-3.5 text-[13px] font-semibold text-[hsl(var(--success-strong))]">
+                    Arrived
+                  </span>
+                ) : state === "in" ? (
                   <Button
                     type="button"
                     size="sm"

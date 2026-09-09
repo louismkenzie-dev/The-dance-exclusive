@@ -63,19 +63,25 @@ serve(async (_req) => {
   };
   const nowIso = new Date().toISOString();
 
-  // Operational notices go to the studio owner.
+  // Operational notices go to the studio's notice address, else the owner.
   const notifyOwner = async (data: Record<string, unknown>) => {
     try {
-      const { data: owners } = await supabase
-        .from("staff")
-        .select("email")
-        .eq("role", "ceo_owner")
-        .eq("is_active", true)
-        .not("email", "is", null);
-      for (const o of owners ?? []) {
+      let to: string[] = [];
+      const { data: notice } = await supabase.from("app_settings").select("value").eq("key", "ops_notice_email").maybeSingle();
+      if (notice?.value && String(notice.value).includes("@")) to = [String(notice.value).trim()];
+      if (to.length === 0) {
+        const { data: owners } = await supabase
+          .from("staff")
+          .select("email")
+          .eq("role", "ceo_owner")
+          .eq("is_active", true)
+          .not("email", "is", null);
+        to = (owners ?? []).map((o: any) => String(o.email));
+      }
+      for (const email of to) {
         await supabase.functions.invoke("send-email", {
           headers: { "x-internal-auth": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
-          body: { template: "internal_notice", to: o.email, data },
+          body: { template: "internal_notice", to: email, data },
         });
       }
     } catch (e) {
@@ -312,12 +318,17 @@ serve(async (_req) => {
           // the family gets ONE email covering all of them — sending one per
           // membership meant a parent with five children's places received
           // five identical "payment failed" emails within seconds.
-          const nowFailing = members.filter((x: any) => x.status === "active");
+          // Anything still marked active flips now; anything already past
+          // due that has never been told is told now — whichever path set
+          // its status, the family hears about it exactly once per failure.
+          const nowFailing = members.filter((x: any) =>
+            x.status === "active" || (x.status === "past_due" && !x.payment_failed_notified_at),
+          );
           const described: any[] = [];
           for (const m of nowFailing) {
             await supabase
               .from("memberships")
-              .update({ status: "past_due", updated_at: nowIso })
+              .update({ status: "past_due", payment_failed_notified_at: nowIso, updated_at: nowIso })
               .eq("id", m.id);
             summary.pastDue++;
             described.push({ m, desc: await describeMembership(m) });

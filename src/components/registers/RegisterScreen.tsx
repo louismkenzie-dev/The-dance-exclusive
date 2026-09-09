@@ -22,6 +22,7 @@ import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
 import { initialsOf } from "@/lib/initials";
 import { birthdayInWeekOf, birthdayLabel } from "@/lib/birthdays";
 import {
+  REGISTER_DEPARTURES,
   arrivalOpensLabel,
   attendanceTarget,
   registerState,
@@ -358,8 +359,14 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
     void load();
   };
 
-  // Manual marks ask for the collector's name first (optional).
+  // Manual marks ask for the collector's name first (optional) — only while
+  // departures are recorded; with arrivals alone, Arrived is one tap.
   const beginManualMark = (sessionId: string, booking: any) => {
+    if (!REGISTER_DEPARTURES) {
+      const session = sessionById(sessionId);
+      if (session) void performCheckIn(booking, session, "manual", null);
+      return;
+    }
     setCollectorName("");
     setCollectorPrompt({ booking, sessionId, method: "manual" });
   };
@@ -724,7 +731,17 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
                                 <LogIn className="h-4 w-4" /> Arrived
                               </Button>
                             )}
-                            {state === "in" && (
+                            {state === "in" && !REGISTER_DEPARTURES && (
+                              <button
+                                type="button"
+                                onClick={openProfile}
+                                aria-label={`${name} arrived. Open details`}
+                                className="flex h-10 w-10 items-center justify-center rounded-full bg-success/15 text-[hsl(var(--success-strong))]"
+                              >
+                                <Check className="h-5 w-5" strokeWidth={2.5} />
+                              </button>
+                            )}
+                            {state === "in" && REGISTER_DEPARTURES && (
                               <Button
                                 type="button"
                                 size="sm"
@@ -829,11 +846,11 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
           beginManualMark(profileBooking.sessionId, profileBooking.booking);
           setProfileBooking(null);
         }}
-        onCheckOut={() => {
+        onCheckOut={REGISTER_DEPARTURES ? () => {
           if (!profileBooking) return;
           beginManualMark(profileBooking.sessionId, profileBooking.booking);
           setProfileBooking(null);
-        }}
+        } : undefined}
         onMarkAbsent={() => {
           if (!profileBooking || !profileSession) return;
           void markAbsent(profileSession, profileBooking.booking);
@@ -873,6 +890,7 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
             sessionTime={session ? formatTimeRange(session.start_time, session.end_time) : ""}
             parentName={familySheet.parentName}
             rows={rows}
+            departures={REGISTER_DEPARTURES}
             arrivalsOpen={open}
             arrivalsOpenLabel={session && !open ? arrivalOpensLabel(session.session_date, session.start_time, now) : null}
             onMarkArrived={(b) => { if (session) void performCheckIn(b, session, "qr", null); }}

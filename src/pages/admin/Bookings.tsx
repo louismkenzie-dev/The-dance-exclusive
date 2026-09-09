@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { differenceInCalendarDays, format, startOfMonth } from "date-fns";
+import { addDays, differenceInCalendarDays, format, parseISO, startOfMonth, subDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -84,31 +84,130 @@ const passStatusBadge: Record<PassStatus, { label: string; variant: "default" | 
   used_up: { label: "Used up", variant: "outline" },
 };
 
+/** How far back a pass can be used for a class that has already run — the
+ *  member turned up without booking on, and the studio records it after. */
+const PASS_RECORD_LOOKBACK_DAYS = 42;
+const PASS_RECORD_LOOKAHEAD_DAYS = 28;
+
+interface AdultClassOption {
+  id: string;
+  name: string;
+  day_of_week: string | null;
+  start_time: string | null;
+  venues: { name: string } | null;
+}
+
 /** Admin view of every customer's multi-class pass: credits left and validity. */
 const ClassPassesTab = () => {
   const [passes, setPasses] = useState<ClassPass[]>([]);
   const [loading, setLoading] = useState(true);
   const { passes: passCatalog } = usePassCatalog();
+  const { toast } = useToast();
+
+  // "Record a class": use one of the pass's classes for a date they came to
+  // (usually one that has already run) without booking on.
+  const [recordFor, setRecordFor] = useState<ClassPass | null>(null);
+  const [adultClasses, setAdultClasses] = useState<AdultClassOption[]>([]);
+  const [recordClassId, setRecordClassId] = useState("");
+  const [recordDates, setRecordDates] = useState<{ id: string; session_date: string }[]>([]);
+  const [recordDate, setRecordDate] = useState("");
+  const [recordNote, setRecordNote] = useState("");
+  const [recordSaving, setRecordSaving] = useState(false);
+
+  const fetchPasses = async () => {
+    const { data } = await supabase
+      .from("class_passes")
+      .select("id, user_id, pass_type, sessions_total, sessions_remaining, amount_paid, purchased_at, expires_at")
+      .order("purchased_at", { ascending: false });
+    if (data) {
+      // No FK between class_passes.user_id and profiles — join client-side.
+      const userIds = [...new Set(data.map((p) => p.user_id))];
+      const { data: profiles } = userIds.length > 0
+        ? await supabase.from("profiles").select("user_id, full_name, email").in("user_id", userIds)
+        : { data: [] };
+      const profileMap = new Map((profiles ?? []).map((p) => [p.user_id, p]));
+      setPasses(data.map((p) => ({ ...p, profile: profileMap.get(p.user_id) ?? null })));
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchPasses = async () => {
-      const { data } = await supabase
-        .from("class_passes")
-        .select("id, user_id, pass_type, sessions_total, sessions_remaining, amount_paid, purchased_at, expires_at")
-        .order("purchased_at", { ascending: false });
-      if (data) {
-        // No FK between class_passes.user_id and profiles — join client-side.
-        const userIds = [...new Set(data.map((p) => p.user_id))];
-        const { data: profiles } = userIds.length > 0
-          ? await supabase.from("profiles").select("user_id, full_name, email").in("user_id", userIds)
-          : { data: [] };
-        const profileMap = new Map((profiles ?? []).map((p) => [p.user_id, p]));
-        setPasses(data.map((p) => ({ ...p, profile: profileMap.get(p.user_id) ?? null })));
-      }
-      setLoading(false);
-    };
-    fetchPasses();
+    void fetchPasses();
   }, []);
+
+  const openRecord = async (p: ClassPass) => {
+    setRecordFor(p);
+    setRecordClassId("");
+    setRecordDates([]);
+    setRecordDate("");
+    setRecordNote("");
+    if (adultClasses.length === 0) {
+      // Passes only ever cover adult classes; a 1:1 slot is never one of them.
+      const { data } = await supabase
+        .from("classes")
+        .select("id, name, day_of_week, start_time, venues:venue_id(name)")
+        .eq("is_active", true)
+        .eq("class_type", "adult")
+        .neq("invite_only", true)
+        .order("name");
+      setAdultClasses(((data as any[]) ?? []) as AdultClassOption[]);
+    }
+  };
+
+  const onRecordClassPicked = async (classId: string) => {
+    setRecordClassId(classId);
+    setRecordDate("");
+    const today = new Date();
+    const { data } = await supabase
+      .from("class_sessions")
+      .select("id, session_date")
+      .eq("class_id", classId)
+      .neq("status", "cancelled")
+      .gte("session_date", format(subDays(today, PASS_RECORD_LOOKBACK_DAYS), "yyyy-MM-dd"))
+      .lte("session_date", format(addDays(today, PASS_RECORD_LOOKAHEAD_DAYS), "yyyy-MM-dd"))
+      .order("session_date", { ascending: false });
+    setRecordDates(((data as any[]) ?? []) as { id: string; session_date: string }[]);
+  };
+
+  const saveRecord = async () => {
+    if (!recordFor || !recordClassId || !recordDate) return;
+    setRecordSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-book", {
+        body: {
+          mode: "redeem_pass",
+          userId: recordFor.user_id,
+          passId: recordFor.id,
+          classId: recordClassId,
+          sessionDate: recordDate,
+          note: recordNote.trim() || null,
+        },
+      });
+      let message = data?.error || error?.message;
+      const ctx = (error as { context?: Response } | null)?.context;
+      if (ctx && typeof ctx.json === "function") {
+        try {
+          const b = await ctx.json();
+          if (b?.error) message = b.error;
+        } catch { /* keep generic */ }
+      }
+      if (error || !data?.success) {
+        toast({ title: "Couldn't record that class", description: message || "Please try again.", variant: "destructive" });
+        return;
+      }
+      const left = Number(data.remaining);
+      toast({
+        title: "Class recorded",
+        description: `One class taken off the pass — ${Number.isFinite(left) ? left : "?"} left. They're on that date's register.`,
+      });
+      setRecordFor(null);
+      await fetchPasses();
+    } finally {
+      setRecordSaving(false);
+    }
+  };
+
+  const today = format(new Date(), "yyyy-MM-dd");
 
   // Active passes first (soonest expiry at the top), then past ones.
   const sorted = [...passes].sort((a, b) => {
@@ -140,6 +239,7 @@ const ClassPassesTab = () => {
                 <TableHead>Expires</TableHead>
                 <TableHead>Amount paid</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="text-right"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -171,6 +271,18 @@ const ClassPassesTab = () => {
                     <TableCell>
                       <Badge variant={badge.variant}>{badge.label}</Badge>
                     </TableCell>
+                    <TableCell className="text-right">
+                      {p.sessions_remaining > 0 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="whitespace-nowrap"
+                          onClick={() => void openRecord(p)}
+                        >
+                          Record a class
+                        </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -178,6 +290,74 @@ const ClassPassesTab = () => {
           </Table>
         </CardContent>
       </Card>
+
+      {/* They came to a class on this pass but never booked on: take a class
+          off the pass and put them on that date's register. */}
+      <Dialog open={!!recordFor} onOpenChange={(o) => { if (!o && !recordSaving) setRecordFor(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Record a class on this pass</DialogTitle>
+            <DialogDescription>
+              {recordFor?.profile?.full_name || "This member"} came to a class without booking on.
+              One class comes off the pass ({recordFor?.sessions_remaining ?? 0} left) and they go on that
+              date's register.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Class</label>
+              <Select value={recordClassId} onValueChange={(v) => void onRecordClassPicked(v)}>
+                <SelectTrigger><SelectValue placeholder="Choose the class they came to" /></SelectTrigger>
+                <SelectContent>
+                  {adultClasses.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                      {c.day_of_week ? ` — ${c.day_of_week}` : ""}
+                      {c.start_time ? ` ${c.start_time.slice(0, 5)}` : ""}
+                      {c.venues?.name ? ` · ${c.venues.name}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {recordClassId && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Date</label>
+                {recordDates.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No dates for this class in the last few weeks.</p>
+                ) : (
+                  <Select value={recordDate} onValueChange={setRecordDate}>
+                    <SelectTrigger><SelectValue placeholder="Pick the date they came" /></SelectTrigger>
+                    <SelectContent>
+                      {recordDates.map((s) => (
+                        <SelectItem key={s.id} value={s.session_date}>
+                          {format(parseISO(s.session_date), "EEE d MMM yyyy")}
+                          {s.session_date < today ? " — already run" : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Note (optional)</label>
+              <Input
+                value={recordNote}
+                onChange={(e) => setRecordNote(e.target.value)}
+                placeholder="e.g. forgot to book on"
+                maxLength={120}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRecordFor(null)} disabled={recordSaving}>Cancel</Button>
+            <Button onClick={() => void saveRecord()} disabled={recordSaving || !recordClassId || !recordDate}>
+              {recordSaving ? "Recording…" : "Take a class off the pass"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

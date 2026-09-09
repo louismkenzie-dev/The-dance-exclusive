@@ -565,6 +565,10 @@ interface FamilyGroup {
   /** Every non-ended row is an abandoned checkout — nothing was ever charged. */
   incompleteOnly: boolean;
   incompleteTotal: number;
+  /** A payment has failed, or a charge date has passed with nothing taken. */
+  needsAttention: boolean;
+  /** What that failure is worth, so the list can lead with the biggest. */
+  owed: number;
 }
 
 const STATUS_CHIP_ORDER = ["Active", "Payment issue", "Paused", "Ending", "Incomplete", "Ended"];
@@ -586,6 +590,9 @@ const MembershipsTab = () => {
   const [rows, setRows] = useState<PlanRow[]>([]);
   const [monthlyStats, setMonthlyStats] = useState({ activeCount: 0, recurring: 0, pausedCount: 0 });
   const [planFilter, setPlanFilter] = useState<"all" | PlanKind>("all");
+  /** Show only the families with money outstanding — the whole point of the
+   *  screen on most days, and impossible to find among hundreds of actives. */
+  const [attentionOnly, setAttentionOnly] = useState(false);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [moveTarget, setMoveTarget] = useState<MoveMembershipTarget | null>(null);
@@ -806,13 +813,30 @@ const MembershipsTab = () => {
         hasLive: familyRows.some((r) => r.live),
         incompleteOnly: charging.length === 0 && incomplete.length > 0,
         incompleteTotal: incomplete.reduce((sum, r) => sum + r.amount, 0),
+        needsAttention: familyRows.some((r) => r.membershipStatus === "past_due" || r.paymentOverdue),
+        owed: familyRows
+          .filter((r) => r.membershipStatus === "past_due" || r.paymentOverdue)
+          .reduce((sum, r) => sum + r.amount, 0),
       };
     })
     .filter((g) => g.rows.some(matchesSearch))
-    .sort((a, b) => (a.hasLive !== b.hasLive ? (a.hasLive ? -1 : 1) : a.name.localeCompare(b.name)));
+    // Anything needing chasing floats to the top, most owed first — the rest
+    // of the book is hundreds of memberships nobody needs to look at.
+    .sort((a, b) =>
+      a.needsAttention !== b.needsAttention
+        ? (a.needsAttention ? -1 : 1)
+        : a.needsAttention
+          ? b.owed - a.owed || a.name.localeCompare(b.name)
+          : a.hasLive !== b.hasLive
+            ? (a.hasLive ? -1 : 1)
+            : a.name.localeCompare(b.name),
+    );
 
-  const payingGroups = familyGroups.filter((g) => !g.incompleteOnly);
-  const abandonedGroups = familyGroups.filter((g) => g.incompleteOnly);
+  const attentionCount = familyGroups.filter((g) => g.needsAttention).length;
+  const payingGroups = familyGroups
+    .filter((g) => !g.incompleteOnly)
+    .filter((g) => !attentionOnly || g.needsAttention);
+  const abandonedGroups = attentionOnly ? [] : familyGroups.filter((g) => g.incompleteOnly);
 
   // What a membership row can have done to it, and the one-off payment
   // changes still to come — shared by the phone card and the desktop table.
@@ -859,9 +883,11 @@ const MembershipsTab = () => {
   );
 
   const showMonthly = planFilter === "all" || planFilter === "monthly";
-  const showOneOff = planFilter !== "monthly";
+  // One-off plans are paid up front, so nothing there can be outstanding.
+  const showOneOff = planFilter !== "monthly" && !attentionOnly;
   const nothingToShow =
-    (!showMonthly || familyGroups.length === 0) && (!showOneOff || oneOffSorted.length === 0);
+    (!showMonthly || payingGroups.length + abandonedGroups.length === 0) &&
+    (!showOneOff || oneOffSorted.length === 0);
 
   if (loading) return <div className="text-muted-foreground">Loading plans...</div>;
   if (rows.length === 0) {
@@ -950,6 +976,18 @@ const MembershipsTab = () => {
           />
         </div>
         <ChipRow>
+          {attentionCount > 0 && (
+            <Chip
+              selected={attentionOnly}
+              onClick={() => setAttentionOnly((v) => !v)}
+              trailing={attentionCount}
+              className={attentionOnly
+                ? "border-amber-500 bg-amber-500 text-white"
+                : "border-amber-500/50 text-amber-600 dark:text-amber-400"}
+            >
+              ★ Needs chasing
+            </Chip>
+          )}
           <Chip selected={planFilter === "all"} onClick={() => setPlanFilter("all")} trailing={rows.length}>
             All
           </Chip>
@@ -961,6 +999,13 @@ const MembershipsTab = () => {
         </ChipRow>
       </div>
 
+      {attentionOnly && (
+        <p className="text-sm text-muted-foreground">
+          Showing the {attentionCount} famil{attentionCount === 1 ? "y" : "ies"} with a payment outstanding.
+          Tap the chip again for everyone.
+        </p>
+      )}
+
       {nothingToShow ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">No plans match your search.</CardContent></Card>
       ) : (
@@ -969,7 +1014,8 @@ const MembershipsTab = () => {
             <div className="space-y-3">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Monthly memberships</h3>
               {payingGroups.map((g) => (
-                <Collapsible key={g.email}>
+                // A family that owes something opens already showing why.
+                <Collapsible key={g.email} defaultOpen={g.needsAttention}>
                   <Card className="animate-fade-in">
                     <CollapsibleTrigger asChild>
                       <CardContent className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-4 cursor-pointer hover:bg-accent/30 transition-colors">

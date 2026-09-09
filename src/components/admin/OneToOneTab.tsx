@@ -37,16 +37,30 @@ interface InviteRow {
   student_id: string;
   parent_id: string;
   price: number;
+  plan: string;
+  /** Set when the studio named the dates (a payment link); null for a
+   *  one-to-one, which is the whole run of its private class. */
+  session_dates: string[] | null;
   status: string;
   created_at: string;
   classes: {
     name: string;
     is_active: boolean;
+    /** A one-to-one lives on its own private class; a payment link sits
+     *  on an ordinary shared class that other families are also on. */
+    invite_only: boolean;
+    class_type: "children" | "adult";
     location_note: string | null;
     venues: { name: string } | null;
   } | null;
-  students: { first_name: string; last_name: string } | null;
+  students: { first_name: string; last_name: string; is_self: boolean } | null;
 }
+
+/** One family's place on one class — the unit every status and action is
+ *  judged on. A shared class has many families on it; only this one's
+ *  booking counts for this invite. */
+const familyKey = (x: { class_id: string; parent_id: string; student_id?: string | null }) =>
+  `${x.class_id}|${x.parent_id}|${x.student_id ?? ""}`;
 
 interface StudentOption {
   id: string;
@@ -78,10 +92,12 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
   const { toast } = useToast();
   const [invites, setInvites] = useState<InviteRow[]>([]);
   const [sessionDates, setSessionDates] = useState<Record<string, { dates: string[]; start: string; end: string }>>({});
-  const [bookedClassIds, setBookedClassIds] = useState<Set<string>>(new Set());
-  /** The paid booking behind each invite, keyed by class — this is what the
-   *  Breakdown / Move / Refund / Cancel actions act on. */
-  const [bookingByClass, setBookingByClass] = useState<Record<string, OneToOneBooking>>({});
+  /** Family-keys (see familyKey) that hold a confirmed booking. */
+  const [paidKeys, setPaidKeys] = useState<Set<string>>(new Set());
+  /** This family's booking behind each invite — what Breakdown / Move /
+   *  Refund / Cancel act on. Keyed per family, never per class: on a
+   *  shared class that would pick up someone else's booking. */
+  const [bookingFor, setBookingFor] = useState<Record<string, OneToOneBooking>>({});
   const [parents, setParents] = useState<Record<string, { full_name: string; email: string; phone: string | null }>>({});
   const [parentNames, setParentNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -103,7 +119,7 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
 
   const fetchInvites = useCallback(async () => {
     const { data } = await (supabase as any).from("class_invites")
-      .select("id, class_id, student_id, parent_id, price, status, created_at, classes:class_id(name, is_active, location_note, venues:venue_id(name)), students:student_id(first_name, last_name)")
+      .select("id, class_id, student_id, parent_id, price, plan, session_dates, status, created_at, classes:class_id(name, is_active, invite_only, class_type, location_note, venues:venue_id(name)), students:student_id(first_name, last_name, is_self)")
       .order("created_at", { ascending: false });
     const rows = (data ?? []) as InviteRow[];
     setInvites(rows);
@@ -122,9 +138,14 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
           .in("class_id", classIds)
           .neq("status", "cancelled"),
       ]);
-      const byClassBooking: Record<string, OneToOneBooking> = {};
-      for (const b of ((bookings as any[]) ?? [])) if (b.class_id) byClassBooking[b.class_id] = b as OneToOneBooking;
-      setBookingByClass(byClassBooking);
+      const byFamily: Record<string, OneToOneBooking> = {};
+      for (const b of ((bookings as any[]) ?? [])) {
+        if (!b.class_id) continue;
+        const key = familyKey(b);
+        // A confirmed booking wins over one still awaiting payment.
+        if (!byFamily[key] || (byFamily[key].status !== "confirmed" && b.status === "confirmed")) byFamily[key] = b as OneToOneBooking;
+      }
+      setBookingFor(byFamily);
       const byClass: Record<string, { dates: string[]; start: string; end: string }> = {};
       for (const s of (sessions as any[]) ?? []) {
         const entry = byClass[s.class_id] ?? { dates: [], start: s.start_time, end: s.end_time };
@@ -133,7 +154,7 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
       }
       for (const entry of Object.values(byClass)) entry.dates.sort();
       setSessionDates(byClass);
-      setBookedClassIds(new Set(((bookings as any[]) ?? []).filter((b) => b.status === "confirmed").map((b) => b.class_id)));
+      setPaidKeys(new Set(((bookings as any[]) ?? []).filter((b) => b.status === "confirmed" && b.class_id).map((b) => familyKey(b))));
     }
     if (parentIds.length > 0) {
       const { data: profiles } = await supabase.from("profiles").select("user_id, full_name, email, phone").in("user_id", parentIds);
@@ -189,7 +210,7 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
     () => [...new Set(editDates.map((d) => d.trim()).filter(Boolean))].sort(),
     [editDates],
   );
-  const paidFor = editInvite ? bookedClassIds.has(editInvite.class_id) : false;
+  const paidFor = editInvite ? paidKeys.has(familyKey(editInvite)) : false;
 
   const saveEdit = async () => {
     if (!editInvite) return;
@@ -344,8 +365,12 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
       .update({ status: "cancelled" })
       .eq("id", invite.id);
     if (!error) {
-      await supabase.from("classes").update({ is_active: false }).eq("id", invite.class_id);
-      toast({ title: "Invite cancelled" });
+      // A one-to-one's private class dies with its invite. A payment link
+      // sits on a shared class that other families are on — that stays.
+      if (invite.classes?.invite_only) {
+        await supabase.from("classes").update({ is_active: false }).eq("id", invite.class_id);
+      }
+      toast({ title: invite.classes?.invite_only ? "Invite cancelled" : "Payment link cancelled" });
       void fetchInvites();
     } else {
       toast({ title: "Couldn't cancel", description: error.message, variant: "destructive" });
@@ -353,9 +378,119 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
   };
 
   const statusFor = (invite: InviteRow): { label: string; className: string } => {
+    const oneToOne = !!invite.classes?.invite_only;
     if (invite.status === "cancelled") return { label: "Cancelled", className: "bg-muted text-muted-foreground" };
-    if (bookedClassIds.has(invite.class_id)) return { label: "Booked & paid", className: "bg-emerald-600 text-white" };
-    return { label: "Awaiting booking", className: "bg-amber-500 text-white" };
+    if (paidKeys.has(familyKey(invite))) {
+      return { label: oneToOne ? "Booked & paid" : "Paid", className: "bg-emerald-600 text-white" };
+    }
+    return { label: oneToOne ? "Awaiting booking" : "Link sent — awaiting payment", className: "bg-amber-500 text-white" };
+  };
+
+  const todayISO = format(new Date(), "yyyy-MM-dd");
+  const oneToOnes = useMemo(() => invites.filter((i) => i.classes?.invite_only), [invites]);
+  const paymentLinks = useMemo(() => invites.filter((i) => !i.classes?.invite_only), [invites]);
+
+  const renderInvite = (invite: InviteRow) => {
+    const s = statusFor(invite);
+    const oneToOne = !!invite.classes?.invite_only;
+    const classSession = sessionDates[invite.class_id];
+    // A payment link names its own dates; a one-to-one is the whole run of
+    // its private class.
+    const dates = invite.session_dates?.length ? [...invite.session_dates].sort() : (classSession?.dates ?? []);
+    const booking = bookingFor[familyKey(invite)];
+    const paid = paidKeys.has(familyKey(invite));
+    const priced = Number(invite.price) > 0;
+    const total = Number(invite.price) * Math.max(1, dates.length);
+    const pastCount = dates.filter((d) => d < todayISO).length;
+    const student = invite.students;
+    const parentName = parentNames[invite.parent_id];
+    // An adult booking themselves is their own parent — no need to say so twice.
+    const showParent = !!parentName && !student?.is_self && parentName !== `${student?.first_name} ${student?.last_name}`;
+    return (
+      <Card key={invite.id} className="animate-fade-in">
+        <CardContent className="py-4 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold">{invite.classes?.name ?? (oneToOne ? "One-to-one" : "Class")}</span>
+                <Badge className={s.className}>{s.label}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1 flex items-center gap-3 flex-wrap">
+                <span className="flex items-center gap-1">
+                  <User className="w-3.5 h-3.5" />
+                  {student ? `${student.first_name} ${student.last_name}` : "—"}
+                  {showParent && ` (${parentName})`}
+                </span>
+                {dates.length > 0 && (
+                  <span className="flex items-center gap-1">
+                    <CalendarDays className="w-3.5 h-3.5" />
+                    {dates.length === 1
+                      ? `${format(parseISO(dates[0]), "EEE d MMM yyyy")}${dates[0] < todayISO ? " — already run" : ""}`
+                      : `${dates.length} sessions from ${format(parseISO(dates[0]), "EEE d MMM")}`}
+                  </span>
+                )}
+                {classSession && (
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" />
+                    {prettyTime(classSession.start.slice(0, 5))} – {prettyTime(classSession.end.slice(0, 5))}
+                  </span>
+                )}
+                {(invite.classes?.venues?.name || invite.classes?.location_note) && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5" />
+                    {invite.classes.venues?.name ?? invite.classes.location_note}
+                  </span>
+                )}
+              </p>
+              {dates.length > 1 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {dates.map((d) => format(parseISO(d), "d MMM")).join(" · ")}
+                  {pastCount > 0 && ` · ${pastCount} already run`}
+                </p>
+              )}
+            </div>
+            <div className="shrink-0 text-right">
+              {priced ? (
+                <>
+                  <span className="font-bold whitespace-nowrap">£{total.toFixed(2)}</span>
+                  {dates.length > 1 && (
+                    <span className="block text-xs text-muted-foreground whitespace-nowrap">£{Number(invite.price).toFixed(2)} each</span>
+                  )}
+                </>
+              ) : (
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Priced at checkout</span>
+              )}
+            </div>
+          </div>
+
+          {/* Actions on their own line so they wrap on a phone instead of
+              pushing the price and the last button off the edge. */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Editing rewrites the class's sessions — only safe on a
+                private one-to-one class. */}
+            {oneToOne && (
+              <Button size="sm" variant="outline" onClick={() => openEdit(invite)}>Edit</Button>
+            )}
+            {invite.status === "pending" && !paid && (
+              <Button size="sm" variant="outline" onClick={() => cancelInvite(invite)}>
+                {oneToOne ? "Cancel invite" : "Cancel link"}
+              </Button>
+            )}
+            {/* Once they've paid, this family's booking gets the same
+                actions as any other booking. */}
+            {booking && <BookingActions booking={booking} actions={actions} />}
+          </div>
+
+          {booking && actions.breakdownId === booking.id && (
+            <BookingBreakdown
+              booking={booking as any}
+              parent={parents[invite.parent_id] ?? null}
+              samePayment={paymentSiblings(booking)}
+            />
+          )}
+        </CardContent>
+      </Card>
+    );
   };
 
   return (
@@ -364,6 +499,7 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
         <p className="text-sm text-muted-foreground max-w-xl">
           Invite a specific child to a private session. The parent gets an email and a
           &quot;Book &amp; pay&quot; card in their portal; once paid, the session appears on the register.
+          Payment links you send from Add booking are listed here too.
         </p>
         <Button onClick={openCreate}><Plus className="w-4 h-4 mr-1.5" /> New one-to-one</Button>
       </div>
@@ -373,85 +509,32 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
       ) : invites.length === 0 ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">No one-to-ones yet — create the first invite.</CardContent></Card>
       ) : (
-        <div className="space-y-3">
-          {invites.map((invite) => {
-            const s = statusFor(invite);
-            const session = sessionDates[invite.class_id];
-            const booking = bookingByClass[invite.class_id];
-            return (
-              <Card key={invite.id} className="animate-fade-in">
-                <CardContent className="py-4">
-                  <div className="flex items-center justify-between gap-4 flex-wrap">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold">{invite.classes?.name ?? "One-to-one"}</span>
-                      <Badge className={s.className}>{s.label}</Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1 flex items-center gap-3 flex-wrap">
-                      <span className="flex items-center gap-1">
-                        <User className="w-3.5 h-3.5" />
-                        {invite.students ? `${invite.students.first_name} ${invite.students.last_name}` : "—"}
-                        {parentNames[invite.parent_id] && ` (${parentNames[invite.parent_id]})`}
-                      </span>
-                      {session && session.dates.length > 0 && (
-                        <span className="flex items-center gap-1">
-                          <CalendarDays className="w-3.5 h-3.5" />
-                          {session.dates.length === 1
-                            ? format(parseISO(session.dates[0]), "EEE d MMM yyyy")
-                            : `${session.dates.length} sessions from ${format(parseISO(session.dates[0]), "EEE d MMM")}`}
-                        </span>
-                      )}
-                      {session && (
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" />
-                          {prettyTime(session.start.slice(0, 5))} – {prettyTime(session.end.slice(0, 5))}
-                        </span>
-                      )}
-                      {(invite.classes?.venues?.name || invite.classes?.location_note) && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5" />
-                          {invite.classes.venues?.name ?? invite.classes.location_note}
-                        </span>
-                      )}
-                    </p>
-                    {session && session.dates.length > 1 && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {session.dates.map((d) => format(parseISO(d), "d MMM")).join(" · ")}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                    <span className="font-bold">
-                      £{(Number(invite.price) * Math.max(1, session?.dates.length ?? 1)).toFixed(2)}
-                      {session && session.dates.length > 1 && (
-                        <span className="block text-xs font-normal text-muted-foreground text-right">
-                          £{Number(invite.price).toFixed(2)} each
-                        </span>
-                      )}
-                    </span>
-                    <div className="flex items-center justify-end gap-2 flex-wrap">
-                      <Button size="sm" variant="outline" onClick={() => openEdit(invite)}>Edit</Button>
-                      {invite.status === "pending" && !bookedClassIds.has(invite.class_id) && (
-                        <Button size="sm" variant="outline" onClick={() => cancelInvite(invite)}>Cancel invite</Button>
-                      )}
-                    </div>
-                    {/* Once they've paid, the booking behind the invite gets
-                        the same actions as any other booking. */}
-                    {booking && <BookingActions booking={booking} actions={actions} />}
-                  </div>
-                  </div>
-
-                  {booking && actions.breakdownId === booking.id && (
-                    <BookingBreakdown
-                      booking={booking as any}
-                      parent={parents[invite.parent_id] ?? null}
-                      samePayment={paymentSiblings(booking)}
-                    />
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+        <div className="space-y-6">
+          {oneToOnes.length > 0 && (
+            <section className="space-y-3">
+              {paymentLinks.length > 0 && (
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  One-to-ones · {oneToOnes.length}
+                </h3>
+              )}
+              {oneToOnes.map(renderInvite)}
+            </section>
+          )}
+          {paymentLinks.length > 0 && (
+            <section className="space-y-3">
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Payment links · {paymentLinks.length}
+                </h3>
+                <p className="text-xs text-muted-foreground mt-1 max-w-xl">
+                  Places set up by hand from Add booking. The family has a link to pay for exactly
+                  these dates at this price; once paid, the booking shows here and under Bookings
+                  with the usual actions.
+                </p>
+              </div>
+              {paymentLinks.map(renderInvite)}
+            </section>
+          )}
         </div>
       )}
 

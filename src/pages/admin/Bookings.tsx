@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { AlertCircle, ChevronDown, Plus } from "lucide-react";
+import { AlertCircle, ChevronDown, Plus, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { passLabelOf, usePassCatalog } from "@/lib/passCatalog";
 import MoveMembershipDialog, { type MoveMembershipTarget } from "@/components/admin/MoveMembershipDialog";
@@ -26,6 +26,9 @@ import {
   type BookingActionHandlers,
 } from "@/components/admin/BookingActions";
 import { paymentRefOf } from "@/lib/bookingBreakdown";
+import { Chip, ChipRow } from "@/components/booking/Chips";
+import { EmptyState } from "@/components/booking/EmptyState";
+import { StatusPill, TonePill, planLabel } from "@/components/admin/StatusPill";
 
 interface Booking {
   id: string;
@@ -52,11 +55,20 @@ interface Booking {
   camps?: { name: string } | null;
 }
 
-const statusColors: Record<string, "default" | "secondary" | "destructive"> = {
-  confirmed: "default",
-  pending_payment: "secondary",
-  cancelled: "destructive",
-};
+const BOOKING_TABS = [
+  { id: "bookings", label: "Bookings" },
+  { id: "trials", label: "Trials" },
+  { id: "one-to-ones", label: "One-to-ones" },
+  { id: "passes", label: "Class Passes" },
+  { id: "memberships", label: "Memberships & Plans" },
+];
+
+const STATUS_FILTERS = [
+  { id: "all", label: "All" },
+  { id: "confirmed", label: "Confirmed" },
+  { id: "pending_payment", label: "Awaiting payment" },
+  { id: "cancelled", label: "Cancelled" },
+];
 
 interface ClassPass {
   id: string;
@@ -229,6 +241,51 @@ const ClassPassesTab = () => {
       </p>
       <Card className="animate-fade-in">
         <CardContent className="p-0">
+          {/* Phone: one card per pass, with what's left shown as a bar. */}
+          <div className="divide-y divide-border/70 md:hidden">
+            {sorted.map((p) => {
+              const status = passStatus(p);
+              const badge = passStatusBadge[status];
+              const expiryDate = new Date(p.expires_at);
+              const isExpired = expiryDate.getTime() < Date.now();
+              const daysLeft = differenceInCalendarDays(expiryDate, new Date());
+              const used = Math.max(0, p.sessions_total - p.sessions_remaining);
+              const pct = p.sessions_total > 0 ? Math.round((used / p.sessions_total) * 100) : 0;
+              return (
+                <div key={p.id} className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{p.profile?.full_name || "Unknown"}</p>
+                      <p className="truncate text-xs text-muted-foreground">{p.profile?.email || "—"}</p>
+                    </div>
+                    <TonePill tone={status === "active" ? "success" : "neutral"}>{badge.label}</TonePill>
+                  </div>
+                  <div className="mt-2.5 flex items-center justify-between gap-3 text-sm">
+                    <span className="truncate">{passLabelOf(passCatalog, p.pass_type)}</span>
+                    <span className="shrink-0 tabular-nums">
+                      <strong>{p.sessions_remaining}</strong>
+                      <span className="text-muted-foreground"> of {p.sessions_total} left</span>
+                    </span>
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
+                    <div className={`h-full rounded-full ${status === "active" ? "bg-primary" : "bg-muted-foreground/40"}`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                    <span>Bought {format(new Date(p.purchased_at), "d MMM")} · £{Number(p.amount_paid).toFixed(2)}</span>
+                    <span className={isExpired ? "text-destructive" : undefined}>
+                      {isExpired ? `Expired ${format(expiryDate, "d MMM")}` : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`}
+                    </span>
+                  </div>
+                  {p.sessions_remaining > 0 && (
+                    <Button variant="outline" className="mt-3 h-11 w-full rounded-full" onClick={() => void openRecord(p)}>
+                      Record a class
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -288,6 +345,7 @@ const ClassPassesTab = () => {
               })}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 
@@ -703,6 +761,50 @@ const MembershipsTab = () => {
   const payingGroups = familyGroups.filter((g) => !g.incompleteOnly);
   const abandonedGroups = familyGroups.filter((g) => g.incompleteOnly);
 
+  // What a membership row can have done to it, and the one-off payment
+  // changes still to come — shared by the phone card and the desktop table.
+  const rowExtras = (r: PlanRow) => {
+    // Only payments not yet taken: once the 5th has been charged, that
+    // month's adjustment is history.
+    const nextChargeKey = r.nextCharge ? paymentMonthKey(r.nextCharge) : null;
+    const rowAdjustments = (r.membershipId ? adjustmentsByMembership.get(r.membershipId) ?? [] : [])
+      .filter((a) => !nextChargeKey || a.billing_month.slice(0, 7) >= nextChargeKey);
+    const canMove = !!r.membershipId && (r.statusLabel === "Active" || r.statusLabel === "Paused");
+    const canAdjust =
+      !!r.membershipId &&
+      (r.statusLabel === "Active" || r.statusLabel === "Paused" || r.statusLabel === "Payment issue");
+    return { rowAdjustments, canMove, canAdjust };
+  };
+  const openMoveFor = (r: PlanRow) => setMoveTarget({
+    membershipId: r.membershipId!,
+    parentName: r.parentName,
+    childName: r.childName,
+    className: r.className,
+    classId: r.classId,
+  });
+  const openAdjustFor = (r: PlanRow) => setAdjustTarget({
+    id: r.membershipId!,
+    monthly_amount: r.amount,
+    current_period_end: r.nextCharge,
+    free_month: r.freeMonth,
+    className: r.className,
+    studentName: r.childName !== "—" ? r.childName : null,
+    status: r.membershipStatus ?? "",
+  });
+  const adjustmentBadge = (a: RowAdjustment) => (
+    <Badge
+      key={a.billing_month}
+      variant="outline"
+      className={`w-fit text-[10px] whitespace-nowrap ${
+        a.amount < 0
+          ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
+          : "border-amber-500/40 text-amber-600 dark:text-amber-400"
+      }`}
+    >
+      {adjustmentBadgeLabel(a)}
+    </Badge>
+  );
+
   const showMonthly = planFilter === "all" || planFilter === "monthly";
   const showOneOff = planFilter !== "monthly";
   const nothingToShow =
@@ -762,7 +864,7 @@ const MembershipsTab = () => {
                   )}
                   <a
                     href={`mailto:${f.email}`}
-                    className="text-sm text-primary hover:underline ml-auto"
+                    className="min-w-0 break-all text-sm text-primary hover:underline sm:ml-auto"
                   >
                     {f.email}
                   </a>
@@ -783,30 +885,27 @@ const MembershipsTab = () => {
         )}
       </p>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          size="sm"
-          variant={planFilter === "all" ? "default" : "outline"}
-          onClick={() => setPlanFilter("all")}
-        >
-          All ({rows.length})
-        </Button>
-        {PLAN_ORDER.filter((p) => counts[p] > 0).map((p) => (
-          <Button
-            key={p}
-            size="sm"
-            variant={planFilter === p ? "default" : "outline"}
-            onClick={() => setPlanFilter(p)}
-          >
-            {planMeta[p].label} ({counts[p]})
-          </Button>
-        ))}
-        <Input
-          placeholder="Search parent, child or class..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="max-w-xs ml-auto"
-        />
+      <div className="space-y-3">
+        <div className="relative md:max-w-sm">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Input
+            placeholder="Search parent, child or class"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-11 rounded-full pl-10"
+            aria-label="Search plans"
+          />
+        </div>
+        <ChipRow>
+          <Chip selected={planFilter === "all"} onClick={() => setPlanFilter("all")} trailing={rows.length}>
+            All
+          </Chip>
+          {PLAN_ORDER.filter((p) => counts[p] > 0).map((p) => (
+            <Chip key={p} selected={planFilter === p} onClick={() => setPlanFilter(p)} trailing={counts[p]}>
+              {planMeta[p].label}
+            </Chip>
+          ))}
+        </ChipRow>
       </div>
 
       {nothingToShow ? (
@@ -842,6 +941,60 @@ const MembershipsTab = () => {
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <div className="border-t border-border">
+                        {/* Phone: one block per membership with its two actions
+                            as full-width buttons. */}
+                        <div className="divide-y divide-border/70 md:hidden">
+                          {g.rows.map((r) => {
+                            const { rowAdjustments, canMove, canAdjust } = rowExtras(r);
+                            return (
+                              <div key={r.key} className="p-4">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="truncate font-semibold">{r.childName}</p>
+                                    <p className="truncate text-sm text-muted-foreground">
+                                      {r.className}
+                                      {r.classSchedule && ` · ${r.classSchedule}`}
+                                    </p>
+                                  </div>
+                                  <div className="shrink-0 text-right">
+                                    <p className="font-semibold tabular-nums">
+                                      £{r.amount.toFixed(2)}
+                                      <span className="text-xs font-normal text-muted-foreground">/mo</span>
+                                    </p>
+                                    <Badge variant="outline" className={`mt-1 ${r.statusClass}`}>{r.statusLabel}</Badge>
+                                  </div>
+                                </div>
+                                {rowAdjustments.length > 0 && (
+                                  <div className="mt-2 flex flex-wrap gap-1">{rowAdjustments.map(adjustmentBadge)}</div>
+                                )}
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                  Started {format(new Date(r.started), "d MMM yyyy")}
+                                  {r.nextCharge && ` · Next charge ${format(new Date(r.nextCharge), "d MMM")}`}
+                                  {r.ends && ` · Ends ${format(new Date(r.ends), "d MMM yyyy")}`}
+                                </p>
+                                {(canMove || canAdjust) && (
+                                  <div className="mt-3 grid grid-cols-2 gap-2">
+                                    {canMove && (
+                                      <Button variant="outline" className="h-10 rounded-full" onClick={() => openMoveFor(r)}>
+                                        Move class
+                                      </Button>
+                                    )}
+                                    {canAdjust && (
+                                      <Button
+                                        variant="outline"
+                                        className={`h-10 rounded-full ${canMove ? "" : "col-span-2"}`}
+                                        onClick={() => openAdjustFor(r)}
+                                      >
+                                        Adjust payment
+                                      </Button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="hidden md:block">
                         <Table>
                           <TableHeader>
                             <TableRow>
@@ -857,14 +1010,7 @@ const MembershipsTab = () => {
                           </TableHeader>
                           <TableBody>
                             {g.rows.map((r) => {
-                              // Only payments not yet taken: once the 5th has been
-                              // charged, that month's adjustment is history.
-                              const nextChargeKey = r.nextCharge ? paymentMonthKey(r.nextCharge) : null;
-                              const rowAdjustments = (r.membershipId ? adjustmentsByMembership.get(r.membershipId) ?? [] : [])
-                                .filter((a) => !nextChargeKey || a.billing_month.slice(0, 7) >= nextChargeKey);
-                              const canAdjust =
-                                !!r.membershipId &&
-                                (r.statusLabel === "Active" || r.statusLabel === "Paused" || r.statusLabel === "Payment issue");
+                              const { rowAdjustments, canMove, canAdjust } = rowExtras(r);
                               return (
                               <TableRow key={r.key}>
                                 <TableCell>{r.childName}</TableCell>
@@ -876,19 +1022,9 @@ const MembershipsTab = () => {
                                 </TableCell>
                                 <TableCell>
                                   £{r.amount.toFixed(2)}
-                                  {rowAdjustments.map((a) => (
-                                    <Badge
-                                      key={a.billing_month}
-                                      variant="outline"
-                                      className={`block w-fit mt-1 text-[10px] whitespace-nowrap ${
-                                        a.amount < 0
-                                          ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
-                                          : "border-amber-500/40 text-amber-600 dark:text-amber-400"
-                                      }`}
-                                    >
-                                      {adjustmentBadgeLabel(a)}
-                                    </Badge>
-                                  ))}
+                                  {rowAdjustments.length > 0 && (
+                                    <div className="mt-1 flex flex-col gap-1">{rowAdjustments.map(adjustmentBadge)}</div>
+                                  )}
                                 </TableCell>
                                 <TableCell>
                                   <Badge variant="outline" className={r.statusClass}>{r.statusLabel}</Badge>
@@ -898,19 +1034,8 @@ const MembershipsTab = () => {
                                 <TableCell>{r.ends ? format(new Date(r.ends), "d MMM yyyy") : "—"}</TableCell>
                                 <TableCell className="text-right">
                                   <div className="flex justify-end gap-1.5">
-                                    {r.membershipId && (r.statusLabel === "Active" || r.statusLabel === "Paused") && (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="h-7 px-2 text-xs"
-                                        onClick={() => setMoveTarget({
-                                          membershipId: r.membershipId!,
-                                          parentName: r.parentName,
-                                          childName: r.childName,
-                                          className: r.className,
-                                          classId: r.classId,
-                                        })}
-                                      >
+                                    {canMove && (
+                                      <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => openMoveFor(r)}>
                                         Move
                                       </Button>
                                     )}
@@ -919,15 +1044,7 @@ const MembershipsTab = () => {
                                         size="sm"
                                         variant="outline"
                                         className="h-7 px-2 text-xs whitespace-nowrap"
-                                        onClick={() => setAdjustTarget({
-                                          id: r.membershipId!,
-                                          monthly_amount: r.amount,
-                                          current_period_end: r.nextCharge,
-                                          free_month: r.freeMonth,
-                                          className: r.className,
-                                          studentName: r.childName !== "—" ? r.childName : null,
-                                          status: r.membershipStatus ?? "",
-                                        })}
+                                        onClick={() => openAdjustFor(r)}
                                       >
                                         Adjust payment
                                       </Button>
@@ -939,6 +1056,7 @@ const MembershipsTab = () => {
                             })}
                           </TableBody>
                         </Table>
+                        </div>
                       </div>
                     </CollapsibleContent>
                   </Card>
@@ -977,7 +1095,7 @@ const MembershipsTab = () => {
                       </CardContent>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
-                      <div className="border-t border-border">
+                      <div className="overflow-x-auto border-t border-border">
                         <Table>
                           <TableHeader>
                             <TableRow>
@@ -1034,6 +1152,32 @@ const MembershipsTab = () => {
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">One-off plans</h3>
               <Card className="animate-fade-in">
                 <CardContent className="p-0">
+                  <div className="divide-y divide-border/70 md:hidden">
+                    {oneOffSorted.map((r) => (
+                      <div key={r.key} className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold">{r.childName !== "—" ? r.childName : r.parentName}</p>
+                            <p className="truncate text-sm text-muted-foreground">
+                              {r.className}
+                              {r.classSchedule && ` · ${r.classSchedule}`}
+                            </p>
+                            {r.childName !== "—" && (
+                              <p className="truncate text-xs text-muted-foreground">{r.parentName}</p>
+                            )}
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="font-semibold tabular-nums">£{r.amount.toFixed(2)}</p>
+                            <Badge variant="outline" className={`mt-1 ${planMeta[r.plan].className}`}>{planMeta[r.plan].label}</Badge>
+                          </div>
+                        </div>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {r.statusLabel} · {format(new Date(r.started), "d MMM yyyy")}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="hidden md:block">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -1079,6 +1223,7 @@ const MembershipsTab = () => {
                       ))}
                     </TableBody>
                   </Table>
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -1095,6 +1240,7 @@ const AdminBookings = () => {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
+  const [tab, setTab] = useState("bookings");
   // Which booking's "what did they pay for?" panel is open.
   const [breakdownId, setBreakdownId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -1356,83 +1502,125 @@ const AdminBookings = () => {
     );
   });
 
+  const statusCounts = bookings.reduce<Record<string, number>>((acc, b) => {
+    acc[b.status] = (acc[b.status] ?? 0) + 1;
+    return acc;
+  }, {});
+
   return (
-    <div className="p-4 md:p-8">
-      <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
+    <div className="p-4 pb-28 md:p-8">
+      <div className="mb-5 flex items-start justify-between gap-4 md:mb-8">
         <div>
-          <h1 className="text-3xl font-display font-bold">Bookings</h1>
-          <p className="text-muted-foreground mt-1">Manage all bookings</p>
+          <h1 className="text-2xl font-display font-bold md:text-3xl">Bookings</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground md:mt-1 md:text-base">Manage all bookings</p>
         </div>
-        <Button onClick={() => setAddOpen(true)}>
+        <Button onClick={() => setAddOpen(true)} className="hidden md:inline-flex">
           <Plus className="w-4 h-4 mr-1.5" /> Add booking
         </Button>
       </div>
 
-      <Tabs defaultValue="bookings">
-        <TabsList className="mb-6">
-          <TabsTrigger value="bookings">Bookings</TabsTrigger>
-          <TabsTrigger value="trials">Trials</TabsTrigger>
-          <TabsTrigger value="one-to-ones">One-to-ones</TabsTrigger>
-          <TabsTrigger value="passes">Class Passes</TabsTrigger>
-          <TabsTrigger value="memberships">Memberships & Plans</TabsTrigger>
+      {/* On a phone the one thing you come here to do sits in thumb reach. */}
+      <button
+        type="button"
+        onClick={() => setAddOpen(true)}
+        className="pressable fixed right-4 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-primary pl-4 pr-5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/30 md:hidden"
+        style={{ bottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}
+      >
+        <Plus className="h-5 w-5" /> Add booking
+      </button>
+
+      <Tabs value={tab} onValueChange={setTab}>
+        {/* Phone: a row of chips that scrolls sideways; desktop: the tab bar. */}
+        <ChipRow className="mb-4 md:hidden">
+          {BOOKING_TABS.map((t) => (
+            <Chip key={t.id} selected={tab === t.id} onClick={() => setTab(t.id)}>{t.label}</Chip>
+          ))}
+        </ChipRow>
+        <TabsList className="mb-6 hidden md:inline-flex">
+          {BOOKING_TABS.map((t) => (
+            <TabsTrigger key={t.id} value={t.id}>{t.label}</TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value="bookings">
-      <div className="flex gap-4 mb-6">
-        <Input placeholder="Search bookings..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs" />
-        <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="confirmed">Confirmed</SelectItem>
-            <SelectItem value="pending_payment">Pending Payment</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+          <div className="mb-4 space-y-3 md:mb-6">
+            <div className="relative md:max-w-sm">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+              <Input
+                placeholder="Search dancer, parent or class"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-11 rounded-full pl-10"
+                aria-label="Search bookings"
+              />
+            </div>
+            <ChipRow>
+              {STATUS_FILTERS.map((f) => (
+                <Chip
+                  key={f.id}
+                  selected={filter === f.id}
+                  onClick={() => setFilter(f.id)}
+                  trailing={f.id === "all" ? bookings.length : (statusCounts[f.id] ?? 0)}
+                >
+                  {f.label}
+                </Chip>
+              ))}
+            </ChipRow>
+          </div>
 
-      {loading ? (
-        <div className="text-muted-foreground">Loading bookings...</div>
-      ) : filtered.length === 0 ? (
-        <Card><CardContent className="py-12 text-center text-muted-foreground">No bookings found.</CardContent></Card>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((b) => (
-            <Card key={b.id} className="animate-fade-in">
-              <CardContent className="py-4">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">{b.classes?.name || b.camps?.name || "Unknown class"}</span>
-                      <Badge variant={statusColors[b.status] || "secondary"}>{b.status.replace("_", " ")}</Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {b.students ? `${b.students.first_name} ${b.students.last_name}` : "Adult booking"}
-                      {b.profiles && ` — Parent: ${b.profiles.full_name}`}
-                      {b.amount != null && ` — £${Number(b.amount).toFixed(2)}`}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Booked: {new Date(b.booked_at).toLocaleString("en-GB", {
-                        day: "2-digit", month: "2-digit", year: "numeric",
-                        hour: "2-digit", minute: "2-digit",
-                      })}
-                    </p>
-                  </div>
-                  <BookingActions booking={b} actions={bookingActions} />
-                </div>
-
-                {breakdownId === b.id && (
-                  <BookingBreakdown
-                    booking={b as any}
-                    parent={b.profiles}
-                    samePayment={paymentSiblings(b)}
-                  />
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+          {loading ? (
+            <div className="text-muted-foreground">Loading bookings...</div>
+          ) : filtered.length === 0 ? (
+            <EmptyState
+              title="No bookings here"
+              body={search ? "Nothing matches that search — try a dancer, a parent or a class." : "Nothing with this status yet."}
+            />
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((b) => {
+                const dancer = b.students ? `${b.students.first_name} ${b.students.last_name}` : "Adult booking";
+                const parent = b.profiles?.full_name;
+                return (
+                  <Card key={b.id} className="animate-fade-in overflow-hidden">
+                    <CardContent className="p-4 md:p-5">
+                      {/* Phone: details and actions run along the bottom of the
+                          card; desktop: the actions sit on the right. */}
+                      <div className="flex flex-wrap items-start gap-3 md:items-center">
+                        <div className="min-w-0 flex-1 basis-0">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate font-semibold">{b.classes?.name || b.camps?.name || "Unknown class"}</span>
+                            <StatusPill status={b.status} />
+                          </div>
+                          <p className="mt-0.5 truncate text-sm text-muted-foreground">
+                            {dancer}
+                            {parent && parent !== dancer && ` · ${parent}`}
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {planLabel(b.booking_type)} · booked {format(new Date(b.booked_at), "d MMM, HH:mm")}
+                          </p>
+                        </div>
+                        {b.amount != null && (
+                          <span className="shrink-0 font-semibold tabular-nums">£{Number(b.amount).toFixed(2)}</span>
+                        )}
+                        {breakdownId === b.id && (
+                          <div className="order-3 basis-full md:order-4">
+                            <BookingBreakdown
+                              booking={b as any}
+                              parent={b.profiles}
+                              samePayment={paymentSiblings(b)}
+                            />
+                          </div>
+                        )}
+                        <div className="order-4 basis-full md:order-3 md:ml-1 md:basis-auto">
+                          <BookingActions booking={b} actions={bookingActions} className="mt-0" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="trials">

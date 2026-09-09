@@ -164,7 +164,9 @@ const AdminLayout = () => {
           </Sheet>
           <span className="flex-1 text-center font-display font-bold text-2xl tracking-wider text-primary pr-10">DANCE EXCLUSIVE</span>
         </header>
-        <main className="flex-1 overflow-auto">
+        {/* Only ever scrolls vertically: a wide table or chip row scrolls
+            inside its own box, never the whole screen sideways. */}
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">
           <Outlet />
         </main>
       </div>

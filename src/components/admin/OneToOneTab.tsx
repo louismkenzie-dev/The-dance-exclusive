@@ -407,8 +407,8 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
     // An adult booking themselves is their own parent — no need to say so twice.
     const showParent = !!parentName && !student?.is_self && parentName !== `${student?.first_name} ${student?.last_name}`;
     return (
-      <Card key={invite.id} className="animate-fade-in">
-        <CardContent className="py-4 space-y-3">
+      <Card key={invite.id} className="animate-fade-in overflow-hidden">
+        <CardContent className="p-4 md:p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
@@ -463,23 +463,20 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
             </div>
           </div>
 
-          {/* Actions on their own line so they wrap on a phone instead of
-              pushing the price and the last button off the edge. */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Editing rewrites the class's sessions — only safe on a
-                private one-to-one class. */}
-            {oneToOne && (
-              <Button size="sm" variant="outline" onClick={() => openEdit(invite)}>Edit</Button>
-            )}
-            {invite.status === "pending" && !paid && (
-              <Button size="sm" variant="outline" onClick={() => cancelInvite(invite)}>
-                {oneToOne ? "Cancel invite" : "Cancel link"}
-              </Button>
-            )}
-            {/* Once they've paid, this family's booking gets the same
-                actions as any other booking. */}
-            {booking && <BookingActions booking={booking} actions={actions} />}
-          </div>
+          {/* The invite's own actions on their own line. Editing rewrites the
+              class's sessions — only safe on a private one-to-one class. */}
+          {(oneToOne || (invite.status === "pending" && !paid)) && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {oneToOne && (
+                <Button size="sm" variant="outline" className="rounded-full" onClick={() => openEdit(invite)}>Edit</Button>
+              )}
+              {invite.status === "pending" && !paid && (
+                <Button size="sm" variant="outline" className="rounded-full" onClick={() => cancelInvite(invite)}>
+                  {oneToOne ? "Cancel invite" : "Cancel link"}
+                </Button>
+              )}
+            </div>
+          )}
 
           {booking && actions.breakdownId === booking.id && (
             <BookingBreakdown
@@ -488,6 +485,15 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
               samePayment={paymentSiblings(booking)}
             />
           )}
+
+          {/* Once they've paid, this family's booking gets the same actions
+              as any other booking: a bar along the bottom on a phone, a row
+              on the right on a desktop. */}
+          {booking && (
+            <div className="mt-3 md:flex md:justify-end">
+              <BookingActions booking={booking} actions={actions} className="mt-0" />
+            </div>
+          )}
         </CardContent>
       </Card>
     );
@@ -495,13 +501,18 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground max-w-xl">
+      <div className="flex items-start justify-between gap-3">
+        <p className="hidden max-w-xl text-sm text-muted-foreground md:block">
           Invite a specific child to a private session. The parent gets an email and a
           &quot;Book &amp; pay&quot; card in their portal; once paid, the session appears on the register.
           Payment links you send from Add booking are listed here too.
         </p>
-        <Button onClick={openCreate}><Plus className="w-4 h-4 mr-1.5" /> New one-to-one</Button>
+        <p className="text-sm text-muted-foreground md:hidden">
+          Private sessions and payment links. Once paid, they show on the register.
+        </p>
+        <Button onClick={openCreate} className="shrink-0 rounded-full">
+          <Plus className="w-4 h-4 mr-1.5" /> New one-to-one
+        </Button>
       </div>
 
       {loading ? (

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarDays, Clock, Mail, MapPin, Phone, Sparkles, User } from "lucide-react";
+import { CalendarDays, Clock, Mail, MapPin, Phone, Sparkles } from "lucide-react";
 import BookingBreakdown, { type PaymentSibling } from "@/components/admin/BookingBreakdown";
 import { BookingActions, type BookingActionHandlers } from "@/components/admin/BookingActions";
+import { TonePill } from "@/components/admin/StatusPill";
+import { Chip, ChipRow } from "@/components/booking/Chips";
 
 interface TrialRow {
   id: string;
@@ -142,25 +142,24 @@ const TrialsTab = ({ actions, paymentSiblings, changeToken }: TrialsTabProps) =>
     return trials.filter((t) => t.status !== "cancelled" && (trialDate(t.notes) ?? "9999") >= today).length;
   }, [trials]);
 
+  const pastCount = trials.filter((t) => t.status !== "cancelled" && !!trialDate(t.notes) && trialDate(t.notes)! < todayISO()).length;
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
           {trials.length === 0
             ? "Trial bookings will appear here."
             : <>
                 <strong className="text-foreground">{trials.length}</strong> trial{trials.length === 1 ? "" : "s"} booked
-                {upcomingCount > 0 && <> · <strong className="text-green-500">{upcomingCount} still to come</strong></>}
+                {upcomingCount > 0 && <> · <strong className="text-[hsl(var(--success-strong))]">{upcomingCount} still to come</strong></>}
               </>}
         </p>
-        <Select value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
-          <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="upcoming">Coming up</SelectItem>
-            <SelectItem value="past">Already happened</SelectItem>
-            <SelectItem value="all">All trials</SelectItem>
-          </SelectContent>
-        </Select>
+        <ChipRow>
+          <Chip selected={filter === "upcoming"} onClick={() => setFilter("upcoming")} trailing={upcomingCount}>Coming up</Chip>
+          <Chip selected={filter === "past"} onClick={() => setFilter("past")} trailing={pastCount}>Already happened</Chip>
+          <Chip selected={filter === "all"} onClick={() => setFilter("all")} trailing={trials.length}>All trials</Chip>
+        </ChipRow>
       </div>
 
       {loading ? (
@@ -180,89 +179,97 @@ const TrialsTab = ({ actions, paymentSiblings, changeToken }: TrialsTabProps) =>
             const past = !!date && date < todayISO();
             const converted = convertedParents.has(t.parent_id);
             return (
-              <Card key={t.id} className="animate-fade-in">
-                <CardContent className="py-4">
-                  <div className="flex items-start justify-between gap-4 flex-wrap">
-                  <div className="min-w-0 space-y-1.5">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold flex items-center gap-1.5">
-                        <User className="w-4 h-4 text-muted-foreground" />
-                        {t.students ? `${t.students.first_name} ${t.students.last_name}` : "Adult attendee"}
-                      </span>
-                      <Badge variant="outline">{t.classes?.name ?? "Class"}</Badge>
-                      {t.status === "cancelled" && <Badge className="bg-muted text-muted-foreground">Cancelled</Badge>}
-                      {converted ? (
-                        <Badge className="bg-emerald-600 text-white">Booked since — converted</Badge>
-                      ) : past && t.status !== "cancelled" ? (
-                        <Badge className="bg-amber-500 text-white">Not booked yet — follow up</Badge>
-                      ) : null}
-                    </div>
-
-                    <p className="text-sm text-muted-foreground flex items-center gap-3 flex-wrap">
-                      {date ? (
-                        <span className="flex items-center gap-1">
-                          <CalendarDays className="w-3.5 h-3.5" /> {format(parseISO(date), "EEE d MMM yyyy")}
+              <Card key={t.id} className="animate-fade-in overflow-hidden">
+                <CardContent className="p-4 md:p-5">
+                  <div className="flex flex-wrap items-start gap-3">
+                    <div className="min-w-0 flex-1 basis-0 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate font-semibold">
+                          {t.students ? `${t.students.first_name} ${t.students.last_name}` : "Adult attendee"}
                         </span>
-                      ) : (
-                        <span className="flex items-center gap-1">
-                          <CalendarDays className="w-3.5 h-3.5" /> Date not set
-                        </span>
-                      )}
-                      {t.classes?.start_time && (
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" /> {t.classes.start_time.slice(0, 5)}
-                        </span>
-                      )}
-                      {t.classes?.venues?.name && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5" /> {t.classes.venues.name}
-                        </span>
-                      )}
-                    </p>
-
-                    {parent && (
-                      <p className="text-sm text-muted-foreground flex items-center gap-3 flex-wrap">
-                        <span>{parent.full_name}</span>
-                        <a href={`mailto:${parent.email}`} className="flex items-center gap-1 hover:text-foreground">
-                          <Mail className="w-3.5 h-3.5" />{parent.email}
-                        </a>
-                        {parent.phone && (
-                          <a href={`tel:${parent.phone}`} className="flex items-center gap-1 hover:text-foreground">
-                            <Phone className="w-3.5 h-3.5" />{parent.phone}
-                          </a>
+                        {t.status === "cancelled" && <TonePill>Cancelled</TonePill>}
+                      </div>
+                      <p className="text-sm text-foreground/90">
+                        {t.classes?.name ?? "Class"}
+                        {t.classes?.venues?.name && (
+                          <span className="text-muted-foreground"> · {t.classes.venues.name}</span>
                         )}
                       </p>
-                    )}
-                  </div>
 
-                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                    <span className="text-xs text-muted-foreground">
-                      Booked {format(parseISO(t.booked_at), "d MMM")}
-                    </span>
-                    {past && (
-                      att?.checked_in_at
-                        ? <Badge className="bg-emerald-600 text-white">Attended</Badge>
-                        : att?.status === "absent"
-                          ? <Badge variant="destructive">No show</Badge>
-                          : <Badge variant="outline">Not marked</Badge>
-                    )}
-                    {t.amount != null && Number(t.amount) > 0 && (
-                      <span className="text-sm font-semibold">£{Number(t.amount).toFixed(2)}</span>
-                    )}
-                    <BookingActions
-                      booking={{ ...t, profiles: parent ?? null }}
-                      actions={actions}
-                    />
-                  </div>
-                  </div>
+                      <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <CalendarDays className="h-3.5 w-3.5" />
+                          {date ? format(parseISO(date), "EEE d MMM yyyy") : "Date not set"}
+                        </span>
+                        {t.classes?.start_time && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3.5 w-3.5" /> {t.classes.start_time.slice(0, 5)}
+                          </span>
+                        )}
+                        {t.classes?.venues?.name && (
+                          <span className="hidden items-center gap-1 md:flex">
+                            <MapPin className="h-3.5 w-3.5" /> {t.classes.venues.name}
+                          </span>
+                        )}
+                      </p>
 
-                  {actions.breakdownId === t.id && (
-                    <BookingBreakdown
-                      booking={t as any}
-                      parent={parent ?? null}
-                      samePayment={paymentSiblings(t)}
-                    />
-                  )}
+                      {parent && (
+                        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                          <span>{parent.full_name}</span>
+                          <a href={`mailto:${parent.email}`} className="flex min-w-0 items-center gap-1 hover:text-foreground">
+                            <Mail className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{parent.email}</span>
+                          </a>
+                          {parent.phone && (
+                            <a href={`tel:${parent.phone}`} className="flex items-center gap-1 hover:text-foreground">
+                              <Phone className="h-3.5 w-3.5" />{parent.phone}
+                            </a>
+                          )}
+                        </p>
+                      )}
+
+                      {(converted || past) && t.status !== "cancelled" && (
+                        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                          {converted ? (
+                            <TonePill tone="success">Booked since — converted</TonePill>
+                          ) : past ? (
+                            <TonePill tone="warning">Not booked yet — follow up</TonePill>
+                          ) : null}
+                          {past && (
+                            att?.checked_in_at
+                              ? <TonePill tone="success">Attended</TonePill>
+                              : att?.status === "absent"
+                                ? <TonePill tone="destructive">No show</TonePill>
+                                : <TonePill>Not marked</TonePill>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="shrink-0 text-right">
+                      {t.amount != null && Number(t.amount) > 0 && (
+                        <p className="font-semibold tabular-nums">£{Number(t.amount).toFixed(2)}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground">Booked {format(parseISO(t.booked_at), "d MMM")}</p>
+                    </div>
+
+                    {actions.breakdownId === t.id && (
+                      <div className="order-3 basis-full md:order-4">
+                        <BookingBreakdown
+                          booking={t as any}
+                          parent={parent ?? null}
+                          samePayment={paymentSiblings(t)}
+                        />
+                      </div>
+                    )}
+                    <div className="order-4 basis-full md:order-3 md:ml-1 md:basis-auto">
+                      <BookingActions
+                        booking={{ ...t, profiles: parent ?? null }}
+                        actions={actions}
+                        className="mt-0"
+                      />
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             );

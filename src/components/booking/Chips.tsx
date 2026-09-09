@@ -28,7 +28,10 @@ export function Chip({ selected = false, onClick, children, className, disabled,
       )}
     >
       {children}
-      {trailing && <span className={cn("text-xs", selected ? "text-background/70" : "text-muted-foreground")}>{trailing}</span>}
+      {/* A count of 0 is still worth showing — only nothing at all is skipped. */}
+      {trailing != null && trailing !== false && trailing !== "" && (
+        <span className={cn("text-xs", selected ? "text-background/70" : "text-muted-foreground")}>{trailing}</span>
+      )}
     </button>
   );
 }

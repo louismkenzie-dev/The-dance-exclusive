@@ -113,8 +113,9 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [venueFilter, setVenueFilter] = useState<string>("all");
-  /** Show one class on its own — at the door you want the group in front of you. */
-  const [classFilter, setClassFilter] = useState<string>("all");
+  /** Show one class on its own — at the door you want the group in front of
+   *  you. A link can open the register on one session: ?session=<id>. */
+  const [classFilter, setClassFilter] = useState<string>(() => searchParams.get("session") || "all");
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [profileBooking, setProfileBooking] = useState<{ booking: any; sessionId: string } | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);

@@ -20,6 +20,8 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDone: () => void;
+  /** Opened from one class session's page: start with that class and date chosen. */
+  preset?: { classId?: string; sessionDate?: string } | null;
 }
 
 interface Customer { user_id: string; full_name: string; email: string }
@@ -44,7 +46,7 @@ const PLANS = [
  * (a Gymcatch class or package carried over, a comp) or set the place up and
  * email them a link to pay for it themselves.
  */
-const AddBookingDialog = ({ open, onOpenChange, onDone }: Props) => {
+const AddBookingDialog = ({ open, onOpenChange, onDone, preset }: Props) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [classes, setClasses] = useState<ClassOption[]>([]);
@@ -84,6 +86,14 @@ const AddBookingDialog = ({ open, onOpenChange, onDone }: Props) => {
     })();
   }, [open]);
 
+  // Opened from a class session's page: that class and date are already the
+  // answer, so start there.
+  useEffect(() => {
+    if (!open || !preset) return;
+    if (preset.classId) setForm((f) => ({ ...f, classId: preset.classId!, plan: preset.sessionDate ? "session" : f.plan }));
+    if (preset.sessionDate) setDates([preset.sessionDate]);
+  }, [open, preset?.classId, preset?.sessionDate]);
+
   // Dates for the chosen class. Recent ones that have already run are
   // included: someone turns up, doesn't pay, and the studio needs to charge
   // them for the class they were actually at.
@@ -102,7 +112,9 @@ const AddBookingDialog = ({ open, onOpenChange, onDone }: Props) => {
         .limit(40);
       setSessions(((data as any[]) ?? []) as { id: string; session_date: string }[]);
     })();
-    setDates([]);
+    // A new class means new dates — unless this is the class (and date) the
+    // dialog was opened for, which stays chosen.
+    setDates(preset?.classId === form.classId && preset?.sessionDate ? [preset.sessionDate] : []);
   }, [form.classId]);
 
   const familyStudents = useMemo(

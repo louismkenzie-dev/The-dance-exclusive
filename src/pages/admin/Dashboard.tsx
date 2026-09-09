@@ -407,7 +407,9 @@ const AdminDashboard = () => {
                       className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3 transition-colors cursor-pointer ${
                         quiet ? "bg-destructive/10 hover:bg-destructive/15" : "hover:bg-muted/30"
                       }`}
-                      onClick={() => navigate("/admin/calendar")}
+                      onClick={() => navigate(`/admin/sessions/${session.id}`)}
+                      role="link"
+                      aria-label={`${session.class?.name || "Class"} on ${format(parseISO(session.session_date), "EEEE d MMMM")}`}
                     >
                       <div className={`w-1 h-10 shrink-0 rounded-full ${quiet ? "bg-destructive" : isChildren ? "bg-primary" : "bg-accent"}`} />
                       {/* On a phone the name keeps the first line to itself and

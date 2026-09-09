@@ -10,6 +10,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import ScrollToTop from "@/components/ScrollToTop";
 import PortalLayout from "@/components/layouts/PortalLayout";
 import AdminLayout from "@/components/layouts/AdminLayout";
+import AdminClassSession from "@/pages/admin/ClassSession";
 import StaffLayout from "@/components/layouts/StaffLayout";
 
 // The booking journey stays in the main bundle: a parent on a phone gets the
@@ -104,6 +105,7 @@ const App = () => (
               <Route path="parties" element={<AdminParties />} />
               <Route path="merchandise" element={<AdminMerchandise />} />
               <Route path="bookings" element={<AdminBookings />} />
+              <Route path="sessions/:sessionId" element={<AdminClassSession />} />
               <Route path="coupons" element={<AdminCoupons />} />
               <Route path="registers" element={<AdminRegisters />} />
               <Route path="admins" element={<AdminAdmins />} />

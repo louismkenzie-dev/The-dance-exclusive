@@ -4,6 +4,8 @@ import {
   detailRow,
   divider,
   escapeHtml,
+  formatTime,
+  formatTimeRange,
   heading,
   HERO,
   kicker,
@@ -45,7 +47,6 @@ const prettyDate = (iso: string) => {
   }
 };
 
-const prettyTime = (t?: string | null) => (t ? t.slice(0, 5) : null);
 
 /** Day-before reminder for a booked trial session. */
 export function renderTrialReminder(data: TrialReminderData) {
@@ -58,7 +59,7 @@ export function renderTrialReminder(data: TrialReminderData) {
       Boolean(data.studentName) &&
       data.studentName!.trim().toLowerCase() === data.parentName?.trim().toLowerCase());
   const who = data.studentName && !isSelf ? `${escapeHtml(data.studentName)}'s` : "your";
-  const time = [prettyTime(data.startTime), prettyTime(data.endTime)].filter(Boolean).join(" – ");
+  const time = formatTimeRange(data.startTime, data.endTime);
   const hero = data.classType === "adult"
     ? { url: HERO.adults, alt: "Dancer in heels under stage lights" }
     : { url: HERO.kids, alt: "Young dancers mid-move under blue stage lights" };
@@ -95,7 +96,7 @@ export function renderTrialReminder(data: TrialReminderData) {
     subject: `Reminder: ${data.studentName && !isSelf ? `${data.studentName}'s` : "your"} trial is tomorrow — ${data.className}`,
     html: renderLayout({
       title: "Trial reminder",
-      preheader: `${data.className} is tomorrow${time ? ` at ${prettyTime(data.startTime)}` : ""} — see you there!`,
+      preheader: `${data.className} is tomorrow${time ? ` at ${formatTime(data.startTime)}` : ""} — see you there!`,
       body,
       hero,
       icon: "bell",

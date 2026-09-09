@@ -4,6 +4,7 @@ import {
   detailRow,
   divider,
   escapeHtml,
+  formatTimeRange,
   heading,
   kicker,
   panel,
@@ -29,7 +30,6 @@ export interface OneToOneInviteData {
   price: number;
 }
 
-const prettyTime = (t?: string | null) => (t ? t.slice(0, 5) : null);
 
 /** "Thursday 10 September" — the format used for every date in this email. */
 const shortDate = (iso: string) => {
@@ -47,7 +47,7 @@ const shortDate = (iso: string) => {
 /** Invitation to a private one-to-one session — book & pay in the portal. */
 export function renderOneToOneInvite(data: OneToOneInviteData) {
   const greetingName = data.parentName?.trim().split(/\s+/)[0] || "there";
-  const time = [prettyTime(data.startTime), prettyTime(data.endTime)].filter(Boolean).join(" – ");
+  const time = formatTimeRange(data.startTime, data.endTime);
   const dates = (data.sessionDates?.length ? data.sessionDates : [data.sessionDate]).slice().sort();
   const multi = dates.length > 1;
   const total = Number(data.price) * dates.length;

@@ -4,6 +4,7 @@ import {
   detailRow,
   divider,
   escapeHtml,
+  formatTimeRange,
   heading,
   kicker,
   panel,
@@ -55,9 +56,6 @@ function formatShortDate(ymd: string): string {
     .replace(",", "");
 }
 
-const timeRange = (start?: string | null, end?: string | null) =>
-  start ? `${start.slice(0, 5)}${end ? ` &ndash; ${end.slice(0, 5)}` : ""}` : "";
-
 const planWord = (type?: string | null) => {
   switch (type) {
     case "trial": return "trial";
@@ -74,7 +72,7 @@ export function renderSessionCancelled(data: SessionCancelledData) {
   const greetingName = data.parentName?.split(" ")[0] || "there";
   const longDate = formatLongDate(data.sessionDate);
   const shortDate = formatShortDate(data.sessionDate);
-  const when = timeRange(data.startTime, data.endTime);
+  const when = formatTimeRange(data.startTime, data.endTime);
   const reason = data.reason?.trim();
 
   const lineRows = data.lines.map((l) => {
@@ -84,7 +82,7 @@ export function renderSessionCancelled(data: SessionCancelledData) {
     let value: string;
     if (l.outcome === "moved" && l.toDate) {
       value = `Moved to <strong style="color:${BRAND.ink};">${escapeHtml(formatLongDate(l.toDate))}</strong>${
-        l.toStartTime ? `, ${timeRange(l.toStartTime, l.toEndTime)}` : ""
+        l.toStartTime ? `, ${formatTimeRange(l.toStartTime, l.toEndTime)}` : ""
       } &mdash; nothing to pay.`;
     } else if (l.outcome === "carries_on") {
       value = "Carries on as normal from next week. Nothing changes with your membership.";

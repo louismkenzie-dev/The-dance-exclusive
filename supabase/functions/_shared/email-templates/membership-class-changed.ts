@@ -4,6 +4,7 @@ import {
   detailRow,
   divider,
   escapeHtml,
+  formatTimeRange,
   heading,
   kicker,
   panel,
@@ -56,9 +57,7 @@ export function renderMembershipClassChanged(data: MembershipClassChangedData) {
   const forStudent = data.studentName ? ` for ${escapeHtml(data.studentName)}` : "";
   const amount = `&pound;${Number(data.monthlyAmount).toFixed(2)}`;
   const day = data.newDay ? `${capitalise(data.newDay)}s` : null;
-  const time = data.newStartTime
-    ? `${data.newStartTime.slice(0, 5)}${data.newEndTime ? ` &ndash; ${data.newEndTime.slice(0, 5)}` : ""}`
-    : null;
+  const time = data.newStartTime ? formatTimeRange(data.newStartTime, data.newEndTime) : null;
   const schedule = [day, time].filter(Boolean).join(", ");
   const nextPayment = data.nextPaymentDate ? formatLongDate(data.nextPaymentDate) : null;
 

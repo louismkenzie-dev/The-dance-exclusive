@@ -4,6 +4,7 @@ import {
   detailRow,
   divider,
   escapeHtml,
+  formatTimeRange,
   HERO,
   kicker,
   heading,
@@ -29,14 +30,13 @@ export interface WaitlistSpaceData {
   classId?: string | null;
 }
 
-const prettyTime = (t?: string | null) => (t ? t.slice(0, 5) : null);
 const prettyDay = (d?: string | null) =>
   d ? d.charAt(0).toUpperCase() + d.slice(1) : null;
 
 /** Sent when a class the parent is waitlisted for has a place free again. */
 export function renderWaitlistSpace(data: WaitlistSpaceData) {
   const greetingName = data.parentName?.split(" ")[0] || "there";
-  const time = [prettyTime(data.startTime), prettyTime(data.endTime)].filter(Boolean).join(" – ");
+  const time = formatTimeRange(data.startTime, data.endTime);
   const browsePath = data.classType === "adult" ? "/classes/adult" : "/classes/children";
   const bookUrl = `${BRAND.appUrl}${browsePath}${
     data.classId ? `?class=${encodeURIComponent(data.classId)}` : ""

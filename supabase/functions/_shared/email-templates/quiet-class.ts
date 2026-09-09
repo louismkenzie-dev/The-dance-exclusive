@@ -5,6 +5,8 @@ import {
   divider,
   escapeHtml,
   FONT_BODY,
+  formatTime,
+  formatTimeRange,
   heading,
   kicker,
   panel,
@@ -36,7 +38,6 @@ const prettyDate = (iso: string) => {
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
 };
-const prettyTime = (t?: string | null) => (t ? t.slice(0, 5) : null);
 
 /**
  * Sent to the studio a few hours before an adult class that has fewer
@@ -46,8 +47,8 @@ const prettyTime = (t?: string | null) => (t ? t.slice(0, 5) : null);
 export function renderQuietClass(data: QuietClassData) {
   const n = data.booked.length;
   const count = n === 0 ? "Nobody booked" : n === 1 ? "Only 1 booked" : `Only ${n} booked`;
-  const time = [prettyTime(data.startTime), prettyTime(data.endTime)].filter(Boolean).join(" – ");
-  const startLabel = prettyTime(data.startTime) ?? "";
+  const time = formatTimeRange(data.startTime, data.endTime);
+  const startLabel = formatTime(data.startTime);
 
   const rows = data.booked
     .map(

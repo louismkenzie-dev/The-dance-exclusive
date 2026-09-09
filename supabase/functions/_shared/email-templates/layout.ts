@@ -233,6 +233,45 @@ export function escapeHtml(str: string): string {
     .replace(/'/g, "&#39;");
 }
 
+/**
+ * "17:00" → "5:00pm". Mirrors formatTime in src/lib/bookingFormat.ts — the
+ * studio, its teachers and its parents all talk in am/pm, so a time reads the
+ * same in the inbox as it does in the app. The 24-hour clock stays in the
+ * database, where it belongs.
+ */
+export function formatTime(t?: string | null): string {
+  if (!t) return "";
+  const m = /^(\d{1,2}):(\d{2})/.exec(t.trim());
+  if (!m) return t;
+  const h = Number(m[1]);
+  const mins = m[2];
+  if (!Number.isFinite(h) || h > 23) return t;
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${hour12}:${mins}${h < 12 ? "am" : "pm"}`;
+}
+
+/** "am" or "pm" for an "HH:MM", or "" when it isn't a time. */
+function meridiem(t?: string | null): string {
+  const m = /^(\d{1,2}):\d{2}/.exec((t ?? "").trim());
+  if (!m) return "";
+  const h = Number(m[1]);
+  return Number.isFinite(h) && h <= 23 ? (h < 12 ? "am" : "pm") : "";
+}
+
+/**
+ * "5:00–5:45pm" with an en dash; just the start when the end is missing. A
+ * class that starts and finishes in the same half of the day says so once —
+ * "11:30am–12:30pm" only when it actually straddles noon. Mirrors
+ * formatTimeRange in src/lib/bookingFormat.ts.
+ */
+export function formatTimeRange(start?: string | null, end?: string | null): string {
+  if (!start || !end) return formatTime(start);
+  const from = formatTime(start);
+  const to = formatTime(end);
+  const sameHalf = meridiem(start) && meridiem(start) === meridiem(end);
+  return sameHalf ? `${from.replace(/(am|pm)$/, "")}–${to}` : `${from}–${to}`;
+}
+
 /** Blue-tinted icon tile, as on the app's feature cards. */
 export function iconTile(
   name: IconName,

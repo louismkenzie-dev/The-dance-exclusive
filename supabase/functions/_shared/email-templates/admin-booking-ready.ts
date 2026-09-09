@@ -4,6 +4,7 @@ import {
   detailRow,
   divider,
   escapeHtml,
+  formatTimeRange,
   heading,
   HERO,
   kicker,
@@ -59,7 +60,6 @@ const prettyDate = (iso: string) => {
   });
 };
 
-const prettyTime = (t?: string | null) => (t ? t.slice(0, 5) : null);
 
 /** "monday" → "Mondays" — the class runs every week, not on one date. */
 const weeklyDay = (day: string) =>
@@ -70,7 +70,7 @@ export function renderAdminBookingReady(data: AdminBookingReadyData) {
   const greetingName = data.parentName?.trim().split(/\s+/)[0] || "there";
   const who = data.attendeeName ? escapeHtml(data.attendeeName) : "you";
   const dates = data.sessionDates ?? [];
-  const time = [prettyTime(data.startTime), prettyTime(data.endTime)].filter(Boolean).join(" – ");
+  const time = formatTimeRange(data.startTime, data.endTime);
   const hero = data.classType === "adult"
     ? { url: HERO.adults, alt: "Dancer in heels under stage lights" }
     : { url: HERO.kids, alt: "Young dancers mid-move under blue stage lights" };

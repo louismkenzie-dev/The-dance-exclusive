@@ -4,6 +4,7 @@ import {
   detailRow,
   divider,
   escapeHtml,
+  formatTimeRange,
   heading,
   kicker,
   panel,
@@ -31,10 +32,7 @@ const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 export function renderStaffClassAssigned(data: StaffClassAssignedData) {
   const greetingName = data.staffName?.split(" ")[0] || "there";
   const day = data.dayOfWeek ? `${capitalise(data.dayOfWeek)}s` : null;
-  // Escape the parts, not the en-dash entity that joins them.
-  const time = data.startTime
-    ? `${escapeHtml(data.startTime.slice(0, 5))}${data.endTime ? ` &ndash; ${escapeHtml(data.endTime.slice(0, 5))}` : ""}`
-    : null;
+  const time = data.startTime ? escapeHtml(formatTimeRange(data.startTime, data.endTime)) : null;
   const venue = data.venueName
     ? `${data.venueName}${data.venueCity ? `, ${data.venueCity}` : ""}`
     : null;

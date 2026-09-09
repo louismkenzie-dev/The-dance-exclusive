@@ -3,6 +3,7 @@ import {
   detailRow,
   divider,
   escapeHtml,
+  formatTimeRange,
   heading,
   kicker,
   panel,
@@ -39,11 +40,10 @@ const prettyDate = (iso: string) => {
   });
 };
 
-const prettyTime = (t?: string | null) => (t ? t.slice(0, 5) : null);
 
 /** Internal notification to the studio inbox — a new trial has been booked. */
 export function renderAdminTrialBooked(data: AdminTrialBookedData) {
-  const time = [prettyTime(data.startTime), prettyTime(data.endTime)].filter(Boolean).join(" – ");
+  const time = formatTimeRange(data.startTime, data.endTime);
   const cap = (s?: string | null) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : null);
 
   // Reply-to on every send is the studio's own address, so Reply doesn't reach

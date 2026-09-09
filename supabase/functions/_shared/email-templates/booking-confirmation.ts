@@ -5,6 +5,7 @@ import {
   divider,
   escapeHtml,
   FONT_BODY,
+  formatTimeRange,
   heading,
   kicker,
   panel,
@@ -80,10 +81,7 @@ export function renderBookingConfirmation(data: BookingConfirmationData) {
 
   const bookingsHtml = data.bookings
     .map((b) => {
-      const time =
-        b.startTime && b.endTime
-          ? `${b.startTime.slice(0, 5)} &ndash; ${b.endTime.slice(0, 5)}`
-          : "";
+      const time = formatTimeRange(b.startTime, b.endTime);
       const venue = b.venueName
         ? `${b.venueName}${b.venueCity ? `, ${b.venueCity}` : ""}`
         : "";

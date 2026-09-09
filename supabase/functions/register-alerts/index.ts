@@ -28,6 +28,7 @@
 //                                dry or test_to, so a real run always uses now
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { formatTime } from "../_shared/email-templates/layout.ts";
 
 const GRACE_MINUTES = 15;
 const STALE_MINUTES = 180;
@@ -62,8 +63,16 @@ function londonToUtc(date: string, time: string): Date {
   return new Date(guess.getTime() - offsetMs);
 }
 
+/**
+ * "5:03pm" — the check-in time as it reads in the email. The 24-hour
+ * formatter stays: it gives a clean London "HH:MM" that formatTime (the app's
+ * own am/pm rendering) turns into the studio's house style. h23 rather than
+ * hour12:false, because that spells midnight "00:00" and never "24:00".
+ */
 const fmtTime = (d: Date) =>
-  new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+  formatTime(
+    new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d),
+  );
 
 /** "Trial", "Pay as you go", "Class pass" or "Weekly place", from a booking's notes. */
 const planWord = (notes: string | null) => {

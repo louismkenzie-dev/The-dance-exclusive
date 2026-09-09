@@ -7,6 +7,7 @@ import {
   createStripeClient,
 } from "../_shared/stripe.ts";
 import { getActiveStripeEnv } from "../_shared/paymentsMode.ts";
+import { formatTimeRange } from "../_shared/email-templates/layout.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -71,7 +72,7 @@ serve(async (req) => {
       const description = [
         item.studentName ? `Student: ${item.studentName}` : null,
         item.dayOfWeek ? `${item.dayOfWeek.charAt(0).toUpperCase() + item.dayOfWeek.slice(1)}` : null,
-        item.startTime && item.endTime ? `${item.startTime.slice(0, 5)}–${item.endTime.slice(0, 5)}` : null,
+        item.startTime && item.endTime ? formatTimeRange(item.startTime, item.endTime) : null,
         item.venueName || null,
         item.pricingPlan ? `Plan: ${item.pricingPlan}` : null,
       ].filter(Boolean).join(" · ");

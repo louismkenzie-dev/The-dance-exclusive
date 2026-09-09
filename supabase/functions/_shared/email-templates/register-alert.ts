@@ -5,6 +5,8 @@ import {
   divider,
   escapeHtml,
   FONT_BODY,
+  formatTime,
+  formatTimeRange,
   heading,
   kicker,
   panel,
@@ -35,7 +37,6 @@ const prettyDate = (iso: string) => {
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
 };
-const prettyTime = (t?: string | null) => (t ? t.slice(0, 5) : null);
 
 /**
  * Sent to the studio owner when a register has not been kept up: dancers not
@@ -46,8 +47,8 @@ export function renderRegisterAlert(data: RegisterAlertData) {
   const urgent = data.kind === "not_departed";
   const n = data.attendees.length;
   const who = n === 1 ? "1 dancer" : `${n} dancers`;
-  const time = [prettyTime(data.startTime), prettyTime(data.endTime)].filter(Boolean).join(" – ");
-  const startLabel = prettyTime(data.startTime) ?? "";
+  const time = formatTimeRange(data.startTime, data.endTime);
+  const startLabel = formatTime(data.startTime);
 
   const title = urgent ? `${who} not marked departed` : `${who} not marked in`;
   const explain = urgent

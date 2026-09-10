@@ -16,6 +16,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { loadPasses } from "../_shared/pricing.ts";
+import { consumeInvite } from "../_shared/invites.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -357,6 +358,10 @@ serve(async (req) => {
         console.error("admin-book booking insert failed:", error);
         return jsonResponse({ error: "Could not create the booking" }, 500);
       }
+      // Recording the booking by hand is often how a place the studio saved
+      // actually gets taken up — when the parent couldn't get through — so
+      // it spends the invite the same way paying for it would.
+      await consumeInvite(supabase, { userId, classId, studentId, plan });
       return jsonResponse({ success: true, bookingIds: (created ?? []).map((b: any) => b.id) });
     }
 

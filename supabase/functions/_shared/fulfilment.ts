@@ -6,6 +6,8 @@
 import { loadPasses } from "./pricing.ts";
 import { freeMonthFor } from "./billing.ts";
 
+import { consumeInvite } from "./invites.ts";
+
 export interface FulfilmentItem {
   kind: "class" | "camp" | "pass";
   classId: string | null;
@@ -113,6 +115,7 @@ export async function fulfillItems(
     // register shows the dancer only on the days they paid for and each date
     // can be moved independently (24h self-service rule).
     if (item.kind === "class" && item.sessionDates && item.sessionDates.length > 0) {
+      let datedCreated = false;
       const n = item.sessionDates.length;
       const totalPence = Math.round(item.totalPrice * 100);
       const perPence = Math.floor(totalPence / n);
@@ -150,8 +153,18 @@ export async function fulfillItems(
         if (error) console.error("Failed to create dated booking:", error);
         else {
           totalAmount += amount;
+          datedCreated = true;
           console.log("Dated booking created:", item.classId, date);
         }
+      }
+      // One purchase spends one invite, however many dates it covered.
+      if (datedCreated) {
+        await consumeInvite(supabase, {
+          userId,
+          classId: item.classId as string,
+          studentId: item.studentId,
+          plan: item.pricingPlan,
+        });
       }
       continue;
     }
@@ -191,6 +204,14 @@ export async function fulfillItems(
     else {
       totalAmount += item.totalPrice;
       console.log("Booking created:", item.kind, item.classId || item.campId);
+      if (item.kind === "class" && item.classId) {
+        await consumeInvite(supabase, {
+          userId,
+          classId: item.classId,
+          studentId: item.studentId,
+          plan: item.pricingPlan,
+        });
+      }
       // Trials are hot leads — let the studio know straight away.
       if (item.kind === "class" && item.pricingPlan === "trial") {
         try {

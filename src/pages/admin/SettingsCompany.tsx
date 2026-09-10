@@ -17,6 +17,7 @@ import {
   Loader2, Palette, Building2, Upload, X, Globe, MapPin, Phone, Mail,
   FileText, Hash, CreditCard, Users, AtSign, ArrowLeft
 } from "lucide-react";
+import { AdminPage } from "@/components/admin/ui";
 
 const BRANDING_KEYS = [
   "business_name", "primary_color", "secondary_color", "accent_color", "logo_url", "favicon_url",
@@ -373,7 +374,7 @@ const SettingsCompany = () => {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <AdminPage className="max-w-4xl space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link to="/admin/settings">
@@ -382,9 +383,9 @@ const SettingsCompany = () => {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-display font-bold flex items-center gap-2">
+            <h1 className="flex items-center gap-2 text-[26px] font-semibold leading-tight tracking-tight text-foreground sm:text-3xl">
               <Building2 className="h-6 w-6" />
-              Company Information
+              Company information
             </h1>
             <p className="text-sm text-muted-foreground mt-1">Branding, business details, and contact information</p>
           </div>
@@ -638,7 +639,7 @@ const SettingsCompany = () => {
           Save All Settings
         </Button>
       </div>
-    </div>
+    </AdminPage>
   );
 };
 

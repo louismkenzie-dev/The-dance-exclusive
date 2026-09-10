@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import CustomerMap, { type MapCustomer } from "@/components/admin/CustomerMap";
 import { supabase } from "@/integrations/supabase/client";
+import { AdminPage, FilterBar, PageHeader } from "@/components/admin/ui";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -505,36 +506,27 @@ const AdminCustomers = () => {
   }, [profiles, bookings, students, mapClasses]);
 
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-5 sm:space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-display font-bold flex items-center gap-2">
-            <Users className="h-5 w-5 sm:h-6 sm:w-6 shrink-0" />
-            Customers
-            <Badge variant="secondary" className="text-xs font-normal shrink-0">
-              {filtered.length}
-            </Badge>
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Parent accounts and their registered children
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => window.open("/auth", "_blank")}
-          className="gap-1.5 self-start shrink-0"
-        >
-          <ExternalLink className="h-4 w-4" />
-          Registration page
-        </Button>
-      </div>
+    <AdminPage className="space-y-5 sm:space-y-6">
+      <PageHeader
+        title="Customers"
+        count={filtered.length}
+        subtitle="Parent accounts and the children on them"
+        action={
+          <Button
+            variant="soft"
+            size="sm"
+            onClick={() => window.open("/auth", "_blank")}
+            className="shrink-0 gap-1.5 self-start rounded-full"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Registration page
+          </Button>
+        }
+      />
+
+      <FilterBar search={search} onSearch={setSearch} searchPlaceholder="Search by name, email or phone…" />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="relative sm:max-w-sm sm:flex-1 sm:min-w-[220px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search by name, email or phone..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
-        </div>
         <div className="flex gap-2">
           <Select value={sortMode} onValueChange={(v) => setSortMode(v as SortMode)}>
             <SelectTrigger className="flex-1 sm:w-56 sm:flex-none">
@@ -776,7 +768,7 @@ const AdminCustomers = () => {
         editing={editingChild}
         onSaved={() => { setEditingChild(null); void refetchStudents(); }}
       />
-    </div>
+    </AdminPage>
   );
 };
 

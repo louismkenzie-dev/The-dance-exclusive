@@ -20,6 +20,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { formatTime } from "@/lib/bookingFormat";
+import { AdminPage } from "@/components/admin/ui";
 
 interface SessionLite {
   id: string;
@@ -205,7 +206,7 @@ const StaffDashboard = () => {
   })();
 
   return (
-    <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
+    <AdminPage className="max-w-7xl space-y-6">
       {/* Hero */}
       <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/10 via-background to-background p-6 md:p-8">
         <div className="absolute -top-20 -right-20 w-64 h-64 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
@@ -221,7 +222,7 @@ const StaffDashboard = () => {
             <p className="text-sm text-muted-foreground uppercase tracking-widest mb-1">
               {greeting}
             </p>
-            <h1 className="text-3xl md:text-4xl font-display font-bold">
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
               {staff.first_name || staff.full_name?.split(" ")[0]}
             </h1>
             <p className="text-muted-foreground mt-1">
@@ -416,7 +417,7 @@ const StaffDashboard = () => {
           </Card>
         </div>
       </div>
-    </div>
+    </AdminPage>
   );
 };
 

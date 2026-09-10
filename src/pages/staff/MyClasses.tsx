@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, MapPin, Clock } from "lucide-react";
 import { formatTimeRange } from "@/lib/bookingFormat";
+import { AdminPage, PageHeader } from "@/components/admin/ui";
 
 const MyClasses = () => {
   const { staff } = useStaffMember();
@@ -71,9 +72,12 @@ const MyClasses = () => {
   };
 
   return (
-    <div className="p-6 md:p-8 max-w-5xl mx-auto">
-      <h1 className="text-3xl font-display font-bold mb-1">My Classes</h1>
-      <p className="text-muted-foreground mb-6">All upcoming sessions you're teaching</p>
+    <AdminPage className="max-w-5xl">
+      <PageHeader
+        className="mb-6"
+        title="My classes"
+        subtitle="Every session you're down to teach"
+      />
 
       {loading ? (
         <p className="text-muted-foreground text-sm">Loading...</p>
@@ -113,7 +117,7 @@ const MyClasses = () => {
           })}
         </div>
       )}
-    </div>
+    </AdminPage>
   );
 };
 

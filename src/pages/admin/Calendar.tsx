@@ -36,6 +36,7 @@ import {
   subMonths,
 } from "date-fns";
 import { formatTimeRange } from "@/lib/bookingFormat";
+import { AdminPage } from "@/components/admin/ui";
 
 interface SessionWithDetails {
   id: string;
@@ -814,14 +815,14 @@ const AdminCalendar = () => {
   );
 
   return (
-    <div className="p-4 md:p-8">
+    <AdminPage>
       <Card>
         <CardHeader className="pb-2">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2 text-2xl font-display">
+              <CardTitle className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
                 <CalendarDays className="h-6 w-6" />
-                Class Calendar
+                Class calendar
               </CardTitle>
               <CardDescription>
                 {viewMode === "month" ? "Monthly" : "Weekly"} overview of all scheduled class sessions
@@ -1174,7 +1175,7 @@ const AdminCalendar = () => {
       </Dialog>
       {/* Weekly Timetable */}
       <TimetableSection />
-    </div>
+    </AdminPage>
   );
 };
 

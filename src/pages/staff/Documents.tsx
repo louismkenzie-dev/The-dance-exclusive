@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, FileText, CheckCircle2, X, Shield } from "lucide-react";
 import { useState } from "react";
+import { AdminPage, PageHeader } from "@/components/admin/ui";
 
 const StaffDocuments = () => {
   const { staff, refresh } = useStaffMember();
@@ -69,11 +70,11 @@ const StaffDocuments = () => {
   };
 
   return (
-    <div className="p-6 md:p-8 max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-3xl font-display font-bold mb-1">My Documents</h1>
-        <p className="text-muted-foreground">DBS certificate &amp; Public Liability Insurance</p>
-      </div>
+    <AdminPage className="max-w-3xl space-y-6">
+      <PageHeader
+        title="My documents"
+        subtitle="DBS certificate and public liability insurance"
+      />
 
       <Card>
         <CardContent className="p-6 space-y-4">
@@ -109,7 +110,7 @@ const StaffDocuments = () => {
           {staff.pli_cover_level && <p className="text-xs text-muted-foreground">Cover level: <strong className="text-foreground">£{staff.pli_cover_level.replace("m", " Million")}</strong> (set by admin)</p>}
         </CardContent>
       </Card>
-    </div>
+    </AdminPage>
   );
 };
 

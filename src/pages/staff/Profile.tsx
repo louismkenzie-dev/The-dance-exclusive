@@ -15,6 +15,7 @@ import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 import getCroppedImg from "@/lib/cropImage";
 import ChangePasswordCard from "@/components/ChangePasswordCard";
+import { AdminPage, PageHeader } from "@/components/admin/ui";
 
 const StaffProfile = () => {
   const { staff, refresh } = useStaffMember();
@@ -109,11 +110,11 @@ const StaffProfile = () => {
   const photo = form.profile_photo ? getStaffPhotoUrl(form.profile_photo) : undefined;
 
   return (
-    <div className="p-6 md:p-8 max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-3xl font-display font-bold mb-1">My Profile</h1>
-        <p className="text-muted-foreground">Update your personal details</p>
-      </div>
+    <AdminPage className="max-w-3xl space-y-6">
+      <PageHeader
+        title="My profile"
+        subtitle="Your personal details, as the studio holds them"
+      />
 
       <Card>
         <CardContent className="p-6 space-y-5">
@@ -227,7 +228,7 @@ const StaffProfile = () => {
       <div className="mt-6">
         <ChangePasswordCard />
       </div>
-    </div>
+    </AdminPage>
   );
 };
 

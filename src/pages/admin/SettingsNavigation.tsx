@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { AdminPage } from "@/components/admin/ui";
 
 const LucideIcon = ({ name, className }: { name: string; className?: string }) => {
   const Icon = (icons as any)[name];
@@ -370,7 +371,7 @@ const SettingsNavigation = () => {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <AdminPage className="max-w-4xl space-y-6">
       <div className="flex items-center gap-3">
         <Link to="/admin/settings">
           <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -378,9 +379,9 @@ const SettingsNavigation = () => {
           </Button>
         </Link>
         <div>
-          <h1 className="text-2xl font-display font-bold flex items-center gap-2">
+          <h1 className="flex items-center gap-2 text-[26px] font-semibold leading-tight tracking-tight text-foreground sm:text-3xl">
             <Menu className="h-6 w-6" />
-            Menu Navigation
+            Menu navigation
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Drag and drop to reorder sidebar items. Nest items to create dropdown groups.
@@ -468,7 +469,7 @@ const SettingsNavigation = () => {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </AdminPage>
   );
 };
 

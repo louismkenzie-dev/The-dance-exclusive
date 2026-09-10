@@ -146,7 +146,10 @@ export function PassRedeemDialog({
   }, [sessionOptions, passDef]);
 
   const venues = useMemo(
-    () => [...new Set(eligible.map((s) => s.venueName).filter(Boolean))] as string[],
+    () =>
+      ([...new Set(eligible.map((s) => s.venueName).filter(Boolean))] as string[]).sort((a, b) =>
+        a.localeCompare(b),
+      ),
     [eligible],
   );
 

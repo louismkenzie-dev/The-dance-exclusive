@@ -352,7 +352,7 @@ const AdminCustomers = () => {
   const { data: mapVenues } = useQuery({
     queryKey: ["admin-customers-map-venues"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("venues").select("id, name, latitude, longitude").order("name");
+      const { data, error } = await supabase.from("venues").select("id, name, latitude, longitude").neq("name", "").order("name");
       if (error) throw error;
       return data as any[];
     },

@@ -216,7 +216,7 @@ const AdminCalendar = () => {
   const { data: venueOptions = [] } = useQuery({
     queryKey: ["calendar-venues"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("venues").select("id, name").order("name");
+      const { data, error } = await supabase.from("venues").select("id, name").neq("name", "").order("name");
       if (error) throw error;
       return (data || []) as { id: string; name: string }[];
     },

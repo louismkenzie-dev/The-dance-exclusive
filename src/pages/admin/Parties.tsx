@@ -129,6 +129,7 @@ const AdminParties = () => {
         .from("venues")
         .select("id, name, capacity")
         .eq("is_active", true)
+        .neq("name", "")
         .order("name");
       if (error) throw error;
       return data as VenueOption[];

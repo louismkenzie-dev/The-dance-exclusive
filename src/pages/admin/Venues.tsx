@@ -105,6 +105,7 @@ const AdminVenues = () => {
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [contacts, setContacts] = useState<VenueContact[]>([]);
   const [newFacility, setNewFacility] = useState("");
+  const [tab, setTab] = useState("details");
   const { toast } = useToast();
 
   const fetchVenues = async () => {
@@ -125,7 +126,7 @@ const AdminVenues = () => {
 
   useEffect(() => { fetchVenues(); }, []);
 
-  const resetForm = () => { setForm({ ...emptyForm }); setEditing(null); setFacilities([]); setContacts([]); };
+  const resetForm = () => { setForm({ ...emptyForm }); setEditing(null); setFacilities([]); setContacts([]); setTab("details"); };
 
   const openEdit = (v: Venue) => {
     setEditing(v);
@@ -157,6 +158,7 @@ const AdminVenues = () => {
     });
     fetchFacilities(v.id);
     fetchContacts(v.id);
+    setTab("details");
     setOpen(true);
   };
 
@@ -192,6 +194,21 @@ const AdminVenues = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // The required attributes on the Details tab only guard the form while
+    // that tab is on screen: the tabs unmount their panels, so pressing
+    // "Create Venue" from Costs or Location left the browser with nothing to
+    // validate and saved a nameless venue. Check the essentials here, where
+    // the values live, and send Amie back to the tab that needs filling in.
+    const missing = !form.name.trim() || !form.address_line1.trim() || !form.city.trim() || !form.postcode.trim();
+    if (missing) {
+      setTab("details");
+      toast({
+        title: "A few details are missing",
+        description: "A venue needs a name, street address, town and postcode.",
+        variant: "destructive",
+      });
+      return;
+    }
     const payload = buildPayload();
     let error;
     if (editing) ({ error } = await supabase.from("venues").update(payload).eq("id", editing.id));
@@ -397,7 +414,7 @@ const AdminVenues = () => {
           </DialogHeader>
 
           <form onSubmit={handleSubmit}>
-            <Tabs defaultValue="details" className="mt-2">
+            <Tabs value={tab} onValueChange={setTab} className="mt-2">
               <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 h-auto">
                 <TabsTrigger value="details" className="text-xs gap-1"><Building2 className="w-3 h-3" /> Details</TabsTrigger>
                 <TabsTrigger value="contact" className="text-xs gap-1"><Phone className="w-3 h-3" /> Contact</TabsTrigger>

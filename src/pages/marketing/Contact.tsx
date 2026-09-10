@@ -82,6 +82,7 @@ const Contact = () => {
           .from("venues")
           .select("name, city, short_description")
           .eq("publicly_visible", true)
+          .neq("name", "")
           .order("is_featured", { ascending: false })
           .order("name"),
         supabase

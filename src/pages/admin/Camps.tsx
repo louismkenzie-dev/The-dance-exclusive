@@ -141,7 +141,7 @@ const AdminCamps = () => {
   const fetchData = async () => {
     const [campsRes, venuesRes, staffRes, workshopsRes, holidaysRes, termsRes] = await Promise.all([
       supabase.from("camps").select("*, venues(name), workshops(name, cover_image, cover_position, cover_zoom, cover_fit)").order("created_at", { ascending: false }),
-      supabase.from("venues").select("id, name, capacity").eq("is_active", true),
+      supabase.from("venues").select("id, name, capacity").eq("is_active", true).neq("name", "").order("name"),
       supabase.from("staff").select("id, full_name, pay_per_hour").eq("is_active", true),
       supabase.from("workshops").select("id, name, description, theme, dance_style, class_type, age_min, age_max, cover_image, cover_position, cover_zoom, cover_fit, capacity").eq("is_active", true),
       supabase.from("school_holidays").select("*").neq("holiday_type", "bank_holiday").order("start_date"),

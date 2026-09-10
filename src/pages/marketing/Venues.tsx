@@ -114,6 +114,7 @@ const Venues = () => {
           "id, name, address_line1, city, county, postcode, short_description, description, hero_image, photo_outside, is_featured, slug, floor_type, has_mirrors, has_sound_system, has_changing_rooms, has_parking, has_waiting_area, accessibility_info",
         )
         .eq("publicly_visible", true)
+        .neq("name", "")
         .order("is_featured", { ascending: false })
         .order("name");
       if (!cancelled) {

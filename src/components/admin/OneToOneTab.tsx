@@ -176,7 +176,7 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
     setOpen(true);
     const [{ data: studentRows }, { data: venueRows }, { data: staffRows }, { data: profileRows }] = await Promise.all([
       supabase.from("students").select("id, first_name, last_name, is_self, parent_id").order("first_name"),
-      supabase.from("venues").select("id, name, postcode").order("name"),
+      supabase.from("venues").select("id, name, postcode").neq("name", "").order("name"),
       supabase.from("staff").select("id, first_name, last_name, full_name").eq("is_active", true).order("first_name"),
       supabase.from("profiles").select("user_id, full_name"),
     ]);

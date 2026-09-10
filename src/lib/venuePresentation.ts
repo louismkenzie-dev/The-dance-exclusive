@@ -25,10 +25,15 @@ export const slugify = (name: string): string =>
 /**
  * A venue may appear on public pages only when it is explicitly public and
  * not inactive. Provisional venues are excluded unless an admin has
- * explicitly made them publicly visible.
+ * explicitly made them publicly visible. A venue with no name is a
+ * half-finished record and is never shown anywhere a customer can see.
  */
 export const isVenuePubliclyListable = (v: PublicVenueFields): boolean =>
-  v.publicly_visible && v.status !== "inactive";
+  v.publicly_visible && v.status !== "inactive" && isNamedVenue(v);
+
+/** Whether a venue row has actually been filled in enough to name it. */
+export const isNamedVenue = (v: { name: string | null | undefined }): boolean =>
+  Boolean(v.name && v.name.trim());
 
 /**
  * Venues to show in the public featured carousel: featured + publicly

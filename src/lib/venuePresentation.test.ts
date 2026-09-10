@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   slugify,
+  isNamedVenue,
   isVenuePubliclyListable,
   featuredVenuesForDisplay,
   venueCardImage,
@@ -38,6 +39,20 @@ describe("isVenuePubliclyListable", () => {
     expect(isVenuePubliclyListable(venue({ status: "provisional", publicly_visible: false }))).toBe(false);
     // explicit admin opt-in
     expect(isVenuePubliclyListable(venue({ status: "provisional", publicly_visible: true }))).toBe(true);
+  });
+  it("excludes a venue that has never been named", () => {
+    expect(isVenuePubliclyListable(venue({ name: "" }))).toBe(false);
+    expect(isVenuePubliclyListable(venue({ name: "   " }))).toBe(false);
+  });
+});
+
+describe("isNamedVenue", () => {
+  it("accepts a real name and rejects an unfilled one", () => {
+    expect(isNamedVenue({ name: "Kelvedon Institute" })).toBe(true);
+    expect(isNamedVenue({ name: "" })).toBe(false);
+    expect(isNamedVenue({ name: "  " })).toBe(false);
+    expect(isNamedVenue({ name: null })).toBe(false);
+    expect(isNamedVenue({ name: undefined })).toBe(false);
   });
 });
 

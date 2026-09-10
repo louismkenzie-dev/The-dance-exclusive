@@ -236,7 +236,7 @@ const AdminClasses = () => {
   const fetchData = async () => {
     const [classesRes, venuesRes, staffRes, workshopsRes, termsRes, holidaysRes] = await Promise.all([
       supabase.from("classes").select("*, venues(name), staff(full_name), workshops(name, cover_image, cover_position, cover_zoom, cover_fit)").order("created_at", { ascending: false }),
-      supabase.from("venues").select("id, name, capacity").eq("is_active", true),
+      supabase.from("venues").select("id, name, capacity").eq("is_active", true).neq("name", "").order("name"),
       supabase.from("staff").select("id, full_name").eq("is_active", true),
       supabase.from("workshops").select("id, name, description, theme, dance_style, class_type, age_min, age_max, cover_image, cover_position, cover_zoom, cover_fit, capacity, duration_minutes, price").eq("is_active", true),
       supabase.from("school_terms").select("*").order("start_date"),

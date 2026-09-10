@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useInvitedPlans, trialGateFor } from "@/hooks/useInvitedPlans";
 import { useAuth } from "@/contexts/AuthContext";
+import type { PricingPlan } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import {
   AvailabilityPill,
@@ -168,6 +169,8 @@ const BookClass = () => {
   const [onWaitlist, setOnWaitlist] = useState(false);
   const [waitlistBusy, setWaitlistBusy] = useState(false);
   const [bookOpen, setBookOpen] = useState(false);
+  /** The plan the parent tapped in the price list, if they tapped one. */
+  const [presetPlan, setPresetPlan] = useState<PricingPlan | undefined>(undefined);
   const [showAllDates, setShowAllDates] = useState(false);
 
   // The class itself, its instructor, this term's dates and how full it is —
@@ -375,8 +378,12 @@ const BookClass = () => {
   const state = classCardState(cls, full);
   const { priceLabel, priceHint } = classPriceSummary(cls, sessions.length);
   // A place the studio saved for this family unlocks the plan they
-  // were offered, even one the public rules would hide.
-  const plans = classPlanRows(cls, sessions.length, trialGateFor(invitedPlans, cls.id, hasExistingBookings));
+  // were offered, even one the public rules would hide. The page and the
+  // booking sheet MUST be handed the same answer: a parent who was shown a
+  // trial here and then couldn't buy one in the sheet is exactly the bug
+  // this caused the first time round.
+  const trialGate = trialGateFor(invitedPlans, cls.id, hasExistingBookings);
+  const plans = classPlanRows(cls, sessions.length, trialGate);
   const about = cls.workshops?.description || cls.description;
   const eyebrow = [cls.dance_style, audienceText(cls)].filter(Boolean).join(" · ");
   const directionsUrl = venue?.latitude && venue?.longitude
@@ -396,12 +403,23 @@ const BookClass = () => {
     : "Book";
   const ctaDisabled = waitlistBusy || state === "invite" || state === "soon";
 
-  const onPrimary = () => {
+  /**
+   * Start booking, optionally on a named plan (tapping a row in the price
+   * list). Someone who isn't signed in is sent to create an account — they
+   * came from a link the studio shared, so they most likely haven't got one
+   * — and lands straight back here afterwards.
+   */
+  const startBooking = (plan?: PricingPlan) => {
     if (state === "full") { void toggleWaitlist(); return; }
     if (state !== "bookable") return;
-    if (!user) { navigate(`/auth?redirect=${encodeURIComponent(pathname)}`); return; }
+    if (!user) {
+      navigate(`/auth?mode=signup&redirect=${encodeURIComponent(pathname)}`);
+      return;
+    }
+    setPresetPlan(plan);
     setBookOpen(true);
   };
+  const onPrimary = () => startBooking(offersTrial ? "trial" : undefined);
 
   const nextStepNote = state === "invite"
     ? INVITE_ONLY_NOTE
@@ -544,11 +562,17 @@ const BookClass = () => {
               <section className="mt-10" aria-label="Plans">
                 <SectionHeading
                   title="Plans"
-                  subtitle={isAdult ? "Pay for the classes you come to." : "Choose how to pay when you book."}
+                  subtitle={isAdult ? "Pay for the classes you come to." : "Tap the one you want to get started."}
                 />
                 <div className="surface mt-4 divide-y divide-border/60">
                   {plans.map((p) => (
-                    <div key={p.id} className="flex items-center justify-between gap-4 px-5 py-4">
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => startBooking(p.id)}
+                      disabled={ctaDisabled}
+                      className="pressable flex w-full items-center justify-between gap-4 px-5 py-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:cursor-default"
+                    >
                       <div className="min-w-0">
                         <p className="text-[15px] font-semibold text-foreground">
                           {p.title}
@@ -564,7 +588,7 @@ const BookClass = () => {
                         {p.price}
                         {p.priceSuffix && <span className="ml-1 text-[13px] font-normal text-muted-foreground">{p.priceSuffix}</span>}
                       </p>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </section>
@@ -664,7 +688,8 @@ const BookClass = () => {
         classData={bookOpen ? cls : null}
         sessions={sessions}
         children={children}
-        hasExistingBookings={hasExistingBookings}
+        hasExistingBookings={trialGate}
+        presetPlan={presetPlan}
         isAdult={isAdult}
         selfStudent={selfStudent}
         onChildrenChanged={fetchAttendees}

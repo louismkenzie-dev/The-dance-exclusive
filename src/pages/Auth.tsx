@@ -52,11 +52,19 @@ const Auth = () => {
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [tab, setTab] = useState<"login" | "signup">("login");
+  // Arriving from a "book this class" button means an account is the thing
+  // standing in the way, and most people the studio sends a class link to
+  // have never made one — so open on Create account. Signing in is still one
+  // tap away for anyone who already has an account.
+  const [tab, setTab] = useState<"login" | "signup">(
+    () => (new URLSearchParams(window.location.search).get("mode") === "signup" ? "signup" : "login"),
+  );
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get("redirect");
+  /** Sent here mid-booking: say so, so the detour makes sense. */
+  const bookingIntent = !!redirectTo && redirectTo.startsWith("/book/");
   const { toast } = useToast();
 
   // /auth?forgot=1 opens the "send me a reset link" form directly — where
@@ -200,7 +208,15 @@ const Auth = () => {
   return (
     <AuthShell
       title={tab === "signup" ? "Create your account" : <>Sign in to <span className="whitespace-nowrap">The Dance Exclusive</span></>}
-      subtitle={tab === "signup" ? "Set up an account to book and manage classes" : "Sign in to book your dance classes"}
+      subtitle={
+        tab === "signup"
+          ? bookingIntent
+            ? "It takes a minute, and then we'll take you straight back to book."
+            : "Set up an account to book and manage classes"
+          : bookingIntent
+            ? "Sign in and we'll take you straight back to book."
+            : "Sign in to book your dance classes"
+      }
     >
       {/* Social sign-in */}
       <Button

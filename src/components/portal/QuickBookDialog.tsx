@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
@@ -78,6 +78,8 @@ interface QuickBookDialogProps {
   sessions: SessionRow[];
   children: ChildRow[];
   hasExistingBookings: boolean | null;
+  /** Open on this plan — the one the parent tapped in the class's price list. */
+  presetPlan?: PricingPlan;
   isAdult: boolean;
   /** The account holder's own attendee profile (students.is_self) — required to book adult classes. */
   selfStudent?: ChildRow | null;
@@ -114,6 +116,7 @@ export function QuickBookDialog({
   sessions,
   children,
   hasExistingBookings,
+  presetPlan,
   isAdult,
   selfStudent = null,
   onChildrenChanged,
@@ -128,6 +131,13 @@ export function QuickBookDialog({
   const [monthlyNoticeOpen, setMonthlyNoticeOpen] = useState(false);
   // Add / complete an attendee profile without leaving the booking dialog.
   const [childDialog, setChildDialog] = useState<{ editing: any | null; selfMode: boolean } | null>(null);
+  // The footer names the next thing to do ("Select dates"). Those live further
+  // down the sheet, past the plans and the children, so on a phone they are
+  // below the fold — the button has to be able to take you to them.
+  const attendeesRef = useRef<HTMLDivElement>(null);
+  const datesRef = useRef<HTMLDivElement>(null);
+  const scrollTo = (ref: React.RefObject<HTMLDivElement>) =>
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
 
   // Reset selections when class changes / dialog opens.
   // Children: trial → the class's first offered plan (no drop-ins).
@@ -136,7 +146,12 @@ export function QuickBookDialog({
     if (open && classData) {
       setSelSessions([]);
       setSelKids([]);
-      if (classData.class_type === "adult") {
+      // A plan the parent chose on the class page wins — they have already
+      // said what they want, and re-deciding it for them is how someone ends
+      // up looking at a plan they didn't ask for.
+      if (presetPlan) {
+        setPlan(presetPlan);
+      } else if (classData.class_type === "adult") {
         setPlan("session");
       } else if (classData.allow_trial && hasExistingBookings === false) {
         setPlan("trial");
@@ -144,7 +159,7 @@ export function QuickBookDialog({
         setPlan(defaultChildPlan(classData, sessions.length > 0));
       }
     }
-  }, [open, classData, hasExistingBookings, sessions.length]);
+  }, [open, classData, hasExistingBookings, presetPlan, sessions.length]);
 
   // Auto-select sessions for whole-plan purchases (must run before any early return)
   useEffect(() => {
@@ -211,7 +226,8 @@ export function QuickBookDialog({
     : priceSession;
 
   const noKidsSelected = c.class_type === "children" && selKids.length === 0;
-  const noSessionsSelected = (plan === "session" || plan === "trial") && sessionsSelected === 0;
+  const needsDates = plan === "session" || plan === "trial";
+  const noSessionsSelected = needsDates && sessionsSelected === 0;
   // Booking is blocked until the attendee exists: a child on the account, or the adult self profile.
   const needsChild = c.class_type === "children" && children.length === 0;
   const needsSelfProfile = c.class_type === "adult" && !isAttendeeProfileComplete(selfStudent as any);
@@ -506,10 +522,15 @@ export function QuickBookDialog({
             <Button
               size="xl"
               className="rounded-full px-6"
-              disabled={(needsChild || needsSelfProfile) ? false : (noKidsSelected || noSessionsSelected)}
+              /* Only truly dead when there is nothing to pick: a class with no
+                 dates left can't be booked by date. Everything else the button
+                 can act on, so it stays live and takes you there. */
+              disabled={needsDates && sessions.length === 0}
               onClick={() => {
                 if (needsChild) return setChildDialog({ editing: null, selfMode: false });
                 if (needsSelfProfile) return setChildDialog({ editing: selfStudent, selfMode: true });
+                if (noKidsSelected) return scrollTo(attendeesRef);
+                if (noSessionsSelected) return scrollTo(datesRef);
                 // Monthly membership: explicit cancellation-notice acknowledgement first.
                 if (plan === "monthly") return setMonthlyNoticeOpen(true);
                 handleAddToCart();
@@ -535,6 +556,7 @@ export function QuickBookDialog({
 
         {/* Who's attending — choose WHO before WHEN */}
         {c.class_type === "children" && user && children.length > 0 && (
+          <div ref={attendeesRef}>
           <BookingSection label="Who's attending">
             {!hasEligible && (
               <p className="text-[13px] text-warning">
@@ -550,6 +572,7 @@ export function QuickBookDialog({
               addLabel="Add a child"
             />
           </BookingSection>
+          </div>
         )}
 
         {c.class_type === "children" && user && children.length === 0 && (
@@ -588,6 +611,7 @@ export function QuickBookDialog({
 
         {/* Dates — pay as you go picks several, a trial picks one */}
         {(plan === "session" || plan === "trial") && (
+          <div ref={datesRef}>
           <BookingSection label={plan === "trial" ? "Trial date" : "Dates"}>
             {sessions.length > 0 ? (
               <SessionDatePicker
@@ -602,6 +626,7 @@ export function QuickBookDialog({
               <p className="text-[13px] text-muted-foreground">No upcoming dates to book yet.</p>
             )}
           </BookingSection>
+          </div>
         )}
       </div>
     </ResponsiveSheet>

@@ -4,6 +4,7 @@ import { addDays, format, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { CalendarDays, LayoutGrid, MapPin } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useInvitedPlans, trialGateFor } from "@/hooks/useInvitedPlans";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -168,6 +169,7 @@ const ClassBrowser = () => {
   const [sessionCounts, setSessionCounts] = useState<Record<string, number>>({});
   const [classSessions, setClassSessions] = useState<Record<string, SessionRow[]>>({});
   const [hasExistingBookings, setHasExistingBookings] = useState<boolean | null>(null);
+  const invitedPlans = useInvitedPlans();
   const [activeSection, setActiveSection] = useState<"classes" | "camps" | "shows">("classes");
   const [venueFilter, setVenueFilter] = useState<string>("all");
   // Style is a pure client-side filter over the sorted list.
@@ -1208,7 +1210,7 @@ const ClassBrowser = () => {
         classData={quickBookClassId ? (classes.find(c => c.id === quickBookClassId) as any) : null}
         sessions={quickBookClassId ? (classSessions[quickBookClassId] || []) : []}
         children={children}
-        hasExistingBookings={hasExistingBookings}
+        hasExistingBookings={trialGateFor(invitedPlans, quickBookClassId ?? "", hasExistingBookings)}
         isAdult={isAdult}
         selfStudent={selfStudent}
         onChildrenChanged={fetchAttendees}

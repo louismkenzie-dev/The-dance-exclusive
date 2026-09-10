@@ -4,6 +4,7 @@ import { format, parseISO } from "date-fns";
 import { ArrowLeft, CalendarDays, MapPin, User } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useInvitedPlans, trialGateFor } from "@/hooks/useInvitedPlans";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -163,6 +164,7 @@ const BookClass = () => {
   const [children, setChildren] = useState<ChildRow[]>([]);
   const [selfStudent, setSelfStudent] = useState<ChildRow | null>(null);
   const [hasExistingBookings, setHasExistingBookings] = useState<boolean | null>(null);
+  const invitedPlans = useInvitedPlans();
   const [onWaitlist, setOnWaitlist] = useState(false);
   const [waitlistBusy, setWaitlistBusy] = useState(false);
   const [bookOpen, setBookOpen] = useState(false);
@@ -367,7 +369,9 @@ const BookClass = () => {
   const full = isClassFull(cls.capacity, enrolled);
   const state = classCardState(cls, full);
   const { priceLabel, priceHint } = classPriceSummary(cls, sessions.length);
-  const plans = classPlanRows(cls, sessions.length, hasExistingBookings);
+  // A place the studio saved for this family unlocks the plan they
+  // were offered, even one the public rules would hide.
+  const plans = classPlanRows(cls, sessions.length, trialGateFor(invitedPlans, cls.id, hasExistingBookings));
   const about = cls.workshops?.description || cls.description;
   const eyebrow = [cls.dance_style, audienceText(cls)].filter(Boolean).join(" · ");
   const directionsUrl = venue?.latitude && venue?.longitude

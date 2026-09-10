@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { classBrowserPath } from "@/lib/classLinks";
+import { classLinkPath } from "@/lib/classLinks";
 import { formatPrice, formatTimeRange } from "@/lib/bookingFormat";
 
 interface PortalInvite {
@@ -119,7 +119,11 @@ const OneToOneInvites = () => {
     // not even sell — so it goes straight in the basket at their price.
     const pricedByStudio = Number(invite.price) > 0 && invite.plan === "session" && (invite.session_dates?.length ?? 0) > 0;
     if (!cls.invite_only && !pricedByStudio) {
-      navigate(classBrowserPath(invite.class_id, cls.class_type));
+      // The class's own page, not the list of every class: it opens on the
+      // plan the studio saved them (a trial place unlocks the trial even for
+      // a family that has booked before) so "Confirm and pay" leads
+      // somewhere they can actually finish.
+      navigate(classLinkPath(invite.class_id));
       return;
     }
     if (!items.some((i) => i.classId === invite.class_id && i.studentId === invite.student_id)) {

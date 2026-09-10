@@ -252,9 +252,10 @@ const ClassBrowser = () => {
       .catch(() => {});
   }, [(profile as any)?.postcode]);
 
-  // Check if user has any existing bookings (for free trial eligibility)
+  // Check if user has any existing bookings (for free trial eligibility).
+  // Signed out reads as a first-timer — see the same effect in BookClass.
   useEffect(() => {
-    if (!user) { setHasExistingBookings(null); return; }
+    if (!user) { setHasExistingBookings(false); return; }
     supabase.from("bookings").select("id", { count: "exact", head: true })
       .eq("parent_id", user.id)
       .eq("status", "confirmed")

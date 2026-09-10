@@ -256,8 +256,13 @@ const BookClass = () => {
   useEffect(fetchAttendees, [user]);
 
   // Any existing bookings? (Trial eligibility.)
+  // A visitor who isn't signed in counts as a first-timer: most people
+  // opening a link the studio shared have never booked, and hiding the trial
+  // from them hid the one price that brings them in. Nothing can be paid for
+  // signed out — the booking sheet sends them to sign in first — so once
+  // they have an account the real answer below takes over.
   useEffect(() => {
-    if (!user) { setHasExistingBookings(null); return; }
+    if (!user) { setHasExistingBookings(false); return; }
     supabase.from("bookings").select("id", { count: "exact", head: true })
       .eq("parent_id", user.id)
       .eq("status", "confirmed")
@@ -379,9 +384,15 @@ const BookClass = () => {
     : null;
   const visibleSessions = showAllDates ? sessions : sessions.slice(0, INITIAL_DATES);
 
+  // A family who can take a trial is told so on the button itself. The sheet
+  // already opens with the trial selected, so the label is the truth about
+  // what happens next — and it is the first thing someone sees when the
+  // studio sends them a link to a class.
+  const offersTrial = state === "bookable" && !isAdult && plans.some((p) => p.id === "trial");
   const ctaLabel = state === "full" ? (onWaitlist ? "Leave waitlist" : "Join waitlist")
     : state === "invite" ? "Invite only"
     : state === "soon" ? "Coming soon"
+    : offersTrial ? "Book a trial"
     : "Book";
   const ctaDisabled = waitlistBusy || state === "invite" || state === "soon";
 
@@ -401,13 +412,14 @@ const BookClass = () => {
         : isAdult
           ? "You'll pick your dates next."
           : "You'll choose a plan and who's attending next.";
-  // What the headline price is, in the sticky card.
-  const priceCaption = isAdult
-    ? "Pay as you go"
-    : priceHint === "/month" ? "Monthly membership"
-      : priceHint === "/term" ? "Pay for the term"
-        : "Per class";
   const trialPlan = plans.find((p) => p.id === "trial");
+  // What the headline price is, in the sticky card. Where a trial is on
+  // offer that is the price being asked for today, so it leads, and the
+  // ongoing price follows underneath rather than standing in for it.
+  const headlinePrice = offersTrial && trialPlan
+    ? { caption: "Trial class", label: trialPlan.price, hint: "one class" }
+    : { caption: isAdult ? "Pay as you go" : priceHint === "/month" ? "Monthly membership" : priceHint === "/term" ? "Pay for the term" : "Per class", label: priceLabel, hint: priceHint };
+  const afterTrialNote = offersTrial ? `Then ${priceLabel}${priceHint === "/month" ? " a month" : priceHint === "/term" ? " a term" : ` ${priceHint}`} if you carry on.` : null;
 
   const ctaButton = (extraClass: string) => (
     <Button
@@ -538,7 +550,14 @@ const BookClass = () => {
                   {plans.map((p) => (
                     <div key={p.id} className="flex items-center justify-between gap-4 px-5 py-4">
                       <div className="min-w-0">
-                        <p className="text-[15px] font-semibold text-foreground">{p.title}</p>
+                        <p className="text-[15px] font-semibold text-foreground">
+                          {p.title}
+                          {p.id === "trial" && (
+                            <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 align-middle text-[11px] font-semibold uppercase tracking-wide text-primary">
+                              Start here
+                            </span>
+                          )}
+                        </p>
                         <p className="mt-0.5 text-[13px] text-muted-foreground">{p.meta}</p>
                       </div>
                       <p className="shrink-0 text-right text-[15px] font-semibold tabular-nums text-foreground">
@@ -613,19 +632,15 @@ const BookClass = () => {
           {/* Desktop: the price and the one action stay in view */}
           <aside className="hidden lg:block">
             <div className="surface sticky top-32 p-6">
-              <p className="text-[13px] font-medium text-muted-foreground">{priceCaption}</p>
+              <p className="text-[13px] font-medium text-muted-foreground">{headlinePrice.caption}</p>
               <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums text-foreground">
-                {priceLabel}
-                <span className="ml-1.5 text-[15px] font-normal tracking-normal text-muted-foreground">{priceHint}</span>
+                {headlinePrice.label}
+                <span className="ml-1.5 text-[15px] font-normal tracking-normal text-muted-foreground">{headlinePrice.hint}</span>
               </p>
+              {afterTrialNote && <p className="mt-1 text-[13px] text-muted-foreground">{afterTrialNote}</p>}
               <AvailabilityPill availability={availability} className="mt-2" />
               {ctaButton("mt-5 w-full")}
               <p className="mt-3 text-center text-[13px] leading-relaxed text-muted-foreground">{nextStepNote}</p>
-              {state === "bookable" && trialPlan && (
-                <p className="mt-3 border-t border-border/60 pt-3 text-center text-[13px] leading-relaxed text-muted-foreground">
-                  First time? A trial class is <span className="font-medium text-foreground">{trialPlan.price}</span>.
-                </p>
-              )}
             </div>
           </aside>
         </div>
@@ -635,8 +650,10 @@ const BookClass = () => {
       {/* Sits above the app tab bar, which stays on this page. */}
       <StickyActionBar className="bottom-[calc(53px+env(safe-area-inset-bottom))] !pb-0" action={ctaButton("px-7")}>
         <p className="truncate text-[15px] font-semibold tabular-nums text-foreground">
-          {priceLabel}
-          <span className="ml-1 text-[13px] font-normal text-muted-foreground">{priceHint}</span>
+          {headlinePrice.label}
+          <span className="ml-1 text-[13px] font-normal text-muted-foreground">
+            {offersTrial ? "trial class" : headlinePrice.hint}
+          </span>
         </p>
         <AvailabilityPill availability={availability} className="mt-0.5" />
       </StickyActionBar>

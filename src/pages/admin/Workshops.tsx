@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { AdminPage } from "@/components/admin/ui";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -304,11 +305,11 @@ const AdminWorkshops = () => {
   };
 
   return (
-    <div className="p-4 md:p-8">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6 md:mb-8">
+    <AdminPage>
+      <div className="mb-6 flex flex-col gap-3 md:mb-8 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl md:text-3xl font-display font-bold">Type of Class</h1>
-          <p className="text-muted-foreground mt-1 text-sm md:text-base">Manage your class types — the templates classes are built from</p>
+          <h1 className="text-[26px] font-semibold leading-tight tracking-tight text-foreground sm:text-3xl">Types of class</h1>
+          <p className="mt-1 text-[14px] text-muted-foreground">The templates classes are built from</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
@@ -681,7 +682,7 @@ const AdminWorkshops = () => {
           })}
         </div>
       )}
-    </div>
+    </AdminPage>
   );
 };
 

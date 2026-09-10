@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { AdminPage } from "@/components/admin/ui";
 import { toast } from "sonner";
 import { PartyPopper, Plus, Pencil, Trash2, GripVertical, Package, Gift, Image, Video, Youtube, Upload, X, Inbox } from "lucide-react";
 import PartyEnquiries from "@/components/admin/PartyEnquiries";
@@ -417,12 +418,12 @@ const AdminParties = () => {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <AdminPage className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-display font-bold flex items-center gap-2">
+          <h1 className="flex items-center gap-2 text-[26px] font-semibold leading-tight tracking-tight text-foreground sm:text-3xl">
             <PartyPopper className="h-6 w-6" />
-            Birthday Parties
+            Birthday parties
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Manage party packages, pricing and optional extras
@@ -888,7 +889,7 @@ const AdminParties = () => {
           })()}
         </DialogContent>
       </Dialog>
-    </div>
+    </AdminPage>
   );
 };
 

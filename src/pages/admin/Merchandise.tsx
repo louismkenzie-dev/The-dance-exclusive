@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { AdminPage } from "@/components/admin/ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -438,11 +439,11 @@ const Merchandise = () => {
   if (loading) return <div className="p-4 md:p-8 text-center text-muted-foreground">Loading...</div>;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <AdminPage className="max-w-7xl space-y-6">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: 'var(--font-heading)' }}>Merchandise</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage products, stock levels, and bundles</p>
+          <h1 className="text-[26px] font-semibold leading-tight tracking-tight text-foreground sm:text-3xl">Merchandise</h1>
+          <p className="mt-1 text-[14px] text-muted-foreground">Products, stock levels and bundles</p>
         </div>
         <div className={`flex items-center gap-3 rounded-lg border px-4 py-3 ${sellingActive ? "border-primary/40 bg-primary/5" : "border-amber-500/40 bg-amber-500/5"}`}>
           <div className="flex flex-col">
@@ -845,7 +846,7 @@ const Merchandise = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </AdminPage>
   );
 };
 

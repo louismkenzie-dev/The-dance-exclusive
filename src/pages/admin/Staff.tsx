@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { AdminPage, PageHeader } from "@/components/admin/ui";
 import { compareStaffBySeniority } from "@/lib/staffRoles";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -620,13 +621,12 @@ const AdminStaff = () => {
   };
 
   return (
-    <div className="p-4 md:p-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-display font-bold">Staff</h1>
-          <p className="text-muted-foreground mt-1">Manage instructors and team</p>
-        </div>
-      </div>
+    <AdminPage>
+      <PageHeader
+        title="Staff"
+        subtitle="Teachers and the team, their documents and their classes"
+        className="mb-8"
+      />
 
       <div>
       <div className="flex items-center justify-end gap-2 mb-6">
@@ -1289,7 +1289,7 @@ const AdminStaff = () => {
         </div>
       )}
       </div>
-    </div>
+    </AdminPage>
   );
 };
 

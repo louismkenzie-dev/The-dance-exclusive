@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { AdminPage } from "@/components/admin/ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarDays, Users, BookOpen, MapPin, TrendingUp, UserCheck, UserCog, Sparkles, Clock, Baby, PersonStanding, AlertTriangle, GraduationCap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -240,13 +241,13 @@ const AdminDashboard = () => {
   const expiredCount = attentionItems.filter((i) => i.expired).length;
 
   return (
-    <div className="p-4 md:p-8 space-y-10">
+    <AdminPage className="space-y-10">
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-display font-bold text-foreground tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground mt-1 text-sm" style={{ textTransform: 'none', letterSpacing: 'normal', fontFamily: 'var(--font-body)' }}>
-            Overview of The Dance Exclusive
+          <h1 className="text-[26px] font-semibold leading-tight tracking-tight text-foreground sm:text-3xl">Dashboard</h1>
+          <p className="mt-1 text-[14px] text-muted-foreground">
+            How the studio is doing today
           </p>
         </div>
         <Button
@@ -477,7 +478,7 @@ const AdminDashboard = () => {
           ))}
         </div>
       </div>
-    </div>
+    </AdminPage>
   );
 };
 

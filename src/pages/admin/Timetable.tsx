@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { AdminPage, PageHeader } from "@/components/admin/ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -183,15 +184,11 @@ const AdminTimetable = () => {
   const candidates = staffList.filter((s) => !assignedIds.has(s.id));
 
   return (
-    <div className="p-4 md:p-8">
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-display font-bold">Timetable &amp; Staffing</h1>
-          <p className="text-muted-foreground mt-1">
-            Weekly schedule with teaching assignments — click Assign to put a staff member on a class.
-          </p>
-        </div>
-        {!loading && (
+    <AdminPage>
+      <PageHeader
+        title="Timetable"
+        subtitle="The week at a glance, and who is teaching what. Tap Assign to put someone on a class."
+        action={!loading && (
           <Badge
             variant="outline"
             className={cn(
@@ -204,16 +201,16 @@ const AdminTimetable = () => {
             {unstaffedCount > 0 ? `${unstaffedCount} class${unstaffedCount === 1 ? "" : "es"} without staff` : "All classes staffed"}
           </Badge>
         )}
-      </div>
+      />
 
       {!loading && (
-        <VenueFilterChips venues={venueOptions} value={venueFilter} onChange={setVenueFilter} className="mb-6" />
+        <VenueFilterChips venues={venueOptions} value={venueFilter} onChange={setVenueFilter} className="mb-6 mt-5" />
       )}
 
       {loading ? (
-        <div className="text-muted-foreground">Loading timetable...</div>
+        <p className="mt-6 text-muted-foreground">Loading timetable…</p>
       ) : (
-        <div className="grid gap-6">
+        <div className="grid gap-4">
           {classesByDay.map(({ day, classes: dayClasses }) => (
             <Card key={day} className="animate-fade-in">
               <CardHeader className="pb-3">
@@ -375,7 +372,7 @@ const AdminTimetable = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </AdminPage>
   );
 };
 

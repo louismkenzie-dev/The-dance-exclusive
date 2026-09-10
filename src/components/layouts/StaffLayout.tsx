@@ -148,7 +148,7 @@ const StaffLayout = () => {
           />
         </header>
         <main
-          className="flex-1 overflow-auto"
+          className="app-screen portal-ui flex-1 overflow-auto"
           onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 24)}
         >
           <Outlet />

@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Plus, Pencil, Trash2, Search, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { AdminPage, DesktopOnly, EmptyState, Fab, FilterBar, PageHeader, PhoneOnly, RecordCard, RecordList } from "@/components/admin/ui";
 import {
   Table,
   TableBody,
@@ -115,40 +114,93 @@ const AdminCoupons = () => {
   };
 
   return (
-    <div className="p-4 md:p-8">
-      <div className="mb-8 flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-display font-bold">Coupons</h1>
-          <p className="text-muted-foreground mt-1">
-            Discount codes and personal credits for holiday workshops, class bookings, monthly memberships and adult passes.
-          </p>
-        </div>
-        <Button onClick={handleNew}>
-          <Plus className="h-4 w-4 mr-1.5" /> New coupon
-        </Button>
-      </div>
+    <AdminPage hasFab>
+      <PageHeader
+        title="Coupons"
+        count={coupons.length}
+        subtitle="Discount codes and personal credits for holiday workshops, class bookings, monthly memberships and adult passes."
+        actionDesktopOnly
+        action={
+          <Button onClick={handleNew} className="rounded-full">
+            <Plus className="mr-1.5 h-4 w-4" /> New coupon
+          </Button>
+        }
+      />
 
-      <Card>
-        <CardContent className="p-4">
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by code, description or family email"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
+      <FilterBar
+        className="mt-5"
+        search={search}
+        onSearch={setSearch}
+        searchPlaceholder="Search by code, description or family email"
+      />
 
+      <div className="mt-5">
           {isLoading ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading…
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading…
             </div>
           ) : filtered.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              {coupons.length === 0 ? "No coupons yet. Create your first one." : "No matches."}
-            </div>
+            <EmptyState
+              title={coupons.length === 0 ? "No coupons yet" : "No coupons match that search"}
+              body={coupons.length === 0 ? "Create one to give a family a discount or a personal credit." : "Try the code itself, or the family's email address."}
+              action={coupons.length === 0 ? <Button onClick={handleNew} className="rounded-full"><Plus className="mr-1.5 h-4 w-4" /> New coupon</Button> : undefined}
+            />
           ) : (
+            <>
+            <PhoneOnly>
+              <RecordList>
+                {filtered.map((c) => {
+                  const status = getStatus(c);
+                  const limit = c.usage_limit_total != null ? `/ ${c.usage_limit_total}` : "";
+                  return (
+                    <RecordCard
+                      key={c.id}
+                      title={<span className="font-mono">{c.code}</span>}
+                      meta={
+                        <>
+                          {c.description && <p>{c.description}</p>}
+                          <p>
+                            {c.redemption_count} {limit} used
+                            {c.usage_limit_per_user != null && <> · max {c.usage_limit_per_user} each</>}
+                          </p>
+                          <p>
+                            {c.valid_from ? format(new Date(c.valid_from), "d MMM yyyy") : "Anytime"}
+                            {" → "}
+                            {c.valid_until ? format(new Date(c.valid_until), "d MMM yyyy") : "no expiry"}
+                          </p>
+                          {c.restricted_to_email && <p className="break-all">Personal: {c.restricted_to_email}</p>}
+                        </>
+                      }
+                      trailing={
+                        <div className="space-y-1">
+                          <p className="text-[15px] font-semibold tabular-nums text-foreground">
+                            {c.discount_type === "percent" ? `${c.discount_value}%` : `£${Number(c.discount_value).toFixed(2)}`}
+                          </p>
+                          <Badge variant={status.variant}>{status.label}</Badge>
+                        </div>
+                      }
+                      actions={
+                        <>
+                          <Button variant="soft" size="sm" className="h-9 gap-1.5 rounded-full" onClick={() => handleEdit(c)}>
+                            <Pencil className="h-3.5 w-3.5" /> Edit
+                          </Button>
+                          <Button variant="soft" size="sm" className="h-9 gap-1.5 rounded-full" onClick={() => setDeleting(c)}>
+                            <Trash2 className="h-3.5 w-3.5" /> Delete
+                          </Button>
+                        </>
+                      }
+                    >
+                      <div className="flex flex-wrap gap-1">
+                        {kindChips(c).map((label) => (
+                          <Badge key={label} variant="secondary" className="font-normal">{label}</Badge>
+                        ))}
+                      </div>
+                    </RecordCard>
+                  );
+                })}
+              </RecordList>
+            </PhoneOnly>
+            <DesktopOnly className="surface overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -223,9 +275,12 @@ const AdminCoupons = () => {
                 })}
               </TableBody>
             </Table>
+            </DesktopOnly>
+            </>
           )}
-        </CardContent>
-      </Card>
+      </div>
+
+      <Fab onClick={handleNew} icon={<Plus className="h-5 w-5" />}>New coupon</Fab>
 
       <CouponFormDialog
         open={formOpen}
@@ -249,7 +304,7 @@ const AdminCoupons = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </AdminPage>
   );
 };
 

@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { AdminPage } from "@/components/admin/ui";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -821,11 +822,11 @@ const AdminClasses = () => {
     : "";
 
   return (
-    <div className="p-4 md:p-8">
-      <div className="flex items-center justify-between mb-8">
+    <AdminPage>
+      <div className="mb-8 flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-display font-bold">Classes</h1>
-          <p className="text-muted-foreground mt-1">Manage dance classes & sessions</p>
+          <h1 className="text-[26px] font-semibold leading-tight tracking-tight text-foreground sm:text-3xl">Classes</h1>
+          <p className="mt-1 text-[14px] text-muted-foreground">Every class the studio runs, and its sessions</p>
         </div>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
           <DialogTrigger asChild>
@@ -1910,7 +1911,7 @@ const AdminClasses = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </AdminPage>
   );
 };
 

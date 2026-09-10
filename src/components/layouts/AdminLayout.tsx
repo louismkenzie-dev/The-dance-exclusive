@@ -184,7 +184,7 @@ const AdminLayout = () => {
             inside its own box, never the whole screen sideways. This is the
             scrolling element, so it is what the shrinking header listens to. */}
         <main
-          className="flex-1 overflow-y-auto overflow-x-hidden"
+          className="app-screen portal-ui flex-1 overflow-y-auto overflow-x-hidden"
           onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 24)}
         >
           <Outlet />

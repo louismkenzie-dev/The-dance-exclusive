@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { AdminPage, DesktopOnly, EmptyState, Fab, FilterBar, PageHeader, PhoneOnly, RecordCard, RecordList } from "@/components/admin/ui";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -163,37 +163,66 @@ const AdminAdmins = () => {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-display font-bold flex items-center gap-2">
-            <ShieldCheck className="h-6 w-6" />
-            Admins
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">Users with administrator access</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="secondary" className="text-sm">
-            {filtered.length} admin{filtered.length !== 1 ? "s" : ""}
-          </Badge>
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4" /> New Admin
+    <AdminPage hasFab>
+      <PageHeader
+        title="Admins"
+        count={filtered.length}
+        subtitle="Everyone who can get into the studio's back office"
+        actionDesktopOnly
+        action={
+          <Button onClick={() => setCreateOpen(true)} className="rounded-full">
+            <Plus className="mr-1.5 h-4 w-4" /> New admin
           </Button>
-        </div>
-      </div>
+        }
+      />
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Search admins..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
-      </div>
+      <FilterBar className="mt-5" search={search} onSearch={setSearch} searchPlaceholder="Search admins…" />
 
-      <Card>
-        <CardContent className="p-0">
+      <div className="mt-5">
           {isLoading ? (
-            <div className="p-4 md:p-8 text-center text-muted-foreground animate-pulse">Loading...</div>
+            <p className="py-8 text-center text-muted-foreground">Loading…</p>
           ) : filtered.length === 0 ? (
-            <div className="p-4 md:p-8 text-center text-muted-foreground">No admins found</div>
+            <EmptyState title="No admins found" body="Try a different name or email." />
           ) : (
+            <>
+            <PhoneOnly>
+              <RecordList>
+                {filtered.map((admin) => (
+                  <RecordCard
+                    key={admin.id}
+                    title={
+                      <>
+                        {admin.full_name}
+                        {admin.user_id === user?.id && <Badge variant="outline" className="ml-2 text-xs">You</Badge>}
+                      </>
+                    }
+                    meta={
+                      <>
+                        <p className="flex items-center gap-1.5 break-all"><Mail className="h-3.5 w-3.5 shrink-0" />{admin.email}</p>
+                        <p>Admin since {format(new Date(admin.created_at), "d MMM yyyy")}</p>
+                      </>
+                    }
+                    actions={
+                      <>
+                        <Button variant="soft" size="sm" className="h-9 gap-1.5 rounded-full" onClick={() => openEdit(admin)}>
+                          <Pencil className="h-3.5 w-3.5" /> Edit
+                        </Button>
+                        <Button
+                          variant="soft"
+                          size="sm"
+                          className="h-9 gap-1.5 rounded-full text-destructive"
+                          disabled={admin.user_id === user?.id}
+                          onClick={() => setRemoveTarget(admin)}
+                        >
+                          <ShieldOff className="h-3.5 w-3.5" /> Remove
+                        </Button>
+                      </>
+                    }
+                  />
+                ))}
+              </RecordList>
+            </PhoneOnly>
+            <DesktopOnly className="surface overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -241,9 +270,12 @@ const AdminAdmins = () => {
                 ))}
               </TableBody>
             </Table>
+            </DesktopOnly>
+            </>
           )}
-        </CardContent>
-      </Card>
+      </div>
+
+      <Fab onClick={() => setCreateOpen(true)} icon={<Plus className="h-5 w-5" />}>New admin</Fab>
 
       {/* Create dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -331,7 +363,7 @@ const AdminAdmins = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </AdminPage>
   );
 };
 

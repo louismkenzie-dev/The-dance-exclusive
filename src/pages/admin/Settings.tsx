@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Building2, GraduationCap, ChevronRight, Settings as SettingsIcon, Menu } from "lucide-react";
 import ChangePasswordCard from "@/components/ChangePasswordCard";
 import ClassPassManager from "@/components/admin/settings/ClassPassManager";
+import { AdminPage } from "@/components/admin/ui";
 
 const settingsSections = [
   {
@@ -27,9 +28,9 @@ const settingsSections = [
 
 const AdminSettings = () => {
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <AdminPage className="max-w-4xl space-y-6">
       <div>
-        <h1 className="text-2xl font-display font-bold flex items-center gap-2">
+        <h1 className="flex items-center gap-2 text-[26px] font-semibold leading-tight tracking-tight text-foreground sm:text-3xl">
           <SettingsIcon className="h-6 w-6" />
           Settings
         </h1>
@@ -58,7 +59,7 @@ const AdminSettings = () => {
       <ClassPassManager />
 
       <ChangePasswordCard />
-    </div>
+    </AdminPage>
   );
 };
 

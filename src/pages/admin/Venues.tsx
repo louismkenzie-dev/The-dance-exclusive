@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { AdminPage, Fab, PageHeader } from "@/components/admin/ui";
 import VenueMap from "@/components/VenueMap";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -263,18 +264,19 @@ const AdminVenues = () => {
     active ? <CheckCircle className="w-3.5 h-3.5 text-green-500" /> : <XCircle className="w-3.5 h-3.5 text-muted-foreground/40" />;
 
   return (
-    <div className="p-4 md:p-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-display font-bold">Venues</h1>
-          <p className="text-muted-foreground mt-1" style={{ fontFamily: 'var(--font-body)', textTransform: 'none', letterSpacing: 'normal' }}>
-            Manage your teaching locations with full details
-          </p>
-        </div>
-        <Button onClick={() => { resetForm(); setOpen(true); }}>
-          <Plus className="w-4 h-4 mr-2" /> Add Venue
-        </Button>
-      </div>
+    <AdminPage>
+      <PageHeader
+        className="mb-8"
+        title="Venues"
+        count={venues.length}
+        subtitle="Every hall and studio the classes run in"
+        actionDesktopOnly
+        action={
+          <Button className="rounded-full" onClick={() => { resetForm(); setOpen(true); }}>
+            <Plus className="mr-1.5 h-4 w-4" /> Add venue
+          </Button>
+        }
+      />
 
       {/* Venue Map */}
       <div className="mb-8">
@@ -879,7 +881,9 @@ const AdminVenues = () => {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+
+      <Fab onClick={() => { resetForm(); setOpen(true); }} icon={<Plus className="h-5 w-5" />}>Add venue</Fab>
+    </AdminPage>
   );
 };
 

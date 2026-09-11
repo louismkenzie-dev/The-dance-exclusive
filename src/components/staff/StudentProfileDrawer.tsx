@@ -271,6 +271,17 @@ const StudentProfileDrawer = ({
             </div>
           </div>
 
+          {booking?.booking_type === "trial" && (
+            <div className="rounded-xl border border-accent/30 bg-accent/10 px-3 py-2.5">
+              <p className="text-[15px] font-semibold text-accent">Trial class — their first time</p>
+              <p className="mt-0.5 text-[13px] text-muted-foreground">
+                {bookingStudent?.preferred_name || bookingStudent?.first_name || "This dancer"} has booked a
+                taster, not a place yet. Make sure they know where to go and who you are, and let the studio
+                know how they got on.
+              </p>
+            </div>
+          )}
+
           {student && (
             <>
               {/* Critical safeguarding flags */}

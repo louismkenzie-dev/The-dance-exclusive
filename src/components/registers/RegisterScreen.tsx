@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { addDays, differenceInYears, format, isToday, isTomorrow, isYesterday, parseISO } from "date-fns";
-import { AlertTriangle, Cake, CalendarDays, CameraOff, Check, LogIn, LogOut, MapPin, ScanLine, Search, Star, X, XCircle } from "lucide-react";
+import { AlertTriangle, Cake, CalendarDays, CameraOff, Check, LogIn, LogOut, MapPin, ScanLine, Search, Sparkles, Star, X, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -48,7 +48,7 @@ const DAYS_AHEAD = 14;
 
 const CLASS_SELECT = `id, session_date, start_time, end_time, status, class_id, classes:class_id ( name, class_type, location_note, venue_id, venues:venue_id ( name ) )`;
 const CLASS_SELECT_WITH_STAFF = `${CLASS_SELECT}, session_instructors ( staff:staff_id ( id, first_name, last_name, full_name ) )`;
-const BOOKING_SELECT = `id, student_id, parent_id, notes, students:student_id ( first_name, last_name, preferred_name, profile_photo, avatar_url, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info, photo_consent )`;
+const BOOKING_SELECT = `id, student_id, parent_id, notes, booking_type, students:student_id ( first_name, last_name, preferred_name, profile_photo, avatar_url, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info, photo_consent )`;
 
 interface RegisterSession {
   id: string;
@@ -77,6 +77,19 @@ const fmtTime = (d: string) =>
 
 const firstNameOf = (st: { first_name?: string | null; full_name?: string | null }) =>
   st.first_name || st.full_name?.split(" ")[0] || "";
+
+/**
+ * Is this place on the class a trial?
+ *
+ * The teacher at the door has no way of knowing that the child in front of
+ * them is here for the first time on a taster — and that's exactly when a
+ * warm welcome matters most, and when someone needs to come back and ask the
+ * parent how it went. So the register says so.
+ *
+ * A trial booking is dated (its notes carry the session it was bought for),
+ * so the flag appears on that week's register and no other.
+ */
+const isTrialBooking = (b: { booking_type?: string | null }) => b.booking_type === "trial";
 
 const TONE: Record<RegisterState, { row: string; label: string }> = {
   unaccounted: { row: "", label: "Not marked" },
@@ -599,6 +612,7 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
               (acc, b) => { acc[registerState(b.attendance)]++; return acc; },
               { unaccounted: 0, in: 0, out: 0, absent: 0 } as Record<RegisterState, number>,
             );
+            const trialCount = rows.filter(isTrialBooking).length;
             const sessionLabel = `${s.classes?.name ?? "Class"} · ${formatTimeRange(s.start_time, s.end_time)}`;
             const teachers = showAll ? s.instructors.map(firstNameOf).filter(Boolean).join(", ") : "";
             const cancelled = s.status === "cancelled";
@@ -643,7 +657,21 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
                       {totals.in > 0 && <span className="rounded-full bg-success/15 px-2 py-0.5 text-[hsl(var(--success-strong))]">{totals.in} in</span>}
                       {totals.out > 0 && <span className="rounded-full bg-primary/15 px-2 py-0.5 text-primary">{totals.out} out</span>}
                       {totals.absent > 0 && <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[hsl(var(--destructive-strong))]">{totals.absent} absent</span>}
+                      {trialCount > 0 && (
+                        <span className="rounded-full bg-accent/15 px-2 py-0.5 text-accent">
+                          {trialCount === 1 ? "1 trial" : `${trialCount} trials`}
+                        </span>
+                      )}
                     </div>
+                  )}
+                  {!cancelled && trialCount > 0 && (
+                    <p className="mt-2 flex items-start gap-1.5 text-[13px] text-accent">
+                      <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                      <span>
+                        {trialCount === 1 ? "One dancer is" : `${trialCount} dancers are`} here on a trial — first
+                        time with us. Say hello and let them know where to go.
+                      </span>
+                    </p>
                   )}
                   {!cancelled && opensLabel && (
                     <p className="mt-2 text-[13px] text-warning">Arrivals {opensLabel.toLowerCase().replace(/^opens/, "open")} — 15 minutes before the class.</p>
@@ -672,6 +700,7 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
                         ? `${student.preferred_name || student.first_name} ${student.last_name}`
                         : "Adult attendee";
                       const bd = student?.date_of_birth ? birthdayInWeekOf(student.date_of_birth, s.session_date) : null;
+                      const trial = isTrialBooking(b);
                       const statusLine =
                         state === "absent"
                           ? "Absent"
@@ -706,12 +735,17 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
                                 ) : null}
                                 {bd && <Cake className={cn("h-3.5 w-3.5 shrink-0", bd === "today" ? "text-accent" : "text-accent/60")} aria-label={bd === "today" ? "Birthday today" : `Birthday ${birthdayLabel(student.date_of_birth, s.session_date)}`} />}
                                 {student && student.photo_consent === false && <CameraOff className="h-3.5 w-3.5 shrink-0 text-destructive" aria-label="No photo consent" />}
+                                {trial && <Sparkles className="h-3.5 w-3.5 shrink-0 text-accent" aria-label="Trial class" />}
                               </span>
                               <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">
                                 {[age != null ? `${age}y` : null, statusLine].filter(Boolean).join(" · ")}
                               </span>
-                              {(b.unpaid || student?.has_send || student?.is_self || !student) && (
+                              {(trial || b.unpaid || student?.has_send || student?.is_self || !student) && (
                                 <span className="mt-1 flex flex-wrap gap-1 text-[10px] font-semibold uppercase tracking-wide">
+                                  {/* First, because it's the one thing about this
+                                      dancer the teacher can't work out for
+                                      themselves once the class has started. */}
+                                  {trial && <span className="rounded-full bg-accent px-1.5 py-0.5 text-accent-foreground">Trial — first class</span>}
                                   {b.unpaid && <span className="rounded-full bg-destructive/15 px-1.5 py-0.5 text-[hsl(var(--destructive-strong))]">Unpaid</span>}
                                   {student?.has_send && <span className="rounded-full bg-warning/15 px-1.5 py-0.5 text-[hsl(var(--warning-strong))]">SEND</span>}
                                   {student?.is_self && <span className="rounded-full bg-muted px-1.5 py-0.5 text-muted-foreground">Adult</span>}

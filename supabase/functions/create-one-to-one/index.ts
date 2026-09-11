@@ -1,11 +1,18 @@
-// Admin-only: create private one-to-one sessions and invite a specific child
-// to them. Builds the whole thing in one call — an invite-only hidden class,
-// a session per chosen date (1:1s often run weekly for a few weeks), the
-// coach's register assignment, the invite row that unlocks checkout for that
-// family, and the "You're invited" email to the parent. The parent books and
-// pays for the whole set in the portal like any other class.
+// Admin-only: create a private session and invite the dancers who are on it.
+// Builds the whole thing in one call — an invite-only hidden class, a session
+// per chosen date (privates often run weekly for a few weeks), the coach's
+// register assignment, an invite row per dancer that unlocks checkout for
+// their family, and the "You're invited" email to each parent. Every family
+// books and pays for their own dancer in the portal like any other class.
+//
+// A private is not always one child. Amie runs duos, trios and quad rehearsal
+// privates, and until now the only way to sell one was to create the same
+// session once per child — which put the same hour on the timetable two,
+// three, four times over. One class, several dancers on it, each paying their
+// own way, is what this builds.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { listNames, MAX_DANCERS, privateClassName } from "../_shared/privateSession.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,14 +56,26 @@ serve(async (req) => {
     if (!adminRole) return jsonResponse({ error: "Only admins can create one-to-ones" }, 403);
 
     const body = await req.json();
-    const { studentId, startTime, endTime, venueId, locationNote, staffId, price, title } = body;
+    const { startTime, endTime, venueId, locationNote, staffId, price, title } = body;
     // Multi-date invites send `dates`; the original single `date` still works.
     const rawDates: unknown[] = Array.isArray(body.dates)
       ? body.dates
       : body.date != null ? [body.date] : [];
+    // A duo/trio/quad sends `studentIds`; a single `studentId` still works.
+    const rawStudentIds: unknown[] = Array.isArray(body.studentIds)
+      ? body.studentIds
+      : body.studentId != null ? [body.studentId] : [];
 
-    if (!studentId || typeof studentId !== "string") {
-      return jsonResponse({ error: "Choose which child to invite" }, 400);
+    const studentIds = [...new Set(
+      rawStudentIds.filter((id) => typeof id === "string" && id.trim()).map((id) => String(id)),
+    )];
+    if (studentIds.length === 0) {
+      return jsonResponse({ error: "Choose which dancer the session is for" }, 400);
+    }
+    if (studentIds.length > MAX_DANCERS) {
+      return jsonResponse({
+        error: `A private holds up to ${MAX_DANCERS} dancers — set this one up as a class instead.`,
+      }, 400);
     }
     const dates = [...new Set(rawDates.map((d) => String(d)))].sort();
     if (dates.length === 0 || !dates.every((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))) {
@@ -84,12 +103,22 @@ serve(async (req) => {
       ? locationNote.trim().slice(0, 200)
       : null;
 
-    const { data: student } = await supabase
+    const { data: studentRows } = await supabase
       .from("students")
       .select("id, first_name, last_name, preferred_name, parent_id, is_self")
-      .eq("id", studentId)
-      .maybeSingle();
-    if (!student) return jsonResponse({ error: "Child not found" }, 404);
+      .in("id", studentIds);
+    const found = new Map(((studentRows as any[]) ?? []).map((s) => [s.id, s]));
+    // Kept in the order the studio picked them, so the session is named the
+    // way they read the names out.
+    const students = studentIds.map((id) => found.get(id)).filter(Boolean) as any[];
+    if (students.length !== studentIds.length) {
+      return jsonResponse({
+        error: students.length === 0 ? "Child not found" : "One of those dancers no longer exists — pick them again",
+      }, 404);
+    }
+    if (students.some((s) => !s.parent_id)) {
+      return jsonResponse({ error: "One of those dancers has no parent account to invite" }, 400);
+    }
 
     // The coach taking the session: named in the title and put on the register.
     const { data: coach } = staffId
@@ -97,27 +126,29 @@ serve(async (req) => {
       : { data: null };
     const coachName = (coach as any)?.first_name || (coach as any)?.full_name?.split(" ")[0] || null;
 
-    const childName = (student as any).preferred_name || (student as any).first_name;
+    const firstNameOf = (s: any) => s.preferred_name || s.first_name;
+    const dancerNames = students.map(firstNameOf);
     const className = (typeof title === "string" && title.trim())
       ? title.trim().slice(0, 80)
-      : coachName
-        ? `1:1 Session — ${childName} with ${coachName}`
-        : `1:1 Session — ${childName}`;
+      : privateClassName(dancerNames, coachName);
     // The class day mirrors the first session; each date carries its own row.
     const dayOfWeek = DAY_NAMES[new Date(`${dates[0]}T00:00:00Z`).getUTCDay()];
 
-    // The 1:1 lives as a hidden invite-only class holding one session per date.
+    // The private lives as a hidden invite-only class holding one session per
+    // date. Its capacity is exactly the dancers on it — a private is full the
+    // moment it's created, and nothing should read it as having room.
     const { data: cls, error: classErr } = await supabase
       .from("classes")
       .insert({
         name: className,
-        class_type: (student as any).is_self ? "adult" : "children",
+        class_type: students.every((s) => s.is_self) ? "adult" : "children",
         day_of_week: dayOfWeek,
         start_time: `${startTime}:00`,
         end_time: `${endTime}:00`,
         venue_id: venueId || null,
         location_note: customLocation,
         price_per_session: priceNum,
+        capacity: students.length,
         invite_only: true,
         publicly_visible: false,
         booking_enabled: true,
@@ -157,35 +188,48 @@ serve(async (req) => {
       if (staffErr) console.error("create-one-to-one staffing failed:", staffErr);
     }
 
-    const { data: invite, error: inviteErr } = await supabase
+    // One invite per dancer, each priced for their own family. They go in as a
+    // single statement so a private can never end up half-invited.
+    const { data: invites, error: inviteErr } = await supabase
       .from("class_invites")
-      .insert({
+      .insert(students.map((s) => ({
         class_id: cls.id,
-        student_id: studentId,
-        parent_id: (student as any).parent_id,
+        student_id: s.id,
+        parent_id: s.parent_id,
         invited_by: user.id,
         price: priceNum,
-      })
-      .select("id")
-      .single();
-    if (inviteErr || !invite) {
+      })) as any)
+      .select("id, student_id");
+    if (inviteErr || !invites?.length) {
       console.error("create-one-to-one invite insert failed:", inviteErr);
       await supabase.from("classes").delete().eq("id", cls.id);
       return jsonResponse({ error: "Could not create the invite — please try again" }, 500);
     }
 
-    // Email the parent. Creation still succeeds if the email doesn't send —
-    // the invite shows in their portal either way.
-    let emailSent = false;
-    const { data: profile } = await supabase
+    // Email each family. Where one parent has two dancers on the session they
+    // get one email naming both, not two nearly identical ones. Creation still
+    // succeeds if an email doesn't send — the invite shows in their portal
+    // either way.
+    const byParent = new Map<string, any[]>();
+    for (const s of students) {
+      byParent.set(s.parent_id, [...(byParent.get(s.parent_id) ?? []), s]);
+    }
+    const parentIds = [...byParent.keys()];
+    const { data: profiles } = await supabase
       .from("profiles")
-      .select("email, full_name")
-      .eq("user_id", (student as any).parent_id)
-      .maybeSingle();
+      .select("user_id, email, full_name")
+      .in("user_id", parentIds);
+    const profileFor = new Map(((profiles as any[]) ?? []).map((p) => [p.user_id, p]));
     const { data: venue } = venueId
       ? await supabase.from("venues").select("name").eq("id", venueId).maybeSingle()
       : { data: null };
-    if (profile?.email) {
+
+    let emailsSent = 0;
+    for (const [parentId, mine] of byParent) {
+      const profile = profileFor.get(parentId);
+      if (!profile?.email) continue;
+      const theirNames = mine.map(firstNameOf);
+      const others = students.filter((s) => s.parent_id !== parentId).map(firstNameOf);
       const { error: emailErr } = await supabase.functions.invoke("send-email", {
         headers: { "x-internal-auth": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
         body: {
@@ -193,7 +237,8 @@ serve(async (req) => {
           to: profile.email,
           data: {
             parentName: profile.full_name,
-            childName,
+            childName: listNames(theirNames),
+            sharingWith: others,
             className,
             sessionDate: dates[0],
             sessionDates: dates,
@@ -205,8 +250,8 @@ serve(async (req) => {
           },
         },
       });
-      emailSent = !emailErr;
       if (emailErr) console.error("create-one-to-one invite email failed:", emailErr);
+      else emailsSent++;
     }
 
     return jsonResponse({
@@ -214,8 +259,13 @@ serve(async (req) => {
       classId: cls.id,
       sessionIds: (sessionRows as any[]).map((s) => s.id),
       sessionCount: sessionRows.length,
-      inviteId: invite.id,
-      emailSent,
+      // `inviteId` is the first dancer's, kept so an older caller still reads
+      // something sensible; `inviteIds` is the real answer.
+      inviteId: (invites as any[])[0]?.id,
+      inviteIds: (invites as any[]).map((i) => i.id),
+      studentCount: students.length,
+      emailsSent,
+      emailSent: emailsSent > 0,
     });
   } catch (error: any) {
     console.error("create-one-to-one error:", error);

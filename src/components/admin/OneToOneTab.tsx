@@ -16,6 +16,7 @@ import TimeSelect, { addMinutes } from "@/components/TimeSelect";
 import { formatTimeRange } from "@/lib/bookingFormat";
 import BookingBreakdown, { type PaymentSibling } from "@/components/admin/BookingBreakdown";
 import { BookingActions, type ActionableBooking, type BookingActionHandlers } from "@/components/admin/BookingActions";
+import { listNames, MAX_DANCERS, privateWord } from "@/lib/privateSession";
 
 /** The booking a parent made against a one-to-one invite, once they've paid. */
 interface OneToOneBooking extends ActionableBooking {
@@ -87,6 +88,12 @@ interface StaffOption {
 /** Sentinel for "not at a saved venue" in the venue dropdown. */
 const CUSTOM_VENUE = "__custom__";
 
+/** A private and everyone invited to it. A one-to-one is a group of one. */
+interface PrivateGroup {
+  classId: string;
+  invites: InviteRow[];
+}
+
 /** Amie's one-to-one area: invite a specific child to a private session
  *  they book and pay for in the portal. */
 const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps) => {
@@ -112,8 +119,11 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
   /** Parent name per student, for telling apart dancers with the same name. */
   const [studentParent, setStudentParent] = useState<Record<string, string>>({});
   const [dates, setDates] = useState<string[]>([""]);
+  /** The dancers on this private, in the order they were picked — which is
+   *  the order they're named in. One of them is a one-to-one. */
+  const [studentIds, setStudentIds] = useState<string[]>([]);
   const [form, setForm] = useState({
-    studentId: "", startTime: "", endTime: "", venueId: "", locationNote: "",
+    startTime: "", endTime: "", venueId: "", locationNote: "",
     staffId: "", price: "", title: "",
   });
   const [saving, setSaving] = useState(false);
@@ -168,9 +178,10 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
 
   const openCreate = async () => {
     setForm({
-      studentId: "", startTime: "", endTime: "", venueId: "", locationNote: "",
+      startTime: "", endTime: "", venueId: "", locationNote: "",
       staffId: "", price: "", title: "",
     });
+    setStudentIds([]);
     setDates([""]);
     setDancerOpen(false);
     setOpen(true);
@@ -191,30 +202,35 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
   // ── Editing a one-to-one after it's been created ────────────────────────
   // A 1:1 gets rearranged more than anything else on the timetable, and until
   // now the only way was to cancel the invite and start again.
-  const [editInvite, setEditInvite] = useState<InviteRow | null>(null);
+  // The dates and times belong to the session, not to one dancer — so a duo
+  // is rearranged once and every family's invite moves with it.
+  const [editGroup, setEditGroup] = useState<PrivateGroup | null>(null);
   const [editDates, setEditDates] = useState<string[]>([""]);
   const [editStart, setEditStart] = useState("");
   const [editEnd, setEditEnd] = useState("");
   const [editPrice, setEditPrice] = useState("");
   const [editSaving, setEditSaving] = useState(false);
 
-  const openEdit = (invite: InviteRow) => {
-    const session = sessionDates[invite.class_id];
-    setEditInvite(invite);
+  const openEdit = (group: PrivateGroup) => {
+    const session = sessionDates[group.classId];
+    setEditGroup(group);
     setEditDates(session?.dates.length ? [...session.dates] : [""]);
     setEditStart(session?.start?.slice(0, 5) ?? "");
     setEditEnd(session?.end?.slice(0, 5) ?? "");
-    setEditPrice(String(invite.price ?? ""));
+    setEditPrice(String(group.invites[0]?.price ?? ""));
   };
 
   const editCleanDates = useMemo(
     () => [...new Set(editDates.map((d) => d.trim()).filter(Boolean))].sort(),
     [editDates],
   );
-  const paidFor = editInvite ? paidKeys.has(familyKey(editInvite)) : false;
+  // One family having paid fixes the price for everyone on the session —
+  // a duo where the two dancers were charged differently is a mess nobody
+  // can explain later.
+  const paidFor = editGroup ? editGroup.invites.some((i) => paidKeys.has(familyKey(i))) : false;
 
   const saveEdit = async () => {
-    if (!editInvite) return;
+    if (!editGroup) return;
     if (editCleanDates.length === 0 || !editStart || !editEnd) {
       toast({ title: "Missing details", description: "Keep at least one date and both times.", variant: "destructive" });
       return;
@@ -225,7 +241,7 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
     }
     setEditSaving(true);
     try {
-      const classId = editInvite.class_id;
+      const classId = editGroup.classId;
       const { data: existing } = await supabase
         .from("class_sessions")
         .select("id, session_date")
@@ -257,20 +273,24 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
 
       await supabase.from("classes").update({ start_time: times.start_time, end_time: times.end_time }).eq("id", classId);
 
-      // The price is only theirs to change while nobody has paid it.
+      // The price is only theirs to change while nobody has paid it, and it
+      // moves for every dancer on the session at once.
       const price = Number(editPrice);
-      if (!paidFor && editPrice !== "" && Number.isFinite(price) && price !== Number(editInvite.price)) {
-        await (supabase as any).from("class_invites").update({ price }).eq("id", editInvite.id);
+      if (!paidFor && editPrice !== "" && Number.isFinite(price)
+        && editGroup.invites.some((i) => price !== Number(i.price))) {
+        await (supabase as any).from("class_invites")
+          .update({ price })
+          .in("id", editGroup.invites.map((i) => i.id));
         await supabase.from("classes").update({ price_per_session: price }).eq("id", classId);
       }
 
       toast({
-        title: "One-to-one updated",
+        title: editGroup.invites.length > 1 ? `${privateWord(editGroup.invites.length)} updated` : "One-to-one updated",
         description: paidFor
-          ? "The new date and time are on the register. Let the family know it's changed."
-          : "The new details are on the invite the parent sees.",
+          ? "The new date and time are on the register. Let the families know it's changed."
+          : "The new details are on the invite each parent sees.",
       });
-      setEditInvite(null);
+      setEditGroup(null);
       await fetchInvites();
     } catch (e: any) {
       toast({ title: "Couldn't save the changes", description: e?.message, variant: "destructive" });
@@ -279,12 +299,25 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
     }
   };
 
-  const selectedStudent = useMemo(
-    () => students.find((s) => s.id === form.studentId) ?? null,
-    [students, form.studentId],
+  const selectedStudents = useMemo(
+    () => studentIds.map((id) => students.find((s) => s.id === id)).filter(Boolean) as StudentOption[],
+    [students, studentIds],
   );
   const dancerLabel = (s: StudentOption) =>
     `${s.first_name} ${s.last_name}${s.is_self ? " (adult)" : ""}`;
+
+  const toggleDancer = (id: string) =>
+    setStudentIds((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= MAX_DANCERS) {
+        toast({
+          title: `That's ${MAX_DANCERS} dancers`,
+          description: "A private this big is really a class — put it on the timetable instead.",
+        });
+        return prev;
+      }
+      return [...prev, id];
+    });
 
   /** Filled-in dates, de-duplicated, in order. */
   const cleanDates = useMemo(
@@ -292,7 +325,11 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
     [dates],
   );
   const perSession = Number(form.price) || 0;
-  const total = perSession * Math.max(1, cleanDates.length);
+  const dancerCount = Math.max(1, studentIds.length);
+  /** What one family pays for their own dancer, across every date. */
+  const perFamilyTotal = perSession * Math.max(1, cleanDates.length);
+  /** What the whole private brings in — the number that has to cover the hall. */
+  const total = perFamilyTotal * dancerCount;
 
   const setDateAt = (index: number, value: string) =>
     setDates((prev) => prev.map((d, i) => (i === index ? value : d)));
@@ -309,8 +346,8 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
     setDates((prev) => (prev.length === 1 ? [""] : prev.filter((_, i) => i !== index)));
 
   const submit = async () => {
-    if (!form.studentId || cleanDates.length === 0 || !form.startTime || !form.endTime || !form.price) {
-      toast({ title: "Missing details", description: "Pick the dancer, at least one date, the times and a price.", variant: "destructive" });
+    if (studentIds.length === 0 || cleanDates.length === 0 || !form.startTime || !form.endTime || !form.price) {
+      toast({ title: "Missing details", description: "Pick at least one dancer, at least one date, the times and a price.", variant: "destructive" });
       return;
     }
     if (form.endTime <= form.startTime) {
@@ -325,7 +362,7 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
     try {
       const { data, error } = await supabase.functions.invoke("create-one-to-one", {
         body: {
-          studentId: form.studentId,
+          studentIds,
           dates: cleanDates,
           startTime: form.startTime,
           endTime: form.endTime,
@@ -348,11 +385,14 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
         toast({ title: "Couldn't create the one-to-one", description: message || "Please try again.", variant: "destructive" });
         return;
       }
+      const families = new Set(selectedStudents.map((st) => st.parent_id)).size;
       toast({
-        title: "Invite sent",
-        description: data.emailSent
-          ? "The parent has been emailed — they book and pay in their portal."
-          : "Created — but the email didn't send, so let the parent know it's waiting in their portal.",
+        title: studentIds.length > 1 ? `${privateWord(studentIds.length)} created` : "Invite sent",
+        description: data.emailsSent >= families
+          ? families > 1
+            ? `All ${families} families have been emailed — each books and pays for their own dancer.`
+            : "The parent has been emailed — they book and pay in their portal."
+          : "Created — but an email didn't send, so let the family know it's waiting in their portal.",
       });
       setOpen(false);
       void fetchInvites();
@@ -366,12 +406,23 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
       .update({ status: "cancelled" })
       .eq("id", invite.id);
     if (!error) {
-      // A one-to-one's private class dies with its invite. A payment link
-      // sits on a shared class that other families are on — that stays.
-      if (invite.classes?.invite_only) {
+      // A private class dies with its last invite — but only its last. Take
+      // one dancer off a duo and the session carries on for the other. A
+      // payment link sits on a shared class other families are on; that
+      // always stays.
+      const stillOn = invites.some(
+        (i) => i.class_id === invite.class_id && i.id !== invite.id && i.status !== "cancelled",
+      );
+      if (invite.classes?.invite_only && !stillOn) {
         await supabase.from("classes").update({ is_active: false }).eq("id", invite.class_id);
       }
-      toast({ title: invite.classes?.invite_only ? "Invite cancelled" : "Payment link cancelled" });
+      toast({
+        title: invite.classes?.invite_only
+          ? stillOn
+            ? `${invite.students?.first_name ?? "That dancer"} taken off the session`
+            : "Invite cancelled"
+          : "Payment link cancelled",
+      });
       void fetchInvites();
     } else {
       toast({ title: "Couldn't cancel", description: error.message, variant: "destructive" });
@@ -388,7 +439,18 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
   };
 
   const todayISO = format(new Date(), "yyyy-MM-dd");
-  const oneToOnes = useMemo(() => invites.filter((i) => i.classes?.invite_only), [invites]);
+  /** Privates, one card per session. A duo, trio or quad is several invites
+   *  on one class — the studio thinks of it as one thing on the timetable,
+   *  so it's listed as one thing here. Newest session first, which is the
+   *  order the invites already come back in. */
+  const privateGroups = useMemo<PrivateGroup[]>(() => {
+    const byClass = new Map<string, InviteRow[]>();
+    for (const inv of invites) {
+      if (!inv.classes?.invite_only) continue;
+      byClass.set(inv.class_id, [...(byClass.get(inv.class_id) ?? []), inv]);
+    }
+    return [...byClass.entries()].map(([classId, rows]) => ({ classId, invites: rows }));
+  }, [invites]);
   const paymentLinks = useMemo(() => invites.filter((i) => !i.classes?.invite_only), [invites]);
 
   const renderInvite = (invite: InviteRow) => {
@@ -469,7 +531,7 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
           {(oneToOne || (invite.status === "pending" && !paid)) && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {oneToOne && (
-                <Button size="sm" variant="outline" className="rounded-full" onClick={() => openEdit(invite)}>Edit</Button>
+                <Button size="sm" variant="outline" className="rounded-full" onClick={() => openEdit({ classId: invite.class_id, invites: [invite] })}>Edit</Button>
               )}
               {invite.status === "pending" && !paid && (
                 <Button size="sm" variant="outline" className="rounded-full" onClick={() => cancelInvite(invite)}>
@@ -500,36 +562,167 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
     );
   };
 
+  /** A private with several dancers on it: the session once, then a line per
+   *  family with its own status, price and actions. A solo private is still
+   *  the plain card above — nothing changes for a one-to-one. */
+  const renderPrivate = (group: PrivateGroup) => {
+    if (group.invites.length === 1) return renderInvite(group.invites[0]);
+    const lead = group.invites[0];
+    const cls = lead.classes;
+    const classSession = sessionDates[group.classId];
+    const dates = classSession?.dates ?? [];
+    const pastCount = dates.filter((d) => d < todayISO).length;
+    const live = group.invites.filter((i) => i.status !== "cancelled");
+    const paidCount = live.filter((i) => paidKeys.has(familyKey(i))).length;
+    const take = live.reduce((sum, i) => sum + Number(i.price) * Math.max(1, dates.length), 0);
+    const status = live.length === 0
+      ? { label: "Cancelled", className: "bg-muted text-muted-foreground" }
+      : paidCount === live.length
+        ? { label: "Booked & paid", className: "bg-emerald-600 text-white" }
+        : paidCount > 0
+          ? { label: `${paidCount} of ${live.length} paid`, className: "bg-amber-500 text-white" }
+          : { label: "Awaiting booking", className: "bg-amber-500 text-white" };
+    return (
+      <Card key={group.classId} className="animate-fade-in overflow-hidden">
+        <CardContent className="p-4 md:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold">{cls?.name ?? privateWord(group.invites.length)}</span>
+                <Badge className={status.className}>{status.label}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1 flex items-center gap-3 flex-wrap">
+                <span className="flex items-center gap-1">
+                  <User className="w-3.5 h-3.5" />
+                  {privateWord(group.invites.length)} · {group.invites.length} dancers
+                </span>
+                {dates.length > 0 && (
+                  <span className="flex items-center gap-1">
+                    <CalendarDays className="w-3.5 h-3.5" />
+                    {dates.length === 1
+                      ? `${format(parseISO(dates[0]), "EEE d MMM yyyy")}${dates[0] < todayISO ? " — already run" : ""}`
+                      : `${dates.length} sessions from ${format(parseISO(dates[0]), "EEE d MMM")}`}
+                  </span>
+                )}
+                {classSession && (
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" />
+                    {formatTimeRange(classSession.start, classSession.end)}
+                  </span>
+                )}
+                {(cls?.venues?.name || cls?.location_note) && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5" />
+                    {cls.venues?.name ?? cls.location_note}
+                  </span>
+                )}
+              </p>
+              {dates.length > 1 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {dates.map((d) => format(parseISO(d), "d MMM")).join(" · ")}
+                  {pastCount > 0 && ` · ${pastCount} already run`}
+                </p>
+              )}
+            </div>
+            <div className="shrink-0 text-right">
+              <span className="font-bold whitespace-nowrap">£{take.toFixed(2)}</span>
+              <span className="block text-xs text-muted-foreground whitespace-nowrap">
+                from {live.length} {live.length === 1 ? "dancer" : "dancers"}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-3 space-y-2">
+            {group.invites.map((inv) => {
+              const s = statusFor(inv);
+              const booking = bookingFor[familyKey(inv)];
+              const paid = paidKeys.has(familyKey(inv));
+              const student = inv.students;
+              const parentName = parentNames[inv.parent_id];
+              const showParent = !!parentName && !student?.is_self
+                && parentName !== `${student?.first_name} ${student?.last_name}`;
+              return (
+                <div key={inv.id} className="rounded-lg border bg-muted/20 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {student ? `${student.first_name} ${student.last_name}` : "—"}
+                      </p>
+                      {showParent && <p className="text-xs text-muted-foreground truncate">{parentName}</p>}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="text-sm font-semibold whitespace-nowrap">
+                        £{(Number(inv.price) * Math.max(1, dates.length)).toFixed(2)}
+                      </span>
+                      <Badge className={s.className}>{s.label}</Badge>
+                    </div>
+                  </div>
+                  {inv.status === "pending" && !paid && (
+                    <div className="mt-2">
+                      <Button size="sm" variant="outline" className="rounded-full" onClick={() => cancelInvite(inv)}>
+                        Take {student?.first_name ?? "them"} off
+                      </Button>
+                    </div>
+                  )}
+                  {booking && actions.breakdownId === booking.id && (
+                    <BookingBreakdown
+                      booking={booking as any}
+                      parent={parents[inv.parent_id] ?? null}
+                      samePayment={paymentSiblings(booking)}
+                    />
+                  )}
+                  {booking && (
+                    <div className="mt-2 md:flex md:justify-end">
+                      <BookingActions booking={booking} actions={actions} className="mt-0" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Dates, times and price belong to the session, so they're changed
+              once for everyone on it. */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="outline" className="rounded-full" onClick={() => openEdit(group)}>
+              Edit session
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <p className="hidden max-w-xl text-sm text-muted-foreground md:block">
-          Invite a specific child to a private session. The parent gets an email and a
-          &quot;Book &amp; pay&quot; card in their portal; once paid, the session appears on the register.
-          Payment links you send from Add booking are listed here too.
+          Invite a dancer — or a duo, trio or quad — to a private session. Every family gets
+          an email and a &quot;Book &amp; pay&quot; card in their portal; once paid, the session
+          appears on the register. Payment links you send from Add booking are listed here too.
         </p>
         <p className="text-sm text-muted-foreground md:hidden">
           Private sessions and payment links. Once paid, they show on the register.
         </p>
         <Button onClick={openCreate} className="shrink-0 rounded-full">
-          <Plus className="w-4 h-4 mr-1.5" /> New one-to-one
+          <Plus className="w-4 h-4 mr-1.5" /> New private
         </Button>
       </div>
 
       {loading ? (
         <div className="text-muted-foreground">Loading…</div>
       ) : invites.length === 0 ? (
-        <Card><CardContent className="py-12 text-center text-muted-foreground">No one-to-ones yet — create the first invite.</CardContent></Card>
+        <Card><CardContent className="py-12 text-center text-muted-foreground">No private sessions yet — create the first invite.</CardContent></Card>
       ) : (
         <div className="space-y-6">
-          {oneToOnes.length > 0 && (
+          {privateGroups.length > 0 && (
             <section className="space-y-3">
               {paymentLinks.length > 0 && (
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  One-to-ones · {oneToOnes.length}
+                  One-to-ones &amp; privates · {privateGroups.length}
                 </h3>
               )}
-              {oneToOnes.map(renderInvite)}
+              {privateGroups.map(renderPrivate)}
             </section>
           )}
           {paymentLinks.length > 0 && (
@@ -555,14 +748,24 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
             and on a laptop or phone the header and buttons must stay in view. */}
         <DialogContent className="max-w-md max-h-dialog flex flex-col gap-0 p-0 sm:p-0">
           <DialogHeader className="shrink-0 px-5 pt-5 pb-3 text-left">
-            <DialogTitle>New one-to-one invite</DialogTitle>
+            <DialogTitle>New private session</DialogTitle>
             <DialogDescription>
-              The parent books and pays in their portal — nothing is charged until they do.
+              One dancer, or a duo, trio or quad on the same session. Every family books
+              and pays in their portal — nothing is charged until they do.
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-4 space-y-3">
             <div className="space-y-1.5">
-              <Label>Who is it for?</Label>
+              <Label>
+                Who is it for?
+                {studentIds.length > 1 && (
+                  <span className="ml-1.5 font-normal text-muted-foreground">
+                    · {privateWord(studentIds.length).toLowerCase()}
+                  </span>
+                )}
+              </Label>
+              {/* The list stays open as you tick: a duo or a quad is picked in
+                  one go, not by reopening the picker for each dancer. */}
               <Popover open={dancerOpen} onOpenChange={setDancerOpen} modal>
                 <PopoverTrigger asChild>
                   <Button
@@ -572,7 +775,11 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
                     aria-expanded={dancerOpen}
                     className="w-full justify-between font-normal"
                   >
-                    {selectedStudent ? dancerLabel(selectedStudent) : "Search & choose a dancer…"}
+                    <span className="truncate">
+                      {selectedStudents.length === 0
+                        ? "Search & choose the dancers…"
+                        : "Add another dancer…"}
+                    </span>
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
@@ -587,12 +794,9 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
                             key={st.id}
                             // Search matches the dancer's AND the parent's name.
                             value={`${st.first_name} ${st.last_name} ${studentParent[st.id] ?? ""}`}
-                            onSelect={() => {
-                              setForm((f) => ({ ...f, studentId: st.id }));
-                              setDancerOpen(false);
-                            }}
+                            onSelect={() => toggleDancer(st.id)}
                           >
-                            <Check className={`mr-2 h-4 w-4 ${form.studentId === st.id ? "opacity-100" : "opacity-0"}`} />
+                            <Check className={`mr-2 h-4 w-4 ${studentIds.includes(st.id) ? "opacity-100" : "opacity-0"}`} />
                             <span className="flex-1 min-w-0 truncate">{dancerLabel(st)}</span>
                             {studentParent[st.id] && !st.is_self && (
                               <span className="ml-2 text-xs text-muted-foreground truncate">{studentParent[st.id]}</span>
@@ -604,8 +808,33 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
                   </Command>
                 </PopoverContent>
               </Popover>
+              {selectedStudents.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  {selectedStudents.map((st) => (
+                    <button
+                      key={st.id}
+                      type="button"
+                      onClick={() => toggleDancer(st.id)}
+                      className="inline-flex items-center gap-1 rounded-full border bg-muted/50 py-1 pl-2.5 pr-1.5 text-xs hover:bg-muted"
+                      aria-label={`Take ${st.first_name} off this session`}
+                    >
+                      {st.first_name}
+                      {studentParent[st.id] && !st.is_self && (
+                        <span className="text-muted-foreground">({studentParent[st.id].split(" ")[0]})</span>
+                      )}
+                      <X className="h-3 w-3 opacity-60" />
+                    </button>
+                  ))}
+                </div>
+              )}
+              {studentIds.length > 1 && (
+                <p className="text-xs text-muted-foreground">
+                  One session on the timetable, one register. Each family is invited
+                  separately and pays for their own dancer.
+                </p>
+              )}
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 items-end gap-3">
               <div className="space-y-1.5">
                 <Label>Coach <span className="text-muted-foreground font-normal">(optional)</span></Label>
                 <Select value={form.staffId} onValueChange={(v) => setForm((f) => ({ ...f, staffId: v }))}>
@@ -620,7 +849,12 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Price per session (£)</Label>
+                <Label>
+                  Price per session (£)
+                  {studentIds.length > 1 && (
+                    <span className="ml-1.5 whitespace-nowrap font-normal text-muted-foreground">· each</span>
+                  )}
+                </Label>
                 <Input type="number" min="0.30" step="0.01" placeholder="25.00" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} />
               </div>
             </div>
@@ -699,37 +933,62 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
 
             <div className="space-y-1.5">
               <Label>Session name <span className="text-muted-foreground font-normal">(optional)</span></Label>
-              <Input placeholder="Named after the dancer automatically" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+              <Input
+                placeholder={studentIds.length > 1 ? "Named after the dancers automatically" : "Named after the dancer automatically"}
+                value={form.title}
+                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+              />
             </div>
           </div>
           <DialogFooter className="shrink-0 items-center gap-2 border-t bg-background px-5 py-4 rounded-b-xl sm:justify-between">
-            {cleanDates.length > 1 && perSession > 0 ? (
+            {perSession > 0 && (cleanDates.length > 1 || studentIds.length > 1) ? (
               <span className="text-xs text-muted-foreground sm:mr-auto">
-                {cleanDates.length} × £{perSession.toFixed(2)} ={" "}
-                <span className="font-semibold text-foreground">£{total.toFixed(2)}</span>
+                {cleanDates.length > 1 && `${cleanDates.length} × £${perSession.toFixed(2)} = `}
+                <span className={studentIds.length > 1 ? undefined : "font-semibold text-foreground"}>
+                  £{perFamilyTotal.toFixed(2)}
+                </span>
+                {studentIds.length > 1 && (
+                  <>
+                    {" "}each ·{" "}
+                    <span className="font-semibold text-foreground">£{total.toFixed(2)}</span> in total
+                  </>
+                )}
               </span>
             ) : <span className="hidden sm:block" />}
             <div className="flex gap-2">
               <Button variant="outline" disabled={saving} onClick={() => setOpen(false)}>Cancel</Button>
-              <Button disabled={saving} onClick={submit}>{saving ? "Creating…" : "Create & send invite"}</Button>
+              <Button disabled={saving} onClick={submit}>
+                {saving ? "Creating…" : studentIds.length > 1 ? "Create & send invites" : "Create & send invite"}
+              </Button>
             </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Rearrange a one-to-one that's already been set up */}
-      <Dialog open={!!editInvite} onOpenChange={(o) => { if (!o && !editSaving) setEditInvite(null); }}>
+      {/* Rearrange a private that's already been set up. The dates, times and
+          price belong to the session, so a duo moves as one. */}
+      <Dialog open={!!editGroup} onOpenChange={(o) => { if (!o && !editSaving) setEditGroup(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit one-to-one</DialogTitle>
+            <DialogTitle>
+              {editGroup && editGroup.invites.length > 1
+                ? `Edit ${privateWord(editGroup.invites.length).toLowerCase()}`
+                : "Edit one-to-one"}
+            </DialogTitle>
             <DialogDescription>
-              {editInvite?.students
-                ? `${editInvite.students.first_name} ${editInvite.students.last_name}`
+              {editGroup?.invites.length
+                ? listNames(editGroup.invites.map((i) => (
+                    i.students ? `${i.students.first_name} ${i.students.last_name}` : "this dancer"
+                  )))
                 : "This session"}
-              {editInvite && parentNames[editInvite.parent_id] ? ` (${parentNames[editInvite.parent_id]})` : ""} —
+              {editGroup && editGroup.invites.length === 1 && parentNames[editGroup.invites[0].parent_id]
+                ? ` (${parentNames[editGroup.invites[0].parent_id]})`
+                : ""} —
               change the dates and times. {paidFor
-                ? "This one is already paid for, so the price is fixed — tell the family about any change."
-                : "The parent sees the new details on their invite."}
+                ? "Someone has already paid, so the price is fixed — tell the families about any change."
+                : editGroup && editGroup.invites.length > 1
+                  ? "Every family sees the new details on their invite."
+                  : "The parent sees the new details on their invite."}
             </DialogDescription>
           </DialogHeader>
 
@@ -786,7 +1045,12 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="edit-1to1-price">Price per session (£)</Label>
+              <Label htmlFor="edit-1to1-price">
+                Price per session (£)
+                {editGroup && editGroup.invites.length > 1 && (
+                  <span className="ml-1.5 whitespace-nowrap font-normal text-muted-foreground">· each</span>
+                )}
+              </Label>
               <Input
                 id="edit-1to1-price"
                 type="number"
@@ -805,7 +1069,7 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
           </div>
 
           <DialogFooter>
-            <Button variant="outline" disabled={editSaving} onClick={() => setEditInvite(null)}>Cancel</Button>
+            <Button variant="outline" disabled={editSaving} onClick={() => setEditGroup(null)}>Cancel</Button>
             <Button disabled={editSaving} onClick={saveEdit}>{editSaving ? "Saving…" : "Save changes"}</Button>
           </DialogFooter>
         </DialogContent>

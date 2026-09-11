@@ -79,9 +79,12 @@ const OneToOneInvites = () => {
       supabase.from("class_sessions").select("id, class_id, session_date")
         .in("class_id", classIds)
         .gte("session_date", earliest < today ? earliest : today),
-      supabase.from("bookings").select("class_id").eq("parent_id", user.id).in("class_id", classIds).in("status", ["confirmed", "pending_payment"]),
+      supabase.from("bookings").select("class_id, student_id").eq("parent_id", user.id).in("class_id", classIds).in("status", ["confirmed", "pending_payment"]),
     ]);
-    const booked = new Set(((bookingRows as any[]) ?? []).map((b) => b.class_id));
+    // Per dancer, never per class: a duo private can hold two of this
+    // family's children, and paying for one must not make the other's
+    // invite vanish.
+    const booked = new Set(((bookingRows as any[]) ?? []).map((b) => `${b.class_id}|${b.student_id ?? ""}`));
     // A one-to-one can run over several weeks — every upcoming session in the
     // invite is booked and paid for together.
     const sessionByClass: Record<string, InviteSessions> = {};
@@ -98,7 +101,7 @@ const OneToOneInvites = () => {
     }
     setSessions(sessionByClass);
     // Only invites still bookable: upcoming sessions, not already booked.
-    setInvites(rows.filter((r) => sessionByClass[r.class_id]?.ids.length && !booked.has(r.class_id)));
+    setInvites(rows.filter((r) => sessionByClass[r.class_id]?.ids.length && !booked.has(`${r.class_id}|${r.student_id ?? ""}`)));
   }, [user]);
   useEffect(() => { void load(); }, [load]);
 

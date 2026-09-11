@@ -26,7 +26,10 @@ export interface OneToOneInviteData {
   venueName?: string | null;
   /** The coach taking the session, when one is assigned. */
   coachName?: string | null;
-  /** Price per session. */
+  /** The other families' dancers sharing this private — a duo, trio or quad.
+   *  Empty or absent for a true one-to-one. */
+  sharingWith?: string[] | null;
+  /** Price per session, for this family's dancer. */
   price: number;
 }
 
@@ -51,12 +54,19 @@ export function renderOneToOneInvite(data: OneToOneInviteData) {
   const dates = (data.sessionDates?.length ? data.sessionDates : [data.sessionDate]).slice().sort();
   const multi = dates.length > 1;
   const total = Number(data.price) * dates.length;
+  // A duo, trio or quad: say so plainly, so nobody pays for what they think
+  // is a one-to-one and finds someone else in the room.
+  const sharing = (data.sharingWith ?? []).filter((n) => !!n && n.trim());
+  const shared = sharing.length > 0;
+  const sharingNames = sharing.length <= 1
+    ? sharing.join("")
+    : `${sharing.slice(0, -1).join(", ")} & ${sharing[sharing.length - 1]}`;
 
   const body = `
-    ${kicker("One-to-one invitation", { align: "center", color: "magenta" })}
+    ${kicker(shared ? "Private session invitation" : "One-to-one invitation", { align: "center", color: "magenta" })}
     ${heading("You're invited!", { align: "center" })}
     ${paragraph(
-      `Hi ${escapeHtml(greetingName)}, <strong style="color:${BRAND.ink};">${escapeHtml(data.childName)}</strong> has been personally invited to ${multi ? `a block of ${dates.length} private sessions` : "a private session"} at The Dance Exclusive.`,
+      `Hi ${escapeHtml(greetingName)}, <strong style="color:${BRAND.ink};">${escapeHtml(data.childName)}</strong> has been personally invited to ${multi ? `a block of ${dates.length} private sessions` : "a private session"} at The Dance Exclusive${shared ? `, shared with ${escapeHtml(sharingNames)}` : ""}.`,
       { muted: true, align: "center" },
     )}
 
@@ -64,6 +74,7 @@ export function renderOneToOneInvite(data: OneToOneInviteData) {
       `${panelTitle(escapeHtml(data.className))}
        ${detailRow("For", escapeHtml(data.childName))}
        ${data.coachName ? detailRow("With", escapeHtml(data.coachName)) : ""}
+       ${shared ? detailRow("Sharing with", escapeHtml(sharingNames)) : ""}
        ${multi
         ? detailRow(
           `Dates (${dates.length})`,
@@ -73,8 +84,8 @@ export function renderOneToOneInvite(data: OneToOneInviteData) {
        ${time ? detailRow("Time", escapeHtml(time)) : ""}
        ${data.venueName ? detailRow("Where", escapeHtml(data.venueName)) : ""}
        ${multi
-        ? detailRow("Price", `&pound;${Number(data.price).toFixed(2)} per session &mdash; <strong>&pound;${total.toFixed(2)}</strong> for all ${dates.length}`)
-        : detailRow("Price", `&pound;${Number(data.price).toFixed(2)}`)}`,
+        ? detailRow("Price", `&pound;${Number(data.price).toFixed(2)} per session${shared ? " for your dancer" : ""} &mdash; <strong>&pound;${total.toFixed(2)}</strong> for all ${dates.length}`)
+        : detailRow("Price", `&pound;${Number(data.price).toFixed(2)}${shared ? " for your dancer" : ""}`)}`,
       { accent: "magenta" },
     )}
 

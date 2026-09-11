@@ -3,8 +3,8 @@ import { Link, useLocation, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { icons, LogOut, ChevronRight, ChevronDown, Menu } from "lucide-react";
 import logo from "@/assets/logo-dark.png";
-const logoMark = logo;
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/BrandLogo";
 import { cn } from "@/lib/utils";
 import { useNavConfig } from "@/hooks/useNavConfig";
 import type { NavItem } from "@/config/adminNavConfig";
@@ -169,16 +169,19 @@ const AdminLayout = () => {
               {SidebarBody}
             </SheetContent>
           </Sheet>
-          {/* The logo art carries the wordmark, so it greets you at full size
-              and steps back to a compact mark once you start scrolling. */}
-          <img
-            src={logoMark}
-            alt="The Dance Exclusive"
-            className={cn(
-              "flex-1 object-contain pr-10 transition-all duration-300 ease-out",
-              scrolled ? "h-9" : "h-14",
-            )}
-          />
+          {/* The wordmark greets you at full size and steps back once you
+              start scrolling. White, because this bar is always dark. It is
+              centred in the strip left between the menu button and the right
+              edge, so it doesn't sit under the button. */}
+          <div className="flex flex-1 justify-center pr-10">
+            <BrandLogo
+              tone="white"
+              className={cn(
+                "transition-all duration-300 ease-out",
+                scrolled ? "h-7" : "h-10",
+              )}
+            />
+          </div>
         </header>
         {/* Only ever scrolls vertically: a wide table or chip row scrolls
             inside its own box, never the whole screen sideways. This is the

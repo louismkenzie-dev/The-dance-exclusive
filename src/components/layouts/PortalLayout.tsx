@@ -9,6 +9,7 @@ import CartDrawer from "@/components/portal/CartDrawer";
 import AttendeeOnboarding from "@/components/portal/AttendeeOnboarding";
 import logo from "@/assets/logo.png";
 import logoDark from "@/assets/logo-dark.png";
+import { BrandLogo } from "@/components/BrandLogo";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -175,11 +176,11 @@ const PortalLayout = () => {
               >
                 <SheetTitle className="sr-only">Menu</SheetTitle>
                 <div className={cn("border-b border-border flex items-center", j ? "px-5 py-3.5" : "p-5 justify-center")}>
-                  <img
-                    src={j ? logoSrc : logoDark}
-                    alt="The Dance Exclusive"
-                    className={j ? "h-12 w-12 object-contain" : "w-28 object-contain"}
-                  />
+                  {j ? (
+                    <BrandLogo tone={themeClass === "theme-children" ? "ink" : "white"} className="h-9" />
+                  ) : (
+                    <img src={logoDark} alt="The Dance Exclusive" className="w-28 object-contain" />
+                  )}
                 </div>
                 <nav className="flex-1 p-3 space-y-1 overflow-y-auto" aria-label="Menu">
                   <Link to="/classes/children" className={cn(menuRow, menuActive("/classes/children"))}>
@@ -227,15 +228,29 @@ const PortalLayout = () => {
               </SheetContent>
             </Sheet>
             <Link to="/" className="flex items-center gap-2.5" aria-label="The Dance Exclusive home">
-              <img
-                src={logoSrc}
-                alt="The Dance Exclusive"
-                className={cn(
-                  "object-contain transition-all duration-300 ease-out",
-                  scrolled ? "h-11 w-11" : "h-16 w-16",
-                  j ? "md:h-14 md:w-14" : "md:w-36 md:h-36 rounded",
-                )}
-              />
+              {j ? (
+                /* The wordmark fills its box, so it reads far larger than the
+                   square splat did in the same bar. Height only — the width
+                   follows the artwork. */
+                <BrandLogo
+                  tone={themeClass === "theme-children" ? "ink" : "white"}
+                  className={cn(
+                    "transition-all duration-300 ease-out",
+                    scrolled ? "h-8" : "h-11",
+                    "md:h-10",
+                  )}
+                />
+              ) : (
+                <img
+                  src={logoSrc}
+                  alt="The Dance Exclusive"
+                  className={cn(
+                    "object-contain transition-all duration-300 ease-out",
+                    scrolled ? "h-11 w-11" : "h-16 w-16",
+                    "md:w-36 md:h-36 rounded",
+                  )}
+                />
+              )}
             </Link>
           </div>
 

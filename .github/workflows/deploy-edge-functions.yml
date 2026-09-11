@@ -1,0 +1,69 @@
+# Deploy Supabase edge functions from the repo, exactly as they are committed.
+#
+# Until now the only way to ship an edge function was to paste its whole
+# bundle through a tool call by hand — tens of thousands of characters, with
+# no way to check afterwards that what landed is what was meant, and no clean
+# way back if it wasn't. send-email alone is ~83KB, and every transactional
+# email in the studio goes through it.
+#
+# This deploys the real files. Same bytes as main, every time.
+#
+# One-time setup: add a repository secret SUPABASE_ACCESS_TOKEN — a personal
+# access token from https://supabase.com/dashboard/account/tokens.
+# The project ref is public and lives below.
+name: Deploy edge functions
+
+on:
+  workflow_dispatch:
+    inputs:
+      functions:
+        description: >-
+          Which functions to deploy — a space-separated list of slugs
+          (e.g. "send-email create-one-to-one"), or "all".
+        required: true
+        default: send-email
+
+env:
+  SUPABASE_PROJECT_REF: suwaetnsszlpaaykhpif
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_ACCESS_TOKEN:-}" ]; then
+            echo "::error::SUPABASE_ACCESS_TOKEN is not set. Add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          chosen="${{ github.event.inputs.functions }}"
+          if [ "$chosen" = "all" ]; then
+            chosen=$(find supabase/functions -mindepth 1 -maxdepth 1 -type d \
+              -not -name '_shared' -printf '%f ')
+          fi
+          echo "Deploying:$chosen"
+          for fn in $chosen; do
+            if [ ! -f "supabase/functions/$fn/index.ts" ]; then
+              echo "::error::No such function: $fn"
+              exit 1
+            fi
+            # The CLI takes verify_jwt from supabase/config.toml. A function
+            # with no entry there deploys as verify_jwt = true — which is the
+            # right default, but would silently shut out a webhook or an
+            # internal caller that relies on it being false. So say so.
+            if ! grep -q "\[functions.$fn\]" supabase/config.toml; then
+              echo "::warning::$fn has no entry in supabase/config.toml, so it deploys with verify_jwt = true. If it is called by a webhook or with an internal header, add an entry before shipping it."
+            fi
+            echo "── $fn"
+            supabase functions deploy "$fn" \
+              --project-ref "$SUPABASE_PROJECT_REF"
+          done

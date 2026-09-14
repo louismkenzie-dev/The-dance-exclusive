@@ -244,10 +244,36 @@ export async function warnIfShortBooked(
   supabase: any,
   reference: string,
   charged: number | null,
-  booked: number,
+  _createdThisRun: number,
 ): Promise<boolean> {
   try {
     if (charged == null || !Number.isFinite(charged)) return false;
+
+    // What this run created is NOT the measure. Fulfilment deliberately runs
+    // twice — the webhook and the polling fallback — and whichever arrives
+    // second correctly skips every booking as a duplicate and creates
+    // nothing. Trusting that number raised "charged £10, booked £0" against
+    // a payment whose booking was sitting there the whole time, on every
+    // ordinary payment the studio took.
+    //
+    // So ask the database what exists for this payment now, whoever wrote it.
+    const [{ data: rows }, { data: passes }] = await Promise.all([
+      supabase
+        .from("bookings")
+        .select("amount")
+        .neq("status", "cancelled")
+        .ilike("notes", `%${reference}%`),
+      supabase
+        .from("class_passes")
+        .select("amount_paid")
+        .eq("payment_intent_id", reference),
+    ]);
+    const booked =
+      ((rows ?? []) as { amount: number | null }[])
+        .reduce((sum, r) => sum + Number(r.amount ?? 0), 0) +
+      ((passes ?? []) as { amount_paid: number | null }[])
+        .reduce((sum, r) => sum + Number(r.amount_paid ?? 0), 0);
+
     // A penny of rounding across split dates is not a missing booking.
     const shortfall = Math.round((charged - booked) * 100) / 100;
     if (shortfall <= 0.02) return false;

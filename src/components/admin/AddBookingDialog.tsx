@@ -206,14 +206,42 @@ const AddBookingDialog = ({ open, onOpenChange, onDone, preset }: Props) => {
         toast.error(message || "Couldn't add that — please try again.");
         return;
       }
-      toast.success(
-        effectiveMode === "record"
-          ? what === "pass" ? "Class pack added to their account"
-            : what === "camp" ? "Camp place added" : "Booking added"
-          : data.emailSent
-            ? "Set up — they've been emailed a link to pay"
-            : "Set up — but the email didn't send, so let them know it's waiting in their account",
-      );
+      if (effectiveMode === "record") {
+        toast.success(
+          what === "pass" ? "Class pack added to their account"
+            : what === "camp" ? "Camp place added" : "Booking added",
+        );
+      } else {
+        // The family is emailed automatically, but the studio usually
+        // messages them too — and typing the address by hand is how a link
+        // ends up as "www.app.thedanceexclusive.co.uk", which does not
+        // exist and which two parents were sent. So the message is written
+        // here, with the real address, and put on the clipboard ready to
+        // paste into WhatsApp.
+        const total = Number(form.amount) * Math.max(1, dates.length);
+        const when = dates.length > 0
+          ? dates.slice().sort().map((d) => format(parseISO(d), "EEE d MMM")).join(", ")
+          : "";
+        const message = [
+          `Hi ${selectedCustomer?.full_name?.split(" ")[0] ?? "there"}, here's the link to pay for`,
+          `${selectedClass?.name ?? "the class"}${when ? ` (${when})` : ""}`,
+          total > 0 ? `— £${total.toFixed(2)}.` : "—",
+          `It's waiting in your account: ${window.location.origin}/account/bookings`,
+        ].join(" ");
+        let copied = false;
+        try {
+          await navigator.clipboard.writeText(message);
+          copied = true;
+        } catch { /* clipboard blocked — the toast still says what to do */ }
+        toast.success(
+          data.emailSent
+            ? copied ? "Emailed them a link to pay — and the message is copied, ready to paste"
+              : "Emailed them a link to pay"
+            : copied ? "Set up — the email didn't send, but the message is copied, ready to paste"
+              : "Set up — but the email didn't send, so let them know it's waiting in their account",
+          copied ? { description: message, duration: 12000 } : undefined,
+        );
+      }
       reset();
       onOpenChange(false);
       onDone();

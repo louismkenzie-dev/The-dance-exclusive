@@ -487,10 +487,24 @@ serve(async (req) => {
       // one-to-ones, which are pay-per-session by nature); adults pay as
       // they go (or use passes) rather than memberships.
       if (cls.class_type === "children" && plan === "session" && !cls.invite_only) {
-        return jsonResponse({
-          error: `${cls.name} is a children's class — drop-in sessions aren't available for children. Choose a trial, monthly membership, termly or yearly plan instead.`,
-          code: "plan_not_allowed",
-        }, 400);
+        // ...unless the studio set this up itself. A pending invite naming a
+        // price and the exact dates is the studio saying "you owe us for
+        // these nights", which is the entire point of a payment link — and
+        // the only way to charge for a class whose own plans don't sell
+        // single sessions. Without this the link can never be paid: the
+        // parent reaches checkout and is told to choose a plan nobody
+        // offered them. Three families were sent one of these and every one
+        // of them came back saying it didn't work.
+        const invited = invitedByClass.get(cls.id);
+        const validated = sessionPlanDates.get(index);
+        const coveredByInvite = !!invited && !!validated?.length &&
+          validated.every((d) => invited.dates.has(d));
+        if (!coveredByInvite) {
+          return jsonResponse({
+            error: `${cls.name} is a children's class — drop-in sessions aren't available for children. Choose a trial, monthly membership, termly or yearly plan instead.`,
+            code: "plan_not_allowed",
+          }, 400);
+        }
       }
       if (cls.class_type === "adult" && (plan === "monthly" || plan === "term" || plan === "yearly")) {
         return jsonResponse({

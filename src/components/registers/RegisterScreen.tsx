@@ -283,6 +283,30 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
 
   const sessionById = (id: string) => windowSessions.find((s) => s.id === id) ?? null;
 
+  /**
+   * Put one booking's new attendance row straight into state.
+   *
+   * Every mark used to re-run the whole day's load(), which flips `loading`
+   * and swaps the list for a skeleton. The page collapses to nothing, the
+   * browser has no scroll left to keep, and when the rows come back you are
+   * at the top again — so marking a class of fifteen meant scrolling back
+   * down fifteen times, thumb halfway down a phone, kids coming through the
+   * door. The write already tells us exactly what it saved, so nothing needs
+   * fetching: swap that one row and the list doesn't move.
+   *
+   * Booking ids are unique across the day, so this finds the row wherever it
+   * is without every caller having to know which session it belongs to.
+   */
+  const patchAttendance = (bookingId: string, next: any) => {
+    setAttendance((prev) => {
+      const out: Record<string, any[]> = {};
+      for (const [sessionId, rows] of Object.entries(prev)) {
+        out[sessionId] = rows.map((b) => (b.id === bookingId ? { ...b, attendance: next } : b));
+      }
+      return out;
+    });
+  };
+
   const writeFailed = (error: { message: string } | null) => {
     if (!error) return false;
     toast({ title: "Couldn't update register", description: error.message, variant: "destructive" });
@@ -293,7 +317,7 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
   // on legacy adult bookings, which is valid (the column is nullable).
   const markAbsent = async (session: RegisterSession, booking: any) => {
     const target = attendanceTarget(session);
-    const { error } = await supabase.from("attendance").upsert({
+    const { data: row, error } = await supabase.from("attendance").upsert({
       booking_id: booking.id,
       ...target.keys,
       student_id: booking.student_id ?? null,
@@ -301,33 +325,37 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
       status: "absent",
       checked_in_at: null,
       checked_out_at: null,
-    } as any, { onConflict: target.onConflict });
+    } as any, { onConflict: target.onConflict }).select().maybeSingle();
     if (writeFailed(error)) return;
     toast({ title: "Marked absent" });
-    void load();
+    // If the row didn't come back (an RLS select policy could withhold it),
+    // fall back to a reload rather than showing a mark that isn't there.
+    if (row) patchAttendance(booking.id, row);
+    else void load();
   };
 
   const clearAttendance = async (booking: any) => {
     if (!booking.attendance) return;
     // UPDATE, not DELETE — staff RLS has no delete policy, so a delete
     // silently matches nothing. Resetting to 'expected' renders as Unaccounted.
-    const { error } = await supabase.from("attendance").update({
+    const { data: row, error } = await supabase.from("attendance").update({
       status: "expected",
       checked_in_at: null,
       checked_out_at: null,
       check_in_method: null,
       check_out_method: null,
       collector_name: null,
-    }).eq("id", booking.attendance.id);
+    }).eq("id", booking.attendance.id).select().maybeSingle();
     if (writeFailed(error)) return;
     toast({ title: "Status cleared" });
-    void load();
+    if (row) patchAttendance(booking.id, row);
+    else void load();
   };
 
   const performCheckIn = async (booking: any, session: RegisterSession, method: "qr" | "manual", collector: string | null) => {
     const target = attendanceTarget(session);
     const nowIso = new Date().toISOString();
-    const { error } = await supabase.from("attendance").upsert({
+    const { data: row, error } = await supabase.from("attendance").upsert({
       booking_id: booking.id,
       ...target.keys,
       student_id: booking.student_id ?? null,
@@ -337,10 +365,11 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
       checked_out_at: null,
       check_in_method: method,
       collector_name: collector,
-    } as any, { onConflict: target.onConflict });
+    } as any, { onConflict: target.onConflict }).select().maybeSingle();
     if (writeFailed(error)) return;
     toast({ title: "Checked in", description: collector ? `Dropped off by ${collector}` : undefined });
-    void load();
+    if (row) patchAttendance(booking.id, row);
+    else void load();
   };
 
   // "Dancer of the Week" tick (Class4kids-style) — stored on the attendance
@@ -348,8 +377,8 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
   const toggleDancerOfWeek = async (session: RegisterSession, booking: any) => {
     const next = !booking.attendance?.dancer_of_week;
     const target = attendanceTarget(session);
-    const { error } = booking.attendance
-      ? await supabase.from("attendance").update({ dancer_of_week: next } as any).eq("id", booking.attendance.id)
+    const { data: row, error } = booking.attendance
+      ? await supabase.from("attendance").update({ dancer_of_week: next } as any).eq("id", booking.attendance.id).select().maybeSingle()
       : await supabase.from("attendance").insert({
           booking_id: booking.id,
           ...target.keys,
@@ -357,23 +386,25 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
           session_date: session.session_date,
           status: "expected",
           dancer_of_week: true,
-        } as any);
+        } as any).select().maybeSingle();
     if (writeFailed(error)) return;
     toast({ title: next ? "Dancer of the Week ⭐" : "Dancer of the Week removed" });
-    void load();
+    if (row) patchAttendance(booking.id, row);
+    else void load();
   };
 
   const performCheckOut = async (booking: any, method: "qr" | "manual", collector: string | null) => {
     if (!booking.attendance) return;
     const nowIso = new Date().toISOString();
-    const { error } = await supabase.from("attendance").update({
+    const { data: row, error } = await supabase.from("attendance").update({
       checked_out_at: nowIso,
       check_out_method: method,
       collector_name: collector ?? booking.attendance.collector_name,
-    }).eq("id", booking.attendance.id);
+    }).eq("id", booking.attendance.id).select().maybeSingle();
     if (writeFailed(error)) return;
     toast({ title: "Checked out", description: collector ? `Collected by ${collector}` : undefined });
-    void load();
+    if (row) patchAttendance(booking.id, row);
+    else void load();
   };
 
   // Manual marks ask for the collector's name first (optional) — only while

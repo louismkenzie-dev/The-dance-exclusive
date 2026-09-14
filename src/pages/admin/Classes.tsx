@@ -793,10 +793,39 @@ const AdminClasses = () => {
     }
   };
 
+  /** How many people are still on the class waiting to be deleted — looked up
+   *  when the dialog opens, so the warning names real numbers. */
+  const [deletePlaces, setDeletePlaces] = useState<{ bookings: number; memberships: number } | null>(null);
+
+  const askDelete = async (classId: string) => {
+    setDeleteId(classId);
+    setDeletePlaces(null);
+    const [{ count: bookings }, { count: memberships }] = await Promise.all([
+      supabase.from("bookings").select("id", { count: "exact", head: true })
+        .eq("class_id", classId).neq("status", "cancelled"),
+      supabase.from("memberships").select("id", { count: "exact", head: true })
+        .eq("class_id", classId).neq("status", "cancelled"),
+    ]);
+    setDeletePlaces({ bookings: bookings ?? 0, memberships: memberships ?? 0 });
+  };
+
   const confirmDelete = async () => {
     if (!deleteId) return;
+    // Deleting a class takes its bookings with it and cuts live memberships
+    // loose from the thing they are paying for. A class anyone is on is
+    // retired, not deleted — the database refuses it too, but say so here in
+    // words rather than letting a constraint error surface.
+    if (deletePlaces && (deletePlaces.bookings > 0 || deletePlaces.memberships > 0)) {
+      toast({
+        title: "There are still people on this class",
+        description: `${deletePlaces.bookings} booking${deletePlaces.bookings === 1 ? "" : "s"} and ${deletePlaces.memberships} membership${deletePlaces.memberships === 1 ? "" : "s"}. Switch it to inactive instead, or move everyone off it first.`,
+        variant: "destructive",
+      });
+      setDeleteId(null);
+      return;
+    }
     const { error } = await supabase.from("classes").delete().eq("id", deleteId);
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+    if (error) toast({ title: "Couldn't delete the class", description: error.message, variant: "destructive" });
     else { toast({ title: "Class deleted" }); fetchData(); }
     setDeleteId(null);
   };
@@ -1819,7 +1848,7 @@ const AdminClasses = () => {
                         <Edit className="w-4 h-4" />
                         <span className="text-[9px] text-muted-foreground">Edit</span>
                       </Button>
-                      <Button variant="ghost" size="sm" className="flex flex-col items-center gap-0 h-auto py-1 px-2" onClick={() => setDeleteId(c.id)}>
+                      <Button variant="ghost" size="sm" className="flex flex-col items-center gap-0 h-auto py-1 px-2" onClick={() => void askDelete(c.id)}>
                         <Trash2 className="w-4 h-4 text-destructive" />
                         <span className="text-[9px] text-destructive">Delete</span>
                       </Button>
@@ -1903,11 +1932,23 @@ const AdminClasses = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete class?</AlertDialogTitle>
-            <AlertDialogDescription>This action cannot be undone. All sessions and bookings linked to this class will also be affected.</AlertDialogDescription>
+            <AlertDialogDescription>
+              {deletePlaces === null
+                ? "Checking who's on this class…"
+                : deletePlaces.bookings > 0 || deletePlaces.memberships > 0
+                  ? `This class can't be deleted — ${deletePlaces.bookings} booking${deletePlaces.bookings === 1 ? "" : "s"} and ${deletePlaces.memberships} membership${deletePlaces.memberships === 1 ? "" : "s"} are still on it. Deleting it would take their places with it and leave anyone paying monthly attached to nothing. Switch it to inactive instead — it disappears from the timetable and everyone keeps their place.`
+                  : "Nobody is booked on this class, so nothing else is affected. This can't be undone."}
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deletePlaces === null || deletePlaces.bookings > 0 || deletePlaces.memberships > 0}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

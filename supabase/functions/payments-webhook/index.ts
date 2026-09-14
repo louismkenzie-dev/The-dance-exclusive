@@ -9,6 +9,7 @@ import {
 import {
   fulfillInvoicePaymentIntent,
   fulfillItems,
+  warnIfShortBooked,
   parsePaymentIntentItems,
   recordCouponRedemption,
   sendBookingConfirmationEmail,
@@ -158,5 +159,6 @@ async function handlePaymentIntentSucceeded(pi: any, env: StripeEnv) {
 
   // Use the actual amount charged (after discounts) when available
   const charged = pi.amount_received != null ? pi.amount_received / 100 : totalAmount;
+  await warnIfShortBooked(supabase, pi.id, pi.amount_received != null ? pi.amount_received / 100 : null, totalAmount);
   await sendBookingConfirmationEmail(supabase, userId, pi.id, charged || null);
 }

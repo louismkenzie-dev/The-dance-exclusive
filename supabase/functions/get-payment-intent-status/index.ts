@@ -5,6 +5,7 @@ import { getActiveStripeEnv } from "../_shared/paymentsMode.ts";
 import {
   fulfillInvoicePaymentIntent,
   fulfillItems,
+  warnIfShortBooked,
   parsePaymentIntentItems,
   recordCouponRedemption,
   sendBookingConfirmationEmail,
@@ -132,6 +133,7 @@ async function ensureBookingsForPaymentIntent(
   // Send branded confirmation email (mirrors webhook behavior).
   try {
     const charged = pi.amount_received != null ? pi.amount_received / 100 : totalAmount;
+    await warnIfShortBooked(supabase, pi.id, pi.amount_received != null ? pi.amount_received / 100 : null, totalAmount);
     await sendBookingConfirmationEmail(supabase, userId, pi.id, charged || null);
   } catch (e) {
     console.error("Confirmation email send failed:", e);

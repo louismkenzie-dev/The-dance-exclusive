@@ -226,6 +226,62 @@ export async function fulfillItems(
   return totalAmount;
 }
 
+/**
+ * Tell the studio when a payment bought more than it booked.
+ *
+ * fulfilItems creates bookings one at a time and, if an insert fails, logs it
+ * and carries on — deliberately, because a payment that has been taken must
+ * not come undone because the bookkeeping after it failed. The cost of that
+ * choice is silence: a family can pay for two dates, get one, and nothing
+ * anywhere notices. It took a parent five weeks to tell us, and two more
+ * families never said anything at all.
+ *
+ * Both numbers are already sitting side by side at this point — what Stripe
+ * charged, and what the bookings add up to. This is the comparison nobody was
+ * making. It sends mail and never throws: it is the alarm, not the machinery.
+ */
+export async function warnIfShortBooked(
+  supabase: any,
+  reference: string,
+  charged: number | null,
+  booked: number,
+): Promise<boolean> {
+  try {
+    if (charged == null || !Number.isFinite(charged)) return false;
+    // A penny of rounding across split dates is not a missing booking.
+    const shortfall = Math.round((charged - booked) * 100) / 100;
+    if (shortfall <= 0.02) return false;
+
+    console.error(
+      "SHORT-BOOKED:", reference, "charged", charged, "booked", booked, "short", shortfall,
+    );
+    const adminEmail = Deno.env.get("ADMIN_NOTIFY_EMAIL") || "hello@thedanceexclusive.co.uk";
+    await supabase.functions.invoke("send-email", {
+      headers: { "x-internal-auth": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
+      body: {
+        template: "internal_notice",
+        to: adminEmail,
+        data: {
+          title: "A payment booked less than it paid for",
+          intro:
+            `A payment of £${charged.toFixed(2)} created only £${booked.toFixed(2)} of bookings, so £${shortfall.toFixed(2)} of what this family paid for is not on any register. Find them under Bookings and add the missing place by hand — they have paid, so do not ask them to pay again.`,
+          rows: [
+            { label: "Payment", value: reference },
+            { label: "Charged", value: `£${charged.toFixed(2)}` },
+            { label: "Booked", value: `£${booked.toFixed(2)}` },
+            { label: "Missing", value: `£${shortfall.toFixed(2)}` },
+          ],
+          urgent: true,
+        },
+      },
+    });
+    return true;
+  } catch (e) {
+    console.error("Could not raise the short-booked notice:", e);
+    return false;
+  }
+}
+
 /** Email the studio inbox whenever a trial is booked. */
 async function notifyAdminTrialBooked(supabase: any, userId: string, item: FulfilmentItem) {
   const adminEmail = Deno.env.get("ADMIN_NOTIFY_EMAIL") || "hello@thedanceexclusive.co.uk";

@@ -211,6 +211,24 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
   const [editPrice, setEditPrice] = useState("");
   const [editSaving, setEditSaving] = useState(false);
 
+  /** Move every booking pinned to `from` onto `to`, for one class. */
+  const repointBookings = async (classId: string, from: string | null, to: string) => {
+    if (!from || from === to) return;
+    const { data: pinned } = await supabase
+      .from("bookings")
+      .select("id, notes")
+      .eq("class_id", classId)
+      .neq("status", "cancelled")
+      .ilike("notes", `%session ${from}%`);
+    for (const b of ((pinned as { id: string; notes: string | null }[]) ?? [])) {
+      if (!b.notes) continue;
+      await supabase
+        .from("bookings")
+        .update({ notes: b.notes.split(`session ${from}`).join(`session ${to}`) })
+        .eq("id", b.id);
+    }
+  };
+
   const openEdit = (group: PrivateGroup) => {
     const session = sessionDates[group.classId];
     setEditGroup(group);
@@ -258,6 +276,11 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
           await supabase.from("class_sessions")
             .update({ session_date: editCleanDates[i], status: "scheduled", ...times })
             .eq("id", rows[i].id);
+          // The booking names the night it is for, in its own notes. Move the
+          // session without moving the booking and the family drops off the
+          // register for the night they are actually coming to — they have
+          // paid, the studio sees nobody, and nothing says why.
+          await repointBookings(classId, rows[i].session_date, editCleanDates[i]);
         } else if (i >= rows.length) {
           await supabase.from("class_sessions")
             .insert({ class_id: classId, session_date: editCleanDates[i], status: "scheduled", ...times } as any);

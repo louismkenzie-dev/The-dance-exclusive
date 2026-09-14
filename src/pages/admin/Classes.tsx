@@ -831,6 +831,25 @@ const AdminClasses = () => {
   };
 
   const canProceedStep1 = !!workshopId;
+  /**
+   * Anything already running in the venue, day and time being set up here.
+   *
+   * SURGE Crew ended up on the timetable twice at Kelvedon on a Monday at
+   * 4:45 — once as an event and once as a class — which put two registers
+   * side by side for the same room, and the teacher had to mark both. You
+   * cannot see that from inside the wizard, so it is shown here.
+   */
+  const slotClash = useMemo(() => {
+    if (!venueId || selectedDays.length === 0 || !defaultStartTime) return [];
+    return classes.filter((c) =>
+      c.is_active &&
+      c.id !== editing?.id &&
+      c.venue_id === venueId &&
+      c.start_time?.slice(0, 5) === defaultStartTime &&
+      selectedDays.includes(c.day_of_week),
+    );
+  }, [classes, venueId, selectedDays, defaultStartTime, editing?.id]);
+
   const canProceedStep2 = selectedDays.length > 0 && selectedTermIds.length > 0;
   const canProceedStep3 = sessions.length > 0;
   // Pricing step has no hard requirement; you can always continue to staffing
@@ -1304,6 +1323,19 @@ const AdminClasses = () => {
                           ({bankHolidaysInSelection.length} bank holiday{bankHolidaysInSelection.length !== 1 ? 's' : ''} excluded)
                         </span>
                       )}
+                    </p>
+                  </div>
+                )}
+
+                {slotClash.length > 0 && (
+                  <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
+                    <p className="text-sm font-medium text-[hsl(var(--warning-strong))]">
+                      Already running here at this time
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {slotClash.map((c) => c.name).join(", ")} — same venue, same day, same start.
+                      Two classes in one slot means two registers for the same room. If this is
+                      meant to replace it, edit that one instead.
                     </p>
                   </div>
                 )}

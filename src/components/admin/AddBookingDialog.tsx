@@ -158,6 +158,15 @@ const AddBookingDialog = ({ open, onOpenChange, onDone, preset }: Props) => {
       toast.error("Pick the date they're paying for — that's what the price covers.");
       return;
     }
+    // ...and a date the studio names has to say what it costs. A link for
+    // named dates with no amount on it is what the parent can't open: the
+    // price is what turns it into something they can pay, and without one the
+    // card in their portal just sends them to a class page that doesn't sell
+    // single sessions. A free place is recorded, not invoiced.
+    if (chargingByLink && dates.length > 0 && !(Number(form.amount) > 0)) {
+      toast.error("Set the amount for those dates — a link with nothing to pay can't be opened. For a free place, switch to recording the booking instead.");
+      return;
+    }
     if (effectiveMode === "record" && !(Number(form.amount) >= 0)) {
       toast.error("Set the amount they paid — 0 for a free place.");
       return;

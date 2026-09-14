@@ -470,17 +470,33 @@ const AddBookingDialog = ({ open, onOpenChange, onDone, preset }: Props) => {
           )}
 
           <div className="space-y-1.5">
-            <Label>{chargingByLink ? "Amount to charge (£)" : "Amount they paid (£)"}</Label>
+            <Label>
+              {chargingByLink
+                ? dates.length > 1 ? "Amount to charge, per date (£)" : "Amount to charge (£)"
+                : "Amount they paid (£)"}
+            </Label>
             <Input
               type="number" min="0" step="0.01" placeholder="0.00"
               value={form.amount}
               onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
             />
-            <p className="text-xs text-muted-foreground">
-              {chargingByLink
-                ? "What they'll pay for these dates, whatever the class normally sells — leave blank to charge the class's usual price."
-                : "What they actually paid elsewhere — used for their records, not charged. 0 for a free place."}
-            </p>
+            {/* This box is per date, and the old wording said "for these
+                dates", which reads like the total. Three dates at £9 was
+                nearly sent out as £27 in the box — £81 to the parent. So the
+                sum is done here, in front of whoever is typing it. */}
+            {chargingByLink && dates.length > 0 && Number(form.amount) > 0 ? (
+              <p className="text-xs text-foreground">
+                {dates.length > 1
+                  ? <>£{Number(form.amount).toFixed(2)} × {dates.length} dates = <span className="font-semibold">£{(Number(form.amount) * dates.length).toFixed(2)}</span> — that is what they will be asked for.</>
+                  : <>They will be asked for <span className="font-semibold">£{Number(form.amount).toFixed(2)}</span>.</>}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {chargingByLink
+                  ? "What they'll pay for each date you ticked, whatever the class normally sells."
+                  : "What they actually paid elsewhere — used for their records, not charged. 0 for a free place."}
+              </p>
+            )}
           </div>
 
           <div className="space-y-1.5">

@@ -27,6 +27,7 @@
 //                                pretend it is this instant — honoured only with
 //                                dry or test_to, so a real run always uses now
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { convertedAfterTrial, type Purchase } from "../_shared/trialConversion.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { formatTime } from "../_shared/email-templates/layout.ts";
 
@@ -365,17 +366,25 @@ serve(async (req) => {
       const trialIds = [...groups.values()].flatMap((g) => g.bookings.map((b) => b.id as string));
       const [{ data: sessRows }, { data: laterBookings }, { data: laterMemberships }, { data: profiles }, { data: noteSetting }, { data: absences }] = await Promise.all([
         supabase.from("class_sessions").select("class_id, session_date, end_time, status").in("class_id", classIds).gte("session_date", sinceYmd).lte("session_date", today),
-        supabase.from("bookings").select("parent_id, booked_at").in("parent_id", parentIds).eq("status", "confirmed").in("booking_type", ["monthly", "term", "yearly", "session", "drop_in", "pass"]),
-        supabase.from("memberships").select("user_id, created_at").in("user_id", parentIds).in("status", ["active", "paused", "past_due", "cancel_scheduled", "incomplete"]),
+        supabase.from("bookings").select("parent_id, student_id, booked_at").in("parent_id", parentIds).eq("status", "confirmed").in("booking_type", ["monthly", "term", "yearly", "session", "drop_in", "pass"]),
+        supabase.from("memberships").select("user_id, student_id, created_at").in("user_id", parentIds).in("status", ["active", "paused", "past_due", "cancel_scheduled", "incomplete"]),
         supabase.from("profiles").select("user_id, full_name, email").in("user_id", parentIds),
         supabase.from("app_settings").select("value").eq("key", "trial_follow_up_message").maybeSingle(),
         supabase.from("attendance").select("booking_id").in("booking_id", trialIds).eq("status", "absent"),
       ]);
       const sessionAt = new Map<string, { end: Date; status: string }>();
       for (const s of (sessRows ?? []) as any[]) sessionAt.set(`${s.class_id}|${s.session_date}`, { end: londonToUtc(s.session_date, s.end_time), status: s.status });
-      const boughtAfter = (parentId: string, after: string) =>
-        ((laterBookings ?? []) as any[]).some((x) => x.parent_id === parentId && x.booked_at > after) ||
-        ((laterMemberships ?? []) as any[]).some((x) => x.user_id === parentId && x.created_at > after);
+      // Whether the DANCER has booked since, not the household. A parent who
+      // books their own adult class after their child's trial used to count
+      // as the child converting, which silenced the "how was it?" email to
+      // exactly the family most worth asking. A follow-up is held back only
+      // when every dancer it would be about has taken something up.
+      const purchases: Purchase[] = [
+        ...((laterBookings ?? []) as any[]).map((x) => ({ studentId: x.student_id, parentId: x.parent_id, at: x.booked_at })),
+        ...((laterMemberships ?? []) as any[]).map((x) => ({ studentId: x.student_id, parentId: x.user_id, at: x.created_at })),
+      ];
+      const boughtAfter = (bookings: any[], after: string) =>
+        bookings.every((b) => convertedAfterTrial(purchases, b.student_id, b.parent_id, after));
       const profileById = new Map(((profiles ?? []) as any[]).map((p) => [p.user_id, p]));
       const absent = new Set(((absences ?? []) as any[]).map((a) => a.booking_id as string));
 
@@ -398,7 +407,7 @@ serve(async (req) => {
         }
         // They've booked something since the trial; the email did its job.
         const earliest = g.bookings.map((b) => b.booked_at).sort()[0];
-        if (boughtAfter(g.parentId, earliest)) continue;
+        if (boughtAfter(g.bookings, earliest)) continue;
         const parent = profileById.get(g.parentId);
         const to = testTo ?? parent?.email;
         if (!to) continue;

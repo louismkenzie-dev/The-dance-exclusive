@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { CalendarDays, Clock, Mail, MapPin, Phone, Sparkles } from "lucide-react";
+import { CalendarDays, Clock, Copy, Mail, MapPin, MessageCircle, Phone, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import BookingBreakdown, { type PaymentSibling } from "@/components/admin/BookingBreakdown";
+import { attendeeKey, convertedAfterTrial, type Purchase } from "@/lib/trialConversion";
 import { BookingActions, type BookingActionHandlers } from "@/components/admin/BookingActions";
 import { TonePill } from "@/components/admin/StatusPill";
 import { Chip, ChipRow } from "@/components/booking/Chips";
@@ -44,6 +47,30 @@ interface TrialsTabProps {
   changeToken: number;
 }
 
+/**
+ * What to say when following a trial up. Written out here rather than left to
+ * whoever is holding the phone, so nobody has to compose it at 9pm — and so
+ * the child's name and the class they came to are always in it.
+ */
+const followUpText = (
+  parentName: string | null | undefined,
+  childName: string,
+  className: string | null | undefined,
+  date: string | null,
+): string => {
+  const first = parentName?.trim().split(/\s+/)[0] || "there";
+  const when = date ? ` on ${format(parseISO(date), "EEEE d MMMM")}` : "";
+  return `Hi ${first}, it's Amie at The Dance Exclusive. Just wanted to see how ${childName} got on at ${className ?? "their trial"}${when}? We'd love to have them back — any questions at all, just ask. 💙`;
+};
+
+/** UK mobile to the form wa.me wants: 447… with nothing else in it. */
+const waNumber = (phone: string): string => {
+  const digits = phone.replace(/[^\d+]/g, "");
+  if (digits.startsWith("+")) return digits.slice(1);
+  if (digits.startsWith("0")) return `44${digits.slice(1)}`;
+  return digits;
+};
+
 /** Trials carry their session date in the notes: "... | session YYYY-MM-DD". */
 const trialDate = (notes: string | null): string | null =>
   notes?.match(/session (\d{4}-\d{2}-\d{2})/)?.[1] ?? null;
@@ -59,7 +86,8 @@ const TrialsTab = ({ actions, paymentSiblings, changeToken }: TrialsTabProps) =>
   const [trials, setTrials] = useState<TrialRow[]>([]);
   const [parents, setParents] = useState<Record<string, { full_name: string; email: string; phone: string | null }>>({});
   const [attended, setAttended] = useState<Record<string, { checked_in_at: string | null; status: string }>>({});
-  const [convertedParents, setConvertedParents] = useState<Set<string>>(new Set());
+  /** Attendee keys (see attendeeKey) who bought something after their trial. */
+  const [convertedAttendees, setConvertedAttendees] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"upcoming" | "past" | "all">("upcoming");
 
@@ -83,30 +111,36 @@ const TrialsTab = ({ actions, paymentSiblings, changeToken }: TrialsTabProps) =>
         .in("user_id", parentIds);
       setParents(Object.fromEntries(((profs as any[]) ?? []).map((p) => [p.user_id, p])));
 
-      // "Converted" = they bought something after the trial. Anything they
-      // already held beforehand isn't the trial's doing, so the date matters.
+      // "Converted" = THIS DANCER bought something after their trial.
+      // Anything held beforehand isn't the trial's doing, so the date
+      // matters — and so does who it was for: a dad booking his own adult
+      // class is not his son taking up dancing.
       const [{ data: mems }, { data: paid }] = await Promise.all([
-        supabase.from("memberships").select("user_id, created_at")
+        supabase.from("memberships").select("user_id, student_id, created_at")
           .in("user_id", parentIds)
           .in("status", ["active", "paused", "past_due", "cancel_scheduled"]),
-        supabase.from("bookings").select("parent_id, booked_at")
+        supabase.from("bookings").select("parent_id, student_id, booked_at")
           .in("parent_id", parentIds)
           .eq("status", "confirmed")
           .in("booking_type", ["monthly", "term", "yearly", "session", "camp"]),
       ]);
-      const boughtAt: Record<string, string[]> = {};
-      for (const m of ((mems as any[]) ?? [])) (boughtAt[m.user_id] ??= []).push(m.created_at);
-      for (const b of ((paid as any[]) ?? [])) (boughtAt[b.parent_id] ??= []).push(b.booked_at);
+      const purchases: Purchase[] = [
+        ...((mems as any[]) ?? []).map((m) => ({ studentId: m.student_id, parentId: m.user_id, at: m.created_at })),
+        ...((paid as any[]) ?? []).map((b) => ({ studentId: b.student_id, parentId: b.parent_id, at: b.booked_at })),
+      ];
+      // Their first trial is the line everything is measured from.
       const firstTrialAt: Record<string, string> = {};
       for (const t of rows) {
-        const seen = firstTrialAt[t.parent_id];
-        if (!seen || t.booked_at < seen) firstTrialAt[t.parent_id] = t.booked_at;
+        const key = attendeeKey(t.student_id, t.parent_id);
+        if (!firstTrialAt[key] || t.booked_at < firstTrialAt[key]) firstTrialAt[key] = t.booked_at;
       }
-      setConvertedParents(new Set(
-        Object.entries(boughtAt)
-          .filter(([userId, dates]) => dates.some((d) => d && d > (firstTrialAt[userId] ?? "")))
-          .map(([userId]) => userId),
-      ));
+      const converted = new Set<string>();
+      for (const t of rows) {
+        const key = attendeeKey(t.student_id, t.parent_id);
+        if (converted.has(key)) continue;
+        if (convertedAfterTrial(purchases, t.student_id, t.parent_id, firstTrialAt[key])) converted.add(key);
+      }
+      setConvertedAttendees(converted);
     }
 
     const bookingIds = rows.map((t) => t.id);
@@ -178,7 +212,7 @@ const TrialsTab = ({ actions, paymentSiblings, changeToken }: TrialsTabProps) =>
             const parent = parents[t.parent_id];
             const att = attended[t.id];
             const past = !!date && date < todayISO();
-            const converted = convertedParents.has(t.parent_id);
+            const converted = convertedAttendees.has(attendeeKey(t.student_id, t.parent_id));
             return (
               <Card key={t.id} className="animate-fade-in overflow-hidden">
                 <CardContent className="p-4 md:p-5">
@@ -228,6 +262,53 @@ const TrialsTab = ({ actions, paymentSiblings, changeToken }: TrialsTabProps) =>
                           )}
                         </p>
                       )}
+
+                      {past && !converted && t.status !== "cancelled" && parent && (() => {
+                        const childName = t.students?.first_name ?? "your dancer";
+                        const text = followUpText(parent.full_name, childName, t.classes?.name, date);
+                        return (
+                          <div className="flex flex-wrap items-center gap-2 pt-1">
+                            {parent.phone && (
+                              <Button
+                                asChild size="sm" variant="outline"
+                                className="h-9 rounded-full"
+                              >
+                                <a
+                                  href={`https://wa.me/${waNumber(parent.phone)}?text=${encodeURIComponent(text)}`}
+                                  target="_blank" rel="noopener noreferrer"
+                                >
+                                  <MessageCircle className="mr-1.5 h-3.5 w-3.5" /> WhatsApp
+                                </a>
+                              </Button>
+                            )}
+                            <Button asChild size="sm" variant="outline" className="h-9 rounded-full">
+                              <a href={`mailto:${parent.email}?subject=${encodeURIComponent(`How did ${childName} get on?`)}&body=${encodeURIComponent(text)}`}>
+                                <Mail className="mr-1.5 h-3.5 w-3.5" /> Email
+                              </a>
+                            </Button>
+                            {parent.phone && (
+                              <Button asChild size="sm" variant="outline" className="h-9 rounded-full">
+                                <a href={`tel:${parent.phone}`}>
+                                  <Phone className="mr-1.5 h-3.5 w-3.5" /> Call
+                                </a>
+                              </Button>
+                            )}
+                            <Button
+                              size="sm" variant="ghost" className="h-9 rounded-full"
+                              onClick={async () => {
+                                try {
+                                  await navigator.clipboard.writeText(text);
+                                  toast.success("Message copied", { description: text, duration: 10000 });
+                                } catch {
+                                  toast("Copy this", { description: text, duration: 15000 });
+                                }
+                              }}
+                            >
+                              <Copy className="mr-1.5 h-3.5 w-3.5" /> Copy message
+                            </Button>
+                          </div>
+                        );
+                      })()}
 
                       {(converted || past) && t.status !== "cancelled" && (
                         <div className="flex flex-wrap items-center gap-1.5 pt-0.5">

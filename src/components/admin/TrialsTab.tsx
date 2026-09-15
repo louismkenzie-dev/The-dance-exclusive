@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { CalendarDays, Clock, Copy, Mail, MapPin, MessageCircle, Phone, Sparkles } from "lucide-react";
+import { CalendarDays, Check, Clock, Copy, Loader2, Mail, MapPin, MessageCircle, Phone, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import BookingBreakdown, { type PaymentSibling } from "@/components/admin/BookingBreakdown";
@@ -10,6 +10,10 @@ import { attendeeKey, convertedAfterTrial, type Purchase } from "@/lib/trialConv
 import { BookingActions, type BookingActionHandlers } from "@/components/admin/BookingActions";
 import { TonePill } from "@/components/admin/StatusPill";
 import { Chip, ChipRow } from "@/components/booking/Chips";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { formatTime } from "@/lib/bookingFormat";
 
 interface TrialRow {
@@ -38,6 +42,45 @@ interface TrialRow {
   } | null;
   students: { first_name: string; last_name: string } | null;
 }
+
+/** One recorded attempt to get a trialist back. */
+interface ChaseRow {
+  id: string;
+  booking_id: string;
+  method: "email" | "whatsapp" | "call" | "copy";
+  chased_at: string;
+  email_log_id: string | null;
+}
+
+/** What happened to an email after we handed it to Resend. */
+interface EmailRow {
+  id: string;
+  status: "sent" | "delivered" | "opened" | "clicked" | "bounced" | "complained" | "failed";
+  delivered_at: string | null;
+  opened_at: string | null;
+}
+
+const METHOD_LABEL: Record<ChaseRow["method"], string> = {
+  email: "emailed",
+  whatsapp: "WhatsApp",
+  call: "called",
+  copy: "copied",
+};
+
+/**
+ * What the studio needs to know at a glance about the last email: not that we
+ * sent it — that it arrived, and whether anyone opened it. "Sent" on its own
+ * is the state Amie already had, and it told her nothing.
+ */
+const DELIVERY: Record<EmailRow["status"], { label: string; tone?: "success" | "warning" | "destructive" }> = {
+  sent: { label: "sent" },
+  delivered: { label: "delivered", tone: "success" },
+  opened: { label: "opened", tone: "success" },
+  clicked: { label: "clicked through", tone: "success" },
+  bounced: { label: "bounced", tone: "destructive" },
+  complained: { label: "marked as spam", tone: "destructive" },
+  failed: { label: "failed to send", tone: "destructive" },
+};
 
 interface TrialsTabProps {
   /** The same row actions the Bookings tab uses. */
@@ -90,6 +133,13 @@ const TrialsTab = ({ actions, paymentSiblings, changeToken }: TrialsTabProps) =>
   const [convertedAttendees, setConvertedAttendees] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"upcoming" | "past" | "all">("upcoming");
+  /** Every chase on record, newest first, keyed by booking. */
+  const [chases, setChases] = useState<Record<string, ChaseRow[]>>({});
+  /** What became of each chase email, keyed by email_log id. */
+  const [emails, setEmails] = useState<Record<string, EmailRow>>({});
+  /** Bookings with a send in flight, so their button can't be pressed twice. */
+  const [chasing, setChasing] = useState<Set<string>>(new Set());
+  const [confirmChaseAll, setConfirmChaseAll] = useState(false);
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -150,6 +200,31 @@ const TrialsTab = ({ actions, paymentSiblings, changeToken }: TrialsTabProps) =>
         .select("booking_id, checked_in_at, status")
         .in("booking_id", bookingIds);
       setAttended(Object.fromEntries(((att as any[]) ?? []).map((a) => [a.booking_id, a])));
+
+      // Who has already been chased, and what became of the email. Read
+      // together so a card never shows "emailed" without saying whether it
+      // landed — that pairing is the whole point of keeping the record.
+      const { data: chaseRows } = await supabase
+        .from("trial_chases")
+        .select("id, booking_id, method, chased_at, email_log_id")
+        .in("booking_id", bookingIds)
+        .order("chased_at", { ascending: false });
+      const byBooking: Record<string, ChaseRow[]> = {};
+      for (const c of ((chaseRows as any[]) ?? [])) {
+        (byBooking[c.booking_id] ??= []).push(c as ChaseRow);
+      }
+      setChases(byBooking);
+
+      const logIds = [...new Set(((chaseRows as any[]) ?? []).map((c) => c.email_log_id).filter(Boolean))];
+      if (logIds.length > 0) {
+        const { data: logs } = await supabase
+          .from("email_log")
+          .select("id, status, delivered_at, opened_at")
+          .in("id", logIds);
+        setEmails(Object.fromEntries(((logs as any[]) ?? []).map((l) => [l.id, l as EmailRow])));
+      } else {
+        setEmails({});
+      }
     }
     setLoading(false);
   }, []);
@@ -179,6 +254,86 @@ const TrialsTab = ({ actions, paymentSiblings, changeToken }: TrialsTabProps) =>
 
   const pastCount = trials.filter((t) => t.status !== "cancelled" && !!trialDate(t.notes) && trialDate(t.notes)! < todayISO()).length;
 
+  /** Been, not booked, not cancelled — everyone "Chase all" would write to. */
+  const chaseable = useMemo(() => {
+    const today = todayISO();
+    return trials.filter((t) => {
+      const d = trialDate(t.notes);
+      if (!d || d >= today) return false;
+      if (t.status === "cancelled") return false;
+      return !convertedAttendees.has(attendeeKey(t.student_id, t.parent_id));
+    });
+  }, [trials, convertedAttendees]);
+
+  /** Families, not bookings: siblings on one night share one email. */
+  const chaseableFamilies = useMemo(() => {
+    const keys = new Set(chaseable.map((t) => `${t.parent_id}|${t.class_id}|${trialDate(t.notes)}`));
+    return keys.size;
+  }, [chaseable]);
+
+  /**
+   * Send the same "how was it, come and book" email the evening cron sends,
+   * on purpose. The server does the sending and the recording; here we only
+   * report what came back, per family, including who was skipped and why.
+   */
+  const sendChase = useCallback(async (ids: string[]) => {
+    if (ids.length === 0) return;
+    setChasing((prev) => new Set([...prev, ...ids]));
+    try {
+      const { data, error } = await supabase.functions.invoke("chase-trials", {
+        body: { bookingIds: ids },
+      });
+      if (error) throw error;
+      const res = data as { sent: number; total: number; results: { sent: boolean; reason?: string; studentName?: string | null }[] };
+      const skipped = (res.results ?? []).filter((r) => !r.sent);
+      if (res.sent > 0) {
+        toast.success(
+          res.sent === 1 ? "Chase sent" : `${res.sent} chases sent`,
+          skipped.length > 0
+            ? { description: `${skipped.length} skipped — ${skipped[0].reason}` }
+            : undefined,
+        );
+      } else {
+        toast("Nothing sent", {
+          description: skipped[0]?.reason ?? "No trials were eligible.",
+        });
+      }
+      await load();
+    } catch (e) {
+      toast.error("Couldn't send", {
+        description: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setChasing((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
+    }
+  }, [load]);
+
+  /**
+   * A chase that happened outside the app — Amie tapped WhatsApp, or rang
+   * them. Recorded so the next person to look at this family knows, and
+   * doesn't make it the fourth message this week.
+   */
+  const recordChase = useCallback(async (t: TrialRow, method: ChaseRow["method"]) => {
+    const { data: auth } = await supabase.auth.getUser();
+    const { error } = await supabase.from("trial_chases").insert({
+      booking_id: t.id,
+      parent_id: t.parent_id,
+      student_id: t.student_id,
+      method,
+      chased_by: auth?.user?.id ?? null,
+    });
+    if (error) {
+      // The contact still happened; only the bookkeeping failed.
+      console.error("Could not record chase:", error.message);
+      return;
+    }
+    await load();
+  }, [load]);
+
   return (
     <div className="space-y-4">
       <div className="space-y-3">
@@ -195,7 +350,67 @@ const TrialsTab = ({ actions, paymentSiblings, changeToken }: TrialsTabProps) =>
           <Chip selected={filter === "past"} onClick={() => setFilter("past")} trailing={pastCount}>Already happened</Chip>
           <Chip selected={filter === "all"} onClick={() => setFilter("all")} trailing={trials.length}>All trials</Chip>
         </ChipRow>
+
+        {chaseable.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[hsl(var(--warning))]/30 bg-[hsl(var(--warning))]/5 p-3">
+            <div className="min-w-0 flex-1 basis-40">
+              <p className="text-sm font-medium">
+                {chaseable.length} trial{chaseable.length === 1 ? "" : "s"} h{chaseable.length === 1 ? "as" : "ave"} been and not booked
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Invite them to book — one email each{chaseableFamilies !== chaseable.length && `, ${chaseableFamilies} in total (siblings share one)`}.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              className="h-9 rounded-full"
+              disabled={chasing.size > 0}
+              onClick={() => setConfirmChaseAll(true)}
+            >
+              {chasing.size > 0
+                ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                : <Send className="mr-1.5 h-3.5 w-3.5" />}
+              Chase all {chaseableFamilies}
+            </Button>
+          </div>
+        )}
       </div>
+
+      <AlertDialog open={confirmChaseAll} onOpenChange={setConfirmChaseAll}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Email {chaseableFamilies} famil{chaseableFamilies === 1 ? "y" : "ies"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  Each one gets the "how was it — book your place" email, with a link
+                  to the class they trialled. Anyone chased in the last 6 hours is
+                  skipped automatically.
+                </p>
+                <ul className="max-h-48 space-y-0.5 overflow-y-auto rounded-lg bg-muted/40 p-2 text-xs">
+                  {chaseable.map((t) => (
+                    <li key={t.id} className="truncate">
+                      {t.students ? `${t.students.first_name} ${t.students.last_name}` : "Adult attendee"}
+                      <span className="text-muted-foreground">
+                        {" · "}{t.classes?.name ?? "Class"}
+                        {parents[t.parent_id] ? ` · ${parents[t.parent_id].email}` : " · no email on file"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void sendChase(chaseable.map((t) => t.id))}>
+              Send {chaseableFamilies} email{chaseableFamilies === 1 ? "" : "s"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {loading ? (
         <div className="text-muted-foreground">Loading…</div>
@@ -266,12 +481,24 @@ const TrialsTab = ({ actions, paymentSiblings, changeToken }: TrialsTabProps) =>
                       {past && !converted && t.status !== "cancelled" && parent && (() => {
                         const childName = t.students?.first_name ?? "your dancer";
                         const text = followUpText(parent.full_name, childName, t.classes?.name, date);
+                        const busy = chasing.has(t.id);
                         return (
                           <div className="flex flex-wrap items-center gap-2 pt-1">
+                            <Button
+                              size="sm" className="h-9 rounded-full"
+                              disabled={busy}
+                              onClick={() => void sendChase([t.id])}
+                            >
+                              {busy
+                                ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                : <Send className="mr-1.5 h-3.5 w-3.5" />}
+                              Chase by email
+                            </Button>
                             {parent.phone && (
                               <Button
                                 asChild size="sm" variant="outline"
-                                className="h-9 rounded-full"
+                                className="h-9 rounded-full px-3"
+                                onClick={() => void recordChase(t, "whatsapp")}
                               >
                                 <a
                                   href={`https://wa.me/${waNumber(parent.phone)}?text=${encodeURIComponent(text)}`}
@@ -281,20 +508,26 @@ const TrialsTab = ({ actions, paymentSiblings, changeToken }: TrialsTabProps) =>
                                 </a>
                               </Button>
                             )}
-                            <Button asChild size="sm" variant="outline" className="h-9 rounded-full">
+                            <Button
+                              asChild size="sm" variant="outline" className="h-9 rounded-full px-3"
+                              onClick={() => void recordChase(t, "email")}
+                            >
                               <a href={`mailto:${parent.email}?subject=${encodeURIComponent(`How did ${childName} get on?`)}&body=${encodeURIComponent(text)}`}>
-                                <Mail className="mr-1.5 h-3.5 w-3.5" /> Email
+                                <Mail className="mr-1.5 h-3.5 w-3.5" /> Their inbox
                               </a>
                             </Button>
                             {parent.phone && (
-                              <Button asChild size="sm" variant="outline" className="h-9 rounded-full">
+                              <Button
+                                asChild size="sm" variant="outline" className="h-9 rounded-full px-3"
+                                onClick={() => void recordChase(t, "call")}
+                              >
                                 <a href={`tel:${parent.phone}`}>
                                   <Phone className="mr-1.5 h-3.5 w-3.5" /> Call
                                 </a>
                               </Button>
                             )}
                             <Button
-                              size="sm" variant="ghost" className="h-9 rounded-full"
+                              size="sm" variant="ghost" className="h-9 rounded-full px-3"
                               onClick={async () => {
                                 try {
                                   await navigator.clipboard.writeText(text);
@@ -302,11 +535,48 @@ const TrialsTab = ({ actions, paymentSiblings, changeToken }: TrialsTabProps) =>
                                 } catch {
                                   toast("Copy this", { description: text, duration: 15000 });
                                 }
+                                void recordChase(t, "copy");
                               }}
                             >
-                              <Copy className="mr-1.5 h-3.5 w-3.5" /> Copy message
+                              <Copy className="mr-1.5 h-3.5 w-3.5" /> Copy
                             </Button>
                           </div>
+                        );
+                      })()}
+
+                      {(() => {
+                        // The record Louis asked for: when, how, by which
+                        // route — and for an email, whether it actually
+                        // arrived and was opened. Newest first.
+                        const history = chases[t.id] ?? [];
+                        if (history.length === 0) return null;
+                        const last = history[0];
+                        const log = last.email_log_id ? emails[last.email_log_id] : null;
+                        const delivery = log ? DELIVERY[log.status] : null;
+                        return (
+                          <p className="pt-0.5 text-xs text-muted-foreground">
+                            <Check className="mr-1 inline h-3 w-3 align-[-1px]" />
+                            Chased {history.length}×
+                            {" · last "}
+                            {format(parseISO(last.chased_at), "d MMM 'at' HH:mm")}
+                            {" · "}{METHOD_LABEL[last.method]}
+                            {delivery && (
+                              <>
+                                {" · "}
+                                <span
+                                  className={
+                                    delivery.tone === "success"
+                                      ? "text-[hsl(var(--success-strong))]"
+                                      : delivery.tone === "destructive"
+                                        ? "text-destructive"
+                                        : undefined
+                                  }
+                                >
+                                  {delivery.label}
+                                </span>
+                              </>
+                            )}
+                          </p>
                         );
                       })()}
 

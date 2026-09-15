@@ -18,6 +18,11 @@ verify_jwt = false
 [functions.send-email]
 verify_jwt = false
 
+# Resend posts delivery events here; it authenticates with a Svix signature,
+# not a JWT, and that signature is verified inside the function.
+[functions.resend-webhook]
+verify_jwt = false
+
 [functions.send-password-reset]
 verify_jwt = false
 

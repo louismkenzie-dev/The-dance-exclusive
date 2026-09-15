@@ -1182,6 +1182,7 @@ export type Database = {
           id: string
           payment_intent_id: string | null
           redeemed_at: string
+          status: string
           user_id: string
         }
         Insert: {
@@ -1190,6 +1191,7 @@ export type Database = {
           id?: string
           payment_intent_id?: string | null
           redeemed_at?: string
+          status?: string
           user_id: string
         }
         Update: {
@@ -1198,6 +1200,7 @@ export type Database = {
           id?: string
           payment_intent_id?: string | null
           redeemed_at?: string
+          status?: string
           user_id?: string
         }
         Relationships: [
@@ -1275,6 +1278,91 @@ export type Database = {
           valid_until?: string | null
         }
         Relationships: []
+      }
+      email_log: {
+        Row: {
+          booking_id: string | null
+          class_id: string | null
+          clicked_at: string | null
+          created_at: string
+          delivered_at: string | null
+          error: string | null
+          failed_at: string | null
+          id: string
+          opened_at: string | null
+          parent_id: string | null
+          provider_id: string | null
+          sent_by: string | null
+          source: string
+          status: string
+          student_id: string | null
+          subject: string | null
+          template: string
+          to_email: string
+        }
+        Insert: {
+          booking_id?: string | null
+          class_id?: string | null
+          clicked_at?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          error?: string | null
+          failed_at?: string | null
+          id?: string
+          opened_at?: string | null
+          parent_id?: string | null
+          provider_id?: string | null
+          sent_by?: string | null
+          source?: string
+          status?: string
+          student_id?: string | null
+          subject?: string | null
+          template: string
+          to_email: string
+        }
+        Update: {
+          booking_id?: string | null
+          class_id?: string | null
+          clicked_at?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          error?: string | null
+          failed_at?: string | null
+          id?: string
+          opened_at?: string | null
+          parent_id?: string | null
+          provider_id?: string | null
+          sent_by?: string | null
+          source?: string
+          status?: string
+          student_id?: string | null
+          subject?: string | null
+          template?: string
+          to_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_log_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_log_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_log_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       medical_waivers: {
         Row: {
@@ -1388,6 +1476,7 @@ export type Database = {
           free_month: number | null
           id: string
           monthly_amount: number
+          payment_failed_notified_at: string | null
           started_at: string
           status: string
           stripe_env: string
@@ -1410,6 +1499,7 @@ export type Database = {
           free_month?: number | null
           id?: string
           monthly_amount?: number
+          payment_failed_notified_at?: string | null
           started_at?: string
           status?: string
           stripe_env?: string
@@ -1432,6 +1522,7 @@ export type Database = {
           free_month?: number | null
           id?: string
           monthly_amount?: number
+          payment_failed_notified_at?: string | null
           started_at?: string
           status?: string
           stripe_env?: string
@@ -1925,6 +2016,21 @@ export type Database = {
           },
         ]
       }
+      password_reset_notices: {
+        Row: {
+          email: string
+          last_sent_at: string
+        }
+        Insert: {
+          email: string
+          last_sent_at?: string
+        }
+        Update: {
+          email?: string
+          last_sent_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           ability_level: string | null
@@ -2023,6 +2129,47 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      register_alerts: {
+        Row: {
+          attendee_count: number
+          class_session_id: string
+          created_at: string
+          details: Json | null
+          emailed: boolean
+          id: string
+          kind: string
+          recipients: string[]
+        }
+        Insert: {
+          attendee_count?: number
+          class_session_id: string
+          created_at?: string
+          details?: Json | null
+          emailed?: boolean
+          id?: string
+          kind: string
+          recipients?: string[]
+        }
+        Update: {
+          attendee_count?: number
+          class_session_id?: string
+          created_at?: string
+          details?: Json | null
+          emailed?: boolean
+          id?: string
+          kind?: string
+          recipients?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "register_alerts_class_session_id_fkey"
+            columns: ["class_session_id"]
+            isOneToOne: false
+            referencedRelation: "class_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       school_holidays: {
         Row: {
@@ -2637,6 +2784,64 @@ export type Database = {
         }
         Relationships: []
       }
+      trial_chases: {
+        Row: {
+          booking_id: string
+          chased_at: string
+          chased_by: string | null
+          email_log_id: string | null
+          id: string
+          method: string
+          note: string | null
+          parent_id: string | null
+          student_id: string | null
+        }
+        Insert: {
+          booking_id: string
+          chased_at?: string
+          chased_by?: string | null
+          email_log_id?: string | null
+          id?: string
+          method: string
+          note?: string | null
+          parent_id?: string | null
+          student_id?: string | null
+        }
+        Update: {
+          booking_id?: string
+          chased_at?: string
+          chased_by?: string | null
+          email_log_id?: string | null
+          id?: string
+          method?: string
+          note?: string | null
+          parent_id?: string | null
+          student_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trial_chases_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trial_chases_email_log_id_fkey"
+            columns: ["email_log_id"]
+            isOneToOne: false
+            referencedRelation: "email_log"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trial_chases_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -3089,6 +3294,7 @@ export type Database = {
         Returns: boolean
       }
       internal_get_secret: { Args: { secret_name: string }; Returns: string }
+      is_studio_lead: { Args: { _staff_id: string }; Returns: boolean }
       refund_pass_credits: {
         Args: { p_amount: number; p_pass_id: string }
         Returns: undefined

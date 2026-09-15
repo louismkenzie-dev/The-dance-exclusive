@@ -142,7 +142,48 @@ async function getSecret(name: string): Promise<string | null> {
   return val;
 }
 
-type Payload =
+/**
+ * Who an email is about, so the studio can look at a family and see what was
+ * sent to them. Optional and additive: a caller that passes nothing still
+ * sends, and still gets a row in the log — just without the links.
+ */
+export interface EmailMeta {
+  parentId?: string | null;
+  studentId?: string | null;
+  bookingId?: string | null;
+  classId?: string | null;
+  /** The admin who pressed the button. Absent when a cron sent it. */
+  sentBy?: string | null;
+  source?: "auto" | "manual";
+}
+
+/**
+ * Record what we sent. Resend accepting an email is not the same as it
+ * arriving, so this row starts at 'sent' and is moved on by resend-webhook
+ * when the provider says what actually happened.
+ *
+ * Never throws: a failure to write history must not lose the email itself,
+ * which has already gone out by the time this runs.
+ */
+async function logEmail(row: Record<string, unknown>): Promise<string | null> {
+  try {
+    const { data, error } = await admin()
+      .from("email_log")
+      .insert(row)
+      .select("id")
+      .maybeSingle();
+    if (error) {
+      console.error("email_log insert failed:", error.message);
+      return null;
+    }
+    return (data as { id?: string } | null)?.id ?? null;
+  } catch (e) {
+    console.error("email_log insert threw:", e);
+    return null;
+  }
+}
+
+type PayloadBase =
   | { template: "booking_confirmation"; to: string; data: BookingConfirmationData }
   | { template: "welcome"; to: string; data: WelcomeData }
   | { template: "password_reset"; to: string; data: PasswordResetData }
@@ -169,7 +210,10 @@ type Payload =
   | { template: "trial_follow_up"; to: string; data: TrialFollowUpData }
   | { template: "quiet_class"; to: string; data: QuietClassData };
 
-function buildEmail(payload: Payload): { subject: string; html: string } {
+/** Every template, plus the optional record-keeping fields. */
+type Payload = PayloadBase & { meta?: EmailMeta };
+
+function buildEmail(payload: PayloadBase): { subject: string; html: string } {
   switch (payload.template) {
     case "booking_confirmation":
       return renderBookingConfirmation(payload.data);
@@ -316,6 +360,18 @@ serve(async (req) => {
     );
   }
 
+  const logRow = {
+    template: payload.template,
+    to_email: payload.to,
+    subject,
+    parent_id: payload.meta?.parentId ?? null,
+    student_id: payload.meta?.studentId ?? null,
+    booking_id: payload.meta?.bookingId ?? null,
+    class_id: payload.meta?.classId ?? null,
+    sent_by: payload.meta?.sentBy ?? null,
+    source: payload.meta?.source ?? "auto",
+  };
+
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -335,6 +391,12 @@ serve(async (req) => {
     const data = await res.json();
     if (!res.ok) {
       console.error("Resend API error:", res.status, data);
+      await logEmail({
+        ...logRow,
+        status: "failed",
+        failed_at: new Date().toISOString(),
+        error: `Resend ${res.status}: ${typeof data?.message === "string" ? data.message : JSON.stringify(data)}`.slice(0, 500),
+      });
       return new Response(
         JSON.stringify({
           error: "Failed to send email",
@@ -349,12 +411,19 @@ serve(async (req) => {
     }
 
     console.log("Email sent:", payload.template, "→", payload.to, "id:", data?.id);
-    return new Response(JSON.stringify({ success: true, id: data?.id }), {
+    const logId = await logEmail({ ...logRow, status: "sent", provider_id: data?.id ?? null });
+    return new Response(JSON.stringify({ success: true, id: data?.id, logId }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("send-email error:", e);
+    await logEmail({
+      ...logRow,
+      status: "failed",
+      failed_at: new Date().toISOString(),
+      error: (e instanceof Error ? e.message : String(e)).slice(0, 500),
+    });
     return new Response(
       JSON.stringify({
         error: "Email send failed",

@@ -102,32 +102,54 @@ export async function validateAndCompute(
     }
   }
 
-  // Uses = completed redemptions plus live reservations (a checkout priced
-  // with the code in the last two hours that hasn't been paid or cancelled
-  // yet), so one single-use credit can't be applied to two baskets at once.
-  const usesFilter = `status.eq.completed,and(status.eq.reserved,redeemed_at.gt.${reservationCutoff().toISOString()})`;
+  // What counts as "used":
+  //  - a completed redemption, permanently;
+  //  - a live reservation (a checkout priced with the code in the last two
+  //    hours that hasn't been paid or cancelled) held by SOMEBODY ELSE, so a
+  //    single-use credit can't be spent out of two baskets at once.
+  //
+  // A family's own live reservation deliberately does not count against
+  // them. Aleasha Coleshill started a checkout with her £27.20 credit,
+  // didn't finish it, came back an hour later and was told the code "has
+  // reached its usage limit" — by her own abandoned basket. She gave up and
+  // the studio refunded her by hand. create-payment-intent cancels and
+  // releases that reservation moments later anyway, so counting it here only
+  // ever produced a refusal the payment itself would not have made.
+  const cutoff = reservationCutoff().toISOString();
+  const countRedemptions = async (
+    narrow: (q: any) => any, // deno-lint-ignore-line no-explicit-any
+  ): Promise<number | null> => {
+    const { count, error } = await narrow(
+      supabase
+        .from("coupon_redemptions")
+        .select("*", { count: "exact", head: true })
+        .eq("coupon_id", coupon.id),
+    );
+    return error ? null : (count ?? 0);
+  };
 
   if (coupon.usage_limit_total != null) {
-    const { count, error: cErr } = await supabase
-      .from("coupon_redemptions")
-      .select("*", { count: "exact", head: true })
-      .eq("coupon_id", coupon.id)
-      .or(usesFilter);
-    if (cErr) return { error: "Failed to check usage" };
-    if ((count ?? 0) >= coupon.usage_limit_total) {
+    const spent = await countRedemptions((q) => q.eq("status", "completed"));
+    if (spent == null) return { error: "Failed to check usage" };
+    if (spent >= coupon.usage_limit_total) {
       return { error: "This coupon has reached its usage limit" };
+    }
+    const heldByOthers = await countRedemptions((q) => {
+      const r = q.eq("status", "reserved").gt("redeemed_at", cutoff);
+      return userId ? r.neq("user_id", userId) : r;
+    });
+    if (heldByOthers == null) return { error: "Failed to check usage" };
+    if (spent + heldByOthers >= coupon.usage_limit_total) {
+      // Truthful about which it is: the last one is mid-checkout elsewhere,
+      // and will free itself within the hour if that basket is abandoned.
+      return { error: "This code is being used in another checkout right now — try again shortly" };
     }
   }
 
   if (coupon.usage_limit_per_user != null && userId) {
-    const { count, error: uErr } = await supabase
-      .from("coupon_redemptions")
-      .select("*", { count: "exact", head: true })
-      .eq("coupon_id", coupon.id)
-      .eq("user_id", userId)
-      .or(usesFilter);
-    if (uErr) return { error: "Failed to check user usage" };
-    if ((count ?? 0) >= coupon.usage_limit_per_user) {
+    const mine = await countRedemptions((q) => q.eq("user_id", userId).eq("status", "completed"));
+    if (mine == null) return { error: "Failed to check user usage" };
+    if (mine >= coupon.usage_limit_per_user) {
       return { error: "You have already used this coupon the maximum number of times" };
     }
   }

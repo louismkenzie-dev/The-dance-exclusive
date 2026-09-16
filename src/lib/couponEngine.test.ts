@@ -5,42 +5,78 @@ import {
   validateAndCompute,
 } from "../../supabase/functions/_shared/coupon.ts";
 
+/** A redemption row as the engine cares about it. */
+interface FakeRedemption {
+  status: "completed" | "reserved" | "cancelled";
+  user_id: string;
+  /** ISO. Defaults to now, i.e. a live reservation. */
+  redeemed_at?: string;
+}
+
 /**
  * Stand-in for the Supabase client covering exactly the calls the coupon
- * engine makes: the coupon lookup, the account email, and the two
- * redemption counts (total = one .eq, per-user = two .eq calls).
+ * engine makes: the coupon lookup, the account email, and the redemption
+ * counts. Redemptions are filtered for real — the engine's whole job here is
+ * deciding which rows count, so a fake that returned a fixed number would
+ * test nothing.
  */
 function fakeSupabase(opts: {
   coupon?: Record<string, unknown> | null;
   profileEmail?: string | null;
-  redemptionsTotal?: number;
-  redemptionsUser?: number;
+  redemptions?: FakeRedemption[];
 }) {
-  const builder = (row: unknown, counts?: { total: number; user: number }) => {
-    let eqCalls = 0;
+  const rows = (opts.redemptions ?? []).map((r) => ({
+    redeemed_at: new Date().toISOString(),
+    ...r,
+  }));
+
+  const rowBuilder = (row: unknown) => {
     const b: any = {
       select: () => b,
       in: () => b,
       or: () => b,
+      gt: () => b,
+      neq: () => b,
       limit: () => b,
-      eq: () => { eqCalls += 1; return b; },
+      eq: () => b,
       maybeSingle: async () => ({ data: row, error: null }),
       then: (resolve: (v: unknown) => void, reject?: (e: unknown) => void) =>
-        Promise.resolve({
-          data: row,
-          error: null,
-          count: counts ? (eqCalls >= 2 ? counts.user : counts.total) : 0,
-        }).then(resolve, reject),
+        Promise.resolve({ data: row, error: null, count: 0 }).then(resolve, reject),
     };
     return b;
   };
+
+  const redemptionBuilder = () => {
+    let matching = [...rows];
+    const b: any = {
+      select: () => b,
+      eq: (col: string, val: unknown) => {
+        if (col !== "coupon_id") matching = matching.filter((r) => (r as any)[col] === val);
+        return b;
+      },
+      neq: (col: string, val: unknown) => {
+        matching = matching.filter((r) => (r as any)[col] !== val);
+        return b;
+      },
+      gt: (col: string, val: string) => {
+        matching = matching.filter((r) => String((r as any)[col]) > val);
+        return b;
+      },
+      in: () => b,
+      or: () => b,
+      limit: () => b,
+      maybeSingle: async () => ({ data: null, error: null }),
+      then: (resolve: (v: unknown) => void, reject?: (e: unknown) => void) =>
+        Promise.resolve({ data: null, error: null, count: matching.length }).then(resolve, reject),
+    };
+    return b;
+  };
+
   return {
     from(table: string) {
-      if (table === "coupons") return builder(opts.coupon ?? null);
-      if (table === "profiles") return builder(opts.profileEmail == null ? null : { email: opts.profileEmail });
-      if (table === "coupon_redemptions") {
-        return builder(null, { total: opts.redemptionsTotal ?? 0, user: opts.redemptionsUser ?? 0 });
-      }
+      if (table === "coupons") return rowBuilder(opts.coupon ?? null);
+      if (table === "profiles") return rowBuilder(opts.profileEmail == null ? null : { email: opts.profileEmail });
+      if (table === "coupon_redemptions") return redemptionBuilder();
       throw new Error(`unexpected table ${table}`);
     },
   };
@@ -147,7 +183,11 @@ describe("validateAndCompute", () => {
 
   it("refuses a used-up code and a code that would leave nothing to pay", async () => {
     const used = await validateAndCompute(
-      fakeSupabase({ coupon: baseCoupon, profileEmail: "parent@example.com", redemptionsTotal: 1 }),
+      fakeSupabase({
+        coupon: baseCoupon,
+        profileEmail: "parent@example.com",
+        redemptions: [{ status: "completed", user_id: "user-1" }],
+      }),
       "TDE-ABCD2345",
       "user-1",
       [termItem],
@@ -157,5 +197,80 @@ describe("validateAndCompute", () => {
     const full = { ...baseCoupon, restricted_to_email: null, discount_value: 104 };
     const nothingToPay = await validateAndCompute(fakeSupabase({ coupon: full }), "TDE-ABCD2345", "user-1", [termItem]);
     expect("error" in nothingToPay && nothingToPay.error).toMatch(/nothing to pay/);
+  });
+
+  // Aleasha Coleshill's £27.20 credit: she started a checkout, didn't finish
+  // it, came back an hour later and was told the code had reached its usage
+  // limit — by her own abandoned basket.
+  it("lets a family retry their own unfinished checkout", async () => {
+    const result = await validateAndCompute(
+      fakeSupabase({
+        coupon: baseCoupon,
+        profileEmail: "parent@example.com",
+        redemptions: [{ status: "reserved", user_id: "user-1" }],
+      }),
+      "TDE-ABCD2345",
+      "user-1",
+      [termItem],
+    );
+    expect(result).toMatchObject({ discountAmount: 7.5 });
+  });
+
+  it("still holds the code while somebody else is paying with it", async () => {
+    const result = await validateAndCompute(
+      fakeSupabase({
+        coupon: baseCoupon,
+        profileEmail: "parent@example.com",
+        redemptions: [{ status: "reserved", user_id: "someone-else" }],
+      }),
+      "TDE-ABCD2345",
+      "user-1",
+      [termItem],
+    );
+    expect("error" in result && result.error).toMatch(/another checkout/);
+  });
+
+  it("frees a reservation somebody else abandoned hours ago", async () => {
+    const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+    const result = await validateAndCompute(
+      fakeSupabase({
+        coupon: baseCoupon,
+        profileEmail: "parent@example.com",
+        redemptions: [{ status: "reserved", user_id: "someone-else", redeemed_at: threeHoursAgo }],
+      }),
+      "TDE-ABCD2345",
+      "user-1",
+      [termItem],
+    );
+    expect(result).toMatchObject({ discountAmount: 7.5 });
+  });
+
+  it("a spent code stays spent, whoever spent it", async () => {
+    const result = await validateAndCompute(
+      fakeSupabase({
+        coupon: baseCoupon,
+        profileEmail: "parent@example.com",
+        redemptions: [{ status: "completed", user_id: "someone-else" }],
+      }),
+      "TDE-ABCD2345",
+      "user-1",
+      [termItem],
+    );
+    expect(result).toEqual({ error: "This coupon has reached its usage limit" });
+  });
+
+  it("counts a family's own completed use against their per-user limit", async () => {
+    const shared = { ...baseCoupon, usage_limit_total: null, usage_limit_per_user: 1 };
+    const result = await validateAndCompute(
+      fakeSupabase({
+        coupon: shared,
+        profileEmail: "parent@example.com",
+        redemptions: [{ status: "completed", user_id: "user-1" }],
+      }),
+      "TDE-ABCD2345",
+      "user-1",
+      [termItem],
+    );
+    expect("error" in result && result.error).toMatch(/already used this coupon/);
   });
 });

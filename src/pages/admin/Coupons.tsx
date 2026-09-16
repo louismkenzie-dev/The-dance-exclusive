@@ -67,9 +67,14 @@ const AdminCoupons = () => {
       const ids = (data || []).map((c) => c.id);
       let counts: Record<string, number> = {};
       if (ids.length > 0) {
+        // "Used" means spent. A reservation is a checkout in progress and a
+        // cancelled one came to nothing; counting those showed Aleasha's
+        // untouched £27.20 credit as "1 / 1 used", which is what convinced
+        // the studio its usage limit needed raising.
         const { data: redemptions } = await supabase
           .from("coupon_redemptions")
           .select("coupon_id")
+          .eq("status", "completed")
           .in("coupon_id", ids);
         for (const r of redemptions || []) {
           counts[r.coupon_id] = (counts[r.coupon_id] || 0) + 1;

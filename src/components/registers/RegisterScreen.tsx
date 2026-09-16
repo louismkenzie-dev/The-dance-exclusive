@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { addDays, differenceInYears, format, isToday, isTomorrow, isYesterday, parseISO } from "date-fns";
-import { AlertTriangle, Cake, CalendarDays, CameraOff, Check, LogIn, LogOut, MapPin, ScanLine, Search, Sparkles, Star, X, XCircle } from "lucide-react";
+import { AlertTriangle, Cake, CalendarDays, CameraOff, Check, ChevronDown, LogIn, LogOut, MapPin, ScanLine, Search, Sparkles, Star, X, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -42,7 +42,7 @@ import { cn } from "@/lib/utils";
  */
 export type RegisterScope = { kind: "staff"; staffId: string | null } | { kind: "all" };
 
-/** How far the day strip reaches either side of today. */
+/** How far the day strip reaches either side of the day being looked at. */
 const DAYS_BACK = 7;
 const DAYS_AHEAD = 14;
 
@@ -156,14 +156,16 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
     return () => document.body.classList.remove("portal-ui");
   }, []);
 
-  const windowStart = useMemo(() => {
-    const s = format(addDays(new Date(), -DAYS_BACK), "yyyy-MM-dd");
-    return date < s ? date : s;
-  }, [date]);
-  const windowEnd = useMemo(() => {
-    const e = format(addDays(new Date(), DAYS_AHEAD), "yyyy-MM-dd");
-    return date > e ? date : e;
-  }, [date]);
+  // The window follows the day being looked at, not today. Amie needs to read
+  // a register from months ago ("trying to look back on this girl 8/9"); when
+  // the window ran from the chosen date all the way to today+14, picking a
+  // date in June meant loading every session since. Anchoring on the
+  // selection keeps it a constant three weeks however far back she goes, and
+  // leaves the strip centred where she's actually looking so she can step
+  // through that week.
+  const anchor = useMemo(() => parseISO(date), [date]);
+  const windowStart = useMemo(() => format(addDays(anchor, -DAYS_BACK), "yyyy-MM-dd"), [anchor]);
+  const windowEnd = useMemo(() => format(addDays(anchor, DAYS_AHEAD), "yyyy-MM-dd"), [anchor]);
 
   // ── Sessions across the window ─────────────────────────────────────────
   useEffect(() => {
@@ -491,7 +493,10 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
   const dayLabel = (() => {
     const d = parseISO(date);
     const rel = isToday(d) ? "Today" : isTomorrow(d) ? "Tomorrow" : isYesterday(d) ? "Yesterday" : format(d, "EEEE");
-    return { rel, long: format(d, "d MMMM yyyy") };
+    // Short month, and the year only when it isn't this one — the whole line
+    // has to fit beside the day's attendance count on a phone.
+    const sameYear = d.getFullYear() === new Date().getFullYear();
+    return { rel, long: format(d, sameYear ? "d MMM" : "d MMM yyyy") };
   })();
   const dayWord =
     dayLabel.rel === "Today" ? "today"
@@ -519,9 +524,18 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
           <div className="flex items-end justify-between gap-3">
             <div className="min-w-0">
               <h1 className="text-2xl font-semibold tracking-tight text-foreground">Registers</h1>
-              <p className="text-[13px] text-muted-foreground">
-                {dayLabel.rel} · {dayLabel.long}
-              </p>
+              {/* The date is the control. It used to be a bare calendar icon
+                  off to the right, which read as decoration — Amie went
+                  looking for an old register and concluded the app only kept
+                  a week of them. */}
+              <button
+                type="button"
+                onClick={() => setDatePickerOpen(true)}
+                className="pressable -ml-1 flex max-w-full items-center gap-1 rounded-lg px-1 py-0.5 text-left text-[13px] text-muted-foreground hover:text-foreground"
+              >
+                <span className="truncate">{dayLabel.rel} · {dayLabel.long}</span>
+                <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+              </button>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {ready && sessions.length > 0 && (
@@ -870,7 +884,7 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
         open={datePickerOpen}
         onOpenChange={setDatePickerOpen}
         title="Pick a date"
-        description="Past registers stay as they were marked."
+        description="Any date, however far back — pick the month and year to jump straight there. Past registers stay exactly as they were marked."
         footer={
           date !== today ? (
             <Button

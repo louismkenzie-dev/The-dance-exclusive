@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { AlertCircle, ChevronDown, Plus, Search } from "lucide-react";
+import { AlertCircle, CalendarDays, ChevronDown, MapPin, Plus, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { passLabelOf, usePassCatalog } from "@/lib/passCatalog";
 import MoveMembershipDialog, { type MoveMembershipTarget } from "@/components/admin/MoveMembershipDialog";
@@ -22,7 +22,7 @@ import AddBookingDialog from "@/components/admin/AddBookingDialog";
 import BookingBreakdown, { type PaymentSibling } from "@/components/admin/BookingBreakdown";
 import { BookingActions } from "@/components/admin/BookingActions";
 import { useBookingActions } from "@/components/admin/useBookingActions";
-import { paymentRefOf } from "@/lib/bookingBreakdown";
+import { paymentRefOf, sessionDateOf } from "@/lib/bookingBreakdown";
 import { Chip, ChipRow } from "@/components/booking/Chips";
 import { EmptyState } from "@/components/booking/EmptyState";
 import { StatusPill, TonePill, planLabel } from "@/components/admin/StatusPill";
@@ -440,6 +440,36 @@ interface RowAdjustment {
 }
 
 /** "YYYY-MM" of the month a payment date falls in (payments land ~07:00 UTC on the 5th). */
+/**
+ * Which night (or nights) a booking is for, in a few words.
+ *
+ * Amie, looking back at a pay-as-you-go booking: "trying to look back on this
+ * girl 8/9 to see what class she booked onto and if she came." The date was
+ * only ever in the notes, so the list couldn't tell her — she had to open
+ * Details on every card to find out which one she was after.
+ */
+const bookedWhen = (b: {
+  booking_type: string;
+  notes: string | null;
+  classes?: { day_of_week?: string | null } | null;
+}): string | null => {
+  const one = sessionDateOf(b.notes);
+  if (one) return format(parseISO(one), "EEE d MMM yyyy");
+  const day = b.classes?.day_of_week
+    ? b.classes.day_of_week.charAt(0).toUpperCase() + b.classes.day_of_week.slice(1)
+    : null;
+  switch (b.booking_type) {
+    case "monthly":
+      return day ? `Every ${day}` : "Every week";
+    case "term":
+      return "Whole term";
+    case "yearly":
+      return "Whole year";
+    default:
+      return null;
+  }
+};
+
 const paymentMonthKey = (iso: string) => {
   const d = new Date(iso);
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
@@ -1374,7 +1404,7 @@ const AdminBookings = () => {
     // siblings can be trials or cancelled rows the status filter would hide.
     const query = supabase
       .from("bookings")
-      .select("*, classes(name, class_type, start_time, end_time, price_per_session, price_per_term, price_per_month, price_per_year, term_end), students(first_name, last_name), camps:camp_id(name)")
+      .select("*, classes(name, class_type, start_time, end_time, day_of_week, price_per_session, price_per_term, price_per_month, price_per_year, term_end, venues:venue_id(name)), students(first_name, last_name), camps:camp_id(name, venues:venue_id(name))")
       .order("booked_at", { ascending: false });
 
     const { data } = await query;
@@ -1397,6 +1427,10 @@ const AdminBookings = () => {
     const s = search.toLowerCase();
     return (
       b.classes?.name?.toLowerCase().includes(s) ||
+      b.camps?.name?.toLowerCase().includes(s) ||
+      // Searchable by where it is, now that the card says where it is.
+      (b as any).classes?.venues?.name?.toLowerCase().includes(s) ||
+      (b as any).camps?.venues?.name?.toLowerCase().includes(s) ||
       b.students?.first_name?.toLowerCase().includes(s) ||
       b.students?.last_name?.toLowerCase().includes(s) ||
       b.profiles?.full_name?.toLowerCase().includes(s)
@@ -1448,7 +1482,7 @@ const AdminBookings = () => {
             <div className="relative md:max-w-sm">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
               <Input
-                placeholder="Search dancer, parent or class"
+                placeholder="Search dancer, parent, class or venue"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="h-11 rounded-full pl-10"
@@ -1481,6 +1515,8 @@ const AdminBookings = () => {
               {filtered.map((b) => {
                 const dancer = b.students ? `${b.students.first_name} ${b.students.last_name}` : "Adult booking";
                 const parent = b.profiles?.full_name;
+                const when = bookedWhen(b as any);
+                const venueName = (b as any).classes?.venues?.name ?? (b as any).camps?.venues?.name ?? null;
                 return (
                   <Card key={b.id} className="animate-fade-in overflow-hidden">
                     <CardContent className="p-4 md:p-5">
@@ -1496,6 +1532,24 @@ const AdminBookings = () => {
                             {dancer}
                             {parent && parent !== dancer && ` · ${parent}`}
                           </p>
+                          {/* Which night, and where — the two things you need
+                              to find a booking again without opening it. */}
+                          {(when || venueName) && (
+                            <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                              {when && (
+                                <span className="flex items-center gap-1 font-medium text-foreground/80">
+                                  <CalendarDays className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                                  {when}
+                                </span>
+                              )}
+                              {venueName && (
+                                <span className="flex min-w-0 items-center gap-1">
+                                  <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                                  <span className="truncate">{venueName}</span>
+                                </span>
+                              )}
+                            </p>
+                          )}
                           <p className="mt-0.5 text-xs text-muted-foreground">
                             {planLabel(b.booking_type)} · booked {format(new Date(b.booked_at), "d MMM, h:mmaaa")}
                           </p>

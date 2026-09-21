@@ -30,6 +30,12 @@ describe("proRata", () => {
     expect(proRata(0, { total: 13, left: 13 })).toBe(0);
     expect(proRata(84.5, { total: 0, left: 0 })).toBe(0);
   });
+  it("a monthly membership: monthly price ÷ classes that month × classes cancelled (Louis, 21 Sep)", () => {
+    // "Booked onto 4 classes that month at £27, one is cancelled: refund 1 × (27 ÷ 4)."
+    expect(proRata(27, { total: 4, left: 1 })).toBe(6.75);
+    expect(proRata(27, { total: 4, left: 2 })).toBe(13.5);
+    expect(proRata(27, { total: 4, left: 4 })).toBe(27);
+  });
   it("rounds to the penny", () => {
     expect(proRata(27.2, { total: 4, left: 3 })).toBe(20.4);
     expect(proRata(10, { total: 3, left: 1 })).toBe(3.33);

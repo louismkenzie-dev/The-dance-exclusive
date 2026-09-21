@@ -32,6 +32,10 @@ interface ClassOption {
   venues: { name: string } | null;
 }
 interface CampOption { id: string; name: string; start_date: string | null; end_date: string | null }
+interface FamilyPass {
+  id: string; pass_type: string; sessions_remaining: number; sessions_total: number;
+  expires_at: string; student_id: string | null;
+}
 
 const PLANS = [
   { value: "trial", label: "Trial class", dated: true },
@@ -58,7 +62,10 @@ const AddBookingDialog = ({ open, onOpenChange, onDone, preset }: Props) => {
 
   const { passes: passCatalog } = usePassCatalog();
   const [what, setWhat] = useState<"class" | "pass" | "camp">("class");
-  const [mode, setMode] = useState<"record" | "invite">("record");
+  const [mode, setMode] = useState<"record" | "invite" | "pass">("record");
+  /** Once the studio has chosen how it's paid, stop second-guessing them. */
+  const [modeTouched, setModeTouched] = useState(false);
+  const [familyPasses, setFamilyPasses] = useState<FamilyPass[]>([]);
   const [form, setForm] = useState({
     userId: "", studentId: "", classId: "", campId: "", plan: "session",
     passType: "pack_4", sessionsRemaining: "", amount: "", note: "",
@@ -85,6 +92,23 @@ const AddBookingDialog = ({ open, onOpenChange, onDone, preset }: Props) => {
       setCamps(((cmp as any[]) ?? []) as CampOption[]);
     })();
   }, [open]);
+
+  // Adult class passes the family holds with classes still on them. Ellie
+  // Davis had two left; Amie added her booking and sent a £10 link, because
+  // nothing here said the pass existed. Now it does, and it's the default.
+  useEffect(() => {
+    if (!form.userId) { setFamilyPasses([]); return; }
+    void (async () => {
+      const { data } = await supabase
+        .from("class_passes")
+        .select("id, pass_type, sessions_remaining, sessions_total, expires_at, student_id")
+        .eq("user_id", form.userId)
+        .gt("sessions_remaining", 0)
+        .gt("expires_at", new Date().toISOString())
+        .order("expires_at");
+      setFamilyPasses(((data as any[]) ?? []) as FamilyPass[]);
+    })();
+  }, [form.userId]);
 
   // Opened from a class session's page: that class and date are already the
   // answer, so start there.
@@ -124,11 +148,32 @@ const AddBookingDialog = ({ open, onOpenChange, onDone, preset }: Props) => {
   const selectedCustomer = customers.find((c) => c.user_id === form.userId);
   const selectedClass = classes.find((c) => c.id === form.classId);
   const plan = PLANS.find((p) => p.value === form.plan);
-  const needsDates = what === "class" && !!plan?.dated;
+  // The pass to use: one named for this dancer, else the family's one that
+  // runs out soonest. Passes only ever cover adult classes.
+  const usablePass = useMemo(() => {
+    if (what !== "class" || selectedClass?.class_type !== "adult") return null;
+    const mine = familyPasses.filter((p) => !p.student_id || !form.studentId || p.student_id === form.studentId);
+    return mine.find((p) => p.student_id && p.student_id === form.studentId) ?? mine[0] ?? null;
+  }, [what, selectedClass?.class_type, familyPasses, form.studentId]);
+  const usingPass = what === "class" && mode === "pass" && !!usablePass;
+  const needsDates = what === "class" && (usingPass || !!plan?.dated);
   const monthlyRecordBlocked = what === "class" && form.plan === "monthly" && mode === "record";
   /** Setting a place up for them to pay for, at a price the studio names. */
   const chargingByLink = what === "class" && mode === "invite" && !!plan?.dated;
   const todayISO = format(new Date(), "yyyy-MM-dd");
+
+  // A family with classes on a pass is booking from the pass unless the
+  // studio says otherwise; lose the pass (other dancer, children's class) and
+  // fall back to recording.
+  useEffect(() => {
+    if (usablePass && !modeTouched && mode !== "pass") {
+      setMode("pass");
+      setForm((f) => ({ ...f, plan: "session" }));
+    } else if (!usablePass && mode === "pass") {
+      setMode("record");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usablePass?.id]);
 
   const reset = () => {
     setForm({
@@ -138,9 +183,65 @@ const AddBookingDialog = ({ open, onOpenChange, onDone, preset }: Props) => {
     setDates([]);
     setWhat("class");
     setMode("record");
+    setModeTouched(false);
   };
 
   const submit = async () => {
+    if (what === "class" && mode === "pass") {
+      if (!form.userId) { toast.error("Choose the customer this is for."); return; }
+      if (!form.classId) { toast.error("Choose a class."); return; }
+      if (!usablePass) { toast.error("They don't have a class pass with classes left on it."); return; }
+      if (dates.length === 0) { toast.error("Pick which date(s) they're coming to."); return; }
+      if (dates.length > usablePass.sessions_remaining) {
+        toast.error(`Only ${usablePass.sessions_remaining} left on the pass — pick that many dates or fewer.`);
+        return;
+      }
+      setSaving(true);
+      try {
+        let remaining = usablePass.sessions_remaining;
+        const failed: string[] = [];
+        for (const d of [...dates].sort()) {
+          const { data, error } = await supabase.functions.invoke("admin-book", {
+            body: {
+              mode: "redeem_pass",
+              userId: form.userId,
+              studentId: form.studentId || null,
+              passId: usablePass.id,
+              classId: form.classId,
+              sessionDate: d,
+              note: form.note || null,
+            },
+          });
+          let message = data?.error || error?.message;
+          const ctx = (error as { context?: Response } | null)?.context;
+          if (ctx && typeof ctx.json === "function") {
+            try {
+              const b = await ctx.json();
+              if (b?.error) message = b.error;
+            } catch { /* keep generic */ }
+          }
+          if (error || !data?.success) {
+            failed.push(`${format(parseISO(d), "EEE d MMM")}: ${message || "couldn't record it"}`);
+            continue;
+          }
+          remaining = Number(data.remaining);
+        }
+        const done = dates.length - failed.length;
+        if (done > 0) {
+          toast.success(`${done} class${done === 1 ? "" : "es"} booked from their pass — ${remaining} left on it`);
+        }
+        if (failed.length > 0) toast.error(failed.join(" · "));
+        if (done > 0) {
+          reset();
+          onOpenChange(false);
+          onDone();
+        }
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     // Class packs and camp places are always a record of something already
     // sorted — there is no send-a-link flow for them.
     const effectiveMode = what === "class" ? mode : "record";
@@ -371,17 +472,19 @@ const AddBookingDialog = ({ open, onOpenChange, onDone, preset }: Props) => {
                 </Popover>
               </div>
 
-              <div className="space-y-1.5">
-                <Label>Plan</Label>
-                <Select value={form.plan} onValueChange={(v) => setForm((f) => ({ ...f, plan: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {PLANS.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {!usingPass && (
+                <div className="space-y-1.5">
+                  <Label>Plan</Label>
+                  <Select value={form.plan} onValueChange={(v) => setForm((f) => ({ ...f, plan: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {PLANS.map((p) => (
+                        <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </>
           ) : (
             <>
@@ -440,13 +543,26 @@ const AddBookingDialog = ({ open, onOpenChange, onDone, preset }: Props) => {
           {what === "class" && (
             <div className="space-y-1.5">
               <Label>How is it being paid?</Label>
-              <Select value={mode} onValueChange={(v) => setMode(v as typeof mode)}>
+              <Select value={mode} onValueChange={(v) => { setModeTouched(true); setMode(v as typeof mode); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="pass" disabled={!usablePass}>
+                    {usablePass
+                      ? `Use their class pass (${usablePass.sessions_remaining} left)`
+                      : selectedClass?.class_type === "adult"
+                        ? "Use their class pass (none with classes left)"
+                        : "Use their class pass (adult classes only)"}
+                  </SelectItem>
                   <SelectItem value="record">Already paid (Gymcatch, cash, free place)</SelectItem>
                   <SelectItem value="invite">Send them a link to pay</SelectItem>
                 </SelectContent>
               </Select>
+              {usingPass && usablePass && (
+                <p className="text-xs text-muted-foreground">
+                  One class comes off the pass for each date you tick — {usablePass.sessions_remaining} of{" "}
+                  {usablePass.sessions_total} left, runs out {format(parseISO(usablePass.expires_at), "d MMM")}. Nothing to pay.
+                </p>
+              )}
               {monthlyRecordBlocked && (
                 <p className="text-xs text-amber-500">
                   A membership needs their card, so it can't be recorded by hand — send the link and
@@ -497,7 +613,7 @@ const AddBookingDialog = ({ open, onOpenChange, onDone, preset }: Props) => {
             </div>
           )}
 
-          <div className="space-y-1.5">
+          {!usingPass && <div className="space-y-1.5">
             <Label>
               {chargingByLink
                 ? dates.length > 1 ? "Amount to charge, per date (£)" : "Amount to charge (£)"
@@ -525,7 +641,7 @@ const AddBookingDialog = ({ open, onOpenChange, onDone, preset }: Props) => {
                   : "What they actually paid elsewhere — used for their records, not charged. 0 for a free place."}
               </p>
             )}
-          </div>
+          </div>}
 
           <div className="space-y-1.5">
             <Label>Note <span className="text-muted-foreground font-normal">(optional)</span></Label>
@@ -541,7 +657,10 @@ const AddBookingDialog = ({ open, onOpenChange, onDone, preset }: Props) => {
         <DialogFooter>
           <Button variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button disabled={saving || monthlyRecordBlocked} onClick={submit}>
-            {saving ? "Adding…" : mode === "invite" && what === "class" ? "Set up & send link" : "Add booking"}
+            {saving ? "Adding…"
+              : usingPass ? "Book from their pass"
+              : mode === "invite" && what === "class" ? "Set up & send link"
+              : "Add booking"}
           </Button>
         </DialogFooter>
       </DialogContent>

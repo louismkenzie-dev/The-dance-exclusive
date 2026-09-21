@@ -8,6 +8,7 @@ import {
   type BookingConfirmationData,
 } from "../_shared/email-templates/booking-confirmation.ts";
 import { renderWelcome, type WelcomeData } from "../_shared/email-templates/welcome.ts";
+import { renderClassCancelled, type ClassCancelledData } from "../_shared/email-templates/class-cancelled.ts";
 import {
   renderPasswordReset,
   type PasswordResetData,
@@ -208,7 +209,8 @@ type PayloadBase =
   | { template: "internal_notice"; to: string; data: InternalNoticeData }
   | { template: "session_cancelled"; to: string; data: SessionCancelledData }
   | { template: "trial_follow_up"; to: string; data: TrialFollowUpData }
-  | { template: "quiet_class"; to: string; data: QuietClassData };
+  | { template: "quiet_class"; to: string; data: QuietClassData }
+  | { template: "class_cancelled"; to: string; data: ClassCancelledData };
 
 /** Every template, plus the optional record-keeping fields. */
 type Payload = PayloadBase & { meta?: EmailMeta };
@@ -263,6 +265,8 @@ function buildEmail(payload: PayloadBase): { subject: string; html: string } {
       return renderSessionCancelled(payload.data);
     case "trial_follow_up":
       return renderTrialFollowUp(payload.data);
+    case "class_cancelled":
+      return renderClassCancelled(payload.data);
     case "quiet_class":
       return renderQuietClass(payload.data);
     default:

@@ -581,9 +581,12 @@ serve(async (req) => {
         else q.is("student_id", null);
         // A trial or a paid-for date is not a standing place: the child who
         // trialled this class on Saturday is exactly the one buying it on
-        // Sunday, and must not be told they are "already booked in".
+        // Sunday, and must not be told they are "already booked in". A class
+        // taken from an adult pass is a date too — Joshua Pearson had one
+        // Heels night recorded from his pass on 8 Sep and was refused every
+        // Heels night after it.
         if (kind === "class" && item.pricingPlan !== "trial") {
-          q.not("booking_type", "in", "(trial,session,drop_in)");
+          q.not("booking_type", "in", "(trial,session,drop_in,pass)");
         }
         const { data: existing } = await q.maybeSingle();
         if (existing) {

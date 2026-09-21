@@ -21,8 +21,13 @@ export interface ClassCancelledData {
   classType?: "children" | "adult" | null;
   /** The studio's own words. Sent verbatim — blank lines become paragraphs. */
   message: string;
-  /** Total refunded to this family, if the studio has already done it. */
+  /** Sent back to the card that paid, if the studio chose that. */
   refundedAmount?: number | null;
+  /** Or a one-time studio credit code for their account, if they chose that. */
+  creditCode?: string | null;
+  creditAmount?: number | null;
+  /** ISO — when the credit code stops working. */
+  creditExpires?: string | null;
   /** Where to look at what else is running. */
   browseUrl?: string | null;
 }
@@ -49,6 +54,29 @@ export function renderClassCancelled(data: ClassCancelledData) {
     .join("");
 
   const money = (n: number) => `£${n.toFixed(2)}`;
+  const hasCredit = !!data.creditCode && data.creditAmount != null && data.creditAmount > 0;
+  const creditUntil = data.creditExpires
+    ? new Date(data.creditExpires).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" })
+    : null;
+
+  // What happens to their money, in one panel: sent back, or held as credit.
+  const settlement = data.refundedAmount != null && data.refundedAmount > 0
+    ? panel(
+        `${panelTitle("Your refund")}
+         ${detailRow("Sent back to your card", money(data.refundedAmount))}
+         ${paragraph("It usually shows on your statement within 5–10 working days.", { muted: true, small: true })}`,
+        { accent: "blue" },
+      )
+    : hasCredit
+    ? panel(
+        `${panelTitle("Your studio credit")}
+         ${detailRow("Credit on your account", money(data.creditAmount!))}
+         ${detailRow("Your code", `<span style="font-family:Menlo,Consolas,monospace;font-weight:700;letter-spacing:0.08em;">${escapeHtml(data.creditCode!)}</span>`)}
+         ${creditUntil ? detailRow("Use it by", escapeHtml(creditUntil)) : ""}
+         ${paragraph("Enter the code in the 'Got a code or studio credit?' box at checkout and it comes off the total. It's used in one go, so pop it on a booking worth more than the credit.", { muted: true, small: true })}`,
+        { accent: "blue" },
+      )
+    : "";
 
   return {
     subject: `${data.className} — an update from The Dance Exclusive`,
@@ -65,12 +93,11 @@ export function renderClassCancelled(data: ClassCancelledData) {
         ${panel(
           `${panelTitle(escapeHtml(data.className))}
            ${data.venueName ? detailRow("Venue", escapeHtml(data.venueName)) : ""}
-           ${detailRow("Status", "Not running")}
-           ${data.refundedAmount != null && data.refundedAmount > 0
-             ? detailRow("Refunded", money(data.refundedAmount))
-             : ""}`,
+           ${detailRow("Status", "Not running")}`,
           { accent: "blue" },
         )}
+
+        ${settlement}
 
         ${data.browseUrl ? ctaButton("See what else is running", data.browseUrl) : ""}
 

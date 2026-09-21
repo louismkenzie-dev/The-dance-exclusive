@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Loader2, Mail, Users } from "lucide-react";
+import { AlertTriangle, CreditCard, Loader2, Mail, Ticket, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -13,6 +14,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+
+type Method = "card" | "credit" | "none";
+
+interface Line {
+  id: string;
+  kind: "booking" | "membership";
+  plan: string;
+  student: string | null;
+  paid: number;
+  total: number;
+  left: number;
+  suggested: number;
+  via: "card" | "pass" | "none";
+  note?: string;
+}
 
 interface Family {
   parentId: string;
@@ -21,6 +38,12 @@ interface Family {
   students: string[];
   bookingIds: string[];
   paid: number;
+  owed: number;
+  canCard: boolean;
+  suggestedMethod: Method;
+  lines: Line[];
+  refund?: { method: Method; amount: number; ok: boolean; detail: string };
+  credit?: { code: string; amount: number; expires: string };
   emailed?: boolean;
   reason?: string;
 }
@@ -34,7 +57,17 @@ interface Preview {
   pendingInvites: number;
   futureSessions: number;
   totalPaid: number;
-  liveMemberships: { id: string; status: string; monthlyAmount: number; studentName: string | null }[];
+  totalOwed: number;
+  memberships: number;
+}
+
+interface Done {
+  cancelledBookings: number;
+  endedMemberships: number;
+  refundedTotal: number;
+  creditTotal: number;
+  emailed: number;
+  families: Family[];
 }
 
 interface Props {
@@ -47,14 +80,34 @@ interface Props {
 }
 
 const money = (n: number) => `£${n.toFixed(2)}`;
+const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
+
+const PLAN_LABEL: Record<string, string> = {
+  trial: "trial",
+  session: "pay as you go",
+  pass: "class pass",
+  term: "termly",
+  yearly: "yearly",
+  monthly: "monthly membership",
+};
+
+interface Choice {
+  method: Method;
+  /** Pounds, as typed — kept as text so a half-typed "12." doesn't jump. */
+  amount: string;
+}
 
 /**
- * Take a class down without losing the people who were on it.
+ * Take a class down without losing the people who were on it, and settle up
+ * with each family from the same screen.
  *
  * The old route was Delete, which cascaded: the bookings went, and with them
  * every parent's name and email. Amie found that out at 8pm with a
  * cancellation to send and nobody to send it to. This cancels the places and
- * keeps them, retires the class, and emails the families her words.
+ * keeps them, ends any monthly memberships in Stripe, works out what each
+ * family is owed for the classes that won't now happen, and lets Amie choose
+ * per family whether that goes back to their card or onto their account as
+ * credit — no Stripe dashboard required.
  */
 const CancelClassDialog = ({ open, onOpenChange, classId, className, onDone }: Props) => {
   const { toast } = useToast();
@@ -62,13 +115,15 @@ const CancelClassDialog = ({ open, onOpenChange, classId, className, onDone }: P
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
-  const [done, setDone] = useState<{ emailed: number; cancelledBookings: number; families: Family[] } | null>(null);
+  const [choices, setChoices] = useState<Record<string, Choice>>({});
+  const [done, setDone] = useState<Done | null>(null);
 
   const load = useCallback(async () => {
     if (!classId) return;
     setLoading(true);
     setPreview(null);
     setDone(null);
+    setChoices({});
     const { data, error } = await supabase.functions.invoke("cancel-class", {
       body: { classId, preview: true },
     });
@@ -81,7 +136,13 @@ const CancelClassDialog = ({ open, onOpenChange, classId, className, onDone }: P
       });
       return;
     }
-    setPreview(data as Preview);
+    const p = data as Preview;
+    setPreview(p);
+    const initial: Record<string, Choice> = {};
+    for (const f of p.families) {
+      initial[f.parentId] = { method: f.suggestedMethod, amount: f.owed.toFixed(2) };
+    }
+    setChoices(initial);
   }, [classId, toast]);
 
   useEffect(() => {
@@ -89,7 +150,6 @@ const CancelClassDialog = ({ open, onOpenChange, classId, className, onDone }: P
     setMessage(
       `We are unfortunately writing to let you know that, due to low numbers, we have made the difficult decision to cancel ${className}.\n\n` +
         `We are incredibly grateful for your support and for everyone who signed up and gave our classes a chance.\n\n` +
-        `Any remaining balance on your account has now been refunded, and there is nothing further you need to do.\n\n` +
         `We are really sorry for any disappointment this may cause, and we hope to see you and your dancers at one of our other classes in the future.\n\n` +
         `Amie\nThe Dance Exclusive`,
     );
@@ -97,10 +157,19 @@ const CancelClassDialog = ({ open, onOpenChange, classId, className, onDone }: P
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, classId]);
 
-  const blocked = (preview?.liveMemberships.length ?? 0) > 0;
-  // Only families we can actually reach. Promising to tell three and emailing
-  // two is the kind of small lie that costs trust the first time it shows.
-  const reachable = preview?.families.filter((f) => f.email).length ?? 0;
+  const setChoice = (parentId: string, patch: Partial<Choice>) =>
+    setChoices((prev) => ({ ...prev, [parentId]: { ...prev[parentId], ...patch } }));
+
+  const amountOf = (parentId: string) => {
+    const n = Number(choices[parentId]?.amount);
+    return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0;
+  };
+
+  const families = preview?.families ?? [];
+  const reachable = families.filter((f) => f.email).length;
+  const toCard = families.reduce((s, f) => s + (choices[f.parentId]?.method === "card" ? amountOf(f.parentId) : 0), 0);
+  const toCredit = families.reduce((s, f) => s + (choices[f.parentId]?.method === "credit" ? amountOf(f.parentId) : 0), 0);
+  const creditWithoutEmail = families.some((f) => choices[f.parentId]?.method === "credit" && !f.email && amountOf(f.parentId) > 0);
 
   const confirm = async () => {
     if (!classId || !preview) return;
@@ -108,9 +177,21 @@ const CancelClassDialog = ({ open, onOpenChange, classId, className, onDone }: P
       toast({ title: "Write the message parents will get", variant: "destructive" });
       return;
     }
+    if (creditWithoutEmail) {
+      toast({
+        title: "Credit needs an email address",
+        description: "A credit code is locked to the family's email. Pick card or nothing for anyone without one.",
+        variant: "destructive",
+      });
+      return;
+    }
     setSubmitting(true);
+    const refunds: Record<string, { method: Method; amount: number }> = {};
+    for (const f of families) {
+      refunds[f.parentId] = { method: choices[f.parentId]?.method ?? f.suggestedMethod, amount: amountOf(f.parentId) };
+    }
     const { data, error } = await supabase.functions.invoke("cancel-class", {
-      body: { classId, message: message.trim(), notify: true },
+      body: { classId, message: message.trim(), notify: true, refunds },
     });
     setSubmitting(false);
     if (error || (data as any)?.error) {
@@ -121,47 +202,69 @@ const CancelClassDialog = ({ open, onOpenChange, classId, className, onDone }: P
       });
       return;
     }
-    const res = data as { emailed: number; cancelledBookings: number; families: Family[] };
+    const res = data as Done;
     setDone(res);
     toast({
       title: `${preview.className} cancelled`,
-      description: `${res.cancelledBookings} booking${res.cancelledBookings === 1 ? "" : "s"} cancelled and kept · ${res.emailed} famil${res.emailed === 1 ? "y" : "ies"} emailed.`,
+      description:
+        `${res.cancelledBookings} ${plural(res.cancelledBookings, "booking", "bookings")} cancelled and kept · ` +
+        `${money(res.refundedTotal)} refunded · ${money(res.creditTotal)} credit · ` +
+        `${res.emailed} ${plural(res.emailed, "family", "families")} emailed.`,
     });
     onDone?.();
   };
 
   return (
     <Dialog open={open} onOpenChange={(o) => !submitting && onOpenChange(o)}>
-      <DialogContent className="max-w-lg max-h-dialog flex flex-col gap-0 overflow-hidden p-0">
+      <DialogContent className="max-w-xl max-h-dialog flex flex-col gap-0 overflow-hidden p-0">
         <DialogHeader className="shrink-0 border-b border-border px-6 pb-4 pt-6">
           <DialogTitle>{done ? "Class cancelled" : `Cancel ${className}?`}</DialogTitle>
           <DialogDescription>
             {done
               ? "Everyone's place has been cancelled and kept on record."
-              : "The class stops being sold and comes off the timetable. Nobody is deleted."}
+              : "The class stops being sold and comes off the timetable. Nobody is deleted, and each family is settled from here."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
           {loading && (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Checking who's on this class…
+              <Loader2 className="h-4 w-4 animate-spin" /> Checking who's on this class and what they've paid…
             </p>
           )}
 
           {done && (
             <div className="space-y-2">
-              {done.families.map((f) => (
-                <div key={f.parentId} className="flex items-start justify-between gap-3 rounded-lg border border-border p-3 text-sm">
-                  <div className="min-w-0">
-                    <p className="font-medium">{f.parentName ?? "Parent"}</p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {f.students.join(", ") || "—"}{f.email ? ` · ${f.email}` : ""}
-                    </p>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                {[
+                  { label: "Refunded to cards", value: money(done.refundedTotal) },
+                  { label: "Studio credit", value: money(done.creditTotal) },
+                  { label: "Memberships ended", value: String(done.endedMemberships) },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-lg border border-border p-2.5">
+                    <p className="text-base font-semibold tabular-nums">{s.value}</p>
+                    <p className="text-[11px] text-muted-foreground">{s.label}</p>
                   </div>
-                  <span className={`shrink-0 text-xs ${f.emailed ? "text-[hsl(var(--success-strong))]" : "text-destructive"}`}>
-                    {f.emailed ? "Emailed" : f.reason ?? "Not emailed"}
-                  </span>
+                ))}
+              </div>
+              {done.families.map((f) => (
+                <div key={f.parentId} className="space-y-1 rounded-lg border border-border p-3 text-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium">{f.parentName ?? "Parent"}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {f.students.join(", ") || "—"}{f.email ? ` · ${f.email}` : ""}
+                      </p>
+                    </div>
+                    <span className={cn("shrink-0 text-xs", f.emailed ? "text-[hsl(var(--success-strong))]" : "text-destructive")}>
+                      {f.emailed ? "Emailed" : f.reason ?? "Not emailed"}
+                    </span>
+                  </div>
+                  {f.refund && (
+                    <p className={cn("text-xs", f.refund.ok ? "text-muted-foreground" : "font-medium text-destructive")}>
+                      {f.refund.detail}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
@@ -169,24 +272,11 @@ const CancelClassDialog = ({ open, onOpenChange, classId, className, onDone }: P
 
           {preview && !done && (
             <>
-              {blocked && (
-                <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm">
-                  <p className="flex items-center gap-1.5 font-semibold text-destructive">
-                    <AlertTriangle className="h-4 w-4" /> Monthly memberships are still live
-                  </p>
-                  <p className="mt-1 text-muted-foreground">
-                    {preview.liveMemberships.length} famil{preview.liveMemberships.length === 1 ? "y is" : "ies are"} still
-                    paying monthly for this class. End those under Bookings → Memberships &amp; Plans first,
-                    otherwise they keep being charged for a class that isn't running.
-                  </p>
-                </div>
-              )}
-
               <div className="grid grid-cols-3 gap-2 text-center">
                 {[
-                  { label: "Families", value: String(preview.families.length) },
-                  { label: "Places", value: String(preview.bookingCount) },
-                  { label: "Paid in total", value: money(preview.totalPaid) },
+                  { label: "Families", value: String(families.length) },
+                  { label: "Paid for this class", value: money(preview.totalPaid) },
+                  { label: "Owed back, pro rata", value: money(preview.totalOwed) },
                 ].map((s) => (
                   <div key={s.label} className="rounded-lg border border-border p-2.5">
                     <p className="text-base font-semibold tabular-nums">{s.value}</p>
@@ -195,64 +285,148 @@ const CancelClassDialog = ({ open, onOpenChange, classId, className, onDone }: P
                 ))}
               </div>
 
-              {preview.families.length > 0 && (
+              {families.length > 0 && (
                 <div>
                   <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-                    <Users className="h-3.5 w-3.5" /> Who will be told
+                    <Users className="h-3.5 w-3.5" /> Who will be told, and how they're settled
                   </p>
-                  <div className="max-h-44 space-y-2 overflow-y-auto rounded-lg bg-muted/40 p-2.5 text-xs">
-                    {preview.families.map((f) => (
-                      <div key={f.parentId}>
-                        <p className="truncate">
-                          {f.parentName ?? "Parent"}
-                          <span className="text-muted-foreground">
-                            {f.students.length > 0 && ` · ${f.students.join(", ")}`}
-                            {f.paid > 0 && ` · paid ${money(f.paid)}`}
-                          </span>
-                        </p>
-                        {/* Its own line, because "no email on file" is the one
-                            thing on this list Amie has to act on, and it was
-                            the first thing to get cut off when it shared. */}
-                        <p className={f.email ? "truncate text-muted-foreground" : "font-medium text-destructive"}>
-                          {f.email ?? "No email on file — you'll need to tell them another way"}
-                        </p>
-                      </div>
-                    ))}
+                  <div className="space-y-2">
+                    {families.map((f) => {
+                      const choice = choices[f.parentId] ?? { method: f.suggestedMethod, amount: f.owed.toFixed(2) };
+                      return (
+                        <div key={f.parentId} className="rounded-lg border border-border bg-muted/30 p-3 text-xs">
+                          <p className="text-sm font-medium">
+                            {f.parentName ?? "Parent"}
+                            <span className="font-normal text-muted-foreground">
+                              {f.students.length > 0 && ` · ${f.students.join(", ")}`}
+                            </span>
+                          </p>
+                          {/* Its own line, because "no email on file" is the one
+                              thing here Amie has to act on, and it was the first
+                              thing to get cut off when it shared a line. */}
+                          <p className={f.email ? "truncate text-muted-foreground" : "font-medium text-destructive"}>
+                            {f.email ?? "No email on file — you'll need to tell them another way"}
+                          </p>
+
+                          <ul className="mt-2 space-y-0.5 text-muted-foreground">
+                            {f.lines.map((l) => (
+                              <li key={l.id} className="flex flex-wrap items-baseline justify-between gap-x-3">
+                                <span>
+                                  {l.student ? `${l.student} · ` : ""}{PLAN_LABEL[l.plan] ?? l.plan}
+                                  {l.total > 0 && ` · ${l.left} of ${l.total} ${plural(l.total, "class", "classes")} still to come`}
+                                  {l.note && <span className="italic"> · {l.note}</span>}
+                                </span>
+                                <span className="tabular-nums">
+                                  {l.paid > 0 ? `paid ${money(l.paid)}` : "nothing paid"}
+                                  {l.suggested > 0 && <strong className="text-foreground"> → {money(l.suggested)}</strong>}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+
+                          {f.owed > 0 || choice.method !== "none" ? (
+                            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                              <div className="flex overflow-hidden rounded-md border border-border">
+                                {([
+                                  ["card", "Refund to card", CreditCard, f.canCard, "No card payment left to refund"],
+                                  ["credit", "Studio credit", Ticket, !!f.email, "A credit code is locked to an email address, and there isn't one"],
+                                  ["none", "Nothing", null, true, ""],
+                                ] as const).map(([m, label, Icon, enabled, why]) => (
+                                  <button
+                                    key={m}
+                                    type="button"
+                                    disabled={!enabled}
+                                    title={!enabled ? why : undefined}
+                                    onClick={() => setChoice(f.parentId, { method: m })}
+                                    className={cn(
+                                      "flex items-center gap-1 px-2.5 py-1.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                                      choice.method === m ? "bg-primary text-primary-foreground" : "hover:bg-muted",
+                                    )}
+                                  >
+                                    {Icon && <Icon className="h-3.5 w-3.5" />}
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+                              {choice.method !== "none" && (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-muted-foreground">£</span>
+                                  <Input
+                                    type="number"
+                                    inputMode="decimal"
+                                    min="0"
+                                    step="0.01"
+                                    value={choice.amount}
+                                    onChange={(e) => setChoice(f.parentId, { amount: e.target.value })}
+                                    className="h-8 w-24 text-xs tabular-nums"
+                                    aria-label={`Amount for ${f.parentName ?? "this family"}`}
+                                  />
+                                  {amountOf(f.parentId) !== f.owed && (
+                                    <button
+                                      type="button"
+                                      className="text-muted-foreground underline-offset-2 hover:underline"
+                                      onClick={() => setChoice(f.parentId, { amount: f.owed.toFixed(2) })}
+                                    >
+                                      pro rata {money(f.owed)}
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="mt-2 text-muted-foreground">Nothing owed.</p>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
-              {preview.pendingInvites > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {preview.pendingInvites} unpaid payment link{preview.pendingInvites === 1 ? "" : "s"} for this class
-                  will be withdrawn, so nobody can still pay for it.
-                </p>
+              {(preview.memberships > 0 || preview.pendingInvites > 0 || preview.pastBookings > 0) && (
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  {preview.memberships > 0 && (
+                    <p>
+                      {preview.memberships} monthly {plural(preview.memberships, "membership", "memberships")} will be ended in Stripe
+                      today, so nobody is charged again for this class.
+                    </p>
+                  )}
+                  {preview.pendingInvites > 0 && (
+                    <p>
+                      {preview.pendingInvites} unpaid payment {plural(preview.pendingInvites, "link", "links")} for this class will be withdrawn.
+                    </p>
+                  )}
+                  {preview.pastBookings > 0 && (
+                    <p>
+                      {preview.pastBookings} {plural(preview.pastBookings, "place", "places")} on nights that have already
+                      happened {plural(preview.pastBookings, "is", "are")} left alone, so those registers still read correctly.
+                    </p>
+                  )}
+                </div>
               )}
 
-              {preview.pastBookings > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {preview.pastBookings} place{preview.pastBookings === 1 ? "" : "s"} on nights that have already
-                  happened {preview.pastBookings === 1 ? "is" : "are"} left alone, so those registers still read correctly.
+              <div className="rounded-lg border border-[hsl(var(--warning))]/30 bg-[hsl(var(--warning))]/5 p-3 text-xs text-muted-foreground">
+                <p className="flex items-center gap-1.5 font-semibold text-foreground">
+                  <AlertTriangle className="h-3.5 w-3.5" /> {money(toCard)} to cards · {money(toCredit)} as credit
                 </p>
-              )}
-
-              <p className="rounded-lg border border-[hsl(var(--warning))]/30 bg-[hsl(var(--warning))]/5 p-3 text-xs text-muted-foreground">
-                Refunds are not made here. {preview.totalPaid > 0
-                  ? `${money(preview.totalPaid)} has been taken for this class — refund what's owed in Stripe.`
-                  : "Nothing has been paid for this class."}
-              </p>
+                <p className="mt-1">
+                  Card refunds are made in Stripe the moment you confirm and can't be undone. Credit codes go
+                  out in the email and work at checkout for six months.
+                </p>
+              </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="cancel-message">What the parents will be told</Label>
                 <Textarea
                   id="cancel-message"
-                  rows={10}
+                  rows={9}
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   className="text-sm"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Sent to each family once, in the studio's branded email, with replies coming back to you.
+                  Sent to each family once, in the studio's branded email, with their refund or credit code added
+                  underneath and replies coming back to you.
                 </p>
               </div>
             </>
@@ -269,14 +443,14 @@ const CancelClassDialog = ({ open, onOpenChange, classId, className, onDone }: P
               </Button>
               <Button
                 onClick={confirm}
-                disabled={!preview || blocked || submitting}
+                disabled={!preview || submitting}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 {submitting
-                  ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Cancelling…</>
+                  ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Cancelling and settling up…</>
                   : <><Mail className="mr-1.5 h-4 w-4" /> {reachable === 0
                       ? "Cancel the class"
-                      : `Cancel and tell ${reachable} famil${reachable === 1 ? "y" : "ies"}`}</>}
+                      : `Cancel, settle up and tell ${reachable} ${plural(reachable, "family", "families")}`}</>}
               </Button>
             </>
           )}

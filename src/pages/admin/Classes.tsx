@@ -148,6 +148,9 @@ const AdminClasses = () => {
   const [classSessions, setClassSessions] = useState<Record<string, ClassSessionData[]>>({});
   const [sessionCounts, setSessionCounts] = useState<Record<string, number>>({});
   const [waitlistCounts, setWaitlistCounts] = useState<Record<string, number>>({});
+  /** Everyone who has EVER been on each class, cancelled included. A class
+   *  with history can't be deleted (the database refuses), only cancelled. */
+  const [historyCounts, setHistoryCounts] = useState<Record<string, number>>({});
   const [typeFilter, setTypeFilter] = useState<"all" | "children" | "adult">("all");
   const [venueFilter, setVenueFilter] = useState<string>("all");
   const [showPast, setShowPast] = useState(false);
@@ -265,9 +268,15 @@ const AdminClasses = () => {
       }
 
       // Waitlist counts (admin RLS: full read) — badge full classes with demand.
-      const { data: waitlistRows } = await (supabase.from("class_waitlist" as any) as any)
-        .select("class_id")
-        .in("class_id", ids);
+      const [{ data: waitlistRows }, { data: historyRows }] = await Promise.all([
+        (supabase.from("class_waitlist" as any) as any).select("class_id").in("class_id", ids),
+        (supabase as any).rpc("get_class_history", { _class_ids: ids }),
+      ]);
+      if (historyRows) {
+        const h: Record<string, number> = {};
+        (historyRows as { class_id: string; places: number }[]).forEach((r) => { h[r.class_id] = Number(r.places) || 0; });
+        setHistoryCounts(h);
+      }
       if (waitlistRows) {
         const wl: Record<string, number> = {};
         waitlistRows.forEach((w: any) => { wl[w.class_id] = (wl[w.class_id] || 0) + 1; });
@@ -1887,7 +1896,16 @@ const AdminClasses = () => {
                         <Ban className="w-4 h-4 text-[hsl(var(--warning))]" />
                         <span className="text-[9px] text-[hsl(var(--warning))]">Cancel</span>
                       </Button>
-                      <Button variant="ghost" size="sm" className="flex flex-col items-center gap-0 h-auto py-1 px-2" onClick={() => void askDelete(c.id)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="flex flex-col items-center gap-0 h-auto py-1 px-2 disabled:opacity-35"
+                        disabled={(historyCounts[c.id] ?? 0) > 0}
+                        title={(historyCounts[c.id] ?? 0) > 0
+                          ? "Someone has been on this class, so it can't be deleted — cancel it instead"
+                          : "Delete this class"}
+                        onClick={() => void askDelete(c.id)}
+                      >
                         <Trash2 className="w-4 h-4 text-destructive" />
                         <span className="text-[9px] text-destructive">Delete</span>
                       </Button>

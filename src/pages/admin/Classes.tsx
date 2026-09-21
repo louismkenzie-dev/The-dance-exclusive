@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import CancelClassDialog from "@/components/admin/CancelClassDialog";
 import { AdminPage } from "@/components/admin/ui";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, CalendarDays, ChevronRight, ChevronLeft, ListChecks, ChevronDown, ChevronUp, Clock, User, Archive, X, Copy, Flag, AlertTriangle, Link as LinkIcon } from "lucide-react";
+import { Plus, Ban, Edit, Trash2, CalendarDays, ChevronRight, ChevronLeft, ListChecks, ChevronDown, ChevronUp, Clock, User, Archive, X, Copy, Flag, AlertTriangle, Link as LinkIcon } from "lucide-react";
 import { classShareUrl } from "@/lib/classLinks";
 import { termsForRange } from "@/lib/termMatching";
 import SessionManager from "@/components/admin/SessionManager";
@@ -776,6 +777,8 @@ const AdminClasses = () => {
   };
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  /** The class being taken down properly: places cancelled and kept, parents told. */
+  const [cancelClass, setCancelClass] = useState<{ id: string; name: string } | null>(null);
   // Per-class shareable link: "Copy link" flips to "Copied!" briefly.
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
 
@@ -1880,6 +1883,10 @@ const AdminClasses = () => {
                         <Edit className="w-4 h-4" />
                         <span className="text-[9px] text-muted-foreground">Edit</span>
                       </Button>
+                      <Button variant="ghost" size="sm" className="flex flex-col items-center gap-0 h-auto py-1 px-2" onClick={() => setCancelClass({ id: c.id, name: c.name })}>
+                        <Ban className="w-4 h-4 text-[hsl(var(--warning))]" />
+                        <span className="text-[9px] text-[hsl(var(--warning))]">Cancel</span>
+                      </Button>
                       <Button variant="ghost" size="sm" className="flex flex-col items-center gap-0 h-auto py-1 px-2" onClick={() => void askDelete(c.id)}>
                         <Trash2 className="w-4 h-4 text-destructive" />
                         <span className="text-[9px] text-destructive">Delete</span>
@@ -1960,6 +1967,14 @@ const AdminClasses = () => {
         open={!!sessionsClassId}
         onOpenChange={(v) => { if (!v) setSessionsClassId(null); }}
       />
+      <CancelClassDialog
+        open={!!cancelClass}
+        onOpenChange={(o) => { if (!o) setCancelClass(null); }}
+        classId={cancelClass?.id ?? null}
+        className={cancelClass?.name ?? ""}
+        onDone={fetchData}
+      />
+
       <AlertDialog open={!!deleteId} onOpenChange={(v) => { if (!v) setDeleteId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>

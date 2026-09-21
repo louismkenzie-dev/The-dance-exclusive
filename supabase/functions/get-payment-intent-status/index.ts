@@ -110,7 +110,19 @@ async function ensureBookingsForPaymentIntent(
     return;
   }
 
-  // Idempotency: if any booking or pass already references this PI, skip.
+  // Has anything at all been written for this payment yet? This used to be
+  // the whole idempotency check — "one booking exists, so we're done" — and
+  // it is how a family who paid for four Monday nights ended up with one:
+  // the first insert landed, the run died, and every retry after that saw
+  // the one booking and walked away. Annie Southwood (£40, one night of
+  // four) and Clair Jackson (£40, one night of four) both paid for that.
+  //
+  // fulfillItems is idempotent per item — a dated place is skipped when that
+  // dancer already has that date, a standing place when they already hold
+  // one, a pass on its (payment, cart item) key — so the right move is to
+  // always let it run and finish whatever is missing. What was written
+  // before only decides whether this is the first fulfilment (email the
+  // family, record the coupon) or a repair.
   const { data: existing } = await supabase
     .from("bookings")
     .select("id")
@@ -121,19 +133,25 @@ async function ensureBookingsForPaymentIntent(
     .select("id")
     .eq("payment_intent_id", pi.id)
     .limit(1);
-  if ((existing && existing.length > 0) || (existingPass && existingPass.length > 0)) return;
+  const hadAny = (existing?.length ?? 0) > 0 || (existingPass?.length ?? 0) > 0;
 
   const items = parsePaymentIntentItems(pi.metadata);
   if (items.length === 0) return;
 
-  const totalAmount = await fulfillItems(supabase, userId, pi, items);
+  const createdNow = await fulfillItems(supabase, userId, pi, items);
 
-  await recordCouponRedemption(supabase, userId, pi);
+  // Every ordinary poll after a complete payment lands here: nothing was
+  // missing, nothing was created, nothing to say.
+  if (hadAny && createdNow <= 0) return;
 
-  // Send branded confirmation email (mirrors webhook behavior).
+  if (!hadAny) await recordCouponRedemption(supabase, userId, pi);
+  else console.log("Finished a half-fulfilled payment:", pi.id, "created £" + createdNow.toFixed(2));
+
+  // Confirmation email — the first time, and again after a repair, because
+  // it lists what's actually booked now and the first one was short.
   try {
-    const charged = pi.amount_received != null ? pi.amount_received / 100 : totalAmount;
-    await warnIfShortBooked(supabase, pi.id, pi.amount_received != null ? pi.amount_received / 100 : null, totalAmount);
+    const charged = pi.amount_received != null ? pi.amount_received / 100 : createdNow;
+    await warnIfShortBooked(supabase, pi.id, pi.amount_received != null ? pi.amount_received / 100 : null, createdNow);
     await sendBookingConfirmationEmail(supabase, userId, pi.id, charged || null);
   } catch (e) {
     console.error("Confirmation email send failed:", e);

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { format, parseISO } from "date-fns";
+import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarDays, Check, ChevronsUpDown, Clock, MapPin, Plus, User, X } from "lucide-react";
+import { AlertCircle, CalendarDays, Check, ChevronsUpDown, Clock, MapPin, Plus, User, X } from "lucide-react";
 import TimeSelect, { addMinutes } from "@/components/TimeSelect";
 import { formatTimeRange } from "@/lib/bookingFormat";
 import { bookingForInvite, inviteIsPaid } from "@/lib/inviteMatching";
@@ -475,6 +475,35 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
   }, [invites]);
   const paymentLinks = useMemo(() => invites.filter((i) => !i.classes?.invite_only), [invites]);
 
+  /** Money the studio is still waiting for.
+   *
+   *  Amie's first question on this screen is never "what have I sent?" — it's
+   *  "who hasn't paid me?", and answering it meant reading every card. So the
+   *  unpaid ones are lifted to the top, oldest first, with the amount and how
+   *  long it's been sitting there. Same paid-test as the cards below, so the
+   *  two can never disagree. */
+  const outstanding = useMemo(() => {
+    return invites
+      .filter((i) => i.status !== "cancelled" && !inviteIsPaid(i, bookingsFor[familyKey(i)] ?? []))
+      .map((i) => {
+        const dates = i.session_dates?.length
+          ? [...i.session_dates].sort()
+          : (sessionDates[i.class_id]?.dates ?? []);
+        const each = Number(i.price) || 0;
+        return {
+          invite: i,
+          dates,
+          amount: each > 0 ? each * Math.max(1, dates.length) : null,
+          waitingDays: Math.max(0, differenceInCalendarDays(new Date(), parseISO(i.created_at))),
+          /** A date they were meant to come to that has already gone. */
+          missedDates: dates.filter((d) => d < todayISO).length,
+        };
+      })
+      .sort((a, b) => b.waitingDays - a.waitingDays);
+  }, [invites, bookingsFor, sessionDates, todayISO]);
+
+  const outstandingTotal = outstanding.reduce((sum, o) => sum + (o.amount ?? 0), 0);
+
   const renderInvite = (invite: InviteRow) => {
     const s = statusFor(invite);
     const oneToOne = !!invite.classes?.invite_only;
@@ -737,6 +766,66 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
         <Card><CardContent className="py-12 text-center text-muted-foreground">No private sessions yet — create the first invite.</CardContent></Card>
       ) : (
         <div className="space-y-6">
+          {outstanding.length > 0 && (
+            <Card className="border-[hsl(var(--warning))]/40 bg-[hsl(var(--warning))]/5">
+              <CardContent className="p-4 md:p-5">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                  <h3 className="flex items-center gap-1.5 text-sm font-semibold">
+                    <AlertCircle className="h-4 w-4 text-[hsl(var(--warning))]" />
+                    Still waiting to be paid · {outstanding.length}
+                  </h3>
+                  {outstandingTotal > 0 && (
+                    <span className="text-sm font-bold tabular-nums">£{outstandingTotal.toFixed(2)} owed</span>
+                  )}
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  {outstanding.map(({ invite, dates, amount, waitingDays, missedDates }) => {
+                    const student = invite.students;
+                    const who = student ? `${student.first_name} ${student.last_name}` : "Someone";
+                    const parent = parents[invite.parent_id];
+                    const parentName = parentNames[invite.parent_id];
+                    const showParent = !!parentName && !student?.is_self
+                      && parentName !== who;
+                    return (
+                      <div key={invite.id} className="rounded-lg border border-border bg-background/60 p-3 text-sm">
+                        <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                          <p className="font-medium">
+                            {who}
+                            {showParent && <span className="font-normal text-muted-foreground"> · {parentName}</span>}
+                          </p>
+                          <span className="font-semibold tabular-nums">
+                            {amount != null ? `£${amount.toFixed(2)}` : "Priced at checkout"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {invite.classes?.name ?? "Class"}
+                          {dates.length > 0 && ` · ${dates.slice(0, 3).map((d) => format(parseISO(d), "EEE d MMM")).join(", ")}`}
+                          {dates.length > 3 && ` +${dates.length - 3} more`}
+                          {invite.plan === "monthly" && " · monthly membership"}
+                        </p>
+                        {/* The point of the row: who to contact, and how long
+                            they have had the link. */}
+                        <p className="mt-1 text-xs">
+                          <span className={waitingDays >= 7 ? "font-semibold text-destructive" : "text-muted-foreground"}>
+                            Sent {waitingDays === 0 ? "today" : `${waitingDays} day${waitingDays === 1 ? "" : "s"} ago`}
+                          </span>
+                          {missedDates > 0 && (
+                            <span className="font-semibold text-destructive">
+                              {" "}· {missedDates} date{missedDates === 1 ? " has" : "s have"} already been
+                            </span>
+                          )}
+                          {parent?.email && <span className="text-muted-foreground"> · {parent.email}</span>}
+                          {parent?.phone && <span className="text-muted-foreground"> · {parent.phone}</span>}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {privateGroups.length > 0 && (
             <section className="space-y-3">
               {paymentLinks.length > 0 && (

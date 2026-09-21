@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CalendarDays, Check, ChevronsUpDown, Clock, MapPin, Plus, User, X } from "lucide-react";
 import TimeSelect, { addMinutes } from "@/components/TimeSelect";
 import { formatTimeRange } from "@/lib/bookingFormat";
+import { bookingForInvite, inviteIsPaid } from "@/lib/inviteMatching";
 import BookingBreakdown, { type PaymentSibling } from "@/components/admin/BookingBreakdown";
 import { BookingActions, type ActionableBooking, type BookingActionHandlers } from "@/components/admin/BookingActions";
 import { listNames, MAX_DANCERS, privateWord } from "@/lib/privateSession";
@@ -101,11 +102,12 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
   const [invites, setInvites] = useState<InviteRow[]>([]);
   const [sessionDates, setSessionDates] = useState<Record<string, { dates: string[]; start: string; end: string }>>({});
   /** Family-keys (see familyKey) that hold a confirmed booking. */
-  const [paidKeys, setPaidKeys] = useState<Set<string>>(new Set());
   /** This family's booking behind each invite — what Breakdown / Move /
    *  Refund / Cancel act on. Keyed per family, never per class: on a
    *  shared class that would pick up someone else's booking. */
-  const [bookingFor, setBookingFor] = useState<Record<string, OneToOneBooking>>({});
+  /** Every live booking each family has on each class. Which one a given
+   *  link produced is decided per link, by date — see inviteMatching. */
+  const [bookingsFor, setBookingsFor] = useState<Record<string, OneToOneBooking[]>>({});
   const [parents, setParents] = useState<Record<string, { full_name: string; email: string; phone: string | null }>>({});
   const [parentNames, setParentNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -149,14 +151,12 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
           .in("class_id", classIds)
           .neq("status", "cancelled"),
       ]);
-      const byFamily: Record<string, OneToOneBooking> = {};
+      const byFamily: Record<string, OneToOneBooking[]> = {};
       for (const b of ((bookings as any[]) ?? [])) {
         if (!b.class_id) continue;
-        const key = familyKey(b);
-        // A confirmed booking wins over one still awaiting payment.
-        if (!byFamily[key] || (byFamily[key].status !== "confirmed" && b.status === "confirmed")) byFamily[key] = b as OneToOneBooking;
+        (byFamily[familyKey(b)] ??= []).push(b as OneToOneBooking);
       }
-      setBookingFor(byFamily);
+      setBookingsFor(byFamily);
       const byClass: Record<string, { dates: string[]; start: string; end: string }> = {};
       for (const s of (sessions as any[]) ?? []) {
         const entry = byClass[s.class_id] ?? { dates: [], start: s.start_time, end: s.end_time };
@@ -165,7 +165,6 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
       }
       for (const entry of Object.values(byClass)) entry.dates.sort();
       setSessionDates(byClass);
-      setPaidKeys(new Set(((bookings as any[]) ?? []).filter((b) => b.status === "confirmed" && b.class_id).map((b) => familyKey(b))));
     }
     if (parentIds.length > 0) {
       const { data: profiles } = await supabase.from("profiles").select("user_id, full_name, email, phone").in("user_id", parentIds);
@@ -245,7 +244,7 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
   // One family having paid fixes the price for everyone on the session —
   // a duo where the two dancers were charged differently is a mess nobody
   // can explain later.
-  const paidFor = editGroup ? editGroup.invites.some((i) => paidKeys.has(familyKey(i))) : false;
+  const paidFor = editGroup ? editGroup.invites.some((i) => inviteIsPaid(i, bookingsFor[familyKey(i)] ?? [])) : false;
 
   const saveEdit = async () => {
     if (!editGroup) return;
@@ -455,7 +454,7 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
   const statusFor = (invite: InviteRow): { label: string; className: string } => {
     const oneToOne = !!invite.classes?.invite_only;
     if (invite.status === "cancelled") return { label: "Cancelled", className: "bg-muted text-muted-foreground" };
-    if (paidKeys.has(familyKey(invite))) {
+    if (inviteIsPaid(invite, bookingsFor[familyKey(invite)] ?? [])) {
       return { label: oneToOne ? "Booked & paid" : "Paid", className: "bg-emerald-600 text-white" };
     }
     return { label: oneToOne ? "Awaiting booking" : "Link sent — awaiting payment", className: "bg-amber-500 text-white" };
@@ -483,8 +482,8 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
     // A payment link names its own dates; a one-to-one is the whole run of
     // its private class.
     const dates = invite.session_dates?.length ? [...invite.session_dates].sort() : (classSession?.dates ?? []);
-    const booking = bookingFor[familyKey(invite)];
-    const paid = paidKeys.has(familyKey(invite));
+    const booking = bookingForInvite(invite, bookingsFor[familyKey(invite)] ?? []);
+    const paid = inviteIsPaid(invite, bookingsFor[familyKey(invite)] ?? []);
     const priced = Number(invite.price) > 0;
     const total = Number(invite.price) * Math.max(1, dates.length);
     const pastCount = dates.filter((d) => d < todayISO).length;
@@ -596,7 +595,7 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
     const dates = classSession?.dates ?? [];
     const pastCount = dates.filter((d) => d < todayISO).length;
     const live = group.invites.filter((i) => i.status !== "cancelled");
-    const paidCount = live.filter((i) => paidKeys.has(familyKey(i))).length;
+    const paidCount = live.filter((i) => inviteIsPaid(i, bookingsFor[familyKey(i)] ?? [])).length;
     const take = live.reduce((sum, i) => sum + Number(i.price) * Math.max(1, dates.length), 0);
     const status = live.length === 0
       ? { label: "Cancelled", className: "bg-muted text-muted-foreground" }
@@ -658,8 +657,8 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
           <div className="mt-3 space-y-2">
             {group.invites.map((inv) => {
               const s = statusFor(inv);
-              const booking = bookingFor[familyKey(inv)];
-              const paid = paidKeys.has(familyKey(inv));
+              const booking = bookingForInvite(inv, bookingsFor[familyKey(inv)] ?? []);
+              const paid = inviteIsPaid(inv, bookingsFor[familyKey(inv)] ?? []);
               const student = inv.students;
               const parentName = parentNames[inv.parent_id];
               const showParent = !!parentName && !student?.is_self

@@ -35,6 +35,7 @@ import {
   monthLabel,
   yearMonth,
 } from "../_shared/membershipAdjustments.ts";
+import { pauseBlockedReason, planPause } from "../_shared/membershipPause.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -81,8 +82,8 @@ serve(async (req) => {
       return jsonResponse({ error: "You must be signed in to manage a membership" }, 401);
     }
 
-    const { action, membershipId, newClassId, billingMonth, amount, reason, adjustmentId } = await req.json();
-    const ADMIN_ACTIONS = ["adjust", "remove_adjustment"];
+    const { action, membershipId, newClassId, billingMonth, amount, reason, adjustmentId, months } = await req.json();
+    const ADMIN_ACTIONS = ["adjust", "remove_adjustment", "pause", "resume"];
     if (!["cancel", "switch_class", "payment_link", ...ADMIN_ACTIONS].includes(action)) {
       return jsonResponse({ error: "Unknown action" }, 400);
     }
@@ -115,7 +116,7 @@ serve(async (req) => {
       return jsonResponse({ error: "Membership not found" }, 404);
     }
     if (ADMIN_ACTIONS.includes(action) && !isAdmin) {
-      return jsonResponse({ error: "Only the studio can change a payment amount" }, 403);
+      return jsonResponse({ error: "Only the studio can change or pause a payment" }, 403);
     }
     // All family-scoped reads/writes below belong to the membership's OWNER,
     // which is the caller for parents and the family for admin calls.
@@ -178,6 +179,127 @@ serve(async (req) => {
     const nextChargeYm = sub.current_period_end
       ? yearMonth(new Date(sub.current_period_end * 1000))
       : null;
+
+    // ────────────────────────────────────────────────────────────────────
+    // PAUSE / RESUME (admin) — a family keeps every place and its price and
+    // simply is not charged for an agreed number of months. Stripe voids the
+    // invoices rather than deferring them, so nothing is owed afterwards.
+    //
+    // This acts on the SUBSCRIPTION, not the row Amie happened to click.
+    // Brooke George has seven memberships on one subscription (the £110
+    // Unlimited cap); pausing one of them would leave the other six billing
+    // and take £83.65 off a family that had been promised a free month.
+    // ────────────────────────────────────────────────────────────────────
+    if (action === "pause" || action === "resume") {
+      const nowMs = Date.now();
+      const nextCharge = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
+
+      // Every live row on this subscription moves together.
+      const { data: siblings } = await supabase
+        .from("memberships")
+        .select("id, monthly_amount, status")
+        .eq("stripe_subscription_id", membership.stripe_subscription_id)
+        .in("status", ["active", "past_due", "paused"]);
+      const rows = (siblings ?? []) as { id: string; monthly_amount: number; status: string }[];
+      const monthlyTotal = rows.reduce((sum, r) => sum + Number(r.monthly_amount ?? 0), 0);
+      const nowIso = new Date().toISOString();
+
+      if (action === "resume") {
+        try {
+          await stripe.subscriptions.update(
+            membership.stripe_subscription_id,
+            { pause_collection: "" } as any,
+            connectOpts,
+          );
+        } catch (e: any) {
+          console.error("Could not lift the pause in Stripe:", e);
+          return jsonResponse({ error: `Stripe wouldn't lift the pause: ${e?.message ?? "unknown error"}` }, 502);
+        }
+        await supabase
+          .from("memberships")
+          .update({
+            status: "active",
+            paused_until: null,
+            pause_reason: null,
+            paused_at: null,
+            paused_by: null,
+            updated_at: nowIso,
+          })
+          .eq("stripe_subscription_id", membership.stripe_subscription_id)
+          .in("status", ["paused", "active"]);
+        console.log("membership pause lifted:", membership.stripe_subscription_id, "by", user.id);
+        return jsonResponse({
+          success: true,
+          resumed: true,
+          memberships: rows.length,
+          nextCharge: nextCharge ? nextCharge.toISOString() : null,
+        });
+      }
+
+      const blocked = pauseBlockedReason(nextCharge, new Date(nowMs), membership.status);
+      if (blocked) return jsonResponse({ error: blocked }, 400);
+
+      const howMany = Number(months);
+      if (!Number.isFinite(howMany) || howMany < 1 || howMany > 6) {
+        return jsonResponse({ error: "Choose between 1 and 6 months to pause" }, 400);
+      }
+      const why = typeof reason === "string" ? reason.trim().slice(0, 300) : "";
+      if (!why) {
+        return jsonResponse({ error: "Add a short reason — it's the record of what was agreed" }, 400);
+      }
+
+      const plan = planPause(nextCharge!, howMany, monthlyTotal);
+      try {
+        await stripe.subscriptions.update(
+          membership.stripe_subscription_id,
+          {
+            pause_collection: {
+              behavior: "void",
+              resumes_at: Math.floor(plan.resumesAt.getTime() / 1000),
+            },
+          },
+          connectOpts,
+        );
+      } catch (e: any) {
+        console.error("Could not pause in Stripe:", e);
+        return jsonResponse({ error: `Stripe wouldn't pause this membership: ${e?.message ?? "unknown error"}` }, 502);
+      }
+
+      const { error: upErr } = await supabase
+        .from("memberships")
+        .update({
+          status: "paused",
+          paused_until: plan.restartsOn,
+          pause_reason: why,
+          paused_at: nowIso,
+          paused_by: user.id,
+          updated_at: nowIso,
+        })
+        .eq("stripe_subscription_id", membership.stripe_subscription_id)
+        .in("status", ["active", "past_due", "paused"]);
+      if (upErr) {
+        // Stripe is paused but our records are not: say so plainly rather
+        // than report success, because the screen would then show them still
+        // billing while no money arrives.
+        console.error("Paused in Stripe but the membership rows did not update:", upErr);
+        return jsonResponse({
+          error: "Stripe is paused, but the membership records didn't update — tell Louis before doing anything else.",
+        }, 500);
+      }
+
+      console.log("membership paused:", JSON.stringify({
+        by: user.id, subscription: membership.stripe_subscription_id,
+        rows: rows.length, skipped: plan.skipped, restartsOn: plan.restartsOn, monthlyTotal,
+      }));
+      return jsonResponse({
+        success: true,
+        paused: true,
+        memberships: rows.length,
+        skipped: plan.skipped,
+        restartsOn: plan.restartsOn,
+        skippedTotal: plan.skippedTotal,
+      });
+    }
 
     if (action === "adjust") {
       const pounds = Number(amount);

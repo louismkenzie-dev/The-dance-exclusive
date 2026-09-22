@@ -353,6 +353,14 @@ serve(async (_req) => {
         // shared by every row on the sub) via pause_collection "void" across
         // that month, then resumes. Existing rows default to August.
         const freeMonth = members.find((x: any) => x.free_month != null)?.free_month ?? 8;
+        // The furthest-out pause the studio agreed on this subscription, if
+        // any. Every row on a subscription is paused together, but read the
+        // latest so a second pause added on top always wins.
+        const studioPausedUntil: string | null = members
+          .map((x: any) => x.paused_until as string | null)
+          .filter((d): d is string => !!d)
+          .sort()
+          .pop() ?? null;
 
         if (sub.status === "trialing") {
           // Trialing subs are never paused — the trial already covers the gap.
@@ -374,6 +382,32 @@ serve(async (_req) => {
               .neq("status", "cancelled");
             summary.cancelledAbandoned++;
           }
+        } else if (studioPausedUntil && studioPausedUntil > nowIso.slice(0, 10)) {
+          // A pause the studio agreed (a child off with an injury, say).
+          // Stripe is already voiding the invoices and knows when to resume,
+          // so this job's job is to keep its hands off. Without this branch
+          // the "resume anything paused outside August" rule below would lift
+          // it overnight and charge a family that had been promised a month
+          // off — the worst possible way for this feature to fail.
+          summary.studioPaused = (summary.studioPaused ?? 0) + 1;
+        } else if (studioPausedUntil) {
+          // The agreed pause has run out. Stripe resumes on its own timer, so
+          // only our own record needs tidying — and it is cleared before the
+          // resume branch below can act, so the next run treats this
+          // subscription as an ordinary one again.
+          await supabase
+            .from("memberships")
+            .update({
+              status: sub.pause_collection ? "paused" : "active",
+              paused_until: null,
+              pause_reason: null,
+              paused_at: null,
+              paused_by: null,
+              updated_at: nowIso,
+            })
+            .eq("stripe_subscription_id", subId)
+            .in("status", ["paused", "active"]);
+          summary.studioPauseEnded = (summary.studioPauseEnded ?? 0) + 1;
         } else if (sub.status === "active" && !sub.pause_collection && month === freeMonth) {
           await stripe.subscriptions.update(
             subId,

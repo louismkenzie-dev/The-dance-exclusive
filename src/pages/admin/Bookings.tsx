@@ -11,11 +11,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { AlertCircle, CalendarDays, ChevronDown, MapPin, Plus, Search } from "lucide-react";
+import { AlertCircle, CalendarDays, ChevronDown, MapPin, PauseCircle, Plus, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { passLabelOf, usePassCatalog } from "@/lib/passCatalog";
 import MoveMembershipDialog, { type MoveMembershipTarget } from "@/components/admin/MoveMembershipDialog";
 import MembershipAdjustDialog, { type AdjustableMembership } from "@/components/admin/MembershipAdjustDialog";
+import MembershipPauseDialog, { type PausableMembership } from "@/components/admin/MembershipPauseDialog";
 import OneToOneTab from "@/components/admin/OneToOneTab";
 import TrialsTab from "@/components/admin/TrialsTab";
 import AddBookingDialog from "@/components/admin/AddBookingDialog";
@@ -572,6 +573,10 @@ interface PlanRow {
    * column until the following morning.
    */
   paymentOverdue: boolean;
+  /** Monthly rows only — pausing acts on the whole Stripe subscription. */
+  subscriptionId: string | null;
+  pausedUntil: string | null;
+  pauseReason: string | null;
 }
 
 const planMeta: Record<PlanKind, { label: string; className: string }> = {
@@ -628,6 +633,8 @@ const MembershipsTab = () => {
   const [loading, setLoading] = useState(true);
   const [moveTarget, setMoveTarget] = useState<MoveMembershipTarget | null>(null);
   const [adjustTarget, setAdjustTarget] = useState<AdjustableMembership | null>(null);
+  /** The family whose monthly payments are being paused or restarted. */
+  const [pauseTarget, setPauseTarget] = useState<{ name: string; memberships: PausableMembership[] } | null>(null);
   // Upcoming one-off payment changes, keyed by membership id.
   const [adjustmentsByMembership, setAdjustmentsByMembership] = useState<Map<string, RowAdjustment[]>>(new Map());
   const [refreshKey, setRefreshKey] = useState(0);
@@ -637,7 +644,7 @@ const MembershipsTab = () => {
       const [membershipsRes, bookingsRes] = await Promise.all([
         supabase
           .from("memberships")
-          .select("id, user_id, class_id, monthly_amount, status, started_at, current_period_end, cancel_at, free_month, payment_failed_notified_at, students(first_name, last_name), classes(name, day_of_week, start_time)")
+          .select("id, user_id, class_id, monthly_amount, status, started_at, current_period_end, cancel_at, free_month, payment_failed_notified_at, stripe_subscription_id, paused_until, pause_reason, students(first_name, last_name), classes(name, day_of_week, start_time)")
           .order("created_at", { ascending: false }),
         supabase
           .from("bookings")
@@ -721,6 +728,9 @@ const MembershipsTab = () => {
           freeMonth: m.free_month ?? null,
           paymentFailedNotifiedAt: (m as any).payment_failed_notified_at ?? null,
           paymentOverdue: overdue,
+          subscriptionId: (m as any).stripe_subscription_id ?? null,
+          pausedUntil: (m as any).paused_until ?? null,
+          pauseReason: (m as any).pause_reason ?? null,
         };
       });
 
@@ -749,6 +759,9 @@ const MembershipsTab = () => {
           freeMonth: null,
           paymentFailedNotifiedAt: null,
           paymentOverdue: false,
+          subscriptionId: null,
+          pausedUntil: null,
+          pauseReason: null,
         };
       });
 
@@ -1065,6 +1078,39 @@ const MembershipsTab = () => {
                             </Badge>
                           ))}
                           {g.unlimited && <Badge className="whitespace-nowrap">Unlimited £110</Badge>}
+                          {/* Pausing is a family-level act: it stops the
+                              subscription, which is how the money actually
+                              moves, so it lives on the family's header rather
+                              than on one class inside it. */}
+                          {g.hasLive && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 rounded-full px-2.5 text-xs whitespace-nowrap"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPauseTarget({
+                                  name: g.name,
+                                  memberships: g.rows
+                                    .filter((r) => r.membershipId)
+                                    .map((r) => ({
+                                      membershipId: r.membershipId!,
+                                      subscriptionId: r.subscriptionId,
+                                      childName: r.childName,
+                                      className: r.className,
+                                      amount: r.amount,
+                                      status: r.membershipStatus ?? "",
+                                      nextCharge: r.nextCharge,
+                                      pausedUntil: r.pausedUntil,
+                                      pauseReason: r.pauseReason,
+                                    })),
+                                });
+                              }}
+                            >
+                              <PauseCircle className="mr-1 h-3.5 w-3.5" />
+                              {g.rows.some((r) => r.pausedUntil) ? "Paused" : "Pause payments"}
+                            </Button>
+                          )}
                           <ChevronDown className="w-4 h-4 text-muted-foreground ml-1 transition-transform duration-200 [[data-state=open]_&]:rotate-180" />
                         </div>
                       </CardContent>
@@ -1268,6 +1314,15 @@ const MembershipsTab = () => {
             target={moveTarget}
             onOpenChange={(o) => { if (!o) setMoveTarget(null); }}
             onMoved={() => setRefreshKey((k) => k + 1)}
+          />
+
+          {/* Stop a family's monthly payments for an agreed few months */}
+          <MembershipPauseDialog
+            open={!!pauseTarget}
+            onOpenChange={(o) => { if (!o) setPauseTarget(null); }}
+            familyName={pauseTarget?.name ?? ""}
+            memberships={pauseTarget?.memberships ?? []}
+            onDone={() => setRefreshKey((k) => k + 1)}
           />
 
           {/* Take money off (or add extra to) one month's payment */}

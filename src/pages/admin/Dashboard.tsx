@@ -110,7 +110,7 @@ const AdminDashboard = () => {
           .eq("is_active", true)
           .not("contract_renewal_date", "is", null),
         supabase.from("staff_documents")
-          .select("id, doc_type, expiry_date, label, staff:staff(full_name)")
+          .select("id, staff_id, doc_type, expiry_date, label, staff:staff(full_name)")
           .not("expiry_date", "is", null)
           .lte("expiry_date", thirtyDaysLater),
         supabase.from("staff")
@@ -179,9 +179,15 @@ const AdminDashboard = () => {
       });
 
       // Staff documents expiring/expired within 30 days
-      type StaffDocRow = { id: string; doc_type: string; expiry_date: string | null; label: string | null; staff: { full_name: string } | null };
+      type StaffDocRow = { id: string; staff_id: string | null; doc_type: string; expiry_date: string | null; label: string | null; staff: { full_name: string } | null };
+      // A certificate the studio holds a copy of is recorded twice: once as
+      // the uploaded document, once as a date on the staff record. Amie's
+      // dashboard showed both — "Public Liability Insurance expires 1 Oct"
+      // and "PLI expires 1 Oct" — which reads as two problems.
+      const coveredByDocument = new Set<string>();
       ((staffDocs.data as unknown as StaffDocRow[] | null) || []).forEach((d) => {
         if (!d.expiry_date) return;
+        if (d.staff_id) coveredByDocument.add(`${d.staff_id}:${d.doc_type}`);
         const expiry = parseISO(d.expiry_date);
         const docLabel = DOC_TYPE_LABELS[d.doc_type] || d.label || "Document";
         const staffName = d.staff?.full_name || "Unknown staff";
@@ -197,16 +203,20 @@ const AdminDashboard = () => {
       type StaffRow = { id: string; full_name: string; pli_expiry_date: string | null; dbs_expiry_date: string | null };
       ((staffExpiries.data as StaffRow[] | null) || []).forEach((s) => {
         ([
-          ["PLI", s.pli_expiry_date] as const,
-          ["DBS", s.dbs_expiry_date] as const,
+          ["pli", s.pli_expiry_date] as const,
+          ["dbs", s.dbs_expiry_date] as const,
         ]).forEach(([kind, value]) => {
           if (!value) return;
+          // The uploaded document already said this. One certificate, one row.
+          if (coveredByDocument.has(`${s.id}:${kind}`)) return;
           const expiry = parseISO(value);
           const daysUntil = differenceInCalendarDays(expiry, startOfToday);
           if (daysUntil <= 30) {
             items.push({
               id: `staff-${kind}-${s.id}`,
-              label: `${s.full_name}: ${kind} expires ${format(expiry, "d MMM yyyy")}`,
+              // The same words the document row uses, so the same certificate
+              // never reads as two different things.
+              label: `${s.full_name}: ${DOC_TYPE_LABELS[kind]} expires ${format(expiry, "d MMM yyyy")}`,
               date: value,
               expired: daysUntil < 0,
             });

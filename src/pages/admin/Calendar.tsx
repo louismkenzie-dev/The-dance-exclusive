@@ -647,13 +647,26 @@ const AdminCalendar = () => {
                       onClick={() => !isCamp && openEditFormFromWeek(session)}
                       className={`rounded-md border p-2 transition-colors hover:shadow-sm ${
                         isCamp
-                          ? "border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/15 cursor-default"
+                          ? "border-amber-500/50 bg-amber-500/15 hover:bg-amber-500/20 cursor-default"
                           : isAdult
-                          ? "border-accent/40 bg-accent/10 hover:bg-accent/15 cursor-pointer"
-                          : "border-primary/30 bg-primary/10 hover:bg-primary/15 cursor-pointer"
+                          ? "border-accent/60 bg-accent/15 hover:bg-accent/20 cursor-pointer"
+                          : "border-primary/50 bg-primary/15 hover:bg-primary/20 cursor-pointer"
                       }`}
                     >
-                      <p className="text-xs font-semibold truncate">{cls?.name}</p>
+                      {/* A 10% magenta wash on a near-black ground is black:
+                          adult classes lost their colour down here while the
+                          brighter cyan survived. The dot is the legend's own
+                          device, at full strength, so pink means adult on
+                          this view as it does everywhere else. */}
+                      <p className="flex items-center gap-1.5 text-xs font-semibold">
+                        <span
+                          className={`h-2 w-2 shrink-0 rounded-full ${
+                            isCamp ? "bg-amber-500" : isAdult ? "bg-accent" : "bg-primary"
+                          }`}
+                          aria-hidden
+                        />
+                        <span className="truncate">{cls?.name}</span>
+                      </p>
                       <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
                         <Clock className="h-3 w-3 shrink-0" />
                         <span>{formatTimeRange(session.start_time, session.end_time)}</span>
@@ -1249,7 +1262,17 @@ const TimetableSection = () => {
                               <span className="font-medium break-words">{c.name}</span>
                               {c.dance_style && <span className="text-muted-foreground ml-2 text-sm">({c.dance_style})</span>}
                             </div>
-                            <Badge variant={c.class_type === "children" ? "default" : "secondary"}>
+                            {/* Adult was the "secondary" badge here — a near-
+                                black chip — while children kept the brand
+                                blue. Pink means adult everywhere else in the
+                                system, so it means adult here too. */}
+                            <Badge
+                              className={
+                                c.class_type === "children"
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-accent text-accent-foreground"
+                              }
+                            >
                               {c.class_type === "children" ? "Children" : "Adult"}
                             </Badge>
                           </div>

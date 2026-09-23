@@ -15,7 +15,7 @@ import {
 import { format, parseISO } from "date-fns";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { MessageCircle, QrCode } from "lucide-react";
+import { AlertTriangle, CreditCard, MessageCircle, QrCode } from "lucide-react";
 import BookingQrDialog from "@/components/portal/BookingQrDialog";
 import { ClassPassesPanel } from "@/components/portal/ClassPassesPanel";
 import ChangeClassDialog from "@/components/portal/ChangeClassDialog";
@@ -33,6 +33,8 @@ import { AttendeeAvatar } from "@/components/booking/AttendeeAvatar";
 import { RecordCardSkeleton } from "@/components/booking/PortalSkeletons";
 import { formatDay, formatPrice, formatTime, formatTimeRange } from "@/lib/bookingFormat";
 import { cn } from "@/lib/utils";
+import { cardHealth, cardWarning, describeCard, type CardSummary } from "@/lib/cardUpdate";
+import UpdateCardDialog, { type Outstanding } from "@/components/portal/UpdateCardDialog";
 
 /** Dated bookings carry their session date in notes: "... | session YYYY-MM-DD". */
 const sessionDateFromNotes = (notes: string | null | undefined): string | null =>
@@ -138,6 +140,18 @@ const MyBookings = () => {
   const [adjustments, setAdjustments] = useState<MembershipAdjustment[]>([]);
   const [membershipsLoading, setMembershipsLoading] = useState(true);
   const [payLinkLoading, setPayLinkLoading] = useState<string | null>(null);
+
+  // The card every monthly payment comes out of. One per family, however
+  // many children's places sit on it — so it belongs above the list, not on
+  // each card. Jodie Cornwell had a new card and nowhere to put it, and lost
+  // two memberships to a card that could not be replaced.
+  const [cardInfo, setCardInfo] = useState<{
+    card: CardSummary | null;
+    pastDue: boolean;
+    outstanding: (Outstanding & { hostedUrl: string | null }) | null;
+    monthlyTotal: number;
+  } | null>(null);
+  const [cardOpen, setCardOpen] = useState(false);
   // Membership pending cancellation confirmation (controls the AlertDialog).
   const [cancelTarget, setCancelTarget] = useState<Membership | null>(null);
   const [cancelling, setCancelling] = useState(false);
@@ -204,6 +218,34 @@ const MyBookings = () => {
     setMembershipsLoading(false);
   }, [user]);
   useEffect(() => { fetchMemberships(); }, [fetchMemberships]);
+
+  /** Read-only: what card is on file and whether anything is owed. */
+  const fetchCardStatus = useCallback(async () => {
+    if (!user) { setCardInfo(null); return; }
+    const { data, error } = await supabase.functions.invoke<{
+      success?: boolean;
+      card?: CardSummary | null;
+      pastDue?: boolean;
+      outstanding?: (Outstanding & { hostedUrl: string | null }) | null;
+      monthlyTotal?: number;
+      liveMemberships?: number;
+    }>("update-card", { body: { action: "status" } });
+    // A family with no memberships has no card to show — and a failure here
+    // must never take the rest of the page down with it.
+    if (error || !data?.success || !data.liveMemberships) { setCardInfo(null); return; }
+    setCardInfo({
+      card: data.card ?? null,
+      pastDue: Boolean(data.pastDue),
+      outstanding: data.outstanding ?? null,
+      monthlyTotal: Number(data.monthlyTotal ?? 0),
+    });
+  }, [user]);
+  // Only for families who actually have a membership — this reaches Stripe,
+  // and there is nothing to say to someone who has never had a card on file.
+  useEffect(() => {
+    if (memberships.length > 0) void fetchCardStatus();
+    else setCardInfo(null);
+  }, [memberships.length, fetchCardStatus]);
 
   /** The studio's credit (or extra) on this membership's NEXT payment, if any. */
   const nextPaymentAdjustment = (m: Membership): MembershipAdjustment | null => {
@@ -437,6 +479,62 @@ const MyBookings = () => {
     );
   };
 
+  /**
+   * The card on file, and a warning before it costs anyone anything.
+   *
+   * A card that has expired, or is about to, fails in exactly the way
+   * Jodie Cornwell's did — the difference is being told a month early
+   * instead of after two memberships have been cancelled.
+   */
+  const renderCardPanel = () => {
+    if (!cardInfo) return null;
+    const health = cardHealth(cardInfo.card, new Date());
+    const warning = cardWarning(health, cardInfo.pastDue);
+    const urgent = cardInfo.pastDue || health === "expired" || health === "none";
+    return (
+      <article
+        className={cn(
+          "surface animate-rise-in p-5",
+          urgent ? "border-destructive/40" : health === "expiring" ? "border-warning/40" : undefined,
+        )}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+          <div className="min-w-0">
+            <p className="text-[13px] font-medium text-muted-foreground">Payment card</p>
+            <p className="mt-1 flex items-center gap-2 text-[17px] font-semibold tracking-tight text-foreground">
+              <CreditCard className="h-4 w-4 shrink-0 text-muted-foreground" />
+              {describeCard(cardInfo.card)}
+            </p>
+            {cardInfo.monthlyTotal > 0 && (
+              <p className="mt-0.5 text-[13px] text-muted-foreground">
+                {formatPrice(cardInfo.monthlyTotal)} a month comes out of this card.
+              </p>
+            )}
+          </div>
+          <Button
+            size="lg"
+            variant={urgent ? "default" : "outline"}
+            className="h-11 shrink-0 rounded-full px-5"
+            onClick={() => setCardOpen(true)}
+          >
+            {cardInfo.card?.last4 ? "Update card" : "Add a card"}
+          </Button>
+        </div>
+        {warning && (
+          <p
+            className={cn(
+              "mt-3 flex items-start gap-2 rounded-xl p-3 text-[15px] leading-relaxed",
+              urgent ? "bg-destructive/10 text-foreground" : "bg-warning/10 text-foreground",
+            )}
+          >
+            <AlertTriangle className={cn("mt-0.5 h-4 w-4 shrink-0", urgent ? "text-destructive" : "text-warning")} />
+            {warning}
+          </p>
+        )}
+      </article>
+    );
+  };
+
   const renderMembershipCard = (m: Membership) => {
     // The payment date has passed with nothing taken. Derived from
     // the dates because the job that sets 'past_due' runs before
@@ -538,13 +636,20 @@ const MyBookings = () => {
               We couldn't take your last payment — it will be retried automatically,
               or you can settle it right now.
             </p>
-            <Button
-              className="mt-3 h-11 rounded-full bg-warning px-5 text-warning-foreground hover:bg-warning/90"
-              disabled={payLinkLoading === m.id}
-              onClick={() => openPaymentLink(m.id)}
-            >
-              {payLinkLoading === m.id ? "Opening…" : "Pay now"}
-            </Button>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                className="h-11 rounded-full bg-warning px-5 text-warning-foreground hover:bg-warning/90"
+                disabled={payLinkLoading === m.id}
+                onClick={() => openPaymentLink(m.id)}
+              >
+                {payLinkLoading === m.id ? "Opening…" : "Pay now"}
+              </Button>
+              {/* The usual reason a payment fails is that the card has been
+                  replaced — paying this month on the old one fixes nothing. */}
+              <Button variant="outline" className="h-11 rounded-full px-5" onClick={() => setCardOpen(true)}>
+                <CreditCard className="mr-1.5 h-4 w-4" /> Update card
+              </Button>
+            </div>
           </div>
         )}
 
@@ -684,9 +789,20 @@ const MyBookings = () => {
             }
           />
         ) : (
-          <div className="space-y-4">{memberships.map(renderMembershipCard)}</div>
+          <div className="space-y-4">
+            {cardInfo && renderCardPanel()}
+            {memberships.map(renderMembershipCard)}
+          </div>
         )
       )}
+
+      <UpdateCardDialog
+        open={cardOpen}
+        onOpenChange={setCardOpen}
+        outstanding={cardInfo?.outstanding ?? null}
+        monthlyTotal={cardInfo?.monthlyTotal ?? 0}
+        onDone={() => { void fetchCardStatus(); void fetchMemberships(); }}
+      />
 
       <BookingQrDialog
         open={!!qrBooking}

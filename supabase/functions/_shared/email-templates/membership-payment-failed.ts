@@ -81,8 +81,18 @@ export function renderMembershipPaymentFailed(data: MembershipPaymentFailedData)
           `The quickest fix is to pay this month now on our secure payment page, hosted by Stripe &mdash; the card processor we use. You can pay with a different card there, and it&#39;s confirmed straight away.`,
         )
         : paragraph(
-          `To make sure the retry goes through, please check that your card details are up to date and that there are sufficient funds. If the card has expired or been replaced, just get in touch and we&#39;ll help you update it.`,
+          `To make sure the retry goes through, please check that your card details are up to date and that there are sufficient funds.`,
         )
+    }
+
+    ${
+      // The commonest cause is a card that has been replaced, and paying this
+      // month on the old one fixes nothing — next month fails too. Jodie
+      // Cornwell's card was replaced, there was nowhere to put the new one,
+      // and eleven days later both her daughter's memberships were cancelled.
+      paragraph(
+        `<strong>Got a new card?</strong> Add it to your account and it&#39;ll be used for this payment and every one after it &mdash; <a href="${BRAND.appUrl}/account/bookings" style="color:${BRAND.blue};text-decoration:none;">update your card here</a>.`,
+      )
     }
 
     ${data.payUrl ? ctaButton("Pay now", data.payUrl) : ctaButton("View my bookings", `${BRAND.appUrl}/account/bookings`)}

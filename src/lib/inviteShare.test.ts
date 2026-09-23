@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountBookingsUrl, describeDates, inviteMessage } from "./inviteShare";
+import { accountBookingsUrl, cardUpdateMessage, describeDates, inviteMessage } from "./inviteShare";
 
 const ORIGIN = "https://app.thedanceexclusive.co.uk";
 
@@ -70,5 +70,24 @@ describe("inviteMessage — the awkward ones", () => {
   });
   it("shows pence, because £10.5 is not a price", () => {
     expect(inviteMessage({ parentName: "Jo", className: "Ballet", total: 10.5, origin: ORIGIN })).toContain("£10.50.");
+  });
+});
+
+describe("cardUpdateMessage — what Amie sends before Stripe gives up", () => {
+  it("names the amount and points at the account", () => {
+    expect(cardUpdateMessage({ parentName: "Jodie Cornwell", amount: 58.14, origin: ORIGIN })).toBe(
+      "Hi Jodie, your card was declined for £58.14 when we tried to take this month's payment. "
+      + "If you've got a new card, you can add it on your account and it'll be used for this month "
+      + "and every month after: https://app.thedanceexclusive.co.uk/account/bookings",
+    );
+  });
+  it("still reads properly when the amount isn't known", () => {
+    const msg = cardUpdateMessage({ parentName: "Jodie", origin: ORIGIN });
+    expect(msg).toContain("your card was declined when we tried");
+    expect(msg).not.toContain("£");
+  });
+  it("uses the real address, never a typed one", () => {
+    expect(cardUpdateMessage({ parentName: "Jo", origin: ORIGIN })).toContain(accountBookingsUrl(ORIGIN));
+    expect(cardUpdateMessage({ parentName: "Jo", origin: ORIGIN })).not.toContain("www.");
   });
 });

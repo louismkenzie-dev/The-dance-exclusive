@@ -11,8 +11,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { AlertCircle, CalendarDays, ChevronDown, MapPin, PauseCircle, Plus, Search } from "lucide-react";
+import { AlertCircle, CalendarDays, ChevronDown, Copy, MapPin, PauseCircle, Plus, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { cardUpdateMessage, copyText } from "@/lib/inviteShare";
 import { passLabelOf, usePassCatalog } from "@/lib/passCatalog";
 import MoveMembershipDialog, { type MoveMembershipTarget } from "@/components/admin/MoveMembershipDialog";
 import MembershipAdjustDialog, { type AdjustableMembership } from "@/components/admin/MembershipAdjustDialog";
@@ -502,6 +503,7 @@ const membershipBadge: Record<string, { label: string; className: string }> = {
  * out what happened, who was told and when, and what to do about it.
  */
 const PaymentIssueNote = ({ rows }: { rows: PlanRow[] }) => {
+  const { toast } = useToast();
   const failing = rows.filter((r) => r.membershipStatus === "past_due");
   if (failing.length === 0) return null;
 
@@ -531,8 +533,35 @@ const PaymentIssueNote = ({ rows }: { rows: PlanRow[] }) => {
             : <>They haven&#39;t been emailed about it yet — the nightly check will do that.</>}
         </li>
         <li>The card is tried again automatically over the next couple of weeks. You don&#39;t need to do anything for that to happen.</li>
+        {/* The part that cost £58.14 a month: the retries are not infinite.
+            Jodie Cornwell's card failed on 9 September and was replaced, and
+            on the 20th Stripe gave up and cancelled both of Eloise's
+            memberships while she carried on coming to class. */}
+        <li>
+          <strong className="text-foreground">The retries run out.</strong> If none of them goes through,
+          Stripe cancels the membership for good — about two weeks after the first failure. Paying this
+          month doesn&#39;t help if the card itself has been replaced, so it&#39;s worth asking.
+        </li>
         <li>Until it goes through, that month isn&#39;t paid for — worth a friendly word before the next class if it drags on.</li>
       </ul>
+      <div className="mt-2.5">
+        <Button
+          size="sm"
+          className="h-7 rounded-full px-3 text-xs"
+          onClick={async () => {
+            const message = cardUpdateMessage({ parentName: failing[0]?.parentName, amount: owed });
+            const copied = await copyText(message);
+            toast({
+              title: copied ? "Message copied — paste it to them" : "Couldn't copy it automatically",
+              description: message,
+              duration: 12000,
+              ...(copied ? {} : { variant: "destructive" as const }),
+            });
+          }}
+        >
+          <Copy className="mr-1 h-3 w-3" /> Ask them for a new card
+        </Button>
+      </div>
     </div>
   );
 };

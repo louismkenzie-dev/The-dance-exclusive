@@ -90,3 +90,23 @@ export async function copyText(text: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Asking a family for a new card.
+ *
+ * Jodie Cornwell's card failed on 9 September and was replaced; paying that
+ * month on the old one would have fixed nothing, and eleven days later Stripe
+ * gave up and cancelled both of Eloise's memberships. This is the message
+ * that gets sent before that happens, with the address typed by nobody.
+ */
+export function cardUpdateMessage(d: {
+  parentName?: string | null;
+  amount?: number | null;
+  origin?: string;
+}): string {
+  const firstName = (d.parentName ?? "").trim().split(/\s+/)[0] || "there";
+  const amount = d.amount != null && d.amount > 0 ? ` for £${d.amount.toFixed(2)}` : "";
+  return `Hi ${firstName}, your card was declined${amount} when we tried to take this month's payment. `
+    + `If you've got a new card, you can add it on your account and it'll be used for this month and every month after: `
+    + `${accountBookingsUrl(d.origin)}`;
+}

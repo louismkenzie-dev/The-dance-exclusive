@@ -474,7 +474,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
           "portal-ui",
         )}
       >
-        <DialogHeader className="shrink-0 space-y-1.5 px-6 pb-4 pt-6 text-left sm:text-left">
+        <DialogHeader className="shrink-0 space-y-1.5 pl-6 pr-14 pb-4 pt-6 text-left sm:text-left">
           <DialogTitle className="pr-8 text-xl font-semibold tracking-tight text-foreground">{title}</DialogTitle>
           <DialogDescription className="text-sm leading-relaxed text-muted-foreground">{description}</DialogDescription>
         </DialogHeader>

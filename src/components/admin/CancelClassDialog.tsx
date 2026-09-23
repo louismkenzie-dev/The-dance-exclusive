@@ -217,7 +217,7 @@ const CancelClassDialog = ({ open, onOpenChange, classId, className, onDone }: P
   return (
     <Dialog open={open} onOpenChange={(o) => !submitting && onOpenChange(o)}>
       <DialogContent className="max-w-xl max-h-dialog flex flex-col gap-0 overflow-hidden p-0">
-        <DialogHeader className="shrink-0 border-b border-border px-6 pb-4 pt-6">
+        <DialogHeader className="shrink-0 border-b border-border pl-6 pr-14 pb-4 pt-6">
           <DialogTitle>{done ? "Class cancelled" : `Cancel ${className}?`}</DialogTitle>
           <DialogDescription>
             {done

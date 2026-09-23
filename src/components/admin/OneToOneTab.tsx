@@ -966,7 +966,7 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
         {/* Capped height with an internally scrolling body: the form is long,
             and on a laptop or phone the header and buttons must stay in view. */}
         <DialogContent className="max-w-md max-h-dialog flex flex-col gap-0 p-0 sm:p-0">
-          <DialogHeader className="shrink-0 px-5 pt-5 pb-3 text-left">
+          <DialogHeader className="shrink-0 pl-5 pr-14 pt-5 pb-3 text-left">
             <DialogTitle>New private session</DialogTitle>
             <DialogDescription>
               One dancer, or a duo, trio or quad on the same session. Every family books

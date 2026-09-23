@@ -286,7 +286,7 @@ export function IssueCreditDialog({ open, onOpenChange, customer, onIssued }: Pr
       <DialogContent className="max-w-lg max-h-dialog p-0 flex flex-col gap-0 overflow-hidden">
         {issued ? (
           <>
-            <DialogHeader className="px-6 pt-6 pb-4 border-b border-border shrink-0">
+            <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b border-border shrink-0">
               <DialogTitle>Credit code issued</DialogTitle>
               <DialogDescription>
                 Send this to {firstName} — it's ready to use straight away.
@@ -327,7 +327,7 @@ export function IssueCreditDialog({ open, onOpenChange, customer, onIssued }: Pr
           </>
         ) : (
           <>
-            <DialogHeader className="px-6 pt-6 pb-4 border-b border-border shrink-0">
+            <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b border-border shrink-0">
               <DialogTitle>Issue a credit code</DialogTitle>
               <DialogDescription>
                 A one-time code for {customer.full_name}, used in one go on their next booking.

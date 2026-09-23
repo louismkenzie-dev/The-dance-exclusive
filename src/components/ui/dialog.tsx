@@ -57,8 +57,14 @@ const DialogContent = React.forwardRef<
 ));
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
+/** The close button is absolutely positioned over the dialog's top-right
+ *  corner, so the header reserves that space rather than letting a title or
+ *  an action sit underneath it — "Add Session" on the calendar's day dialog
+ *  was half-covered by the X. A header that sets its own horizontal padding
+ *  overrides this (tailwind-merge takes the last word), so those set their
+ *  own pr-14 instead. */
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col space-y-1.5 text-left", className)} {...props} />
+  <div className={cn("flex flex-col space-y-1.5 pr-10 text-left", className)} {...props} />
 );
 DialogHeader.displayName = "DialogHeader";
 

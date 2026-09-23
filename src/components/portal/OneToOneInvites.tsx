@@ -47,6 +47,14 @@ const PLAN_LABEL: Record<string, string> = {
 };
 
 /**
+ * The studio named a price for named dates — "this is what you owe for that
+ * class". Those go straight to checkout at that price, and the family is told
+ * the amount before they press anything.
+ */
+const studioPriced = (invite: PortalInvite): boolean =>
+  Number(invite.price) > 0 && invite.plan === "session" && (invite.session_dates?.length ?? 0) > 0;
+
+/**
  * Cards on My Bookings for places the studio has set up for this family —
  * a private one-to-one, or any class an admin booked them onto. Book & pay
  * drops it into the basket and goes straight to checkout, so the ordinary
@@ -133,7 +141,7 @@ const OneToOneInvites = () => {
     // Unless the studio named a price for named dates. That's them saying
     // "this is what you owe for that class", which the class's own plans may
     // not even sell — so it goes straight in the basket at their price.
-    const pricedByStudio = Number(invite.price) > 0 && invite.plan === "session" && (invite.session_dates?.length ?? 0) > 0;
+    const pricedByStudio = studioPriced(invite);
     if (!cls.invite_only && !pricedByStudio) {
       // The class's own page, not the list of every class: it opens on the
       // plan the studio saved them (a trial place unlocks the trial even for
@@ -208,10 +216,22 @@ const OneToOneInvites = () => {
                     {formatPrice(Number(invite.price))} per session
                   </p>
                 )}
+                {/* A price the studio named: say it here rather than letting
+                    them find out at checkout. */}
+                {!cls?.invite_only && studioPriced(invite) && (
+                  <p className="mt-2 text-[15px] font-semibold text-foreground">
+                    {formatPrice(Number(invite.price) * Math.max(1, session?.ids.length ?? 1))}
+                    {session && session.dates.length > 1 && (
+                      <span className="font-normal text-muted-foreground">
+                        {" "}· {formatPrice(Number(invite.price))} per session
+                      </span>
+                    )}
+                  </p>
+                )}
               </div>
               <Button size="lg" className="h-12 shrink-0 rounded-full px-6" onClick={() => bookInvite(invite)}>
-                {cls?.invite_only
-                  ? `Book and pay ${formatPrice(Number(invite.price) * Math.max(1, session?.ids.length ?? 1))}`
+                {cls?.invite_only || studioPriced(invite)
+                  ? `${cls?.invite_only ? "Book" : "Confirm"} and pay ${formatPrice(Number(invite.price) * Math.max(1, session?.ids.length ?? 1))}`
                   : "Confirm and pay"}
               </Button>
             </div>

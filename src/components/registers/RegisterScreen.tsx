@@ -32,6 +32,7 @@ import {
 import { timetableStripDays } from "@/lib/timetableGaps";
 import { formatTime, formatTimeRange } from "@/lib/bookingFormat";
 import { cn } from "@/lib/utils";
+import { nameWithNickname, nicknameOf, officialName } from "@/lib/studentName";
 
 /**
  * Whose registers the screen shows.
@@ -741,9 +742,12 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
                         student?.medical_info
                       );
                       const hasUrgent = student?.has_epipen || student?.has_inhaler;
-                      const name = student
-                        ? `${student.preferred_name || student.first_name} ${student.last_name}`
-                        : "Adult attendee";
+                      // The register leads with the name on the booking. It
+                      // used to lead with the nickname, so Christina Clark
+                      // and "Peach" read as two different people and Amie
+                      // could not tell she was already booked on.
+                      const name = officialName(student);
+                      const nickname = nicknameOf(student);
                       const bd = student?.date_of_birth ? birthdayInWeekOf(student.date_of_birth, s.session_date) : null;
                       const trial = isTrialBooking(b);
                       const statusLine =
@@ -782,8 +786,14 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
                                 {student && student.photo_consent === false && <CameraOff className="h-3.5 w-3.5 shrink-0 text-destructive" aria-label="No photo consent" />}
                                 {trial && <Sparkles className="h-3.5 w-3.5 shrink-0 text-accent" aria-label="Trial class" />}
                               </span>
-                              <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">
-                                {[age != null ? `${age}y` : null, statusLine].filter(Boolean).join(" · ")}
+                              <span className="mt-0.5 block truncate text-[13px]">
+                                {nickname && (
+                                  <span className="font-medium text-foreground">&ldquo;{nickname}&rdquo;</span>
+                                )}
+                                <span className="text-muted-foreground">
+                                  {nickname && " · "}
+                                  {[age != null ? `${age}y` : null, statusLine].filter(Boolean).join(" · ")}
+                                </span>
                               </span>
                               {(trial || b.unpaid || student?.has_send || student?.is_self || !student) && (
                                 <span className="mt-1 flex flex-wrap gap-1 text-[10px] font-semibold uppercase tracking-wide">
@@ -1001,7 +1011,7 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
         mode={collectorPrompt?.booking?.attendance?.checked_in_at && !collectorPrompt?.booking?.attendance?.checked_out_at ? "out" : "in"}
         attendeeName={
           collectorPrompt?.booking?.students
-            ? `${collectorPrompt.booking.students.preferred_name || collectorPrompt.booking.students.first_name} ${collectorPrompt.booking.students.last_name}`
+            ? nameWithNickname(collectorPrompt.booking.students)
             : "Adult attendee"
         }
         value={collectorName}

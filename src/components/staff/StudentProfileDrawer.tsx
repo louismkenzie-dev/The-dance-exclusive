@@ -10,6 +10,7 @@ import { initialsOf } from "@/lib/initials";
 import { ResponsiveSheet } from "@/components/booking/ResponsiveSheet";
 import { arrivalOpensLabel, arrivalsOpen, registerState } from "@/lib/registerRules";
 import { cn } from "@/lib/utils";
+import { nicknameOf } from "@/lib/studentName";
 
 interface Props {
   open: boolean;
@@ -169,7 +170,7 @@ const StudentProfileDrawer = ({
       ? `${bookingStudent.first_name} ${bookingStudent.last_name}`
       : "Adult attendee";
   const description = student
-    ? [student.preferred_name ? `"${student.preferred_name}"` : null, age != null ? `${age} years old` : "Age not on file", sessionLabel]
+    ? [nicknameOf(student) ? `"${nicknameOf(student)}"` : null, age != null ? `${age} years old` : "Age not on file", sessionLabel]
         .filter(Boolean)
         .join(" · ")
     : sessionLabel ?? "Booked before attendee profiles were required — no details on file.";

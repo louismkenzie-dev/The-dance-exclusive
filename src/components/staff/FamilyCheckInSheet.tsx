@@ -5,6 +5,7 @@ import PhotoAvatarDuo from "@/components/PhotoAvatarDuo";
 import { initialsOf } from "@/lib/initials";
 import { registerState } from "@/lib/registerRules";
 import { cn } from "@/lib/utils";
+import { nameWithNickname } from "@/lib/studentName";
 
 interface FamilyRow {
   id: string; // booking id
@@ -68,9 +69,11 @@ const FamilyCheckInSheet = ({
   arrivalsOpen = true,
   arrivalsOpenLabel,
 }: Props) => {
+  // Official name first, nickname after: a parent at the door gives the name
+  // on the booking, and the teacher knows them by the other one.
   const displayName = (r: FamilyRow) =>
     r.students
-      ? `${r.students.preferred_name || r.students.first_name} ${r.students.last_name}${r.students.is_self ? " (adult)" : ""}`
+      ? `${nameWithNickname(r.students)}${r.students.is_self ? " (adult)" : ""}`
       : "Adult attendee";
 
   const notArrived = rows.filter((r) => registerState(r.attendance) === "unaccounted");

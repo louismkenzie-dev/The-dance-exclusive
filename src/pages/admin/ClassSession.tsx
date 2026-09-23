@@ -16,6 +16,7 @@ import { CancelSessionSheet } from "@/components/admin/CancelSessionSheet";
 import { StatusPill, TonePill, planLabel } from "@/components/admin/StatusPill";
 import { useBookingActions } from "@/components/admin/useBookingActions";
 import { initialsFor } from "@/lib/bookingFormat";
+import { nameWithNickname } from "@/lib/studentName";
 
 interface SessionRow {
   id: string;
@@ -80,8 +81,9 @@ interface AttendanceRow {
   checked_in_at: string | null;
 }
 
-const dancerName = (b: BookingRow) =>
-  b.students ? `${b.students.preferred_name || b.students.first_name} ${b.students.last_name}` : "Adult booking";
+// Official name first, with what they are called after it — the register
+// used to show only the nickname, which is how "Peach" hid Christina Clark.
+const dancerName = (b: BookingRow) => nameWithNickname(b.students, "Adult booking");
 
 /** The dancer's Dance Exclusive avatar (else their photo, else initials) as
  *  one circle, so a face goes with the name at a glance. */
@@ -91,7 +93,7 @@ const DancerAvatar = ({ b }: { b: BookingRow }) => {
   if (!src) {
     return (
       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground" aria-hidden>
-        {initialsFor(st?.preferred_name || st?.first_name, st?.last_name)}
+        {initialsFor(st?.first_name, st?.last_name)}
       </span>
     );
   }

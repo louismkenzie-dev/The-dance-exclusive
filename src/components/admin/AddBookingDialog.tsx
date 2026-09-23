@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { usePassCatalog } from "@/lib/passCatalog";
+import { copyText, inviteMessage } from "@/lib/inviteShare";
 
 interface Props {
   open: boolean;
@@ -318,22 +319,17 @@ const AddBookingDialog = ({ open, onOpenChange, onDone, preset }: Props) => {
         // ends up as "www.app.thedanceexclusive.co.uk", which does not
         // exist and which two parents were sent. So the message is written
         // here, with the real address, and put on the clipboard ready to
-        // paste into WhatsApp.
-        const total = Number(form.amount) * Math.max(1, dates.length);
-        const when = dates.length > 0
-          ? dates.slice().sort().map((d) => format(parseISO(d), "EEE d MMM")).join(", ")
-          : "";
-        const message = [
-          `Hi ${selectedCustomer?.full_name?.split(" ")[0] ?? "there"}, here's the link to pay for`,
-          `${selectedClass?.name ?? "the class"}${when ? ` (${when})` : ""}`,
-          total > 0 ? `— £${total.toFixed(2)}.` : "—",
-          `It's waiting in your account: ${window.location.origin}/account/bookings`,
-        ].join(" ");
-        let copied = false;
-        try {
-          await navigator.clipboard.writeText(message);
-          copied = true;
-        } catch { /* clipboard blocked — the toast still says what to do */ }
+        // paste into WhatsApp. If it gets lost, One-to-ones \u2192 Copy message
+        // builds the identical message again.
+        // The same builder the One-to-ones tab reshares from, so a parent
+        // who is sent it twice is sent the same words twice.
+        const message = inviteMessage({
+          parentName: selectedCustomer?.full_name,
+          className: selectedClass?.name,
+          dates,
+          total: Number(form.amount) * Math.max(1, dates.length),
+        });
+        const copied = await copyText(message);
         toast.success(
           data.emailSent
             ? copied ? "Emailed them a link to pay — and the message is copied, ready to paste"

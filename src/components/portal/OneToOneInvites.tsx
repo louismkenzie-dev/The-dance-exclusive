@@ -7,6 +7,7 @@ import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { classLinkPath } from "@/lib/classLinks";
+import { inviteAlreadyHeld } from "@/lib/inviteMatching";
 import { formatPrice, formatTimeRange } from "@/lib/bookingFormat";
 
 interface PortalInvite {
@@ -79,36 +80,48 @@ const OneToOneInvites = () => {
       supabase.from("class_sessions").select("id, class_id, session_date")
         .in("class_id", classIds)
         .gte("session_date", earliest < today ? earliest : today),
-      supabase.from("bookings").select("class_id, student_id").eq("parent_id", user.id).in("class_id", classIds).in("status", ["confirmed", "pending_payment"]),
+      supabase.from("bookings").select("class_id, student_id, notes").eq("parent_id", user.id).in("class_id", classIds).in("status", ["confirmed", "pending_payment"]),
     ]);
-    // Per dancer, never per class: a duo private can hold two of this
-    // family's children, and paying for one must not make the other's
-    // invite vanish.
-    const booked = new Set(((bookingRows as any[]) ?? []).map((b) => `${b.class_id}|${b.student_id ?? ""}`));
-    // A one-to-one can run over several weeks — every upcoming session in the
-    // invite is booked and paid for together.
-    const sessionByClass: Record<string, InviteSessions> = {};
-    const wantedByClass = new Map(rows.map((r) => [r.class_id, new Set(r.session_dates ?? [])]));
+    const live = ((bookingRows as any[]) ?? []);
+    const byClass = new Map<string, { id: string; session_date: string }[]>();
     for (const s of ((sessionRows as any[]) ?? []).sort((a, b) => a.session_date.localeCompare(b.session_date))) {
-      // When the invite names its dates, it means exactly those; otherwise
-      // it's the whole run of upcoming sessions (a multi-week one-to-one).
-      const wanted = wantedByClass.get(s.class_id);
-      if (wanted && wanted.size > 0 ? !wanted.has(s.session_date) : s.session_date < today) continue;
-      const entry = sessionByClass[s.class_id] ?? { ids: [], dates: [] };
-      entry.ids.push(s.id);
-      entry.dates.push(s.session_date);
-      sessionByClass[s.class_id] = entry;
+      byClass.set(s.class_id, [...(byClass.get(s.class_id) ?? []), s]);
     }
-    setSessions(sessionByClass);
-    // Only invites still bookable: upcoming sessions, not already booked.
-    setInvites(rows.filter((r) => sessionByClass[r.class_id]?.ids.length && !booked.has(`${r.class_id}|${r.student_id ?? ""}`)));
+    // Per invite, not per class. Two children can be invited to the same
+    // class on different nights, and keying this by class gave the second
+    // one the first one's dates.
+    const sessionByInvite: Record<string, InviteSessions> = {};
+    for (const r of rows) {
+      // When the invite names its dates, it means exactly those, even ones
+      // that have already been — the studio is saying "you owe us for
+      // Monday". Otherwise it's the whole run of upcoming sessions.
+      const wanted = new Set(r.session_dates ?? []);
+      const picked = (byClass.get(r.class_id) ?? []).filter((s) => (
+        wanted.size > 0 ? wanted.has(s.session_date) : s.session_date >= today
+      ));
+      if (picked.length > 0) {
+        sessionByInvite[r.id] = { ids: picked.map((s) => s.id), dates: picked.map((s) => s.session_date) };
+      }
+    }
+    setSessions(sessionByInvite);
+    // Hide an invite only once THIS place is actually held. Matching any
+    // booking on the class is what lost Kirsty McAlpine her £10 link for
+    // 16 September: her pass covered the 9th, and the 23rd, 30th, 7th and
+    // 14th, so the one night she still owed for was filtered out of her own
+    // account — while Amie could see it and had no way to send it again.
+    setInvites(rows.filter((r) => (
+      sessionByInvite[r.id]?.ids.length
+      && !inviteAlreadyHeld({ status: "pending", session_dates: r.session_dates }, live.filter((b) => (
+        b.class_id === r.class_id && (b.student_id ?? "") === (r.student_id ?? "")
+      )))
+    )));
   }, [user]);
   useEffect(() => { void load(); }, [load]);
 
   if (invites.length === 0) return null;
 
   const bookInvite = (invite: PortalInvite) => {
-    const session = sessions[invite.class_id];
+    const session = sessions[invite.id];
     const cls = invite.classes;
     if (!session?.ids.length || !cls) return;
 
@@ -160,7 +173,7 @@ const OneToOneInvites = () => {
   return (
     <div className="mb-6 space-y-3">
       {invites.map((invite) => {
-        const session = sessions[invite.class_id];
+        const session = sessions[invite.id];
         const cls = invite.classes;
         const whenLine = [
           session

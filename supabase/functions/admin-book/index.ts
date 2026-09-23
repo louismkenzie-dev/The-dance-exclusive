@@ -60,6 +60,81 @@ serve(async (req) => {
     const body = await req.json();
     const { mode, userId, studentId, classId, plan, passType, note } = body;
 
+    // ---------------------------------------------------------------
+    // Send a family their link again.
+    //
+    // Amie: "Kirsty messaged saying she can't now find the link to pay for
+    // that class. And I can't see how to re share it with her?" There was no
+    // way — the link was emailed once, when the place was set up, and never
+    // again. Nothing is created here and no money moves: it re-sends the
+    // same email, for a link that is still unpaid. It comes before the
+    // customer checks below because the invite itself says whose it is.
+    // ---------------------------------------------------------------
+    if (mode === "resend_invite") {
+      const inviteId = typeof body.inviteId === "string" ? body.inviteId : "";
+      if (!inviteId) return jsonResponse({ error: "Which link should be sent again?" }, 400);
+
+      const { data: invite } = await supabase
+        .from("class_invites")
+        .select("id, class_id, student_id, parent_id, price, plan, session_dates, status, classes:class_id(name, class_type, day_of_week, start_time, end_time, is_active, venues:venue_id(name))")
+        .eq("id", inviteId)
+        .maybeSingle();
+      if (!invite) return jsonResponse({ error: "That link no longer exists" }, 404);
+      if (invite.status !== "pending") {
+        return jsonResponse({ error: "That link has already been used, so there's nothing to send." }, 400);
+      }
+      const inviteClass: any = (invite as any).classes;
+      if (!inviteClass || inviteClass.is_active === false) {
+        return jsonResponse({ error: "That class is no longer running, so the link can't be sent." }, 400);
+      }
+
+      const { data: to } = await supabase
+        .from("profiles")
+        .select("full_name, email")
+        .eq("user_id", invite.parent_id)
+        .maybeSingle();
+      if (!to?.email) {
+        return jsonResponse({ error: "There's no email address on that account — copy the message and send it yourself." }, 400);
+      }
+      let attendee: any = null;
+      if (invite.student_id) {
+        const { data } = await supabase
+          .from("students")
+          .select("first_name, preferred_name")
+          .eq("id", invite.student_id)
+          .maybeSingle();
+        attendee = data;
+      }
+
+      const inviteDates: string[] = Array.isArray(invite.session_dates) ? invite.session_dates : [];
+      const { error: emailErr } = await supabase.functions.invoke("send-email", {
+        headers: { "x-internal-auth": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
+        body: {
+          template: "admin_booking_ready",
+          to: to.email,
+          data: {
+            parentName: to.full_name,
+            attendeeName: attendee ? (attendee.preferred_name || attendee.first_name) : null,
+            className: inviteClass.name,
+            classType: inviteClass.class_type,
+            dayOfWeek: inviteClass.day_of_week,
+            startTime: inviteClass.start_time,
+            endTime: inviteClass.end_time,
+            venueName: inviteClass.venues?.name ?? null,
+            plan: invite.plan,
+            sessionDates: inviteDates.length > 0 ? inviteDates : null,
+            price: Number.isFinite(Number(invite.price)) ? Number(invite.price) : null,
+            message: typeof note === "string" && note.trim() ? note.trim() : null,
+          },
+        },
+      });
+      if (emailErr) {
+        console.error("admin-book resend failed:", emailErr);
+        return jsonResponse({ error: "The email didn't send — copy the message and send it to them yourself." }, 502);
+      }
+      return jsonResponse({ success: true, emailSent: true, sentTo: to.email });
+    }
+
     if (!userId || typeof userId !== "string") {
       return jsonResponse({ error: "Choose which customer this is for" }, 400);
     }

@@ -47,3 +47,22 @@ export function inviteIsPaid<B extends BookingLike>(invite: InviteLike, familyBo
   if (invite.status === "accepted") return true;
   return bookingForInvite(invite, familyBookings)?.status === "confirmed";
 }
+
+/**
+ * Does this family already hold the place an invite is offering?
+ *
+ * The parent's own My Bookings asks this to decide whether to still show the
+ * "Confirm and pay" card, and it must be asked per date. Asking it per class
+ * is what hid Kirsty McAlpine's £10 link for 16 September: her pass covered
+ * other nights on the same class, so the one night she still owed for
+ * vanished from her account while the studio could see it plainly.
+ *
+ * `familyBookings` must already be narrowed to live bookings (confirmed or
+ * awaiting payment) for this parent, this class and this dancer.
+ */
+export function inviteAlreadyHeld<B extends BookingLike>(
+  invite: InviteLike,
+  familyBookings: B[],
+): boolean {
+  return bookingForInvite(invite, familyBookings) !== undefined;
+}

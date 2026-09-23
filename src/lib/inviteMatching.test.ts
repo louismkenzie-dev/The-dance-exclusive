@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bookingForInvite, inviteIsPaid } from "./inviteMatching";
+import { bookingForInvite, inviteAlreadyHeld, inviteIsPaid } from "./inviteMatching";
 
 // Avier Jackson, 21 Sep: a link for tonight, and a night he paid for in August.
 const AVIER = [
@@ -43,5 +43,49 @@ describe("bookingForInvite", () => {
     expect(bookingForInvite(link, bookings)?.id).toBe("m");
     expect(inviteIsPaid(link, bookings)).toBe(true);
     expect(inviteIsPaid(link, [])).toBe(false);
+  });
+});
+
+// Kirsty McAlpine, All Levels Hip Hop. Amie, 23 Sep: "Kirsty messaged saying
+// she can't now find the link to pay for that class ... (never know if people
+// are being silly or genuinely it's not there)". It was genuinely not there.
+// Her pass covered five other nights on the same class, and My Bookings hid
+// any invite for a class the dancer already had a live booking on — so the
+// one night she still owed £10 for was filtered out of her own account.
+const KIRSTY_LIVE = [
+  { id: "p1", status: "confirmed", notes: "Class pass 46a33d78 — session 2026-09-09" },
+  { id: "p2", status: "confirmed", notes: "Class pass 9418578d — session 2026-09-23" },
+  { id: "p3", status: "confirmed", notes: "Class pass 9418578d — session 2026-09-30" },
+  { id: "p4", status: "confirmed", notes: "Class pass 9418578d — session 2026-10-07" },
+  { id: "p5", status: "confirmed", notes: "Class pass 9418578d — session 2026-10-14" },
+];
+const KIRSTY_LINK = { status: "pending", session_dates: ["2026-09-16"] };
+
+describe("inviteAlreadyHeld — the link Kirsty couldn't find", () => {
+  it("does not count other nights on the same class as this night being held", () => {
+    expect(inviteAlreadyHeld(KIRSTY_LINK, KIRSTY_LIVE)).toBe(false);
+    expect(inviteIsPaid(KIRSTY_LINK, KIRSTY_LIVE)).toBe(false);
+  });
+
+  it("counts it once the night itself is booked, so the card goes away", () => {
+    const paid = [...KIRSTY_LIVE, { id: "new", status: "confirmed", notes: "Stripe PaymentIntent: pi_3X | session 2026-09-16" }];
+    expect(inviteAlreadyHeld(KIRSTY_LINK, paid)).toBe(true);
+  });
+
+  it("counts a place still going through checkout, so it can't be paid twice", () => {
+    const midway = [...KIRSTY_LIVE, { id: "wip", status: "pending_payment", notes: "session 2026-09-16" }];
+    expect(inviteAlreadyHeld(KIRSTY_LINK, midway)).toBe(true);
+  });
+
+  it("ignores the cancelled 16 Sep pass booking that caused the link in the first place", () => {
+    // The portal only ever passes live bookings in; the cancelled one that
+    // freed up this night must not come back as proof the night is held.
+    expect(inviteAlreadyHeld(KIRSTY_LINK, KIRSTY_LIVE.filter((b) => b.status === "confirmed"))).toBe(false);
+  });
+
+  it("still hides an undated invite the family already has a place for", () => {
+    const monthly = { status: "pending", session_dates: null };
+    expect(inviteAlreadyHeld(monthly, [{ id: "m", status: "confirmed", notes: "Membership" }])).toBe(true);
+    expect(inviteAlreadyHeld(monthly, [])).toBe(false);
   });
 });

@@ -11,10 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
-import { AlertCircle, CalendarDays, Check, ChevronsUpDown, Clock, MapPin, Plus, User, X } from "lucide-react";
+import { AlertCircle, CalendarDays, Check, ChevronsUpDown, Clock, Copy, Mail, MapPin, Plus, User, X } from "lucide-react";
 import TimeSelect, { addMinutes } from "@/components/TimeSelect";
 import { formatTimeRange } from "@/lib/bookingFormat";
 import { bookingForInvite, inviteIsPaid } from "@/lib/inviteMatching";
+import { copyText, inviteMessage } from "@/lib/inviteShare";
 import BookingBreakdown, { type PaymentSibling } from "@/components/admin/BookingBreakdown";
 import { BookingActions, type ActionableBooking, type BookingActionHandlers } from "@/components/admin/BookingActions";
 import { listNames, MAX_DANCERS, privateWord } from "@/lib/privateSession";
@@ -129,6 +130,8 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
     staffId: "", price: "", title: "",
   });
   const [saving, setSaving] = useState(false);
+  /** The invite whose email is being sent again right now. */
+  const [resending, setResending] = useState<string | null>(null);
 
   const fetchInvites = useCallback(async () => {
     const { data } = await (supabase as any).from("class_invites")
@@ -451,6 +454,78 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
     }
   };
 
+  /** The dates a link covers: the ones the studio named, or, for a
+   *  one-to-one, the whole run of its private class. */
+  const datesForInvite = useCallback((invite: InviteRow): string[] => (
+    invite.session_dates?.length ? [...invite.session_dates].sort() : (sessionDates[invite.class_id]?.dates ?? [])
+  ), [sessionDates]);
+
+  /**
+   * Resharing a link.
+   *
+   * Amie: "Kirsty messaged saying she can't now find the link to pay for
+   * that class. And I can't see how to re share it with her?" She couldn't —
+   * the message existed for one moment, on the clipboard, when the place was
+   * set up. Now it can be rebuilt word for word from the invite itself, so a
+   * parent who lost the WhatsApp gets the same message again, with the real
+   * address rather than one typed from memory.
+   */
+  const shareMessage = useCallback((invite: InviteRow): string => {
+    const dates = datesForInvite(invite);
+    const each = Number(invite.price) || 0;
+    return inviteMessage({
+      parentName: parentNames[invite.parent_id],
+      className: invite.classes?.name,
+      dates,
+      total: each > 0 ? each * Math.max(1, dates.length) : 0,
+    });
+  }, [datesForInvite, parentNames]);
+
+  const copyShare = async (invite: InviteRow) => {
+    const message = shareMessage(invite);
+    const copied = await copyText(message);
+    toast({
+      title: copied ? "Message copied — paste it to them" : "Couldn't copy it automatically",
+      // Shown either way: if the clipboard was refused, this is still the
+      // message, there to be selected by hand.
+      description: message,
+      duration: 12000,
+      ...(copied ? {} : { variant: "destructive" as const }),
+    });
+  };
+
+  const resendShare = async (invite: InviteRow) => {
+    setResending(invite.id);
+    const { data, error } = await supabase.functions.invoke<{
+      success?: boolean;
+      error?: string;
+      sentTo?: string;
+    }>("admin-book", {
+      body: { mode: "resend_invite", inviteId: invite.id },
+    });
+    setResending(null);
+    let message = data?.error || error?.message;
+    const ctx = (error as { context?: Response } | null)?.context;
+    if (ctx && typeof ctx.json === "function") {
+      try {
+        const b = await ctx.json();
+        if (b?.error) message = b.error;
+      } catch { /* keep generic */ }
+    }
+    if (error || !data?.success) {
+      toast({
+        title: "Couldn't send it again",
+        description: message || "Copy the message instead and send it to them yourself.",
+        variant: "destructive",
+      });
+      return;
+    }
+    toast({
+      title: "Emailed to them again",
+      description: `Sent to ${data.sentTo ?? "the email on their account"}.`,
+    });
+  };
+
   const statusFor = (invite: InviteRow): { label: string; className: string } => {
     const oneToOne = !!invite.classes?.invite_only;
     if (invite.status === "cancelled") return { label: "Cancelled", className: "bg-muted text-muted-foreground" };
@@ -585,9 +660,25 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
                 <Button size="sm" variant="outline" className="rounded-full" onClick={() => openEdit({ classId: invite.class_id, invites: [invite] })}>Edit</Button>
               )}
               {invite.status === "pending" && !paid && (
-                <Button size="sm" variant="outline" className="rounded-full" onClick={() => cancelInvite(invite)}>
-                  {oneToOne ? "Cancel invite" : "Cancel link"}
-                </Button>
+                <>
+                  {/* Sending it again is the common case, so it leads. */}
+                  <Button size="sm" className="rounded-full" onClick={() => copyShare(invite)}>
+                    <Copy className="mr-1.5 h-3.5 w-3.5" /> Copy message
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-full"
+                    disabled={resending === invite.id}
+                    onClick={() => resendShare(invite)}
+                  >
+                    <Mail className="mr-1.5 h-3.5 w-3.5" />
+                    {resending === invite.id ? "Sending…" : "Email it again"}
+                  </Button>
+                  <Button size="sm" variant="outline" className="rounded-full" onClick={() => cancelInvite(invite)}>
+                    {oneToOne ? "Cancel invite" : "Cancel link"}
+                  </Button>
+                </>
               )}
             </div>
           )}
@@ -818,6 +909,23 @@ const OneToOneTab = ({ actions, paymentSiblings, changeToken }: OneToOneTabProps
                           {parent?.email && <span className="text-muted-foreground"> · {parent.email}</span>}
                           {parent?.phone && <span className="text-muted-foreground"> · {parent.phone}</span>}
                         </p>
+                        {/* Chasing it is the reason this panel exists, so the
+                            two ways to chase are on the row itself. */}
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <Button size="sm" className="h-7 rounded-full px-3 text-xs" onClick={() => copyShare(invite)}>
+                            <Copy className="mr-1 h-3 w-3" /> Copy message
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 rounded-full px-3 text-xs"
+                            disabled={resending === invite.id}
+                            onClick={() => resendShare(invite)}
+                          >
+                            <Mail className="mr-1 h-3 w-3" />
+                            {resending === invite.id ? "Sending…" : "Email it again"}
+                          </Button>
+                        </div>
                       </div>
                     );
                   })}

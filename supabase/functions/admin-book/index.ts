@@ -191,9 +191,9 @@ serve(async (req) => {
 
       // Whose place: the dancer named on the pass, else the account holder's
       // own profile (passes are adult self-bookings), else whoever was chosen.
-      let attendee: { id: string } | null = student;
+      let attendee: { id: string; first_name?: string } | null = student;
       if (!attendee) {
-        let q = supabase.from("students").select("id").eq("parent_id", userId);
+        let q = supabase.from("students").select("id, first_name").eq("parent_id", userId);
         q = pass.student_id ? q.eq("id", pass.student_id) : q.eq("is_self", true);
         const { data: candidates } = await q.limit(1);
         attendee = candidates?.[0] ?? null;
@@ -216,15 +216,25 @@ serve(async (req) => {
 
       const { data: existing } = await supabase
         .from("bookings")
-        .select("id")
+        .select("id, notes, booking_type")
         .eq("class_id", classId)
         .eq("student_id", attendee.id)
         .in("status", ["confirmed", "pending_payment"])
         .ilike("notes", `%session ${sessionDate}%`)
         .limit(1);
       if (existing && existing.length > 0) {
+        // Say WHAT is already there. "They're already booked into that class
+        // on that date" is true and useless: Amie filmed herself being
+        // stopped by it with no way to see that Christina Clark was already
+        // on that register off an earlier pass.
+        const first = attendee.first_name || "They";
+        const how = /class pass/i.test(existing[0].notes ?? "")
+          ? "already on that register off another pass"
+          : existing[0].booking_type === "session" || existing[0].booking_type === "drop_in"
+            ? "already booked and paid for that date"
+            : "already on that date's register";
         return jsonResponse({
-          error: "They're already booked into that class on that date",
+          error: `${first} is ${how}, so there's nothing to take off this pass — their place is already held.`,
           code: "duplicate_booking",
         }, 409);
       }

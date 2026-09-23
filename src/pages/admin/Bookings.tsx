@@ -14,6 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { AlertCircle, CalendarDays, ChevronDown, Copy, MapPin, PauseCircle, Plus, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cardUpdateMessage, copyText } from "@/lib/inviteShare";
+import { bookedDateOf } from "@/lib/inviteMatching";
 import { passLabelOf, usePassCatalog } from "@/lib/passCatalog";
 import MoveMembershipDialog, { type MoveMembershipTarget } from "@/components/admin/MoveMembershipDialog";
 import MembershipAdjustDialog, { type AdjustableMembership } from "@/components/admin/MembershipAdjustDialog";
@@ -124,6 +125,12 @@ const ClassPassesTab = () => {
   const [recordDate, setRecordDate] = useState("");
   const [recordNote, setRecordNote] = useState("");
   const [recordSaving, setRecordSaving] = useState(false);
+  /** Dates this family is ALREADY on for the chosen class, and how they got
+   *  there. Amie filmed herself being told "they're already booked into that
+   *  class on that date" with no way to see what that meant — Christina Clark
+   *  was on the 23rd already, off an earlier pass. The dates are loaded with
+   *  the class so the answer is on screen before anything is pressed. */
+  const [recordBooked, setRecordBooked] = useState<Record<string, string>>({});
 
   const fetchPasses = async () => {
     const { data } = await supabase
@@ -152,6 +159,7 @@ const ClassPassesTab = () => {
     setRecordDates([]);
     setRecordDate("");
     setRecordNote("");
+    setRecordBooked({});
     if (adultClasses.length === 0) {
       // Passes only ever cover adult classes; a 1:1 slot is never one of them.
       const { data } = await supabase
@@ -178,6 +186,28 @@ const ClassPassesTab = () => {
       .lte("session_date", format(addDays(today, PASS_RECORD_LOOKAHEAD_DAYS), "yyyy-MM-dd"))
       .order("session_date", { ascending: false });
     setRecordDates(((data as any[]) ?? []) as { id: string; session_date: string }[]);
+
+    // What this family already holds on this class. A place they are already
+    // on cannot also come off a pass — and saying so here beats refusing it
+    // afterwards.
+    const { data: held } = await supabase
+      .from("bookings")
+      .select("status, notes, booking_type")
+      .eq("parent_id", recordFor?.user_id ?? "")
+      .eq("class_id", classId)
+      .in("status", ["confirmed", "pending_payment"]);
+    const already: Record<string, string> = {};
+    type HeldBooking = { notes: string | null; booking_type: string | null };
+    for (const b of ((held ?? []) as HeldBooking[])) {
+      const when = bookedDateOf(b.notes);
+      if (!when) continue;
+      already[when] = /class pass/i.test(b.notes ?? "")
+        ? "already on this register, off another pass"
+        : b.booking_type === "session" || b.booking_type === "drop_in"
+          ? "already booked and paid for"
+          : "already on this register";
+    }
+    setRecordBooked(already);
   };
 
   const saveRecord = async () => {
@@ -389,11 +419,21 @@ const ClassPassesTab = () => {
                       {recordDates.map((s) => (
                         <SelectItem key={s.id} value={s.session_date}>
                           {format(parseISO(s.session_date), "EEE d MMM yyyy")}
-                          {s.session_date < today ? " — already run" : ""}
+                          {recordBooked[s.session_date]
+                            ? " — already on"
+                            : s.session_date < today ? " — already run" : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                )}
+                {/* The answer to "why won't it let me?", before it is asked. */}
+                {recordDate && recordBooked[recordDate] && (
+                  <p className="rounded-lg border border-[hsl(var(--warning))]/40 bg-[hsl(var(--warning))]/10 p-3 text-sm">
+                    <strong>{recordFor?.profile?.full_name?.split(" ")[0] || "They"} is {recordBooked[recordDate]}</strong>{" "}
+                    for {format(parseISO(recordDate), "EEE d MMM")} — so there&#39;s nothing to take
+                    off this pass. Their place is already held and they&#39;ll be on the register.
+                  </p>
                 )}
               </div>
             )}
@@ -409,8 +449,13 @@ const ClassPassesTab = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRecordFor(null)} disabled={recordSaving}>Cancel</Button>
-            <Button onClick={() => void saveRecord()} disabled={recordSaving || !recordClassId || !recordDate}>
-              {recordSaving ? "Recording…" : "Take a class off the pass"}
+            <Button
+              onClick={() => void saveRecord()}
+              disabled={recordSaving || !recordClassId || !recordDate || !!recordBooked[recordDate]}
+            >
+              {recordSaving ? "Recording…"
+                : recordBooked[recordDate] ? "Already on that register"
+                : "Take a class off the pass"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1633,6 +1633,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          tracks_stock: boolean
           updated_at: string
         }
         Insert: {
@@ -1644,6 +1645,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          tracks_stock?: boolean
           updated_at?: string
         }
         Update: {
@@ -1655,6 +1657,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          tracks_stock?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -1665,6 +1668,7 @@ export type Database = {
           created_at: string
           file_path: string
           id: string
+          is_back: boolean
           is_primary: boolean
           item_id: string
           media_type: string
@@ -1677,6 +1681,7 @@ export type Database = {
           created_at?: string
           file_path: string
           id?: string
+          is_back?: boolean
           is_primary?: boolean
           item_id: string
           media_type?: string
@@ -1689,6 +1694,7 @@ export type Database = {
           created_at?: string
           file_path?: string
           id?: string
+          is_back?: boolean
           is_primary?: boolean
           item_id?: string
           media_type?: string
@@ -1699,6 +1705,41 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "merchandise_media_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "merchandise_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      merchandise_personalisation_options: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          item_id: string
+          placement: string
+          price: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          item_id: string
+          placement: string
+          price?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          item_id?: string
+          placement?: string
+          price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "merchandise_personalisation_options_item_id_fkey"
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "merchandise_items"

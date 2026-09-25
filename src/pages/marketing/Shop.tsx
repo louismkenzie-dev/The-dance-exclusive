@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { merchCategoryLabel, merchCategoryOrder } from "@/lib/merchCategories";
 import { frontMedia } from "@/lib/merchMedia";
+import { itemInStock, variantInStock } from "@/lib/merchStock";
 import { ProductImage, ProductFlipImage } from "@/components/shop/ProductImage";
 import { getMediaUrl } from "@/lib/merchMediaUrl";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,8 @@ type Product = {
   name: string;
   category: string;
   base_price: number;
+  /** False for print-to-order goods. Absent until the migration is applied, which reads as true. */
+  tracks_stock?: boolean | null;
   description: string | null;
   merchandise_media: Media[];
   merchandise_variants: Variant[];
@@ -64,7 +67,7 @@ const Shop = () => {
       const [{ data, error }, { data: sellingSetting }] = await Promise.all([
         supabase
           .from("merchandise_items")
-          .select("id, name, category, base_price, description, merchandise_media(file_path,is_primary,sort_order,position,zoom), merchandise_variants(id,size,stock_quantity,price_override,is_active)")
+          .select("id, name, category, base_price, description, tracks_stock, merchandise_media(file_path,is_primary,sort_order,position,zoom), merchandise_variants(id,size,stock_quantity,price_override,is_active)")
           .eq("is_active", true)
           .order("display_order", { ascending: true }),
         supabase
@@ -109,7 +112,7 @@ const Shop = () => {
 
   const openProduct = (p: Product) => {
     setSelected(p);
-    const firstInStock = p.merchandise_variants.find((v) => v.is_active && v.stock_quantity > 0);
+    const firstInStock = p.merchandise_variants.find((v) => variantInStock(p, v));
     setSize(firstInStock?.size ?? p.merchandise_variants[0]?.size ?? null);
     setQty(1);
   };
@@ -216,7 +219,7 @@ const Shop = () => {
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
               {shown.map((p, i) => {
-                const inStock = p.merchandise_variants.some((v) => v.is_active && v.stock_quantity > 0);
+                const inStock = itemInStock(p, p.merchandise_variants);
                 return (
                   <Reveal key={p.id} delay={(i % 4) * 70}>
                     <button
@@ -300,7 +303,7 @@ const Shop = () => {
                     <p className="mt-5 text-xs uppercase tracking-[0.18em] text-muted-foreground mb-2">Size</p>
                     <div className="flex flex-wrap gap-2">
                       {selected.merchandise_variants.filter((v) => v.is_active).map((v) => {
-                        const out = v.stock_quantity <= 0;
+                        const out = !variantInStock(selected, v);
                         return (
                           <button
                             key={v.id}

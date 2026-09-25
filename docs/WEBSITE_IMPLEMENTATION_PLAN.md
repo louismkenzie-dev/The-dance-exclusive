@@ -79,7 +79,7 @@ The proposal describes four phases over approximately one month. Dates should be
 ## Verification and remaining launch work
 
 - GitHub plugin access and authenticated GitHub CLI access were confirmed. Supabase plugin access was restored and used for read-only inspection.
-- The Vercel plugin returns 403 for the project. The authenticated Vercel CLI successfully deployed preview commit a487ad8 to the existing Nullshift project. The preview is READY at https://the-dance-exclusive-esxl2lplj-nullshift.vercel.app. No production deployment was made.
+- The Vercel plugin returns 403 for the project. The authenticated Vercel CLI successfully deployed the initial public site and the subsequent branding revision to the existing Nullshift project. The latest preview, commit ebed3ba, is READY at https://the-dance-exclusive-40gcpu16j-nullshift.vercel.app. No production deployment was made.
 - Final local checks: TypeScript, changed-component lint and client/server production builds passed; 35 test files and 294 tests passed. All eight legacy redirects returned the expected 308 destinations. The initial HTML included the correct content and metadata for each new editorial page; the sitemap contained 80 current URLs before coach publication.
 - Local production browser checks confirmed both child and adult class-page to booking to sign-up handoffs retain the selected class. The child flow was also verified on the real Vercel preview. The public and booking prices matched. Desktop homepage and mobile contact-page axe checks reported no WCAG A/AA violations; keyboard navigation, reduced motion and mobile overflow were checked. The contact page exposes real mail and phone links and has no false-success form.
 - Authenticated parent/adult checkout and payment completion have NOT been verified. No accounts, customer records, bookings, payments, emails or production data have been created as tests.
@@ -97,3 +97,12 @@ Preview deployment: dpl_2YW4viBdfqPJrM85wBCFoTg58EVL, code commit a487ad8. Verif
 - Child booking offered the same £91 term price and ten sessions as its public detail page. Its sign-up URL retained the selected class. No user account or booking was created.
 
 Outstanding: design/editorial review, staging publication-edit tests, authenticated checkout/payment outcomes, the launch-only coach migration and the authorised production/domain transition.
+
+## Branding revision — 25 September 2026
+
+The user requested the original blue and pink and a closer relationship to the existing booking UI. The updated preview at https://the-dance-exclusive-40gcpu16j-nullshift.vercel.app implements both requests (commit ebed3ba).
+
+- Original blue/pink colours, unchanged logo artwork, Inter headings in sentence case, familiar light navigation, warm off-white backgrounds, rounded white cards and pill buttons.
+- Large photography, performance videos, bounded scroll parallax and moving display lettering remain. Booking data, prices, navigation destinations and the pending coach migration are unchanged.
+- TypeScript, changed-component lint and the production build pass. Desktop homepage and class-detail accessibility scans report no WCAG A/AA violations. Mobile homepage and class-list checks show no horizontal overflow.
+- The deployed preview returns server-rendered HTML and the expected blue/pink colours, Inter font and rounded controls. Desktop/mobile browser checks report no runtime errors, and the hero video plays.

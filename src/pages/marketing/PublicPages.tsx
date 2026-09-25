@@ -34,9 +34,9 @@ export default function PublicPages() {
         <div className="tde-page-top">
           <span className="tde-eyebrow">{label}</span>
           <h1>
-            FIND YOUR
+            Find your
             <br />
-            NEXT MOVE.
+            next move.
           </h1>
           <p role="status">Loading {label.toLowerCase()}…</p>
         </div>
@@ -46,9 +46,9 @@ export default function PublicPages() {
     return (
       <div className="tde-directory tde-paper">
         <h1>
-          LET'S TRY
+          Let's try
           <br />
-          THAT AGAIN.
+          that again.
         </h1>
         <p>We couldn't load the latest {label.toLowerCase()}.</p>
         <button
@@ -118,9 +118,9 @@ export default function PublicPages() {
           </div>
           <div className="tde-profile-information">
             <h2>
-              YOUR LOCAL
+              Your local
               <br />
-              DANCE FLOOR.
+              dance floor.
             </h2>
             <p className="tde-prose">{venue.description}</p>
             <dl>
@@ -158,9 +158,9 @@ export default function PublicPages() {
         <section className="tde-related">
           <div className="tde-section-heading">
             <h2>
-              ON THE
+              On the
               <br />
-              <em>TIMETABLE.</em>
+              <em>timetable.</em>
             </h2>
             <p>
               Times, prices and your next class.
@@ -230,7 +230,7 @@ export default function PublicPages() {
         <section className="tde-related">
           <div className="tde-section-heading">
             <h2>
-              MOVE WITH
+              Move with
               <br />
               <em>{coach.first_name}.</em>
             </h2>
@@ -341,21 +341,21 @@ export default function PublicPages() {
         <h1>
           {isVenue ? (
             <>
-              BIG ENERGY.
+              Big energy.
               <br />
-              <em>LOCAL ROOTS.</em>
+              <em>Local roots.</em>
             </>
           ) : isCoach ? (
             <>
-              YOUR PEOPLE.
+              Your people.
               <br />
-              <em>YOUR HYPE TEAM.</em>
+              <em>Your hype team.</em>
             </>
           ) : (
             <>
-              MORE REASONS
+              More reasons
               <br />
-              <em>TO MOVE.</em>
+              <em>to move.</em>
             </>
           )}
         </h1>
@@ -461,9 +461,9 @@ function Missing({ back, label }: { back: string; label: string }) {
       <div className="tde-page-top">
         <span className="tde-eyebrow">THE DANCE EXCLUSIVE</span>
         <h1>
-          LET'S FIND YOUR
+          Let's find your
           <br />
-          NEXT MOVE.
+          next move.
         </h1>
         <p>This {label} is no longer publicly available.</p>
         <Link className="tde-button tde-button-dark" to={back}>

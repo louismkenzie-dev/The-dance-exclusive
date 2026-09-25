@@ -65,9 +65,9 @@ export default function Index() {
         </div>
         <div className="tde-hero-content">
           <h1 id="hero-title">
-            STEP IN.
+            Step in.
             <br />
-            <span>STAND OUT.</span>
+            <span>Stand out.</span>
           </h1>
           <div className="tde-hero-bottom">
             <p>
@@ -117,7 +117,7 @@ export default function Index() {
 
       <section className="tde-intro tde-paper" id="the-feeling">
         <div className="tde-section-note">
-          <span>01 / MORE THAN MOVEMENT</span>
+          <span>01 / More than movement</span>
           <span>THIS IS THE DANCE EXCLUSIVE</span>
         </div>
         <div className="tde-intro-grid">
@@ -128,21 +128,21 @@ export default function Index() {
               active={move}
             />
             <span className="tde-image-stamp">
-              FIND YOUR
+              Find your
               <br />
-              PEOPLE.
+              people.
             </span>
           </div>
           <div className="tde-intro-copy">
             <h2>
-              COME FOR
+              Come for
               <br />
-              THE DANCE.
+              the dance.
               <br />
               <span>
-                STAY FOR
+                Stay for
                 <br />
-                THE FEELING.
+                the feeling.
               </span>
             </h2>
             <p>
@@ -207,9 +207,9 @@ export default function Index() {
         </div>
         <div className="tde-section-heading">
           <h2>
-            FIND YOUR
+            Find your
             <br />
-            <em>FREQUENCY.</em>
+            <em>frequency.</em>
           </h2>
           <p>
             A first class. A fresh challenge.
@@ -221,14 +221,14 @@ export default function Index() {
           {[
             {
               type: "children",
-              title: "THE NEXT\nGENERATION.",
+              title: "The next\ngeneration.",
               sub: "Children's classes",
               image: "/img/kids-energy.jpg",
               copy: "Big energy. Growing confidence. A place to be themselves.",
             },
             {
               type: "adult",
-              title: "YOUR TIME.\nYOUR ENERGY.",
+              title: "Your time.\nYour energy.",
               sub: "Adult classes",
               image: "/img/adult-heels.jpg",
               copy: "Switch off the day. Turn up the music. Make your move.",
@@ -270,7 +270,7 @@ export default function Index() {
           ))}
         </div>
         <div className="tde-class-list-heading">
-          <span className="tde-eyebrow">ON THE TIMETABLE</span>
+          <span className="tde-eyebrow">On the TIMETABLE</span>
           <Link to="/classes?type=children" className="tde-text-link">
             Explore classes <ArrowUpRight size={17} aria-hidden />
           </Link>
@@ -325,8 +325,8 @@ export default function Index() {
 
       <section className="tde-film-section">
         <div className="tde-section-note">
-          <span>03 / FEEL THE ROOM</span>
-          <span>REAL PEOPLE. ALL ENERGY.</span>
+          <span>03 / Feel the ROOM</span>
+          <span>REAL people. ALL energy.</span>
         </div>
         <div className="tde-film-stage">
           <div className="tde-film-type" aria-hidden="true">
@@ -345,9 +345,9 @@ export default function Index() {
         </div>
         <div className="tde-film-bottom">
           <h2>
-            THERE'S SOMETHING
+            There's something
             <br />
-            ABOUT THIS PLACE.
+            about this place.
           </h2>
           <div>
             <p>
@@ -369,9 +369,9 @@ export default function Index() {
         <div className="tde-venues-grid">
           <div>
             <h2>
-              BIG ENERGY.
+              Big energy.
               <br />
-              <em>LOCAL ROOTS.</em>
+              <em>Local roots.</em>
             </h2>
             <p>
               Your next class could be closer than you think. Find your local
@@ -423,9 +423,9 @@ export default function Index() {
           </div>
           <div className="tde-section-heading">
             <h2>
-              GOOD PEOPLE.
+              GOOD people.
               <br />
-              <em>GREAT MOVES.</em>
+              <em>Great moves.</em>
             </h2>
             <Link to="/team" className="tde-text-link">
               Meet the whole team <ArrowUpRight size={20} aria-hidden />
@@ -472,9 +472,9 @@ export default function Index() {
           </div>
           <div className="tde-section-heading">
             <h2>
-              MORE REASONS
+              More reasons
               <br />
-              <em>TO MOVE.</em>
+              <em>to move.</em>
             </h2>
             <Link to="/events" className="tde-text-link">
               What's coming up <ArrowUpRight size={20} aria-hidden />

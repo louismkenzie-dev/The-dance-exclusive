@@ -45,7 +45,7 @@ export function PublicSiteShell({ children }: { children: ReactNode }) {
           className="tde-brand"
           aria-label="The Dance Exclusive home"
         >
-          <BrandLogo tone="white" className="h-12" />
+          <BrandLogo tone="ink" className="h-11" />
         </Link>
         <div className="tde-header-right">
           <Link
@@ -105,9 +105,9 @@ export function PublicSiteShell({ children }: { children: ReactNode }) {
           </a>
         </div>
         <Link to="/classes" className="tde-footer-title">
-          SEE YOU ON
+          See you on
           <br />
-          THE FLOOR.
+          the floor.
           <ArrowUpRight aria-hidden />
         </Link>
         <div className="tde-footer-links">

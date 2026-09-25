@@ -32,7 +32,7 @@ export default function PublicClassPage() {
   if (isError)
     return (
       <div className="tde-directory tde-paper">
-        <h1>LET'S TRY AGAIN.</h1>
+        <h1>Let's try again.</h1>
         <p>We couldn't load the latest class details.</p>
         <button
           className="tde-button tde-button-dark"
@@ -52,9 +52,9 @@ export default function PublicClassPage() {
           noindex
         />
         <h1>
-          YOUR NEXT MOVE
+          Your next move
           <br />
-          IS STILL OUT THERE.
+          is still out there.
         </h1>
         <p>This class is no longer publicly available.</p>
         <Link className="tde-text-link" to="/classes?type=children">
@@ -143,9 +143,9 @@ export default function PublicClassPage() {
       <div className="tde-class-detail-grid">
         <div className="tde-class-story">
           <h2>
-            MAKE YOUR
+            Make your
             <br />
-            <em>NEXT MOVE.</em>
+            <em>next move.</em>
           </h2>
           <p className="tde-prose">
             {cls.description ||
@@ -185,7 +185,7 @@ export default function PublicClassPage() {
           </dl>
           {cls.sessions.length > 0 && (
             <section className="tde-session-dates">
-              <h3>YOUR NEXT SESSIONS</h3>
+              <h3>Your next sessions</h3>
               <ul>
                 {cls.sessions.slice(0, 6).map((session) => (
                   <li key={session.id}>
@@ -211,7 +211,7 @@ export default function PublicClassPage() {
           className="tde-booking-card"
           aria-label="Class prices and booking"
         >
-          <span className="tde-eyebrow">YOUR PLACE ON THE FLOOR</span>
+          <span className="tde-eyebrow">Your place on the floor</span>
           <p className="tde-detail-price">
             {price.priceLabel}
             <span>{price.priceHint}</span>

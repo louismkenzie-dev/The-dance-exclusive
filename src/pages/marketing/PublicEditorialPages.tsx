@@ -70,7 +70,7 @@ export default function PublicEditorialPages() {
   const contact = school?.contact ?? defaultPublicContact;
 
   if (pathname === "/contact") return (
-    <EditorialPage title="Get in touch" eyebrow="Start a conversation" heading={<>LET'S<br /><em>TALK DANCE.</em></>}
+    <EditorialPage title="Get in touch" eyebrow="Start a conversation" heading={<>Let's<br /><em>talk dance.</em></>}
       description="A first class, a new challenge or something you have in mind. Get in touch with The Dance Exclusive team.">
       <div className="tde-editorial-split">
         <div className="tde-contact-links">
@@ -82,7 +82,7 @@ export default function PublicEditorialPages() {
           </div>
         </div>
         <div className="tde-editorial-copy">
-          <h2>YOUR NEXT<br />MOVE STARTS HERE.</h2>
+          <h2>Your next<br />move starts here.</h2>
           <p>Looking for a class? Tell us the dancer's age, their experience and the area that works for you. We can help you find a place to start.</p>
           <TextLink to="/classes">Browse current classes</TextLink>
           <TextLink to="/parties">Plan a dance party</TextLink>
@@ -93,13 +93,13 @@ export default function PublicEditorialPages() {
   );
 
   if (pathname === "/about") return (
-    <EditorialPage title="Our school" eyebrow="The Dance Exclusive · Essex" heading={<>MORE THAN<br /><em>THE MOVES.</em></>}
+    <EditorialPage title="Our school" eyebrow="The Dance Exclusive · Essex" heading={<>More than<br /><em>the moves.</em></>}
       description="Commercial and street dance. Confidence, creativity and a place to belong. This is The Dance Exclusive.">
       <div className="tde-editorial-split">
         <MotionMedia className="tde-editorial-photo" image="/media/tde-community.jpg" alt="The Dance Exclusive dancers together at a performance" />
         <div className="tde-editorial-copy">
           <span className="tde-eyebrow">Our school. Your people.</span>
-          <h2>COME AS YOU ARE.<br />GROW FROM HERE.</h2>
+          <h2>Come as you are.<br />Grow from here.</h2>
           <p>Led by founder and principal Amie Whitaker, The Dance Exclusive brings commercial and street dance to children, adults and schools across Essex.</p>
           <p>Our classes make room for self-expression, teamwork and the confidence that comes from trying something new. From your first steps to performing with a crew, there is more than one way to find your movement.</p>
           <TextLink to="/classes">Find your class</TextLink>
@@ -115,11 +115,11 @@ export default function PublicEditorialPages() {
   );
 
   if (pathname === "/schools") return (
-    <EditorialPage title="Dance in schools" eyebrow="For schools & educators" heading={<>MOVE THE<br /><em>WHOLE SCHOOL.</em></>}
+    <EditorialPage title="Dance in schools" eyebrow="For schools & educators" heading={<>Move the<br /><em>whole school.</em></>}
       description="Dance sessions that bring energy, creativity and teamwork into the school day. Across Essex, for different ages and abilities.">
       <div className="tde-editorial-split">
         <div className="tde-editorial-copy">
-          <h2>MAKE ROOM<br />FOR MOVEMENT.</h2>
+          <h2>Make room<br />for movement.</h2>
           <p>Build dance into your PE programme, enrichment activities or a special event. We work with schools on one-off visits and ongoing sessions, shaped around their pupils and timetable.</p>
           <p>Tell us what you are planning and we can discuss a programme for your school.</p>
           <a className="tde-button tde-button-dark" href={`mailto:${contact.email}?subject=School%20dance%20enquiry`}>Let's plan it <ArrowUpRight size={18} aria-hidden /></a>
@@ -138,12 +138,12 @@ export default function PublicEditorialPages() {
   );
 
   if (pathname === "/results") return (
-    <EditorialPage title="Competition teams & achievements" eyebrow="Take it to the stage" heading={<>ALL THE WORK.<br /><em>ALL THE FEELING.</em></>}
+    <EditorialPage title="Competition teams & achievements" eyebrow="Take it to the stage" heading={<>All the work.<br /><em>ALL the feeling.</em></>}
       description="Training together. Performing together. Our competition teams give existing dancers a way to take their commitment further.">
       <div className="tde-editorial-split">
         <MotionMedia className="tde-editorial-photo" image="/media/tde-school.jpg" alt="The Dance Exclusive team at a dance event" />
         <div className="tde-editorial-copy">
-          <h2>MOMENTS<br />TO REMEMBER.</h2>
+          <h2>Moments<br />to remember.</h2>
           <ul className="tde-awards-list">
             <li><span>2025</span><strong>U14 Beginner Crew National Champions</strong></li>
             <li><span>2025</span><strong>National Entertainment Awards SEEA · Best U10 Soloist</strong></li>
@@ -158,7 +158,7 @@ export default function PublicEditorialPages() {
   );
 
   if (pathname === "/gallery") return (
-    <EditorialPage title="Life at The Dance Exclusive" eyebrow="In the moment" heading={<>FEEL THE<br /><em>ENERGY.</em></>}
+    <EditorialPage title="Life at The Dance Exclusive" eyebrow="In the moment" heading={<>Feel the<br /><em>energy.</em></>}
       description="A glimpse of the people, performances and shared moments that make The Dance Exclusive.">
       <figure className="tde-gallery-film">
         <video controls playsInline muted preload="none" poster="/media/tde-film-poster.jpg" aria-label="The Dance Exclusive group dance performance, silent film">
@@ -175,7 +175,7 @@ export default function PublicEditorialPages() {
   );
 
   return (
-    <EditorialPage title="Useful information for dancers & parents" eyebrow="Before you join us" heading={<>READY FOR<br /><em>YOUR FIRST MOVE?</em></>}
+    <EditorialPage title="Useful information for dancers & parents" eyebrow="Before you join us" heading={<>Ready for<br /><em>your first move?</em></>}
       description="A few useful starting points for dancers and parents. Everything you need to find your class and feel prepared.">
       <div className="tde-information-grid">
         {information.map((item, index) => <section key={item.title}><span className="tde-eyebrow">0{index + 1}</span><h2>{item.title}</h2><p>{item.copy}</p><TextLink to={item.to}>{item.label}</TextLink></section>)}

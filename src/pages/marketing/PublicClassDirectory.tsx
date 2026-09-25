@@ -60,9 +60,9 @@ export default function PublicClassDirectory() {
       <div className="tde-page-top">
         <span className="tde-eyebrow">YOUR FLOOR IS WAITING</span>
         <h1>
-          FIND YOUR
+          Find your
           <br />
-          <em>FREQUENCY.</em>
+          <em>frequency.</em>
         </h1>
         <p>
           A first class. A fresh challenge. Your next crew. Find the class that

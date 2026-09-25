@@ -32,13 +32,13 @@ The proposal's counts of classes, venues, coaches, sessions and camps are a Sept
 
 References: `CROWNE Shopify Landing Page.webp` and `Supplement Website Landing Page.webp`, supplied from the user's Downloads folder and visually inspected.
 
-The user wants an immersive, premium, sharp and modern club feel, with scroll parallax, moving elements, plentiful imagery and video. The existing logo and original blue/pink palette must remain. Typography, layout and the wider visual system may evolve beyond the booking platform's original design.
+The user wants an immersive, premium, sharp and modern club feel, with scroll parallax, moving elements, plentiful imagery and video. The existing logo and original blue/pink palette must remain. The public site must also feel like the existing booking UI: use its Inter typography, rounded surfaces, pill controls and familiar navigation while preserving immersive photography, video and scroll motion.
 
 The references inform oversized typography, large photographic compositions, image/text layering, fine grid rules, contrast between dark and light sections, and smaller editorial image arrangements. Motion should create depth while preserving readable content, ordinary scrolling, keyboard access and a reduced-motion experience.
 
 ## Implementation delivered
 
-- Original logo retained. Original blue and pink accents with ink and neutral paper backgrounds, oversized condensed type, real school photography and silent performance footage, bounded parallax, moving type and responsive public navigation.
+- Original logo retained. Original blue and pink accents, booking-style warm backgrounds, Inter headings, rounded cards and pill controls, with oversized display lettering reserved for motion graphics, real school photography and silent performance footage, bounded parallax, moving type and responsive public navigation.
 - Live class directory with audience, day, venue and text filters. Individual class, venue, coach and event templates share one explicitly limited public data loader.
 - Class prices reuse booking presentation helpers. Enrolment counts use the existing aggregate RPC; unavailable counts never imply that spaces exist.
 - Class and event expiry uses the school's Europe/London date. Current published records determine public routes and the sitemap.

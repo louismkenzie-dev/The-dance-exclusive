@@ -1,6 +1,6 @@
 # The Dance Exclusive website implementation plan
 
-Status: public website implemented locally; preview and browser verification in progress. Production and the live coach migration remain unchanged.
+Status: public website implemented and verified on a Vercel preview, ready for design review. Production and the live coach migration remain unchanged.
 
 Source: `The-Dance-Exclusive-Website-Proposal-2.pdf`, supplied by the user, all six pages reviewed. Code baseline inspected: `99614da`, 25 September 2026. Existing behaviour below is established from source inspection, not a live end-to-end verification.
 
@@ -79,8 +79,21 @@ The proposal describes four phases over approximately one month. Dates should be
 ## Verification and remaining launch work
 
 - GitHub plugin access and authenticated GitHub CLI access were confirmed. Supabase plugin access was restored and used for read-only inspection.
-- The Vercel plugin returns 403 for the project. The authenticated Vercel CLI can inspect and link the existing Nullshift project. The initial preview was blocked because the previous repository HEAD was bot-authored; a new implementation commit under the existing verified Git identity is being prepared.
+- The Vercel plugin returns 403 for the project. The authenticated Vercel CLI successfully deployed preview commit a487ad8 to the existing Nullshift project. The preview is READY at https://the-dance-exclusive-esxl2lplj-nullshift.vercel.app. No production deployment was made.
 - Final local checks: TypeScript, changed-component lint and client/server production builds passed; 35 test files and 294 tests passed. All eight legacy redirects returned the expected 308 destinations. The initial HTML included the correct content and metadata for each new editorial page; the sitemap contained 80 current URLs before coach publication.
-- Local production browser checks confirmed the child-class page to booking to sign-up handoff retains the selected class. The public and booking prices matched. Desktop homepage and mobile contact-page axe checks reported no WCAG A/AA violations; keyboard navigation, reduced motion and mobile overflow were checked. The contact page exposes real mail and phone links and has no false-success form.
+- Local production browser checks confirmed both child and adult class-page to booking to sign-up handoffs retain the selected class. The child flow was also verified on the real Vercel preview. The public and booking prices matched. Desktop homepage and mobile contact-page axe checks reported no WCAG A/AA violations; keyboard navigation, reduced motion and mobile overflow were checked. The contact page exposes real mail and phone links and has no false-success form.
 - Authenticated parent/adult checkout and payment completion have NOT been verified. No accounts, customer records, bookings, payments, emails or production data have been created as tests.
 - Production deployment, domain cutover, coach migration, Wix retirement and final editorial approval are pending. See WEBSITE_LAUNCH.md for the launch sequence and rollback details.
+
+## Deployed preview evidence — 25 September 2026
+
+Preview deployment: dpl_2YW4viBdfqPJrM85wBCFoTg58EVL, code commit a487ad8. Verified through Vercel's authenticated preview access; protection remains enabled.
+
+- Desktop 1440px and mobile 390px: original logo, homepage layout, video playback, responsive typography and no horizontal overflow. No browser runtime errors observed.
+- Mobile homepage axe scan: zero violations for WCAG 2 A/AA, 2.1 AA and 2.2 AA tags. This automated result is not a claim of a complete accessibility audit.
+- Hero video pauses off screen; native scrolling reaches the document end. A fresh reduced-motion browser received no video elements and made no MP4 requests.
+- Real HTTP checks passed for homepage, class, venue, event, schools and contact pages, current sitemap, scripts, stylesheet, image and video. Entity pages contain their record-specific content and metadata in initial HTML.
+- Unknown venue returned 404/noindex. Sign-in and booking HTML returned private/no-store. Preview responses have X-Robots-Tag noindex. The adult Wix redirect preserved its incoming tracking query and selected the adult directory.
+- Child booking offered the same £91 term price and ten sessions as its public detail page. Its sign-up URL retained the selected class. No user account or booking was created.
+
+Outstanding: design/editorial review, staging publication-edit tests, authenticated checkout/payment outcomes, the launch-only coach migration and the authorised production/domain transition.

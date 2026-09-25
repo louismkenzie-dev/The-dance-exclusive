@@ -1,4 +1,4 @@
-tmp
-docs
-supabase
+/tmp/
+/docs/
+/supabase/
 .env*

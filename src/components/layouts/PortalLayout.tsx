@@ -19,10 +19,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { PublicSiteShell } from "@/components/marketing/PublicSiteShell";
 
 /** Pages that belong to the brand site rather than the booking product. */
 const MARKETING_PATHS = new Set([
-  "/", "/about", "/team", "/results", "/gallery", "/venues", "/parties", "/info", "/contact", "/shop",
+  "/", "/about", "/schools", "/team", "/results", "/gallery", "/venues", "/parties", "/info", "/contact", "/shop",
 ]);
 
 /** Brand-site pages, in the order the menus list them. */
@@ -73,9 +74,9 @@ const PortalLayout = () => {
   // The marketing site keeps its dark stage-light look; everything a family
   // does — browse, book, pay, manage — is one light product, unless they are
   // an adult dancer, whose whole journey stays in the after-dark theme.
-  const isMarketing = MARKETING_PATHS.has(pathname);
+  const isMarketing = MARKETING_PATHS.has(pathname) || pathname.startsWith("/venues/") || pathname.startsWith("/team/") || pathname === "/events" || pathname.startsWith("/events/") || pathname === "/classes" || /^\/classes\/(children|adult)\/[^/]+$/.test(pathname);
   const isAdultDancer = customerType === "adult_dancer";
-  const themeClass = isAdultSection
+  const themeClass = isMarketing ? "" : isAdultSection
     ? "theme-adult"
     : isChildrenSection
       ? "theme-children"
@@ -141,6 +142,10 @@ const PortalLayout = () => {
     : "block px-3 py-2.5 rounded-md hover:bg-accent text-sm font-semibold uppercase tracking-wider";
   const menuActive = (to: string) => (j && pathname === to ? "bg-muted" : "");
   const menuIcon = (Icon: typeof User) => (j ? null : <Icon className="w-4 h-4" />);
+
+  if (isMarketing) {
+    return <PublicSiteShell><Outlet /><CartDrawer /><AttendeeOnboarding /></PublicSiteShell>;
+  }
 
   return (
     <div className={`min-h-screen bg-background ${isFocusRoute ? "" : "pb-16 md:pb-0"} ${themeClass} ${isBookingJourney ? "portal-ui" : ""}`}>

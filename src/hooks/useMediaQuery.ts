@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 /**
  * Reactive media query with a synchronous first value, so a component can
@@ -6,18 +6,12 @@ import { useEffect, useState } from "react";
  * rather than flashing the wrong one.
  */
 export function useMediaQuery(query: string): boolean {
-  const get = () => (typeof window !== "undefined" ? window.matchMedia(query).matches : false);
-  const [matches, setMatches] = useState<boolean>(get);
-
-  useEffect(() => {
+  const subscribe = useCallback((update: () => void) => {
     const mq = window.matchMedia(query);
-    const update = () => setMatches(mq.matches);
-    update();
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
   }, [query]);
-
-  return matches;
+  return useSyncExternalStore(subscribe, () => window.matchMedia(query).matches, () => false);
 }
 
 /** Below Tailwind's md breakpoint: a phone, or a very narrow window. */

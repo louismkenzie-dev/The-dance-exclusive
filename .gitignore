@@ -31,3 +31,8 @@ supabase/.branches
 *.njsproj
 *.sln
 *.sw?
+
+# Website build and local review artifacts
+/tmp/
+.vercel/
+.vercel

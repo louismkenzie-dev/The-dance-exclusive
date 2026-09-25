@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation, useNavigationType } from "react-router-dom";
 
 /**
@@ -8,14 +8,18 @@ import { useLocation, useNavigationType } from "react-router-dom";
  * position so returning to a long list doesn't lose your place.
  */
 const ScrollToTop = () => {
-  const { pathname } = useLocation();
+  const { pathname, key } = useLocation();
+  const previousPath = useRef(pathname);
   const navigationType = useNavigationType();
 
   useEffect(() => {
-    if (navigationType !== "POP") {
+    // A navigation link may change only an audience query parameter. Filters
+    // use REPLACE and keep the reader by the controls; links use PUSH.
+    if (navigationType !== "POP" && (navigationType === "PUSH" || previousPath.current !== pathname)) {
       window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior });
     }
-  }, [pathname, navigationType]);
+    previousPath.current = pathname;
+  }, [pathname, key, navigationType]);
 
   return null;
 };

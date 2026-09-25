@@ -1,5 +1,25 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/render.js": {
+      "includeFiles": "{dist/app.html,dist-ssr/**}",
+      "maxDuration": 30
+    }
+  },
+  "redirects": [
+    { "source": "/about-us", "destination": "/about", "permanent": true },
+    { "source": "/adult-dance-classes", "destination": "/classes?type=adult", "permanent": true },
+    { "source": "/kids-dance-classes", "destination": "/classes?type=children", "permanent": true },
+    { "source": "/dance-classes", "destination": "/classes", "permanent": true },
+    { "source": "/dance-workshops", "destination": "/events", "permanent": true },
+    { "source": "/kids-dance-parties", "destination": "/parties", "permanent": true },
+    { "source": "/dance-competitions", "destination": "/results", "permanent": true },
+    { "source": "/uniform", "destination": "/shop", "permanent": true }
+  ],
   "rewrites": [
-    { "source": "/((?!assets/|img/|merch/|favicon.ico|robots.txt|sitemap.xml|llms.txt|placeholder.svg).*)", "destination": "/index.html" }
+    { "source": "/", "destination": "/api/render?path=/" },
+    { "source": "/:path*", "destination": "/api/render?path=/:path*" }
   ]
 }

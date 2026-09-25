@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, type ComponentType, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,23 +9,27 @@ import { CartProvider } from "@/contexts/CartContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import ScrollToTop from "@/components/ScrollToTop";
 import PortalLayout from "@/components/layouts/PortalLayout";
-import AdminLayout from "@/components/layouts/AdminLayout";
-import AdminClassSession from "@/pages/admin/ClassSession";
-import StaffLayout from "@/components/layouts/StaffLayout";
+import { DefaultPageMeta } from "@/components/marketing/PageMeta";
 
-// The booking journey stays in the main bundle: a parent on a phone gets the
-// landing page, class browser and checkout without any further downloads.
+// Public discovery loads first. Account, checkout and administration load
+// when needed, keeping the image-led front page light on mobile.
 import Index from "./pages/Index";
-import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
-import ResetPassword from "./pages/ResetPassword";
-import ClassBrowser from "./pages/portal/ClassBrowser";
-import Timetable from "./pages/portal/Timetable";
-import BookClass from "./pages/portal/BookClass";
-import Account from "./pages/portal/Account";
-import MyBookings from "./pages/portal/MyBookings";
-import Checkout from "./pages/portal/Checkout";
-import CheckoutReturn from "./pages/portal/CheckoutReturn";
+import PublicPages from "./pages/marketing/PublicPages";
+import PublicClassPage from "./pages/marketing/PublicClassPage";
+import PublicClassDirectory from "./pages/marketing/PublicClassDirectory";
+const Auth = lazy(() => import("./pages/Auth"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const ClassBrowser = lazy(() => import("./pages/portal/ClassBrowser"));
+const Timetable = lazy(() => import("./pages/portal/Timetable"));
+const BookClass = lazy(() => import("./pages/portal/BookClass"));
+const Account = lazy(() => import("./pages/portal/Account"));
+const MyBookings = lazy(() => import("./pages/portal/MyBookings"));
+const Checkout = lazy(() => import("./pages/portal/Checkout"));
+const CheckoutReturn = lazy(() => import("./pages/portal/CheckoutReturn"));
+const AdminLayout = lazy(() => import("./components/layouts/AdminLayout"));
+const AdminClassSession = lazy(() => import("./pages/admin/ClassSession"));
+const StaffLayout = lazy(() => import("./components/layouts/StaffLayout"));
 
 // Everything else loads on demand, so parents never download the admin or
 // staff areas at all — a large cut to the bundle phones fetch on 4G.
@@ -60,18 +64,12 @@ const StaffDocuments = lazy(() => import("./pages/staff/Documents"));
 const StaffProfile = lazy(() => import("./pages/staff/Profile"));
 
 // Marketing pages
-const About = lazy(() => import("./pages/marketing/About"));
-const Team = lazy(() => import("./pages/marketing/Team"));
-const Results = lazy(() => import("./pages/marketing/Results"));
-const Gallery = lazy(() => import("./pages/marketing/Gallery"));
-const Venues = lazy(() => import("./pages/marketing/Venues"));
-const ParentInfo = lazy(() => import("./pages/marketing/ParentInfo"));
+const PublicEditorialPages = lazy(() => import("./pages/marketing/PublicEditorialPages"));
 const TermDates = lazy(() => import("./pages/portal/TermDates"));
-const Contact = lazy(() => import("./pages/marketing/Contact"));
 const Shop = lazy(() => import("./pages/marketing/Shop"));
 const Parties = lazy(() => import("./pages/marketing/Parties"));
 
-const queryClient = new QueryClient();
+const defaultQueryClient = new QueryClient();
 
 const PageLoading = () => (
   <div className="min-h-[50vh] flex items-center justify-center">
@@ -79,12 +77,13 @@ const PageLoading = () => (
   </div>
 );
 
-const App = () => (
+const App = ({ queryClient = defaultQueryClient, Router = BrowserRouter }: { queryClient?: QueryClient; Router?: ComponentType<{ children: ReactNode }> }) => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <Router>
+        <DefaultPageMeta />
         <ScrollToTop />
         <AuthProvider>
           <CartProvider>
@@ -131,16 +130,23 @@ const App = () => (
             {/* Parent portal routes */}
             <Route element={<PortalLayout />}>
               <Route path="/" element={<Index />} />
+              <Route path="/classes" element={<PublicClassDirectory />} />
+              <Route path="/classes/:type/:classId" element={<PublicClassPage />} />
               {/* Marketing */}
-              <Route path="/about" element={<About />} />
-              <Route path="/team" element={<Team />} />
-              <Route path="/results" element={<Results />} />
-              <Route path="/gallery" element={<Gallery />} />
-              <Route path="/venues" element={<Venues />} />
+              <Route path="/about" element={<PublicEditorialPages />} />
+              <Route path="/schools" element={<PublicEditorialPages />} />
+              <Route path="/team" element={<PublicPages />} />
+              <Route path="/team/:coachId" element={<PublicPages />} />
+              <Route path="/results" element={<PublicEditorialPages />} />
+              <Route path="/gallery" element={<PublicEditorialPages />} />
+              <Route path="/venues" element={<PublicPages />} />
+              <Route path="/venues/:venueSlug" element={<PublicPages />} />
+              <Route path="/events" element={<PublicPages />} />
+              <Route path="/events/:eventId" element={<PublicPages />} />
               <Route path="/parties" element={<Parties />} />
-              <Route path="/info" element={<ParentInfo />} />
+              <Route path="/info" element={<PublicEditorialPages />} />
               <Route path="/term-dates" element={<TermDates />} />
-              <Route path="/contact" element={<Contact />} />
+              <Route path="/contact" element={<PublicEditorialPages />} />
               <Route path="/shop" element={<Shop />} />
               <Route path="/classes/:type" element={<ClassBrowser />} />
               <Route path="/timetable" element={<ProtectedRoute><Timetable /></ProtectedRoute>} />
@@ -157,7 +163,7 @@ const App = () => (
           </Suspense>
           </CartProvider>
         </AuthProvider>
-      </BrowserRouter>
+      </Router>
     </TooltipProvider>
   </QueryClientProvider>
 );

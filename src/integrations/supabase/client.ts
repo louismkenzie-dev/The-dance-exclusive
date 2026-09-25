@@ -25,9 +25,9 @@ if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_PUBLISH
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
+    storage: typeof window === "undefined" ? undefined : window.localStorage,
+    persistSession: typeof window !== "undefined",
+    autoRefreshToken: typeof window !== "undefined",
   },
   global: {
     // Safari on iPad/iPhone caches GET responses hard. The studio runs admin
@@ -35,6 +35,6 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     // return Safari's copy from BEFORE the save — the screen then shows the
     // old value until the page is reloaded. Never serve these from cache:
     // every read is answered by the database.
-    fetch: (input, init = {}) => fetch(input, { ...init, cache: "no-store" }),
+    fetch: (input, init = {}) => fetch(input, { ...init, cache: "no-store", ...(import.meta.env.SSR ? { signal: AbortSignal.timeout(8000) } : {}) }),
   },
 });

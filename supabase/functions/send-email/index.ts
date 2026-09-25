@@ -2,6 +2,7 @@
 // Routes by `template` to the matching renderer in _shared/email-templates.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { checkAttachments, type EmailAttachment } from "../_shared/emailAttachments.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   renderBookingConfirmation,
@@ -148,6 +149,8 @@ async function getSecret(name: string): Promise<string | null> {
  * sent to them. Optional and additive: a caller that passes nothing still
  * sends, and still gets a row in the log — just without the links.
  */
+export type { EmailAttachment } from "../_shared/emailAttachments.ts";
+
 export interface EmailMeta {
   parentId?: string | null;
   studentId?: string | null;
@@ -213,7 +216,12 @@ type PayloadBase =
   | { template: "class_cancelled"; to: string; data: ClassCancelledData };
 
 /** Every template, plus the optional record-keeping fields. */
-type Payload = PayloadBase & { meta?: EmailMeta };
+type Payload = PayloadBase & {
+  meta?: EmailMeta;
+  /** Copied in — used for the print run, so Amie keeps a copy of what went to the printer. */
+  cc?: string | string[];
+  attachments?: EmailAttachment[];
+};
 
 function buildEmail(payload: PayloadBase): { subject: string; html: string } {
   switch (payload.template) {
@@ -376,6 +384,25 @@ serve(async (req) => {
     source: payload.meta?.source ?? "auto",
   };
 
+  const attachmentProblem = checkAttachments(payload.attachments);
+  if (attachmentProblem) {
+    console.error("send-email refused:", attachmentProblem);
+    await logEmail({
+      ...logRow,
+      status: "failed",
+      failed_at: new Date().toISOString(),
+      error: attachmentProblem.slice(0, 500),
+    });
+    return new Response(JSON.stringify({ error: attachmentProblem }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const cc = payload.cc
+    ? (Array.isArray(payload.cc) ? payload.cc : [payload.cc]).filter(Boolean)
+    : undefined;
+
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -389,6 +416,8 @@ serve(async (req) => {
         subject,
         html,
         reply_to: REPLY_TO,
+        ...(cc?.length ? { cc } : {}),
+        ...(payload.attachments?.length ? { attachments: payload.attachments } : {}),
       }),
     });
 

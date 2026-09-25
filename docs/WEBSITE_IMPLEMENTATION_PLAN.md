@@ -6,7 +6,7 @@ Source: `The-Dance-Exclusive-Website-Proposal-2.pdf`, supplied by the user, all 
 
 ## Intended outcome
 
-Create a premium public website with the polish requested by the user, keeping The Dance Exclusive's existing logo and booking platform. The user has explicitly allowed the wider branding to change. The front page introduces the school and leads into public class, venue, coach, camp and workshop content. The same underlying records supply both the website and booking journey.
+Create a premium public website with the polish requested by the user, keeping The Dance Exclusive's existing logo and booking platform. The user has explicitly allowed the wider design to evolve, while subsequently confirming that the original blue and pink colours must remain. The front page introduces the school and leads into public class, venue, coach, camp and workshop content. The same underlying records supply both the website and booking journey.
 
 The proposal covers the whole public experience, beyond the front page. Its operational promise is that changing a published record in the existing admin screens updates the corresponding public content without editing a second website. The eventual public domain is `thedanceexclusive.co.uk`, hosted alongside the existing booking application.
 
@@ -32,13 +32,13 @@ The proposal's counts of classes, venues, coaches, sessions and camps are a Sept
 
 References: `CROWNE Shopify Landing Page.webp` and `Supplement Website Landing Page.webp`, supplied from the user's Downloads folder and visually inspected.
 
-The user wants an immersive, premium, sharp and modern club feel, with scroll parallax, moving elements, plentiful imagery and video. The existing logo must remain unchanged; colour, typography, layout and the wider visual system may evolve beyond the booking platform's original branding.
+The user wants an immersive, premium, sharp and modern club feel, with scroll parallax, moving elements, plentiful imagery and video. The existing logo and original blue/pink palette must remain. Typography, layout and the wider visual system may evolve beyond the booking platform's original design.
 
 The references inform oversized typography, large photographic compositions, image/text layering, fine grid rules, contrast between dark and light sections, and smaller editorial image arrangements. Motion should create depth while preserving readable content, ordinary scrolling, keyboard access and a reduced-motion experience.
 
 ## Implementation delivered
 
-- Original logo retained. Ink, warm paper and acid yellow visual system, oversized condensed type, real school photography and silent performance footage, bounded parallax, moving type and responsive public navigation.
+- Original logo retained. Original blue and pink accents with ink and neutral paper backgrounds, oversized condensed type, real school photography and silent performance footage, bounded parallax, moving type and responsive public navigation.
 - Live class directory with audience, day, venue and text filters. Individual class, venue, coach and event templates share one explicitly limited public data loader.
 - Class prices reuse booking presentation helpers. Enrolment counts use the existing aggregate RPC; unavailable counts never imply that spaces exist.
 - Class and event expiry uses the school's Europe/London date. Current published records determine public routes and the sitemap.

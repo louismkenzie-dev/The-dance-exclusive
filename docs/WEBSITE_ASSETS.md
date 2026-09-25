@@ -1,6 +1,6 @@
 # Public website media
 
-The existing Dance Exclusive logo assets are unchanged. The wider ink, paper and acid-yellow design follows the user's approved direction and the two supplied landing-page references.
+The existing Dance Exclusive logo assets are unchanged. The public design retains the original blue (HSL 193 100% 44%) and pink (HSL 330 90% 55%), as explicitly requested by the user. Ink and neutral paper provide the supporting backgrounds. Darker blue/pink text shades keep contrast on light backgrounds; the two supplied landing-page references inform composition and motion.
 
 The following media was retrieved from the school's current public Wix site, `https://www.thedanceexclusive.co.uk/`, on 25 September 2026. These are actual school performance images/footage, not generated images. The clips are silent, H.264, 24 fps, 1024 pixels wide, with fast-start metadata. They load and play near the viewport, pause outside it, and fall back to stills for reduced motion or a video error.
 

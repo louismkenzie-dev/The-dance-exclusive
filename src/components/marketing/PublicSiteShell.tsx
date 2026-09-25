@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { usePublicSchool } from "@/hooks/usePublicSchool";
 import { defaultPublicContact } from "@/lib/publicSchool";
 import "@/styles/public-site.css";
+import "@/styles/public-brand.css";
 
 const navigation = [
   { to: "/classes?type=children", label: "Children's classes" },
@@ -27,10 +28,11 @@ export function PublicSiteShell({ children }: { children: ReactNode }) {
   const { data: school } = usePublicSchool();
   const contact = school?.contact ?? defaultPublicContact;
   const { pathname, search } = useLocation();
+  const home = pathname === "/";
   const [open, setOpen] = useState(false);
   useEffect(() => setOpen(false), [pathname, search]);
   return (
-    <div className="tde-site">
+    <div className={`tde-site${home ? " tde-site-home" : ""}`}>
       <a className="tde-skip" href="#main-content">
         Skip to content
       </a>
@@ -45,7 +47,7 @@ export function PublicSiteShell({ children }: { children: ReactNode }) {
           className="tde-brand"
           aria-label="The Dance Exclusive home"
         >
-          <BrandLogo tone="ink" className="h-11" />
+          <BrandLogo tone={home ? "white" : "ink"} className="h-11" />
         </Link>
         <div className="tde-header-right">
           <Link

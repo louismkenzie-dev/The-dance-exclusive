@@ -106,3 +106,11 @@ The user requested the original blue and pink and a closer relationship to the e
 - Large photography, performance videos, bounded scroll parallax and moving display lettering remain. Booking data, prices, navigation destinations and the pending coach migration are unchanged.
 - TypeScript, changed-component lint and the production build pass. Desktop homepage and class-detail accessibility scans report no WCAG A/AA violations. Mobile homepage and class-list checks show no horizontal overflow.
 - The deployed preview returns server-rendered HTML and the expected blue/pink colours, Inter font and rounded controls. Desktop/mobile browser checks report no runtime errors, and the hero video plays.
+
+## Existing-site brand audit and motion revision — 25 September 2026
+
+The subsequent user instruction was to analyse the current Wix site and keep it recognisable while substantially upgrading its presentation and animation. `WEBSITE_BRAND_AUDIT.md` records the findings. The homepage now uses the original Intro Black Alt display face and white wordmark over performance footage, the school's mission and motto, blue/pink accents, real class photography and a cyan footer. Inter and the booking UI's controls remain on functional surfaces.
+
+Native, progressive motion adds staggered headline/section entrances, independent overlapping photo movement and interactive details. No animation framework or scroll lock was added. Local production verification passed at 1440px and 390px: no runtime errors or overflow, mobile menu/Escape operation, and no automated WCAG A/AA violations. Keyboard focus exposes unrevealed links. Native scrolling reaches the exact document end.
+
+Pause motion produced zero running animations, zero playing videos and zero hidden entrances. A fresh reduced-motion session made zero MP4 requests and rendered zero videos. With all script requests blocked, initial HTML still showed the heading and live class rows, no entrance content was hidden and no animations ran. TypeScript, changed-file lint, client/server builds and the existing 294 tests passed. Production and the deferred coach migration remain unchanged.

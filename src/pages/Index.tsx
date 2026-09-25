@@ -13,6 +13,7 @@ import {
 import { venuePath, coachPath, publicClassPath } from "@/lib/publicSchool";
 import { supabase } from "@/integrations/supabase/client";
 import { PageMeta } from "@/components/marketing/PageMeta";
+import { useEntranceMotion } from "@/hooks/useEntranceMotion";
 
 const photo = (path: string | null) =>
   path?.startsWith("http")
@@ -27,13 +28,14 @@ export default function Index() {
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const [motion, setMotion] = useState(true);
   const move = motion && !reducedMotion;
+  const home = useEntranceMotion(move, Boolean(school));
   if (!loading && user && role === "admin")
     return <Navigate to="/admin" replace />;
   if (!loading && user && role === "staff")
     return <Navigate to="/staff" replace />;
 
   return (
-    <div className="tde-home" data-motion={move ? "on" : "off"}>
+    <div ref={home} className="tde-home" data-motion={move ? "on" : "off"}>
       <PageMeta
         title="Step in. Stand out."
         description="Find your rhythm at The Dance Exclusive. Commercial and street dance for children and adults across Essex. Explore live classes, venues and events."
@@ -57,27 +59,28 @@ export default function Index() {
           travel={70}
         />
         <div className="tde-hero-shade" />
-        <div className="tde-hero-top">
-          <span className="tde-eyebrow">The Dance Exclusive / Essex, UK</span>
+        <div className="tde-hero-top" data-entrance="hero">
+          <span className="tde-eyebrow"><i aria-hidden="true" /> Essex. This is your stage.</span>
           <span className="tde-eyebrow">
             Commercial. Street. Your kind of energy.
           </span>
         </div>
         <div className="tde-hero-content">
-          <h1 id="hero-title">
-            Step in.
-            <br />
-            <span>Stand out.</span>
+          <h1 id="hero-title" aria-label="Step in. Stand out.">
+            <span className="tde-hero-line"><span data-entrance="hero" data-delay="100">Step in<span className="tde-brand-dot">.</span></span></span>
+            <span className="tde-hero-line"><span data-entrance="hero" data-delay="220">Stand out.</span></span>
           </h1>
-          <div className="tde-hero-bottom">
+          <div className="tde-hero-bottom" data-entrance="hero" data-delay="330">
             <p>
-              A place to find your rhythm.
-              <br />
-              And a whole lot more.
+              Giving young people a stage<br />
+              to become their best selves.
             </p>
-            <a href="#find-your-class" className="tde-button">
-              Find your class <ArrowUpRight size={22} aria-hidden />
-            </a>
+            <div className="tde-hero-actions">
+              <span>Children + adults. Beginners welcome.</span>
+              <a href="#find-your-class" className="tde-button">
+                Find your class <ArrowUpRight size={22} aria-hidden />
+              </a>
+            </div>
           </div>
         </div>
         <div className="tde-hero-caption">
@@ -108,59 +111,64 @@ export default function Index() {
         <div>
           {[0, 1, 2, 3].map((n) => (
             <span key={n}>
-              GOOD MUSIC. GOOD PEOPLE. GREAT ENERGY. <i>✳</i> MADE TO MOVE.{" "}
-              <i>✳</i>{" "}
+              DANCE. <i>✳</i> GROW. <i>✳</i> ACHIEVE. <i>✳</i>{" "}
             </span>
           ))}
         </div>
       </div>
 
-      <section className="tde-intro tde-paper" id="the-feeling">
-        <div className="tde-section-note">
+      <section className="tde-intro" id="the-feeling">
+        <div className="tde-section-note" data-entrance="">
           <span>01 / More than movement</span>
           <span>THIS IS THE DANCE EXCLUSIVE</span>
         </div>
         <div className="tde-intro-grid">
-          <div className="tde-intro-images">
-            <MotionMedia
-              image="/media/tde-community.jpg"
-              alt="The Dance Exclusive dancers together"
-              active={move}
-            />
+          <div className="tde-intro-images" data-entrance="">
+            <div className="tde-intro-main-photo">
+              <MotionMedia
+                image="/media/tde-community.jpg"
+                alt="The Dance Exclusive dancers performing together on stage"
+                active={move}
+                travel={55}
+              />
+            </div>
+            <div className="tde-intro-inset">
+              <MotionMedia
+                image="/media/tde-class-confidence.jpg"
+                alt="A smiling young dancer practising in a Dance Exclusive class"
+                active={move}
+                travel={-30}
+              />
+              <span>Little steps. Big confidence.</span>
+            </div>
             <span className="tde-image-stamp">
-              Find your
-              <br />
-              people.
+              Your people.<br />Your place.
             </span>
           </div>
           <div className="tde-intro-copy">
-            <h2>
-              Come for
-              <br />
-              the dance.
-              <br />
-              <span>
-                Stay for
-                <br />
-                the feeling.
-              </span>
+            <h2 className="tde-signature" aria-label="Dance. Grow. Achieve.">
+              <span data-entrance="">Dance<span>.</span></span>
+              <span data-entrance="" data-delay="100">Grow<span>.</span></span>
+              <span data-entrance="" data-delay="200">Achieve<span>.</span></span>
             </h2>
-            <p>
-              The music comes on. The outside world switches off. From that
-              first eight-count to your next big moment, there's a place for you
-              here.
-            </p>
-            <p>
-              Commercial and street dance for children and adults across Essex.
-              Come as you are. We'll find your next move together.
-            </p>
-            <Link to="/about" className="tde-text-link">
-              Get to know us <ArrowUpRight size={20} aria-hidden />
-            </Link>
+            <div data-entrance="" data-delay="200">
+              <p>
+                First steps or centre stage, confidence grows here. Real classes,
+                brilliant teachers and people who cheer you on. This is your
+                space to find out what you can do.
+              </p>
+              <p>
+                Commercial and street dance for children and adults across Essex.
+                Come as you are. We'll find your next move together.
+              </p>
+              <Link to="/about" className="tde-text-link">
+                Get to know us <ArrowUpRight size={20} aria-hidden />
+              </Link>
+            </div>
           </div>
         </div>
         {school && (
-          <div className="tde-live-stats">
+          <div className="tde-live-stats" data-entrance="">
             <div>
               <strong>
                 {school.classes.length.toString().padStart(2, "0")}
@@ -201,15 +209,15 @@ export default function Index() {
       </section>
 
       <section className="tde-classes tde-paper" id="find-your-class">
-        <div className="tde-section-note">
+        <div className="tde-section-note" data-entrance="">
           <span>02 / YOUR FLOOR IS WAITING</span>
           <span>FIRST TIMERS TO FULL-TIMERS</span>
         </div>
-        <div className="tde-section-heading">
+        <div className="tde-section-heading" data-entrance="">
           <h2>
             Find your
             <br />
-            <em>frequency.</em>
+            <em>next move.</em>
           </h2>
           <p>
             A first class. A fresh challenge.
@@ -223,14 +231,14 @@ export default function Index() {
               type: "children",
               title: "The next\ngeneration.",
               sub: "Children's classes",
-              image: "/img/kids-energy.jpg",
+              image: "/media/tde-school.jpg",
               copy: "Big energy. Growing confidence. A place to be themselves.",
             },
             {
               type: "adult",
               title: "Your time.\nYour energy.",
               sub: "Adult classes",
-              image: "/img/adult-heels.jpg",
+              image: "/media/tde-adult-community.jpg",
               copy: "Switch off the day. Turn up the music. Make your move.",
             },
           ].map((item, i) => (
@@ -238,13 +246,15 @@ export default function Index() {
               to={`/classes?type=${item.type}`}
               key={item.type}
               className={`tde-class-panel tde-class-panel-${item.type}`}
+              data-entrance=""
+              data-delay={i * 120}
             >
               <MotionMedia
                 image={item.image}
                 alt={
                   item.type === "adult"
-                    ? "Dancers in a heels class"
-                    : "Young dancers in a studio"
+                    ? "The Dance Exclusive adult dancers together in their studio"
+                    : "The Dance Exclusive young dancers performing on stage"
                 }
                 active={move}
               />
@@ -286,7 +296,7 @@ export default function Index() {
               <Link to="/classes?type=children">Open the class browser</Link>.
             </p>
           ) : (
-            school?.classes.slice(0, 4).map((item) => {
+            school?.classes.slice(0, 4).map((item, index) => {
               const venue = school.venues.find((v) => v.id === item.venue_id);
               const price = classPriceSummary(item, item.remainingSessions);
               return (
@@ -294,6 +304,8 @@ export default function Index() {
                   to={publicClassPath(item)}
                   key={item.id}
                   className="tde-class-row"
+                  data-entrance=""
+                  data-delay={index * 70}
                 >
                   <span className="tde-class-type">
                     {item.class_type === "adult" ? "ADULTS" : "CHILDREN"}
@@ -324,7 +336,7 @@ export default function Index() {
       </section>
 
       <section className="tde-film-section">
-        <div className="tde-section-note">
+        <div className="tde-section-note" data-entrance="">
           <span>03 / Feel the ROOM</span>
           <span>REAL people. ALL energy.</span>
         </div>
@@ -343,7 +355,7 @@ export default function Index() {
           />
           <span className="tde-film-label">THE MUSIC IS JUST THE START.</span>
         </div>
-        <div className="tde-film-bottom">
+        <div className="tde-film-bottom" data-entrance="">
           <h2>
             There's something
             <br />
@@ -362,12 +374,12 @@ export default function Index() {
       </section>
 
       <section className="tde-venues-section tde-paper">
-        <div className="tde-section-note">
+        <div className="tde-section-note" data-entrance="">
           <span>04 / CLOSE TO HOME</span>
           <span>ALL ACROSS ESSEX</span>
         </div>
         <div className="tde-venues-grid">
-          <div>
+          <div data-entrance="">
             <h2>
               Big energy.
               <br />
@@ -382,7 +394,7 @@ export default function Index() {
             </Link>
             <div className="tde-location-photo">
               <MotionMedia
-                image="/media/tde-school.jpg"
+                image="/media/tde-children-stage.jpg"
                 alt="The Dance Exclusive dancers performing together"
                 active={move}
               />
@@ -390,7 +402,7 @@ export default function Index() {
           </div>
           <div className="tde-venue-list">
             {school?.venues.slice(0, 7).map((venue, index) => (
-              <Link to={venuePath(venue)} key={venue.id}>
+              <Link to={venuePath(venue)} key={venue.id} data-entrance="" data-delay={index * 45}>
                 <span>0{index + 1}</span>
                 <div>
                   <h3>{venue.city || venue.name}</h3>

@@ -16,8 +16,8 @@ import { Plus, Pencil, Trash2, Image, Package, X, Upload, Crop } from "lucide-re
 import { MERCH_CATEGORIES as CATEGORIES, merchCategoryLabel as getCategoryLabel } from "@/lib/merchCategories";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PERSONALISATION_PLACEMENTS, DEFAULT_PERSONALISATION_PRICE } from "@/lib/merchPersonalisation";
+import { MERCH_SIZES as COMMON_SIZES } from "@/lib/merchPrintRun";
 
-const COMMON_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "Age 3-4", "Age 5-6", "Age 7-8", "Age 9-10", "Age 11-12", "One Size"];
 
 type MerchItem = {
   id: string;

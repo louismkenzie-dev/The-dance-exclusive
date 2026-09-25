@@ -14,6 +14,8 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Image, Package, X, Upload, Crop } from "lucide-react";
 import { MERCH_CATEGORIES as CATEGORIES, merchCategoryLabel as getCategoryLabel } from "@/lib/merchCategories";
+import { Checkbox } from "@/components/ui/checkbox";
+import { PERSONALISATION_PLACEMENTS, DEFAULT_PERSONALISATION_PRICE } from "@/lib/merchPersonalisation";
 
 const COMMON_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "Age 3-4", "Age 5-6", "Age 7-8", "Age 9-10", "Age 11-12", "One Size"];
 
@@ -25,6 +27,8 @@ type MerchItem = {
   base_price: number;
   is_active: boolean;
   display_order: number;
+  /** False for print-to-order goods, which have no stock and never sell out. */
+  tracks_stock: boolean;
 };
 
 type MerchVariant = {
@@ -83,7 +87,9 @@ const Merchandise = () => {
   // Item form
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MerchItem | null>(null);
-  const [itemForm, setItemForm] = useState({ name: "", category: "other", description: "", base_price: "" });
+  const [itemForm, setItemForm] = useState({ name: "", category: "other", description: "", base_price: "", tracks_stock: true });
+  // Personalisation options for the item being edited, keyed by placement.
+  const [personalisation, setPersonalisation] = useState<Record<string, { enabled: boolean; price: string }>>({});
 
   // Variant management
   const [variantDialogOpen, setVariantDialogOpen] = useState(false);
@@ -170,27 +176,91 @@ const Merchandise = () => {
   };
 
   // ─── Items CRUD ─────────────────────────────────
-  const openItemDialog = (item?: MerchItem) => {
+  const blankPersonalisation = () =>
+    Object.fromEntries(
+      PERSONALISATION_PLACEMENTS.map(p => [p.value, { enabled: false, price: String(DEFAULT_PERSONALISATION_PRICE) }]),
+    );
+
+  const openItemDialog = async (item?: MerchItem) => {
+    setPersonalisation(blankPersonalisation());
     if (item) {
       setEditingItem(item);
-      setItemForm({ name: item.name, category: item.category, description: item.description || "", base_price: String(item.base_price) });
+      setItemForm({
+        name: item.name,
+        category: item.category,
+        description: item.description || "",
+        base_price: String(item.base_price),
+        tracks_stock: item.tracks_stock !== false,
+      });
+      setItemDialogOpen(true);
+      const { data } = await supabase
+        .from("merchandise_personalisation_options")
+        .select("placement, price, is_active")
+        .eq("item_id", item.id);
+      if (data?.length) {
+        setPersonalisation(prev => {
+          const next = { ...prev };
+          data.forEach(o => {
+            next[o.placement] = { enabled: o.is_active, price: String(o.price) };
+          });
+          return next;
+        });
+      }
     } else {
       setEditingItem(null);
-      setItemForm({ name: "", category: "other", description: "", base_price: "" });
+      setItemForm({ name: "", category: "other", description: "", base_price: "", tracks_stock: true });
+      setItemDialogOpen(true);
     }
-    setItemDialogOpen(true);
   };
 
   const saveItem = async () => {
     if (!itemForm.name) return toast({ title: "Name required", variant: "destructive" });
-    const payload = { name: itemForm.name, category: itemForm.category, description: itemForm.description || null, base_price: parseFloat(itemForm.base_price) || 0 };
+    const payload = {
+      name: itemForm.name,
+      category: itemForm.category,
+      description: itemForm.description || null,
+      base_price: parseFloat(itemForm.base_price) || 0,
+      tracks_stock: itemForm.tracks_stock,
+    };
+    let itemId = editingItem?.id;
     if (editingItem) {
       const { error } = await supabase.from("merchandise_items").update(payload).eq("id", editingItem.id);
       if (error) return toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      const { error } = await supabase.from("merchandise_items").insert(payload);
+      const { data, error } = await supabase.from("merchandise_items").insert(payload).select("id").single();
       if (error) return toast({ title: "Error", description: error.message, variant: "destructive" });
+      itemId = data?.id;
     }
+
+    // Reconcile personalisation options: ticked ones are upserted, unticked ones removed.
+    // Deleting rather than deactivating keeps "no rows = not offered" true, which is what the
+    // shop and the pricing both read.
+    if (itemId) {
+      const ticked = PERSONALISATION_PLACEMENTS.filter(p => personalisation[p.value]?.enabled);
+      const untickedValues = PERSONALISATION_PLACEMENTS
+        .filter(p => !personalisation[p.value]?.enabled)
+        .map(p => p.value);
+      if (untickedValues.length) {
+        await supabase
+          .from("merchandise_personalisation_options")
+          .delete()
+          .eq("item_id", itemId)
+          .in("placement", untickedValues);
+      }
+      if (ticked.length) {
+        const { error: pErr } = await supabase.from("merchandise_personalisation_options").upsert(
+          ticked.map(p => ({
+            item_id: itemId,
+            placement: p.value,
+            price: parseFloat(personalisation[p.value]?.price) || DEFAULT_PERSONALISATION_PRICE,
+            is_active: true,
+          })),
+          { onConflict: "item_id,placement" },
+        );
+        if (pErr) return toast({ title: "Saved, but personalisation failed", description: pErr.message, variant: "destructive" });
+      }
+    }
+
     toast({ title: editingItem ? "Item updated" : "Item created" });
     setItemDialogOpen(false);
     fetchItems();
@@ -593,7 +663,7 @@ const Merchandise = () => {
 
       {/* ─── Item Dialog ─────────────────────────── */}
       <Dialog open={itemDialogOpen} onOpenChange={setItemDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-dialog overflow-y-auto">
           <DialogHeader><DialogTitle>{editingItem ? "Edit Product" : "Add Product"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><Label>Name</Label><Input value={itemForm.name} onChange={e => setItemForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Dance T-Shirt" /></div>
@@ -605,6 +675,62 @@ const Merchandise = () => {
             </div>
             <div><Label>Base Price (£)</Label><Input type="number" step="0.01" value={itemForm.base_price} onChange={e => setItemForm(f => ({ ...f, base_price: e.target.value }))} /></div>
             <div><Label>Description</Label><Textarea value={itemForm.description} onChange={e => setItemForm(f => ({ ...f, description: e.target.value }))} rows={3} /></div>
+
+            {/* Printed to order vs held in stock. Hoodies are printed on demand and never run
+                out; water bottles sit in a box and do. */}
+            <div className="rounded-lg border p-3 space-y-1">
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="tracks-stock" className="font-medium">Keep track of stock</Label>
+                <Switch
+                  id="tracks-stock"
+                  checked={itemForm.tracks_stock}
+                  onCheckedChange={v => setItemForm(f => ({ ...f, tracks_stock: v }))}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {itemForm.tracks_stock
+                  ? "You hold these, so sizes sell out when they reach zero."
+                  : "Printed to order — always available, and no stock numbers to keep up to date."}
+              </p>
+            </div>
+
+            {/* Personalisation: tick the placements offered, set a price for each. */}
+            <div className="rounded-lg border p-3 space-y-2">
+              <Label className="font-medium">Personalisation</Label>
+              <p className="text-xs text-muted-foreground">
+                Tick where a name or number can be printed. Parents pay this on top, for each garment.
+              </p>
+              {PERSONALISATION_PLACEMENTS.map(pl => {
+                const row = personalisation[pl.value] ?? { enabled: false, price: String(DEFAULT_PERSONALISATION_PRICE) };
+                return (
+                  <div key={pl.value} className="flex items-center gap-3">
+                    <Checkbox
+                      id={`pers-${pl.value}`}
+                      checked={row.enabled}
+                      onCheckedChange={v =>
+                        setPersonalisation(prev => ({ ...prev, [pl.value]: { ...row, enabled: v === true } }))
+                      }
+                    />
+                    <Label htmlFor={`pers-${pl.value}`} className="flex-1 font-normal cursor-pointer">{pl.label}</Label>
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm text-muted-foreground">£</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="h-8 w-20"
+                        disabled={!row.enabled}
+                        value={row.price}
+                        onChange={e =>
+                          setPersonalisation(prev => ({ ...prev, [pl.value]: { ...row, price: e.target.value } }))
+                        }
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
             <Button onClick={saveItem} className="w-full">{editingItem ? "Update" : "Create"} Product</Button>
           </div>
         </DialogContent>
@@ -613,8 +739,19 @@ const Merchandise = () => {
       {/* ─── Variants Dialog ─────────────────────── */}
       <Dialog open={variantDialogOpen} onOpenChange={setVariantDialogOpen}>
         <DialogContent className="max-w-2xl max-h-dialog overflow-y-auto">
-          <DialogHeader><DialogTitle>Sizes & Stock — {selectedItemForVariants?.name}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>
+              {selectedItemForVariants?.tracks_stock === false ? "Sizes" : "Sizes & Stock"} — {selectedItemForVariants?.name}
+            </DialogTitle>
+          </DialogHeader>
           <div className="space-y-4">
+            {selectedItemForVariants?.tracks_stock === false && (
+              <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+                This product is printed to order, so there is no stock to count — every size below
+                is always available. Turn on <span className="font-medium">Keep track of stock</span> in
+                the product if that changes.
+              </p>
+            )}
             {/* Add variant form */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end">
               <div>
@@ -626,7 +763,9 @@ const Merchandise = () => {
               </div>
               <div><Label className="text-xs">Colour</Label><Input className="h-9" value={variantForm.color} onChange={e => setVariantForm(f => ({ ...f, color: e.target.value }))} placeholder="Optional" /></div>
               <div><Label className="text-xs">Price Override</Label><Input className="h-9" type="number" step="0.01" value={variantForm.price_override} onChange={e => setVariantForm(f => ({ ...f, price_override: e.target.value }))} placeholder="Base" /></div>
-              <div><Label className="text-xs">Stock</Label><Input className="h-9" type="number" value={variantForm.stock_quantity} onChange={e => setVariantForm(f => ({ ...f, stock_quantity: e.target.value }))} /></div>
+              {selectedItemForVariants?.tracks_stock !== false && (
+                <div><Label className="text-xs">Stock</Label><Input className="h-9" type="number" value={variantForm.stock_quantity} onChange={e => setVariantForm(f => ({ ...f, stock_quantity: e.target.value }))} /></div>
+              )}
               <Button size="sm" className="h-9" onClick={addVariant}><Plus className="w-3.5 h-3.5" /></Button>
             </div>
 
@@ -643,8 +782,14 @@ const Merchandise = () => {
                       <span className="font-medium">£{(v.price_override ?? selectedItemForVariants?.base_price ?? 0).toFixed(2)}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Label className="text-xs text-muted-foreground">Stock:</Label>
-                      <Input type="number" className="h-8 w-20" value={v.stock_quantity} onChange={e => updateStock(v, parseInt(e.target.value) || 0)} />
+                      {selectedItemForVariants?.tracks_stock === false ? (
+                        <span className="text-xs text-muted-foreground">Printed to order</span>
+                      ) : (
+                        <>
+                          <Label className="text-xs text-muted-foreground">Stock:</Label>
+                          <Input type="number" className="h-8 w-20" value={v.stock_quantity} onChange={e => updateStock(v, parseInt(e.target.value) || 0)} />
+                        </>
+                      )}
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteVariant(v.id)}><X className="w-3.5 h-3.5" /></Button>
                     </div>
                   </div>

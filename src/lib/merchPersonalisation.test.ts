@@ -128,3 +128,36 @@ describe("merchPersonalisation", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// The server re-validates everything the browser validated, so the two copies
+// have to agree. If they drift, a parent is told one thing and charged another.
+describe("the client mirror and the server copy", () => {
+  const CASES = [
+    "Evie", "  Evie   Rose ", "", "   ", "O'Brien", "Anne-Marie", "Chloé",
+    "Evie 🎀", "A".repeat(21), "=1+1", "-Evie", "Team 7", "‮evil",
+  ];
+
+  it("validate the same way for every case", async () => {
+    const server = await import("../../supabase/functions/_shared/merchPersonalisation.ts");
+    for (const c of CASES) {
+      const a = server.validatePersonalisationText(c);
+      const b = validatePersonalisationText(c);
+      expect(b.ok, `ok differs for ${JSON.stringify(c)}`).toBe(a.ok);
+      expect(b.value, `value differs for ${JSON.stringify(c)}`).toBe(a.value);
+      expect(b.error, `error differs for ${JSON.stringify(c)}`).toBe(a.error);
+    }
+  });
+
+  it("price and sign identically", async () => {
+    const server = await import("../../supabase/functions/_shared/merchPersonalisation.ts");
+    expect(server.personalisationPence([3, 2.995])).toBe(personalisationPence([3, 2.995]));
+    expect(server.DEFAULT_PERSONALISATION_PRICE).toBe(DEFAULT_PERSONALISATION_PRICE);
+    expect(server.MAX_PERSONALISATION_LENGTH).toBe(MAX_PERSONALISATION_LENGTH);
+    const choices = [
+      { placement: "sleeve" as const, text: " EVIE " },
+      { placement: "front" as const, text: "7" },
+    ];
+    expect(server.personalisationSignature(choices)).toBe(personalisationSignature(choices));
+  });
+});

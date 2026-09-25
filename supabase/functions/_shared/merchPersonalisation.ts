@@ -1,9 +1,12 @@
-// Mirror of supabase/functions/_shared/merchPersonalisation.ts — KEEP THE TWO IN SYNC.
+// Mirror of src/lib/merchPersonalisation.ts — KEEP THE TWO IN SYNC.
 // merchPersonalisation.test.ts fails if they ever disagree.
 //
 /**
  * Personalisation: which placements a garment offers, what they cost, and what a parent is
  * allowed to type.
+ *
+ * The server validates the text as well as the client: a parent's text reaches a third party's
+ * printer and their Excel, so the browser is not allowed to be the only thing checking it.
  *
  * Amie sets this per product — tick the placements, set a price each (£3 by default). A parent
  * choosing one pays that price *per garment*, so two hoodies both reading EVIE is two lots of £3.

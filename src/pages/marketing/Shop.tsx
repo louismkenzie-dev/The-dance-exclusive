@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { merchCategoryLabel, merchCategoryOrder } from "@/lib/merchCategories";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,7 +16,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { ShoppingBag, Plus, Minus, X, Check, Loader2, ArrowRight, Truck, ShieldCheck, Sparkles } from "lucide-react";
+import { ShoppingBag, Plus, Minus, X, Check, Loader2, ArrowRight, Package, ShieldCheck, Sparkles } from "lucide-react";
 import GrainOverlay from "@/components/immersive/GrainOverlay";
 import { Reveal } from "@/components/immersive/Reveal";
 import { Marquee } from "@/components/immersive/Marquee";
@@ -66,10 +67,6 @@ const ProductImage = ({ media, alt, className = "" }: { media: Media | undefined
       style={{ objectPosition: pos, transform: zoom !== 1 ? `scale(${zoom})` : undefined, transformOrigin: pos }}
     />
   );
-};
-
-const CATEGORY_LABEL: Record<string, string> = {
-  hoodies: "Hoodies", "t-shirts": "T-Shirts", tops: "Crop Tops", bottoms: "Bottoms", accessories: "Accessories",
 };
 
 const Shop = () => {
@@ -127,7 +124,10 @@ const Shop = () => {
     }
   }, [toast]);
 
-  const categories = useMemo(() => ["all", ...Array.from(new Set(products.map((p) => p.category)))], [products]);
+  const categories = useMemo(
+    () => ["all", ...Array.from(new Set(products.map((p) => p.category))).sort((a, b) => merchCategoryOrder(a) - merchCategoryOrder(b))],
+    [products],
+  );
   const shown = cat === "all" ? products : products.filter((p) => p.category === cat);
   const bagCount = bag.reduce((n, b) => n + b.qty, 0);
   const bagTotal = bag.reduce((n, b) => n + b.qty * b.unitPrice, 0);
@@ -200,7 +200,7 @@ const Shop = () => {
       </section>
 
       <div className="border-y border-border bg-card/40 py-4">
-        <Marquee items={["Free UK Delivery Over £50", "Studio-Ready", "Limited Drops", "Wear the Splat", "Crew Colours"]} speed={38} accent="text-accent" />
+        <Marquee items={["Collect At Class", "Studio-Ready", "Limited Drops", "Wear the Splat", "Crew Colours"]} speed={38} accent="text-accent" />
       </div>
 
       {!loading && !sellingActive && (
@@ -225,7 +225,7 @@ const Shop = () => {
                   cat === c ? "bg-accent text-white border-accent" : "border-border text-muted-foreground hover:text-foreground hover:border-accent/40"
                 }`}
               >
-                {c === "all" ? "All" : CATEGORY_LABEL[c] ?? c}
+                {c === "all" ? "All" : merchCategoryLabel(c)}
               </button>
             ))}
           </div>
@@ -259,7 +259,7 @@ const Shop = () => {
                         </span>
                       </div>
                       <div className="p-4">
-                        <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{CATEGORY_LABEL[p.category] ?? p.category}</p>
+                        <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{merchCategoryLabel(p.category)}</p>
                         <h3 className="font-display text-lg leading-tight mt-1">{p.name}</h3>
                         <p className="mt-1 font-semibold text-accent">£{Number(p.base_price).toFixed(2)}</p>
                       </div>
@@ -276,7 +276,7 @@ const Shop = () => {
       <section className="border-t border-border py-12 px-4">
         <div className="container grid sm:grid-cols-3 gap-6 text-center">
           {[
-            { Icon: Truck, t: "Fast UK Delivery", c: "Dispatched within 7 working days, tracked to your door." },
+            { Icon: Package, t: "Collect At Class", c: "Printed for the studio and handed to your dancer at their next class. No postage, no waiting in." },
             { Icon: ShieldCheck, t: "Secure Checkout", c: "Card payments handled securely by Stripe. We never store your details." },
             { Icon: Sparkles, t: "Studio Quality", c: "Heavyweight fabrics that survive every rehearsal and wash." },
           ].map(({ Icon, t, c }) => (
@@ -313,7 +313,7 @@ const Shop = () => {
               </div>
               <div className="flex flex-col">
                 <DialogHeader>
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground text-left">{CATEGORY_LABEL[selected.category] ?? selected.category}</p>
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground text-left">{merchCategoryLabel(selected.category)}</p>
                   <DialogTitle className="text-2xl text-left">{selected.name}</DialogTitle>
                 </DialogHeader>
                 <p className="mt-1 text-xl font-semibold text-accent">£{Number(selected.base_price).toFixed(2)}</p>

@@ -13,18 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Image, Package, X, Upload, Crop } from "lucide-react";
-
-const CATEGORIES = [
-  { value: "t-shirt", label: "T-Shirt" },
-  { value: "hoodie", label: "Hoodie" },
-  { value: "jumper", label: "Jumper" },
-  { value: "dance-pants", label: "Dance Pants" },
-  { value: "bag", label: "Bag" },
-  { value: "water-bottle", label: "Water Bottle" },
-  { value: "baseball-cap", label: "Baseball Cap" },
-  { value: "accessories", label: "Accessories" },
-  { value: "other", label: "Other" },
-];
+import { MERCH_CATEGORIES as CATEGORIES, merchCategoryLabel as getCategoryLabel } from "@/lib/merchCategories";
 
 const COMMON_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "Age 3-4", "Age 5-6", "Age 7-8", "Age 9-10", "Age 11-12", "One Size"];
 
@@ -434,7 +423,6 @@ const Merchandise = () => {
     }, 0);
   };
 
-  const getCategoryLabel = (val: string) => CATEGORIES.find(c => c.value === val)?.label || val;
 
   if (loading) return <div className="p-4 md:p-8 text-center text-muted-foreground">Loading...</div>;
 

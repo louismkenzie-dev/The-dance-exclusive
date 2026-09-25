@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { merchCategoryLabel, merchCategoryOrder } from "@/lib/merchCategories";
+import { frontMedia } from "@/lib/merchMedia";
+import { ProductImage, ProductFlipImage } from "@/components/shop/ProductImage";
+import { getMediaUrl } from "@/lib/merchMediaUrl";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -38,36 +41,8 @@ const BAG_KEY = "tde_bag_v1";
 const readBag = (): BagItem[] => {
   try { const r = localStorage.getItem(BAG_KEY); return r ? JSON.parse(r) : []; } catch { return []; }
 };
-// file_path is a storage path (items/<id>/...), not a URL — resolve via the bucket.
-const getMediaUrl = (path: string | null | undefined) => {
-  if (!path) return "/placeholder.svg";
-  if (path.startsWith("http") || path.startsWith("/")) return path;
-  const { data } = supabase.storage.from("merchandise-media").getPublicUrl(path);
-  return data?.publicUrl || "/placeholder.svg";
-};
-const primaryMedia = (p: Product): Media | undefined =>
-  p.merchandise_media.find((m) => m.is_primary) ?? p.merchandise_media[0];
+const primaryMedia = (p: Product): Media | undefined => frontMedia(p.merchandise_media);
 const primaryImage = (p: Product) => getMediaUrl(primaryMedia(p)?.file_path);
-
-/** Product image, honouring admin-set framing (focal point + zoom). Unframed
- *  photos keep the original letterboxed "contain" look. */
-const ProductImage = ({ media, alt, className = "" }: { media: Media | undefined; alt: string; className?: string }) => {
-  const framed = !!(media?.position || media?.zoom);
-  if (!framed) {
-    return <img src={getMediaUrl(media?.file_path)} alt={alt} loading="lazy" className={`relative h-full w-full object-contain p-6 ${className}`} />;
-  }
-  const pos = media?.position || "50% 50%";
-  const zoom = Number(media?.zoom) > 0 ? Number(media?.zoom) : 1;
-  return (
-    <img
-      src={getMediaUrl(media?.file_path)}
-      alt={alt}
-      loading="lazy"
-      className={`relative h-full w-full object-cover ${className}`}
-      style={{ objectPosition: pos, transform: zoom !== 1 ? `scale(${zoom})` : undefined, transformOrigin: pos }}
-    />
-  );
-};
 
 const Shop = () => {
   const { toast } = useToast();
@@ -250,7 +225,7 @@ const Shop = () => {
                     >
                       <div className="relative aspect-square overflow-hidden bg-[radial-gradient(120%_100%_at_50%_0%,hsl(220_22%_12%),hsl(220_26%_6%))]">
                         <GrainOverlay />
-                        <ProductImage media={primaryMedia(p)} alt={p.name} className="transition-transform duration-500 group-hover:scale-105" />
+                        <ProductFlipImage media={p.merchandise_media} alt={p.name} />
                         {!inStock && (
                           <span className="absolute top-3 left-3 px-2 py-0.5 rounded-full bg-background/80 border border-border text-[10px] uppercase tracking-widest text-muted-foreground">Sold out</span>
                         )}

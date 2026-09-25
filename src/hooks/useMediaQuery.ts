@@ -22,3 +22,9 @@ export function useMediaQuery(query: string): boolean {
 
 /** Below Tailwind's md breakpoint: a phone, or a very narrow window. */
 export const useIsPhone = () => useMediaQuery("(max-width: 767px)");
+
+/** True on devices with a real pointer that can hover — desktop, not a phone or tablet. */
+export const useHasHover = () => useMediaQuery("(hover: hover) and (pointer: fine)");
+
+/** True when the viewer has asked the system to reduce motion. */
+export const usePrefersReducedMotion = () => useMediaQuery("(prefers-reduced-motion: reduce)");

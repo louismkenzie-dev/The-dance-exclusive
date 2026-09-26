@@ -22,3 +22,14 @@ The user supplied Amie's direct feedback: the first impression should be **stree
 - Local production SSR returns HTTP 200 with meaningful initial content on the homepage, locations, adult directory and team. Production browser review reports no runtime errors.
 
 The final deployed preview is recorded below after remote verification.
+
+## Verified Vercel preview
+
+Deployment `dpl_HtiTfKQEN5gx8UUxZrFvFvL4bNtJ`, code commit `2a6b1af`, is READY at https://the-dance-exclusive-epg3p1k8l-nullshift.vercel.app. Authenticated preview access was used without changing deployment protection.
+
+- Deployed initial homepage HTML returned 200 with the new street-dance introduction, adult-specific CTA and Amie's Founder feature.
+- At 1440px, the deployed homepage renders the original Intro face, exact blue `rgb(0, 176, 224)`, pink confined to adult content, and a playing stage video at ready state 4. No overflow or runtime errors were observed.
+- At 390px, the deployed location page displays the dance photograph, dark blue background and all 15 location cards. No overflow, runtime errors or automated WCAG A/AA violations were found.
+- Venue-card navigation opens the corresponding real venue and its classes. Children's and adult class-detail links reach the existing booking pages with matching £91 term / £12 per-class prices and Amie's instructor details. The children's sign-up handoff preserves the selected class ID. No account, booking or payment was created.
+
+This is a preview-only website deployment. The production website, domain and database were not changed in this revision.

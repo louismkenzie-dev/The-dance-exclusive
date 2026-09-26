@@ -26,3 +26,7 @@ Browser checks show different body poses at the beginning and midpoint: scroll 0
 This revision is preview only; no production, domain, database or booking changes are included.
 
 The browser also verifies reverse scrubbing (3.026 seconds down to 1.006 seconds), Pause holding 1.006 seconds while scrolling, and the final 4.033-second pose releasing the pinned stage by 200px. No overflow or runtime errors were reported. The production build loads all 27 animation clips. A fresh reduced-motion production browser creates no canvas and requests no GLB.
+
+## Verified preview
+
+Code commit `84e7134` is deployed and READY at https://the-dance-exclusive-nl353iu30-nullshift.vercel.app/#turn-it-up (deployment `dpl_BYT5ebQZwgbL15NC1MVCwAYRLnMF`). The in-app browser reached the deployed scene and visibly confirmed that scrolling changes the arms, legs and torso pose as the camera moves. The preview is left open for review. Production remains unchanged.

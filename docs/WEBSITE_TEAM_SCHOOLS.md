@@ -19,3 +19,9 @@ Amie requested every coach's photo together in a roughly three-column grid, with
 - No runtime errors were reported in the checked development and production team views. No database, booking or payment mutation occurred.
 
 Deployment evidence will be recorded after the preview is ready. Production remains unchanged.
+
+## Verified preview
+
+Code commit `027209b` deployed successfully as `dpl_CxovmX4Fjb8EeZ6xpSUAmBk9zaSQ` (READY): https://the-dance-exclusive-6qy1o0wrb-nullshift.vercel.app.
+
+The deployed `/team` was opened in the in-app browser: all 12 named coach triggers were present, Amie's enlarged portrait and full published Founder biography opened, and Close returned to the directory. The deployed `/schools` displayed its classroom photograph, service sections, FAQs and published email enquiry links. The new team preview was left open for review. Existing deployment protection was retained, and production was not changed.

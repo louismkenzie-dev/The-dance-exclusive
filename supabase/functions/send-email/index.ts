@@ -102,6 +102,18 @@ import {
   renderQuietClass,
   type QuietClassData,
 } from "../_shared/email-templates/quiet-class.ts";
+import {
+  renderMerchOrderConfirmation,
+  type MerchOrderConfirmationData,
+} from "../_shared/email-templates/merch-order-confirmation.ts";
+import {
+  renderMerchReadyToCollect,
+  type MerchReadyToCollectData,
+} from "../_shared/email-templates/merch-ready-to-collect.ts";
+import {
+  renderMerchPrintRun,
+  type MerchPrintRunData,
+} from "../_shared/email-templates/merch-print-run.ts";
 import { BRAND } from "../_shared/email-templates/layout.ts";
 
 const corsHeaders = {
@@ -213,6 +225,9 @@ type PayloadBase =
   | { template: "session_cancelled"; to: string; data: SessionCancelledData }
   | { template: "trial_follow_up"; to: string; data: TrialFollowUpData }
   | { template: "quiet_class"; to: string; data: QuietClassData }
+  | { template: "merch_order_confirmation"; to: string; data: MerchOrderConfirmationData }
+  | { template: "merch_ready_to_collect"; to: string; data: MerchReadyToCollectData }
+  | { template: "merch_print_run"; to: string; data: MerchPrintRunData }
   | { template: "class_cancelled"; to: string; data: ClassCancelledData };
 
 /** Every template, plus the optional record-keeping fields. */
@@ -277,6 +292,12 @@ function buildEmail(payload: PayloadBase): { subject: string; html: string } {
       return renderClassCancelled(payload.data);
     case "quiet_class":
       return renderQuietClass(payload.data);
+    case "merch_order_confirmation":
+      return renderMerchOrderConfirmation(payload.data);
+    case "merch_ready_to_collect":
+      return renderMerchReadyToCollect(payload.data);
+    case "merch_print_run":
+      return renderMerchPrintRun(payload.data);
     default:
       throw new Error(`Unknown template: ${(payload as any).template}`);
   }

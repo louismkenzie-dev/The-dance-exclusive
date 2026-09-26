@@ -1,19 +1,19 @@
 # Public website launch notes
 
-The current work is on `codex/dance-exclusive-public-site`. The production application and database have not been changed. The user has explicitly deferred the coach-profile migration until launch.
+The current work is on `codex/dance-exclusive-public-site`. The production website has not been deployed. On 26 September 2026 the user explicitly approved publishing coach profiles now, superseding the previous launch-only instruction. Migration `20260926152554_publish_safe_coach_profiles.sql` is applied to Supabase; private staff permissions are unchanged.
 
 ## Review before launch
 
 1. Review the front page on desktop and mobile, including motion, image crops and copy. Confirm the retained logo and school footage are approved for the new presentation.
 2. Confirm the four historical achievements with the school. Review contact settings and public venue/class descriptions through the existing admin screens.
 3. Verify a parent and an adult booking in a non-production environment through sign-in, attendee selection, cart, payment and return. Check terms, trial and payment-plan eligibility, full classes, invite-only classes, cancellation and expired event links. The local checks so far stop at the unauthenticated sign-up handoff; no payment completion is claimed.
-4. In a staging Supabase project, run the pending coach migration, verify an authorised staff edit updates the public profile, and confirm inactive coaches disappear. Check that private staff fields remain inaccessible. Do not expose the private staff table to solve the empty public feed.
+4. In a staging Supabase project, replay the coach migration and verify an authorised staff edit through the admin UI updates the public profile. Confirm inactive coaches disappear and private staff fields remain inaccessible. Database-level edit/deactivation/deletion behaviour has already passed isolated tests; live anonymous read and access-control checks also passed.
 5. Check content update visibility in both an open browser and initial HTML. Public browser refresh is 60 seconds; the CDN cache lifetime is 60 seconds. Public availability is advisory and the booking flow validates the final selection.
 
 ## Authorised launch sequence
 
 1. Record the current production deployment, domain configuration, Supabase migration history and a recoverable database backup. Identify the existing app domain and retain booking, auth and payment callback URLs during the transition.
-2. Apply `20260925154614_publish_safe_coach_profiles.sql` only when the launch has been authorised. It backfills safe active coach records, protects public writes and maintains synchronisation through staff edits. It preserves existing private staff RLS.
+2. Verify migration `20260926152554_publish_safe_coach_profiles.sql` remains recorded as applied; do not apply it again. It backfills safe active coach records, protects public writes and maintains synchronisation through staff edits. It preserves existing private staff RLS.
 3. Deploy the reviewed commit to the existing Vercel project and verify the deployment URL before changing the public domain. Do not point both old and new applications at competing canonical domains.
 4. Attach the approved public domain and verify DNS and TLS. This build uses `https://www.thedanceexclusive.co.uk` as its canonical origin; keep or redirect the apex consistently. Preserve the existing booking app hostname and callback paths as required by the live Supabase/Stripe configuration.
 5. Verify the homepage, a class, a venue, a coach, an event, initial HTML, sitemap, media, unknown-page 404 and private-route noindex/no-store responses. Check all eight Wix redirects in `vercel.json`, including incoming query parameters. Confirm the distinct `/schools` page remains reachable.

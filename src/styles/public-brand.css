@@ -221,6 +221,7 @@
 .tde-coach-photo .tde-media img,
 .tde-coach-profile .tde-profile-media img { object-fit: contain; }
 .tde-coach-card .tde-coach-role { font-weight: 600; margin-block: 8px 4px; }
+.tde-crew-section .tde-section-note span:last-child { opacity: 1; }
 .tde-team-directory > .tde-page-top { text-align: center; }
 .tde-team-directory > .tde-page-top h1,
 .tde-team-directory > .tde-page-top p { margin-inline: auto; }

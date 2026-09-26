@@ -1,6 +1,6 @@
 # The Dance Exclusive website implementation plan
 
-Status: public website implemented and verified on a Vercel preview, ready for design review. Production and the live coach migration remain unchanged.
+Status: public website implemented on a Vercel preview, ready for design review. The coach-publication migration was explicitly approved and applied on 26 September 2026; 12 profiles are now available and Amie is featured as Founder. The production website and domain remain unchanged.
 
 Source: `The-Dance-Exclusive-Website-Proposal-2.pdf`, supplied by the user, all six pages reviewed. Code baseline inspected: `99614da`, 25 September 2026. Existing behaviour below is established from source inspection, not a live end-to-end verification.
 
@@ -48,11 +48,11 @@ The references inform oversized typography, large photographic compositions, ima
 - Eight permanent redirects preserve the principal Wix page URLs. The separate schools-service page remains at /schools.
 - Motion can be paused. Reduced-motion visitors receive still images without automatically downloading the homepage videos. Videos load near the viewport and pause off screen; document scrolling remains native.
 
-## Coach publication: staged for launch
+## Coach publication: approved and live
 
-The anonymous staff_public view currently returns no coaches because its security-invoker query inherits private staff RLS. Twelve active records exist, but no private staff fields have been fetched into the website.
+The anonymous staff_public view previously returned no coaches because its security-invoker query inherited private staff RLS. The user explicitly approved publishing the profiles on 26 September 2026, superseding the earlier launch-only instruction.
 
-The migration at supabase/migrations/20260925154614_publish_safe_coach_profiles.sql creates a separate seven-column public projection, synchronised by a protected trigger, and keeps private staff permissions unchanged. It was tested with an isolated local PostgreSQL-compatible PGlite instance for publication, updates, deactivation, deletion and denied public writes. It has NOT been applied to the live project. The user explicitly requested: "Keep it ready for launch."
+Applied migration `supabase/migrations/20260926152554_publish_safe_coach_profiles.sql` creates a separate seven-column public projection, synchronised by a protected trigger, and keeps private staff permissions unchanged. It passed isolated PGlite checks for publication, updates, deactivation, deletion and denied public writes. The live anonymous API now returns all 12 profiles; private staff rows and fields remain inaccessible. Amie is presented as Founder, centred above the remaining coaches. See `COACH_PUBLICATION.md` for the authorization and verification evidence.
 
 ## Delivery sequence
 
@@ -79,11 +79,11 @@ The proposal describes four phases over approximately one month. Dates should be
 ## Verification and remaining launch work
 
 - GitHub plugin access and authenticated GitHub CLI access were confirmed. Supabase plugin access was restored and used for read-only inspection.
-- The Vercel plugin returns 403 for the project. The authenticated Vercel CLI successfully deployed the public site and subsequent branding revisions to the existing Nullshift project. The latest preview, commit eee6a8a, is READY at https://the-dance-exclusive-isvuebo4r-nullshift.vercel.app. No production deployment was made.
-- Final local checks: TypeScript, changed-component lint and client/server production builds passed; 35 test files and 294 tests passed. All eight legacy redirects returned the expected 308 destinations. The initial HTML included the correct content and metadata for each new editorial page; the sitemap contained 80 current URLs before coach publication.
+- The Vercel plugin returns 403 for the project. The authenticated Vercel CLI successfully deployed the public site and subsequent branding revisions to the existing Nullshift project. Dated deployment evidence follows below. No production deployment was made.
+- Final local checks: TypeScript, changed-component lint and client/server production builds passed; 36 test files and 296 tests passed after the Founder change. All eight legacy redirects returned the expected 308 destinations. The initial HTML included the correct content and metadata for each new editorial page; the sitemap contained 80 current URLs before coach publication.
 - Local production browser checks confirmed both child and adult class-page to booking to sign-up handoffs retain the selected class. The child flow was also verified on the real Vercel preview. The public and booking prices matched. Desktop homepage and mobile contact-page axe checks reported no WCAG A/AA violations; keyboard navigation, reduced motion and mobile overflow were checked. The contact page exposes real mail and phone links and has no false-success form.
 - Authenticated parent/adult checkout and payment completion have NOT been verified. No accounts, customer records, bookings, payments, emails or production data have been created as tests.
-- Production deployment, domain cutover, coach migration, Wix retirement and final editorial approval are pending. See WEBSITE_LAUNCH.md for the launch sequence and rollback details.
+- Production website deployment, domain cutover, Wix retirement and final editorial approval are pending. Coach publication was subsequently approved and completed on 26 September 2026. See WEBSITE_LAUNCH.md for the launch sequence and rollback details.
 
 ## Deployed preview evidence — 25 September 2026
 
@@ -96,7 +96,7 @@ Preview deployment: dpl_2YW4viBdfqPJrM85wBCFoTg58EVL, code commit a487ad8. Verif
 - Unknown venue returned 404/noindex. Sign-in and booking HTML returned private/no-store. Preview responses have X-Robots-Tag noindex. The adult Wix redirect preserved its incoming tracking query and selected the adult directory.
 - Child booking offered the same £91 term price and ten sessions as its public detail page. Its sign-up URL retained the selected class. No user account or booking was created.
 
-Outstanding: design/editorial review, staging publication-edit tests, authenticated checkout/payment outcomes, the launch-only coach migration and the authorised production/domain transition.
+Outstanding at that revision: design/editorial review, staging publication-edit tests, authenticated checkout/payment outcomes, the launch-only coach migration and the authorised production/domain transition. Coach publication was subsequently approved and completed on 26 September.
 
 ## Branding revision — 25 September 2026
 
@@ -113,6 +113,6 @@ The subsequent user instruction was to analyse the current Wix site and keep it 
 
 Native, progressive motion adds staggered headline/section entrances, independent overlapping photo movement and interactive details. No animation framework or scroll lock was added. Local production verification passed at 1440px and 390px: no runtime errors or overflow, mobile menu/Escape operation, and no automated WCAG A/AA violations. Keyboard focus exposes unrevealed links. Native scrolling reaches the exact document end.
 
-Pause motion produced zero running animations, zero playing videos and zero hidden entrances. A fresh reduced-motion session made zero MP4 requests and rendered zero videos. With all script requests blocked, initial HTML still showed the heading and live class rows, no entrance content was hidden and no animations ran. TypeScript, changed-file lint, client/server builds and the existing 294 tests passed. Production and the deferred coach migration remain unchanged.
+Pause motion produced zero running animations, zero playing videos and zero hidden entrances. A fresh reduced-motion session made zero MP4 requests and rendered zero videos. With all script requests blocked, initial HTML still showed the heading and live class rows, no entrance content was hidden and no animations ran. TypeScript, changed-file lint, client/server builds and the existing 294 tests passed. At that revision, production and the deferred coach migration were unchanged.
 
 Deployment `dpl_5yBkMnrXK2jM4Y1cpb1a2HMCm1ug`, code commit `eee6a8a`, is READY at https://the-dance-exclusive-isvuebo4r-nullshift.vercel.app. Verified using authenticated preview access without disabling protection: server-rendered homepage returned 200; the original font and new media returned 200; desktop/mobile displayed the correct font, blue and pink with no overflow or runtime errors. The hero video reached ready state 4 and played. The children category still opened the existing live class directory with the shared Inter typography and warm white navigation.

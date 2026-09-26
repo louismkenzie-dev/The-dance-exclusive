@@ -31,4 +31,4 @@ No scroll lock or artificial scroll duration is introduced. Initial server HTML 
 
 ## Launch boundary
 
-This is a preview iteration. Production, the public domain and the deferred coach-profile database migration remain unchanged. See `WEBSITE_LAUNCH.md` for outstanding launch and authenticated checkout verification.
+This is a preview iteration. The production website and public domain remain unchanged. Coach publication was separately approved and completed on 26 September 2026; see `COACH_PUBLICATION.md`. See `WEBSITE_LAUNCH.md` for outstanding launch and authenticated checkout verification.

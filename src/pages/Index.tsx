@@ -1,3 +1,5 @@
+import { tdePhoto, classPhoto } from "@/lib/tdeMedia";
+import { SchoolPhoto } from "@/components/marketing/SchoolPhoto";
 import { useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { ArrowDown, ArrowUpRight, Pause, Play } from "lucide-react";
@@ -134,14 +136,14 @@ export default function Index() {
               type: "children",
               title: "The next\ngeneration.",
               sub: "Children's classes",
-              image: "/media/tde-school.jpg",
+              image: tdePhoto("young-crew").src,
               copy: "Big energy. Growing confidence. A place to be themselves.",
             },
             {
               type: "adult",
               title: "Your time.\nYour energy.",
               sub: "Adult classes",
-              image: "/media/tde-adult-community.jpg",
+              image: tdePhoto("studio-energy").src,
               copy: "Switch off the day. Turn up the music. Make your move.",
             },
           ].map((item, i) => (
@@ -157,7 +159,7 @@ export default function Index() {
                 image={item.image}
                 alt={
                   item.type === "adult"
-                    ? "The Dance Exclusive adult dancers together in their studio"
+                    ? "A Dance Exclusive dancer in a blue and pink-lit studio"
                     : "The Dance Exclusive young dancers performing on stage"
                 }
                 active={move}
@@ -204,8 +206,8 @@ export default function Index() {
             </div>
             <div className="tde-intro-inset">
               <MotionMedia
-                image="/media/tde-class-confidence.jpg"
-                alt="A smiling young dancer practising in a Dance Exclusive class"
+                image={tdePhoto("first-moves").src}
+                alt={tdePhoto("first-moves").alt}
                 active={move}
                 travel={-30}
               />
@@ -252,7 +254,7 @@ export default function Index() {
             </Link>
             <div className="tde-location-photo">
               <MotionMedia
-                image="/media/tde-children-stage.jpg"
+                image={tdePhoto("showtime").src}
                 alt="The Dance Exclusive dancers performing together"
                 active={move}
               />
@@ -300,7 +302,8 @@ export default function Index() {
           </div>
           <div className="tde-event-list">
             {school.camps.slice(0, 3).map((camp) => (
-              <Link key={camp.id} to={`/events/${camp.id}`} data-audience={camp.class_type}>
+              <Link key={camp.id} to={`/events/${camp.id}`} data-audience={camp.class_type} className="tde-photo-event">
+                <SchoolPhoto photo={classPhoto(camp)} decorative sizes="(max-width: 640px) 100vw, 240px" />
                 <span>{shortDateRange(camp.start_date, camp.end_date)}</span>
                 <h3>{camp.name}</h3>
                 <span>

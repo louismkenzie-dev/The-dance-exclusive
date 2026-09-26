@@ -1,3 +1,4 @@
+import { classPhoto } from "@/lib/tdeMedia";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { format, parseISO } from "date-fns";
@@ -370,7 +371,9 @@ const BookClass = () => {
   const isAdult = cls.class_type === "adult";
   const venue = cls.venues;
   const staff = cls.staff;
-  const cover = getWorkshopImageUrl(cls.workshops?.cover_image);
+  const photo = classPhoto(cls);
+  const workshopCover = getWorkshopImageUrl(cls.workshops?.cover_image);
+  const cover = workshopCover || photo.src;
   const staffPhoto = getStaffPhotoUrl(staff?.profile_photo);
   const instructor = instructorFirstName(staff?.full_name);
   const availability = availabilityFor(cls.capacity, enrolled);
@@ -469,9 +472,9 @@ const BookClass = () => {
                 <WorkshopCover
                   src={cover}
                   alt=""
-                  cover_position={cls.workshops?.cover_position}
-                  cover_zoom={cls.workshops?.cover_zoom}
-                  cover_fit={cls.workshops?.cover_fit}
+                  cover_position={workshopCover ? cls.workshops?.cover_position : photo.position}
+                  cover_zoom={workshopCover ? cls.workshops?.cover_zoom : 1}
+                  cover_fit={workshopCover ? cls.workshops?.cover_fit : "cover"}
                 />
               </div>
             )}

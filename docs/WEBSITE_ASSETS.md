@@ -50,3 +50,43 @@ The active scroll section now uses `tde-dance-studio.jpg` and its mobile compani
 ## Actual animated Blender studio — latest revision
 
 The user rejected the photographic approximation. The current scroll section uses `public/models/tde-animated-studio.glb`: a fully modelled blue studio with an animated stylised mannequin. Its fallback images (`tde-animated-studio.jpg` and mobile companion) are Blender renders, not generated photography. The source `.blend`, modelling/animation script and verification are documented in `WEBSITE_ANIMATED_STUDIO.md`. Earlier photograph assets are no longer loaded by this section.
+
+## Supplied photo library — 27 September 2026
+
+Source: the user's `Downloads/TDE Assets` folder. Twenty distinct photographs
+are now served from `public/media/tde/`, with descriptions, source filenames,
+dimensions and focal points in `src/lib/tdePhotos.json`. `IMG_1551.JPG` is an
+alternate of the group portrait in `IMG_1550.JPG`; the latter is used to avoid
+near-duplicate gallery entries. Originals remain untouched. Delivered WebP
+copies have EXIF orientation applied, metadata stripped and a smaller responsive
+variant. Combined size is approximately 3.55 MB for all 40 variants; images below
+the fold load lazily.
+
+New photos cover the home category panels, first-session inset, location section,
+class directory hero, every public class card and class detail banner, the
+booking browser and class booking page, event cards/details, about, competition
+and gallery pages. Bespoke workshop covers retain priority in booking. Existing
+coach portraits, venue photography, schools-page photos and homepage films stay
+in use where they accurately describe those specific subjects.
+
+Class photographs are representative school imagery, assigned consistently by
+class ID and audience, not evidence of a particular venue, instructor or class.
+The gallery displays uncropped photo proportions. No identities or awards are
+inferred from the supplied files.
+
+The class directory now uses three-column photo cards (two on tablet, one on
+phone), with labelled age, location, day and time icons. Class detail pages use
+an image-led banner. Headlines show the lowest payable enabled standard option
+with its billing period; trial/session-equivalent rates are excluded for children,
+and ended term options are excluded. This changes price presentation only, not
+checkout pricing or available plans.
+
+Validation for this pass: 306 tests passed across 40 files; TypeScript and both
+production builds passed. Browser review covered the 45-class directory, live
+White Court class banner and term price, phone search cards, adult tablet cards
+and the 20-photo gallery at 390, 820 and 1280 pixels. Reviewed surfaces had no
+horizontal overflow or broken visible photos; browser error log was empty.
+Changed public components passed ESLint. The two existing portal files retain
+50 pre-existing lint findings, with zero new findings versus HEAD. Impeccable
+flagged two existing Inter declarations; these are retained to match the booking
+system typography requested by the user.

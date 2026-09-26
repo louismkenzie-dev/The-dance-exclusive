@@ -57,22 +57,24 @@ export interface PriceSummary {
   priceHint: string;
 }
 
-/**
- * The headline figure a parent compares classes by: the membership price for
- * children's classes, the class price for adults.
- */
+/** Lowest payable standard option, with its actual billing period. No trial or
+ * per-session equivalent for children: those cannot be bought as drop-ins. */
 export const classPriceSummary = (c: PricedClass & PlanFlags, remainingSessions: number): PriceSummary => {
   if (c.class_type === "adult") {
     return { priceLabel: formatPrice(sessionPrice(c), { trimZeros: true }), priceHint: "per class" };
   }
-  if (offersMonthly(c)) {
-    return { priceLabel: formatPrice(monthlyPrice(c)), priceHint: "/month" };
+  const options: { amount: number; hint: string }[] = [];
+  if (offersMonthly(c)) options.push({ amount: monthlyPrice(c), hint: "/month" });
+  if (offersTermly(c) && remainingSessions > 0) {
+    const amount = termPrice(c, remainingSessions);
+    if (amount != null) options.push({ amount, hint: "/term" });
   }
-  if (offersTermly(c)) {
-    const term = termPrice(c, remainingSessions);
-    if (term != null) return { priceLabel: formatPrice(term), priceHint: "/term" };
-  }
-  return { priceLabel: `From ${formatPrice(sessionPrice(c), { trimZeros: true })}`, priceHint: "per class" };
+  if (offersYearly(c)) options.push({ amount: yearlyPrice(c), hint: "/year" });
+  const lowest = options.filter(option => Number.isFinite(option.amount) && option.amount > 0)
+    .sort((a, b) => a.amount - b.amount)[0];
+  return lowest
+    ? { priceLabel: formatPrice(lowest.amount), priceHint: lowest.hint }
+    : { priceLabel: "Enquire for pricing", priceHint: "" };
 };
 
 export interface PlanRow {

@@ -1,7 +1,9 @@
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, ArrowUpRight } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Baby, CalendarDays, Clock3, MapPin, PersonStanding } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { usePublicSchool } from "@/hooks/usePublicSchool";
+import { SchoolPhoto } from "@/components/marketing/SchoolPhoto";
+import { classPhoto } from "@/lib/tdeMedia";
 import { PageMeta } from "@/components/marketing/PageMeta";
 import { PUBLIC_ORIGIN } from "@/components/marketing/PageHeadContext";
 import {
@@ -73,6 +75,8 @@ export default function PublicClassPage() {
       : availabilityFor(cls.capacity, cls.enrolled).label;
   const days = classDaysLabel(cls.days_of_week, cls.day_of_week);
   const audience = audienceText(cls);
+  const photo = classPhoto(cls);
+  const AudienceIcon = cls.class_type === "adult" ? PersonStanding : Baby;
   const description = `${cls.name}${venue?.city ? ` in ${venue.city}` : ""}. ${days}, ${formatTimeRange(cls.start_time, cls.end_time)}. ${audience}. ${price.priceLabel} ${price.priceHint}.`;
 
   return (
@@ -129,17 +133,18 @@ export default function PublicClassPage() {
         <ArrowLeft size={15} aria-hidden /> All{" "}
         {cls.class_type === "adult" ? "adult" : "children's"} classes
       </Link>
-      <div className="tde-page-top">
-        <span className="tde-eyebrow">
-          {cls.dance_style || "THE DANCE EXCLUSIVE"} /{" "}
-          {audience || (cls.class_type === "adult" ? "ADULTS" : "CHILDREN")}
-        </span>
-        <h1>{cls.name}</h1>
-        <p>
-          {days} · {formatTimeRange(cls.start_time, cls.end_time)}
-          {venue ? ` · ${venue.name}` : ""}
-        </p>
-      </div>
+      <header className="tde-class-banner">
+        <SchoolPhoto photo={photo} eager sizes="100vw" />
+        <div className="tde-class-banner-copy">
+          <div className="tde-class-banner-tags"><span><AudienceIcon size={18} aria-hidden />{audience || (cls.class_type === "adult" ? "Adults" : "Children")}</span>{cls.dance_style && <span>{cls.dance_style}</span>}</div>
+          <h1>{cls.name}</h1>
+          <div className="tde-class-banner-meta">
+            <span><CalendarDays size={18} aria-hidden />{days}</span>
+            <span><Clock3 size={18} aria-hidden />{formatTimeRange(cls.start_time, cls.end_time)}</span>
+            {venue && <span><MapPin size={18} aria-hidden />{venue.name}</span>}
+          </div>
+        </div>
+      </header>
       <div className="tde-class-detail-grid">
         <div className="tde-class-story">
           <h2>

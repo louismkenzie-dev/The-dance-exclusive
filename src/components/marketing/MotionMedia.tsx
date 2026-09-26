@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { photoFromSrc, photoSrcSet } from "@/lib/tdeMedia";
 import { onScrollFrame } from "@/lib/scrollFrame";
 
 /** Bounded image parallax and in-view video; scrolling itself stays native. */
@@ -11,6 +12,7 @@ export function MotionMedia({
   active = true,
   eager = false,
   travel = 44,
+  sizes = "100vw",
 }: {
   image: string;
   video?: string;
@@ -19,7 +21,9 @@ export function MotionMedia({
   active?: boolean;
   eager?: boolean;
   travel?: number;
+  sizes?: string;
 }) {
+  const photo = photoFromSrc(image);
   const container = useRef<HTMLDivElement>(null);
   const film = useRef<HTMLVideoElement>(null);
   const reduced = useMediaQuery("(prefers-reduced-motion: reduce)");
@@ -75,6 +79,11 @@ export function MotionMedia({
       <div className="tde-media-layer">
         <img
           src={image}
+          srcSet={photo ? photoSrcSet(photo) : undefined}
+          sizes={photo ? sizes : undefined}
+          width={photo?.width}
+          height={photo?.height}
+          style={photo ? { objectPosition: photo.position } : undefined}
           alt={alt}
           loading={eager ? "eager" : "lazy"}
           {...{ fetchpriority: eager ? "high" : "auto" }}

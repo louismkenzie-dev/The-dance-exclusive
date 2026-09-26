@@ -1,3 +1,4 @@
+import { tdePhoto } from "@/lib/tdeMedia";
 import { useSearchParams } from "react-router-dom";
 import { ArrowUpRight, Search } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -62,8 +63,8 @@ export default function PublicClassDirectory() {
         eyebrow={type === "adult" ? "YOUR TIME. YOUR ENERGY." : "STREET DANCE. NEW FRIENDS. BIG ENERGY."}
         title={<>Find your<br /><em>{type === "adult" ? "release." : "crew."}</em></>}
         description={type === "adult" ? "Turn up the music. Switch off the day. Find your next street or commercial class and make some time for you." : "From first steps to centre stage. Find your class, meet your people and get moving."}
-        image={type === "adult" ? "/media/tde-adult-community.jpg" : "/media/tde-children-stage.jpg"}
-        alt={type === "adult" ? "The Dance Exclusive adult dancers together in the studio" : "The Dance Exclusive young dancers performing on stage"}
+        image={tdePhoto(type === "adult" ? "studio-energy" : "showtime").src}
+        alt={tdePhoto(type === "adult" ? "studio-energy" : "showtime").alt}
       >
         <div className="tde-style-links" aria-label="Explore dance styles">
           {["Street", "Commercial", "Hip Hop"].map((style) => (

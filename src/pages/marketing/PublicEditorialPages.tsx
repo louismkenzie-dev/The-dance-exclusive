@@ -1,3 +1,5 @@
+import { tdePhoto, schoolPhotos } from "@/lib/tdeMedia";
+import { SchoolPhoto } from "@/components/marketing/SchoolPhoto";
 import type { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
@@ -96,7 +98,7 @@ export default function PublicEditorialPages() {
     <EditorialPage title="Our school" eyebrow="The Dance Exclusive · Essex" heading={<>More than<br /><em>the moves.</em></>}
       description="Commercial and street dance. Confidence, creativity and a place to belong. This is The Dance Exclusive.">
       <div className="tde-editorial-split">
-        <MotionMedia className="tde-editorial-photo" image="/media/tde-community.jpg" alt="The Dance Exclusive dancers together at a performance" />
+        <MotionMedia className="tde-editorial-photo" image={tdePhoto("take-a-bow").src} alt={tdePhoto("take-a-bow").alt} />
         <div className="tde-editorial-copy">
           <span className="tde-eyebrow">Our school. Your people.</span>
           <h2>Come as you are.<br />Grow from here.</h2>
@@ -165,7 +167,7 @@ export default function PublicEditorialPages() {
     <EditorialPage title="Competition teams & achievements" eyebrow="Take it to the stage" heading={<>All the work.<br /><em>ALL the feeling.</em></>}
       description="Training together. Performing together. Our competition teams give existing dancers a way to take their commitment further.">
       <div className="tde-editorial-split">
-        <MotionMedia className="tde-editorial-photo" image="/media/tde-school.jpg" alt="The Dance Exclusive team at a dance event" />
+        <MotionMedia className="tde-editorial-photo" image={tdePhoto("competition-crew").src} alt={tdePhoto("competition-crew").alt} />
         <div className="tde-editorial-copy">
           <h2>Moments<br />to remember.</h2>
           <ul className="tde-awards-list">
@@ -190,9 +192,10 @@ export default function PublicEditorialPages() {
         </video>
         <figcaption>In performance · The Dance Exclusive. Silent film.</figcaption>
       </figure>
-      <div className="tde-gallery-grid">
-        <figure><img src="/media/tde-community.jpg" alt="The Dance Exclusive dancers gathered together at a performance" loading="lazy" width="900" height="900" /><figcaption>Our people.</figcaption></figure>
-        <figure><img src="/media/tde-school.jpg" alt="The Dance Exclusive team celebrating at a dance event" loading="lazy" width="900" height="900" /><figcaption>Shared moments.</figcaption></figure>
+      <div className="tde-gallery-grid tde-photo-gallery">
+        {schoolPhotos.map(photo => <figure key={photo.key}>
+          <SchoolPhoto photo={photo} sizes="(max-width: 640px) 100vw, (max-width: 1000px) 50vw, 33vw" />
+        </figure>)}
       </div>
       <TextLink to="/classes">Be part of it</TextLink>
     </EditorialPage>

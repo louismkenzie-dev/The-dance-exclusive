@@ -1,3 +1,4 @@
+import { classPhoto } from "@/lib/tdeMedia";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { addDays, format, parseISO } from "date-fns";
@@ -672,7 +673,9 @@ const ClassBrowser = () => {
     const remaining = sessionCounts[c.id] || 0;
     const { priceLabel, priceHint } = classPriceSummary(c, remaining);
     const full = isClassFull(c.capacity, enrollmentCounts[c.id]);
-    const cover = getWorkshopImageUrl(c.workshops?.cover_image) || venue?.photo_indoor || venue?.photo_outside || null;
+    const photo = classPhoto(c);
+    const workshopCover = getWorkshopImageUrl(c.workshops?.cover_image);
+    const cover = workshopCover || photo.src;
     return {
       id: c.id,
       name: c.name,
@@ -686,7 +689,7 @@ const ClassBrowser = () => {
       priceHint,
       availability: availabilityFor(c.capacity, enrollmentCounts[c.id]),
       coverUrl: cover,
-      coverPosition: c.workshops?.cover_position ?? null,
+      coverPosition: workshopCover ? c.workshops?.cover_position : photo.position,
       // Child matches are a children's-page thing: adults book themselves.
       matchedNames: isAdult ? [] : matched.map((ch) => ch.preferred_name || ch.first_name),
       state: classCardState(c, full),

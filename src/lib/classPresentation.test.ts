@@ -99,10 +99,17 @@ describe("classPriceSummary", () => {
     expect(classPriceSummary(childClass, 14)).toEqual({ priceLabel: "£27.20", priceHint: "/month" });
     expect(classPriceSummary(adultClass, 14)).toEqual({ priceLabel: "£12", priceHint: "per class" });
   });
-  it("falls back to termly then per-class when plans are switched off", () => {
+  it("chooses the lowest enabled standard payment, keeping its period", () => {
+    expect(classPriceSummary({ ...childClass, price_per_term: 20 }, 2)).toEqual({ priceLabel: "£20.00", priceHint: "/term" });
+    expect(classPriceSummary({ ...childClass, price_per_year: 15 }, 14)).toEqual({ priceLabel: "£15.00", priceHint: "/year" });
     expect(classPriceSummary({ ...childClass, allow_monthly: false }, 14)).toEqual({ priceLabel: "£98.80", priceHint: "/term" });
-    expect(classPriceSummary({ ...childClass, allow_monthly: false, price_per_term: null }, 0)).toEqual({ priceLabel: "From £8", priceHint: "per class" });
-    expect(classPriceSummary({ ...childClass, allow_monthly: false, allow_termly: false }, 14)).toEqual({ priceLabel: "From £8", priceHint: "per class" });
+    expect(classPriceSummary({ ...childClass, allow_monthly: false, allow_termly: false }, 14)).toEqual({ priceLabel: "£273.60", priceHint: "/year" });
+  });
+  it("excludes expired terms, disabled plans and children's trial rates", () => {
+    expect(classPriceSummary({ ...childClass, price_per_term: 1 }, 0)).toEqual({ priceLabel: "£27.20", priceHint: "/month" });
+    expect(classPriceSummary({ ...childClass, price_per_month: 1, allow_monthly: false }, 14)).toEqual({ priceLabel: "£98.80", priceHint: "/term" });
+    expect(classPriceSummary({ ...childClass, allow_monthly: false, allow_termly: false, allow_yearly: false }, 14)).toEqual({ priceLabel: "Enquire for pricing", priceHint: "" });
+    expect(classPriceSummary({ ...childClass, price_per_term: null, allow_monthly: false, allow_yearly: false }, 2)).toEqual({ priceLabel: "£15.20", priceHint: "/term" });
   });
 });
 

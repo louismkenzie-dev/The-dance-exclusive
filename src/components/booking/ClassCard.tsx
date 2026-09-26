@@ -1,3 +1,4 @@
+import { photoFromSrc, photoSrcSet } from "@/lib/tdeMedia";
 import type { MouseEvent, ReactNode } from "react";
 import type { Availability } from "@/lib/bookingFormat";
 import { cn } from "@/lib/utils";
@@ -53,6 +54,7 @@ const joinNames = (names: string[]) =>
  * whether there's room, one button. Nothing else.
  */
 export function ClassCard({ data, onOpen, onPrimary, primaryLabel, busy, highlighted, children, className }: ClassCardProps) {
+  const photo = data.coverUrl ? photoFromSrc(data.coverUrl) : undefined;
   const cta =
     primaryLabel ??
     (data.state === "full" ? (data.onWaitlist ? "On waitlist" : "Join waitlist")
@@ -89,6 +91,10 @@ export function ClassCard({ data, onOpen, onPrimary, primaryLabel, busy, highlig
         <div className="relative aspect-[2/1] w-full overflow-hidden bg-muted">
           <img
             src={data.coverUrl}
+            srcSet={photo ? photoSrcSet(photo) : undefined}
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            width={photo?.width}
+            height={photo?.height}
             alt=""
             loading="lazy"
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"

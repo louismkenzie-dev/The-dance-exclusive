@@ -1,3 +1,5 @@
+import { tdePhoto, classPhoto } from "@/lib/tdeMedia";
+import { SchoolPhoto } from "@/components/marketing/SchoolPhoto";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowUpRight, MapPin } from "lucide-react";
 import { usePublicSchool } from "@/hooks/usePublicSchool";
@@ -288,6 +290,7 @@ export default function PublicPages() {
           </span>
           <h1>{camp.name}</h1>
         </div>
+        <div className="tde-event-banner"><SchoolPhoto photo={classPhoto(camp)} eager sizes="100vw" /></div>
         <div className="tde-event-detail">
           <p className="tde-prose">
             {camp.description ||
@@ -339,7 +342,7 @@ export default function PublicPages() {
         eyebrow={`THE DANCE EXCLUSIVE / ${label}`}
         title={isVenue ? <>Find your<br /><em>local floor.</em></> : isCoach ? <>Meet your<br /><em>hype team.</em></> : <>Make some<br /><em>moves.</em></>}
         description={isVenue ? "Big energy, close to home. Find your nearest dance floor and see what's happening this week." : isCoach ? "The people who bring the energy, champion your progress and make every class feel like your place." : "Camps, workshops and more time on the dance floor. Here's what's coming up."}
-        image={isCoach ? undefined : isVenue ? "/media/tde-children-stage.jpg" : "/media/tde-community.jpg"}
+        image={isCoach ? undefined : isVenue ? tdePhoto("showtime").src : tdePhoto("stage-energy").src}
         alt="The Dance Exclusive dancers performing together on stage"
       />
       {isVenue ? (
@@ -377,7 +380,8 @@ export default function PublicPages() {
       ) : school.camps.length ? (
         <div className="tde-event-list">
           {school.camps.map((camp) => (
-            <Link to={`/events/${camp.id}`} key={camp.id} data-audience={camp.class_type}>
+            <Link to={`/events/${camp.id}`} key={camp.id} data-audience={camp.class_type} className="tde-photo-event">
+              <SchoolPhoto photo={classPhoto(camp)} decorative sizes="(max-width: 640px) 100vw, 240px" />
               <span>{shortDateRange(camp.start_date, camp.end_date)}</span>
               <h3>{camp.name}</h3>
               <span>{camp.class_type === "adult" ? "Adults" : "Children"}</span>

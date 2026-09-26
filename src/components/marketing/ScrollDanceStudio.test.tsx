@@ -23,7 +23,7 @@ describe("progressively enhanced Blender stage", () => {
     expect(screen.getByRole("heading", { name: "Your space. To move." })).toBeVisible();
     expect(screen.getByRole("link", { name: "Meet your people" })).toHaveAttribute("href", "#the-feeling");
     expect(container.querySelector("section")).toHaveAttribute("data-enhanced", "false");
-    expect(container.querySelector("picture img")).toHaveAttribute("src", "/media/tde-dance-studio.jpg");
+    expect(container.querySelector("picture img")).toHaveAttribute("src", "/media/tde-animated-studio.jpg");
   });
 
   it("does not initialise WebGL when reduced motion is requested", () => {

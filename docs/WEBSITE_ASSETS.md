@@ -46,3 +46,7 @@ These are unaltered first-party images, not generated replacements. Services and
 ## Photorealistic studio concept — 26 September 2026
 
 The active scroll section now uses `tde-dance-studio.jpg` and its mobile companion instead of the sound-system sculpture. These are generated concept images of a fictional adult dancer and studio, not actual school footage. Blender projection scenes preserve a bounded scroll camera move. Exact prompts, files, motion limitations and verification are in `WEBSITE_DANCE_STUDIO.md`. The existing logo remains the original separate asset.
+
+## Actual animated Blender studio — latest revision
+
+The user rejected the photographic approximation. The current scroll section uses `public/models/tde-animated-studio.glb`: a fully modelled blue studio with an animated stylised mannequin. Its fallback images (`tde-animated-studio.jpg` and mobile companion) are Blender renders, not generated photography. The source `.blend`, modelling/animation script and verification are documented in `WEBSITE_ANIMATED_STUDIO.md`. Earlier photograph assets are no longer loaded by this section.

@@ -65,7 +65,7 @@ export function ScrollDanceStudio({ active, onToggle }: { active: boolean; onTog
       <div className="tde-sound-sticky">
         <div className="tde-sound-heading"><BrandLogo tone="white" className="tde-studio-logo" /><span className="tde-eyebrow">Street dance. Your kind of energy.</span><h2 id="sound-stage-title">Your space.<br /><em>To move.</em></h2><p>Find your rhythm. Make it yours.</p></div>
         <div className="tde-sound-art" aria-hidden="true">
-          <picture><source media="(max-aspect-ratio: 4/5)" srcSet="/media/tde-dance-studio-mobile.jpg" /><img src="/media/tde-dance-studio.jpg" alt="" width="1672" height="941" loading="lazy" /></picture>
+          <picture><source media="(max-aspect-ratio: 4/5)" srcSet="/media/tde-animated-studio-mobile.jpg" /><img src="/media/tde-animated-studio.jpg" alt="" width="1440" height="1000" loading="lazy" /></picture>
           <div ref={host} className="tde-sound-canvas" />
         </div>
         <div className="tde-studio-shade" aria-hidden="true" />

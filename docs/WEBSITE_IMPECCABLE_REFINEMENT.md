@@ -20,3 +20,9 @@ The footer now has an explicit Find your class link. Original logo, blue-led pal
 - No checkout transaction, full screen-reader audit or broad network simulation was performed.
 
 Preview deployment details are recorded after release verification.
+
+## Preview release
+
+Code commit `99b93e1` deployed READY at https://the-dance-exclusive-dv38r818p-nullshift.vercel.app/ (deployment `dpl_73JU99HD6HNb5Wr84ndyhhjJ3h1n`). Deployed browser check confirmed the adult selector changes the list and destination, and scrolling visibly advances the studio camera, light fixtures, meters and floor markings. Preview left open for review. Production remains unchanged.
+
+The source critique snapshot is closed after implementing all five priorities. Desktop/phone camera framing and Blender fallbacks were visually inspected; intermediate tablet layout has no observed horizontal overflow. Temporary local preview servers were stopped and the browser viewport reset.

@@ -42,3 +42,7 @@ These are unaltered first-party images, not generated replacements. Services and
 ## Blender sound stage — 26 September 2026
 
 `public/models/tde-sound-stage.glb` and `public/media/tde-sound-stage.webp` are original assets created in Blender for the scroll-responsive homepage section. The source project, modelling script and transparent render are retained in `design/blender/`. The still uses the same sculpture and materials as the interactive scene. See `WEBSITE_3D_SCROLL.md` for implementation and verification details.
+
+## Photorealistic studio concept — 26 September 2026
+
+The active scroll section now uses `tde-dance-studio.jpg` and its mobile companion instead of the sound-system sculpture. These are generated concept images of a fictional adult dancer and studio, not actual school footage. Blender projection scenes preserve a bounded scroll camera move. Exact prompts, files, motion limitations and verification are in `WEBSITE_DANCE_STUDIO.md`. The existing logo remains the original separate asset.

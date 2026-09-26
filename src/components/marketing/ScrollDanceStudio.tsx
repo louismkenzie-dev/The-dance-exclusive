@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowDown, Pause, Play } from "lucide-react";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { BrandLogo } from "@/components/BrandLogo";
 import { onScrollFrame } from "@/lib/scrollFrame";
-import type { createSoundStage } from "@/lib/soundStage";
+import type { createDanceStudio } from "@/lib/danceStudio";
 
-type Stage = Awaited<ReturnType<typeof createSoundStage>>;
+type Stage = Awaited<ReturnType<typeof createDanceStudio>>;
 
-export function ScrollSoundStage({ active, onToggle }: { active: boolean; onToggle: () => void }) {
+export function ScrollDanceStudio({ active, onToggle }: { active: boolean; onToggle: () => void }) {
   const section = useRef<HTMLElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const controller = useRef<Stage>();
+  const portrait = useMediaQuery("(max-aspect-ratio: 4/5)");
   const reduced = useMediaQuery("(prefers-reduced-motion: reduce)");
   const [near, setNear] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -33,16 +35,16 @@ export function ScrollSoundStage({ active, onToggle }: { active: boolean; onTogg
     const abort = new AbortController();
     let cancelled = false;
     let stage: Stage | undefined;
-    void import("@/lib/soundStage").then(({ createSoundStage }) => {
+    void import("@/lib/danceStudio").then(({ createDanceStudio }) => {
       if (cancelled || !host.current) return;
-      return createSoundStage(host.current, () => setFailed(true), abort.signal);
+      return createDanceStudio(host.current, () => setFailed(true), abort.signal, portrait);
     }).then(result => {
       if (!result) return;
       if (cancelled) { result.dispose(); return; }
       stage = result; controller.current = result; setReady(true);
     }).catch(() => { if (!cancelled) setFailed(true); });
     return () => { cancelled = true; abort.abort(); stage?.dispose(); controller.current = undefined; setReady(false); };
-  }, [started, reduced, failed]);
+  }, [started, reduced, failed, portrait]);
 
   useEffect(() => {
     const element = section.current;
@@ -59,14 +61,14 @@ export function ScrollSoundStage({ active, onToggle }: { active: boolean; onTogg
   }, [canMove, ready, visible]);
 
   return (
-    <section ref={section} id="turn-it-up" className="tde-sound-stage" data-enhanced={ready && !reduced && !failed} data-chapter="1" aria-labelledby="sound-stage-title">
+    <section ref={section} id="turn-it-up" className="tde-sound-stage tde-dance-studio" data-enhanced={ready && !reduced && !failed} data-chapter="1" aria-labelledby="sound-stage-title">
       <div className="tde-sound-sticky">
-        <div className="tde-sound-heading"><span className="tde-eyebrow">The music brings us together.</span><h2 id="sound-stage-title">Turn it <em>up.</em></h2><p>Find your rhythm. Make it yours.</p></div>
+        <div className="tde-sound-heading"><BrandLogo tone="white" className="tde-studio-logo" /><span className="tde-eyebrow">Street dance. Your kind of energy.</span><h2 id="sound-stage-title">Your space.<br /><em>To move.</em></h2><p>Find your rhythm. Make it yours.</p></div>
         <div className="tde-sound-art" aria-hidden="true">
-          <span className="tde-sound-glow" />
-          <img src="/media/tde-sound-stage.webp" alt="" width="1200" height="1000" loading="lazy" />
+          <picture><source media="(max-aspect-ratio: 4/5)" srcSet="/media/tde-dance-studio-mobile.jpg" /><img src="/media/tde-dance-studio.jpg" alt="" width="1672" height="941" loading="lazy" /></picture>
           <div ref={host} className="tde-sound-canvas" />
         </div>
+        <div className="tde-studio-shade" aria-hidden="true" />
         <div className="tde-sound-bottom">
           <div className="tde-sound-chapters" role="group" aria-label="Feel the beat. Find your people. Own the floor.">
             <span aria-hidden="true">01 / Feel the beat.</span><span aria-hidden="true">02 / Find your people.</span><span aria-hidden="true">03 / Own the floor.</span>

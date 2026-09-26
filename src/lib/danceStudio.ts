@@ -1,28 +1,20 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
-/** Blender mesh, rendered only when scroll/size changes. No perpetual render loop. */
-export async function createSoundStage(host: HTMLElement, onFailure: () => void, signal: AbortSignal) {
+/** Blender photographic projection with a bounded scroll dolly; no character rig. */
+export async function createDanceStudio(host: HTMLElement, onFailure: () => void, signal: AbortSignal, portrait = false) {
   const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "low-power" });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   renderer.setClearColor(0x000000, 0);
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.25;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.domElement.setAttribute("aria-hidden", "true");
   host.appendChild(renderer.domElement);
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(38, 1, .1, 80);
-  camera.position.set(0, 1.6, 14.8);
-  camera.lookAt(0, 0, 0);
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  const room = new RoomEnvironment();
-  const environment = pmrem.fromScene(room, .04);
-  scene.environment = environment.texture;
-  room.dispose(); pmrem.dispose();
-  scene.add(new THREE.HemisphereLight(0xb9eaff, 0x072030, 2));
-  const key = new THREE.DirectionalLight(0xffffff, 3.5); key.position.set(-3, 6, 8); scene.add(key);
-  const rim = new THREE.DirectionalLight(0x00b0e0, 5); rim.position.set(5, 2, -3); scene.add(rim);
+  camera.position.set(0, 0, 3);
+  const imageAspect = portrait ? 941 / 1672 : 1672 / 941;
+  let baseDistance = 3;
+  let progress = 0;
   let destroyed = false;
   let frame = 0;
   let model: THREE.Group | undefined;
@@ -32,7 +24,10 @@ export async function createSoundStage(host: HTMLElement, onFailure: () => void,
     if (!(object instanceof THREE.Mesh)) return;
     object.geometry.dispose();
     const materials = Array.isArray(object.material) ? object.material : [object.material];
-    materials.forEach(material => material.dispose());
+    materials.forEach(material => {
+      Object.values(material).forEach(value => { if (value instanceof THREE.Texture) { value.dispose(); if (value.image instanceof ImageBitmap) value.image.close(); } });
+      material.dispose();
+    });
   });
   const draw = () => {
     if (destroyed || frame || document.hidden) return;
@@ -43,8 +38,8 @@ export async function createSoundStage(host: HTMLElement, onFailure: () => void,
     if (!width || !height || destroyed) return;
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
-    // Keep the complete sculpture within the portrait viewport, too.
-    camera.position.z = camera.aspect < 1 ? 17.5 : 14.8;
+    baseDistance = Math.min(1, imageAspect / camera.aspect) / Math.tan(THREE.MathUtils.degToRad(19)) * .97;
+    camera.position.z = baseDistance * (1 - progress * .075);
     camera.updateProjectionMatrix(); draw();
   };
   const observer = new ResizeObserver(resize); observer.observe(host);
@@ -57,36 +52,22 @@ export async function createSoundStage(host: HTMLElement, onFailure: () => void,
     document.removeEventListener("visibilitychange", restore);
     renderer.domElement.removeEventListener("webglcontextlost", lost);
     if (model) disposeObject(model);
-    environment.dispose(); renderer.dispose(); renderer.domElement.remove();
+    renderer.dispose(); renderer.domElement.remove();
   };
   signal.addEventListener("abort", dispose, { once: true });
   try {
     if (signal.aborted) throw new DOMException("Aborted", "AbortError");
-    const response = await fetch("/models/tde-sound-stage.glb", { signal });
-    if (!response.ok) throw new Error("The sound sculpture could not load");
+    const response = await fetch(`/models/tde-dance-studio${portrait ? "-mobile" : ""}.glb`, { signal });
+    if (!response.ok) throw new Error("The studio scene could not load");
     const gltf = await new GLTFLoader().parseAsync(await response.arrayBuffer(), "");
     if (destroyed) { disposeObject(gltf.scene); throw new DOMException("Aborted", "AbortError"); }
     model = gltf.scene;
     scene.add(model);
-    const sculpture = model.getObjectByName("SoundSystem")!;
-    const left = model.getObjectByName("SpeakerLeft")!;
-    const right = model.getObjectByName("SpeakerRight")!;
-    const halo = model.getObjectByName("Halo")!;
-    const leftStart = left.position.clone(); const rightStart = right.position.clone();
-    // The Blender export converts the sculpture into glTF Y-up coordinates.
     const setProgress = (value: number) => {
-      const progress = THREE.MathUtils.clamp(value, 0, 1);
-      const spread = Math.sin(progress * Math.PI) * .85;
-      sculpture.rotation.y = -.4 + progress * .8;
-      sculpture.rotation.z = -.06 + progress * .12;
-      sculpture.rotation.x = .12;
-      left.position.x = leftStart.x - spread;
-      right.position.x = rightStart.x + spread;
-      left.position.y = leftStart.y + spread * .3;
-      right.position.y = rightStart.y - spread * .3;
-      left.rotation.z = -spread * .22; right.rotation.z = spread * .22;
-      halo.rotation.y = progress * .6;
-      halo.rotation.z = progress * .9;
+      progress = THREE.MathUtils.clamp(value, 0, 1);
+      camera.position.z = baseDistance * (1 - progress * .075);
+      camera.position.x = progress * .025;
+      camera.position.y = Math.sin(progress * Math.PI) * .012;
       host.dataset.progress = progress.toFixed(3);
       draw();
     };

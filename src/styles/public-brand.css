@@ -689,3 +689,29 @@
   .tde-sound-stage[data-enhanced="true"] { height: auto; }
   .tde-sound-stage[data-enhanced="true"] .tde-sound-sticky { position: relative; }
 }
+
+/* Photoreal studio revision: the original logo stays a separate, exact asset. */
+.tde-dance-studio .tde-sound-art { inset: 0; width: 100%; }
+.tde-dance-studio .tde-sound-art picture { position: absolute; inset: 0; }
+.tde-dance-studio .tde-sound-art picture img { width: 100%; height: 100%; object-fit: cover; }
+.tde-dance-studio[data-enhanced="true"] .tde-sound-art picture { visibility: hidden; }
+.tde-studio-shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg,#040e1b95,transparent 55%),linear-gradient(0deg,#040e1bef,transparent 27%); }
+.tde-dance-studio .tde-sound-heading { top: 12%; }
+.tde-dance-studio .tde-studio-logo { width: 130px; height: auto; margin-bottom: 35px; }
+.tde-dance-studio .tde-sound-heading > span { display: block; }
+.tde-dance-studio .tde-sound-heading h2 { font-size: clamp(52px,6vw,92px); max-width: 600px; }
+.tde-dance-studio .tde-sound-heading h2 em { display: inline; }
+.tde-dance-studio .tde-sound-heading p { margin-top: 20px; }
+@media (max-aspect-ratio: 6/5) {
+  .tde-dance-studio .tde-sound-heading { top: 5%; right: 6%; }
+  .tde-dance-studio .tde-studio-logo { width: 85px; margin-bottom: 18px; }
+  .tde-dance-studio .tde-sound-heading h2 { font-size: clamp(38px,7vw,65px); line-height: 1; margin-top: 12px; }
+  .tde-dance-studio .tde-sound-heading p { margin-top: 12px; }
+  .tde-dance-studio .tde-studio-shade { background: linear-gradient(0deg,#040e1bf0,transparent 25%),linear-gradient(180deg,#040e1b80,transparent 30%); }
+}
+@media (max-width: 600px) {
+  .tde-dance-studio .tde-studio-logo { width: 65px; margin-bottom: 15px; }
+  .tde-dance-studio .tde-sound-heading > span { font-size: 9px; }
+  .tde-dance-studio .tde-sound-heading h2 { font-size: 39px; }
+  .tde-dance-studio .tde-sound-heading p { font-size: 12px; }
+}

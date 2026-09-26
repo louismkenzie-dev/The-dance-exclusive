@@ -1,14 +1,15 @@
 .tde-site,
 .tde-menu-panel {
-  /* Match the original blue and pink in src/index.css. */
+  /* Blue school identity. Pink is scoped to adult content below. */
   --tde-blue: hsl(193 100% 44%);
   --tde-pink: hsl(330 90% 55%);
-  --tde-blue-ink: hsl(193 100% 30%);
-  --tde-pink-ink: hsl(330 85% 40%);
+  --tde-blue-ink: hsl(193 100% 44%);
+  --tde-accent: var(--tde-blue);
+  --tde-surface: #0d1722;
   --tde-ink: hsl(222 16% 11%);
   --tde-stage: hsl(220 20% 4%);
-  --tde-border: hsl(36 12% 89%);
-  --tde-muted: hsl(222 8% 44%);
+  --tde-border: #ffffff26;
+  --tde-muted: #b1becd;
   --tde-paper: hsl(36 22% 97.5%);
 }
 .tde-site {
@@ -44,7 +45,7 @@
   -webkit-tap-highlight-color: transparent;
 }
 .tde-site :focus-visible {
-  outline: 2px solid var(--tde-pink);
+  outline: 2px solid var(--tde-blue);
   outline-offset: 5px;
 }
 .tde-site #main-content:focus {
@@ -71,8 +72,8 @@
   border-bottom: 1px solid var(--tde-border);
   position: relative;
   z-index: 40;
-  background: var(--tde-paper);
-  color: var(--tde-ink);
+  background: var(--tde-surface);
+  color: var(--tde-paper);
 }
 .tde-desktop-nav,
 .tde-header-right {
@@ -173,7 +174,7 @@
   text-transform: none;
 }
 .tde-menu-panel nav a span {
-  color: var(--tde-pink);
+  color: var(--tde-blue);
   font:
     12px Inter,
     sans-serif;
@@ -275,7 +276,7 @@
   margin-left: -0.045em;
 }
 .tde-hero h1 span {
-  color: var(--tde-pink);
+  color: var(--tde-blue);
 }
 .tde-hero-bottom {
   display: flex;
@@ -340,8 +341,8 @@
   }
 }
 .tde-paper {
-  background: var(--tde-paper);
-  color: var(--tde-ink);
+  background: var(--tde-surface);
+  color: var(--tde-paper);
 }
 .tde-intro,
 .tde-classes,
@@ -375,7 +376,7 @@
   position: absolute;
   right: -35px;
   bottom: -15px;
-  background: var(--tde-pink);
+  background: var(--tde-blue);
   color: #111;
   padding: 30px;
   border-radius: 1rem;
@@ -389,12 +390,12 @@
   font-size: clamp(40px, 4.3vw, 64px);
 }
 .tde-intro-copy h2 span {
-  color: var(--tde-pink-ink);
+  color: var(--tde-blue);
 }
 .tde-intro-copy p {
   max-width: 400px;
   margin-top: 22px;
-  color: #4e5148;
+  color: var(--tde-muted);
 }
 .tde-text-link {
   display: inline-flex;
@@ -418,14 +419,14 @@
   grid-template-columns: 1fr 1fr 1fr 1.2fr;
   margin-top: 100px;
   padding: 35px 0;
-  border-top: 1px solid #1113;
-  border-bottom: 1px solid #1113;
+  border-top: 1px solid var(--tde-border);
+  border-bottom: 1px solid var(--tde-border);
 }
 .tde-live-stats > div {
   display: flex;
   flex-direction: column;
   padding-left: 24px;
-  border-left: 1px solid #1113;
+  border-left: 1px solid var(--tde-border);
 }
 .tde-live-stats > div:first-child {
   padding-left: 0;
@@ -440,7 +441,7 @@
 .tde-live-stats span {
   font-size: 13px;
   margin-top: 13px;
-  color: #4e5148;
+  color: var(--tde-muted);
 }
 .tde-live-stats > p {
   align-self: flex-end;
@@ -458,7 +459,7 @@
   margin-bottom: 50px;
 }
 .tde-section-heading > p {
-  color: #5b5d52;
+  color: var(--tde-muted);
   max-width: 320px;
   margin-bottom: 6px;
 }
@@ -558,11 +559,11 @@
   align-items: center;
   gap: 25px;
   min-height: 105px;
-  border-top: 1px solid #1113;
+  border-top: 1px solid var(--tde-border);
   transition: padding 0.25s;
 }
 .tde-class-row:last-child {
-  border-bottom: 1px solid #1113;
+  border-bottom: 1px solid var(--tde-border);
 }
 .tde-class-row:hover {
   padding: 0 12px;
@@ -628,7 +629,7 @@
   color: var(--tde-blue);
 }
 .tde-film-type span {
-  color: var(--tde-pink);
+  color: var(--tde-blue);
 }
 .tde-film-label {
   position: absolute;
@@ -665,7 +666,7 @@
 .tde-venues-grid > div > p {
   margin: 25px 0;
   max-width: 350px;
-  color: #5b5d52;
+  color: var(--tde-muted);
 }
 .tde-location-photo {
   width: 75%;
@@ -681,7 +682,7 @@
   align-items: center;
   min-height: 110px;
   padding: 22px 0;
-  border-top: 1px solid #1113;
+  border-top: 1px solid var(--tde-border);
 }
 .tde-venue-list > a > span {
   font-size: 12px;
@@ -761,7 +762,7 @@
   align-items: center;
   gap: 25px;
   padding: 30px 0;
-  border-top: 1px solid #1113;
+  border-top: 1px solid var(--tde-border);
 }
 .tde-event-list h3 {
   font-size: clamp(22px, 2.3vw, 34px);
@@ -792,7 +793,7 @@
   letter-spacing: -0.05em;
   margin: 65px 0;
   position: relative;
-  color: var(--tde-pink);
+  color: var(--tde-blue);
 }
 .tde-footer-title > svg {
   position: absolute;
@@ -878,7 +879,7 @@
   gap: 30px;
   align-items: center;
   padding: 35px 0;
-  border-top: 1px solid #1113;
+  border-top: 1px solid var(--tde-border);
 }
 .tde-directory-venues .tde-directory-number {
   align-self: flex-start;
@@ -917,7 +918,7 @@
   white-space: pre-line;
 }
 .tde-profile-information dl > div {
-  border-top: 1px solid #1113;
+  border-top: 1px solid var(--tde-border);
   padding: 20px 0;
   display: grid;
   grid-template-columns: 90px 1fr;
@@ -925,7 +926,7 @@
   font-size: 14px;
 }
 .tde-profile-information dt {
-  color: #6a6e61;
+  color: var(--tde-muted);
 }
 .tde-related {
   margin-top: 100px;
@@ -940,13 +941,13 @@
   margin-top: 30px;
 }
 .tde-skills > span {
-  border: 1px solid #1115;
+  border: 1px solid var(--tde-border);
   padding: 10px 14px;
   font-size: 12px;
 }
 .tde-no-image {
   min-height: 300px;
-  background: #dedfd5;
+  background: #12354b;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -969,7 +970,7 @@
 }
 .tde-empty {
   padding: 40px 0;
-  border-block: 1px solid #1113;
+  border-block: 1px solid var(--tde-border);
   max-width: 750px;
 }
 .tde-empty a {
@@ -981,7 +982,7 @@
   grid-template-columns: 1.2fr 1fr;
   gap: 10%;
   padding-top: 35px;
-  border-top: 1px solid #1113;
+  border-top: 1px solid var(--tde-border);
 }
 .tde-event-detail .tde-event-price {
   font:
@@ -1405,7 +1406,7 @@
   display: grid;
   grid-template-columns: 1.5fr 1fr 1.25fr 0.85fr;
   gap: 16px;
-  border-block: 1px solid #1113;
+  border-block: 1px solid var(--tde-border);
   padding: 28px 0;
 }
 .tde-class-filters label {
@@ -1425,11 +1426,11 @@
     15px Inter,
     sans-serif;
   background: transparent;
-  border: 1px solid #1116;
+  border: 1px solid var(--tde-border);
   padding: 12px;
-  color: #101014;
+  color: var(--tde-paper);
   border-radius: 0.75rem;
-  background: white;
+  background: var(--tde-surface);
 }
 .tde-search-label > div {
   position: relative;
@@ -1465,7 +1466,7 @@
   gap: 30px;
   margin-top: 70px;
   padding-top: 30px;
-  border-top: 1px solid #1113;
+  border-top: 1px solid var(--tde-border);
 }
 .tde-class-detail-grid {
   display: grid;
@@ -1478,13 +1479,13 @@
 }
 .tde-class-story > p {
   margin: 25px 0 35px;
-  color: #505349;
+  color: var(--tde-muted);
 }
 .tde-class-facts > div {
   display: grid;
   grid-template-columns: 85px 1fr;
   gap: 25px;
-  border-top: 1px solid #1113;
+  border-top: 1px solid var(--tde-border);
   padding: 23px 0;
   font-size: 15px;
   line-height: 1.7;
@@ -1498,8 +1499,8 @@
 }
 .tde-booking-card {
   padding: 32px;
-  background: white;
-  color: var(--tde-ink);
+  background: var(--tde-surface);
+  color: var(--tde-paper);
   border: 1px solid var(--tde-border);
   border-radius: 1rem;
   box-shadow: 0 1px 2px hsl(222 30% 10% / 0.03), 0 12px 32px -18px hsl(222 30% 10% / 0.12);
@@ -1584,7 +1585,7 @@
   gap: 15px;
   font-size: 14px;
   padding: 14px 0;
-  border-top: 1px solid #1113;
+  border-top: 1px solid var(--tde-border);
 }
 .tde-session-dates p {
   font-size: 13px;
@@ -1592,7 +1593,7 @@
   color: var(--tde-muted);
 }
 .tde-site ::selection {
-  background: var(--tde-pink);
+  background: var(--tde-blue);
   color: #101014;
 }
 .tde-editorial-split {
@@ -1610,7 +1611,7 @@
 }
 .tde-editorial-copy p {
   margin: 22px 0;
-  color: #505349;
+  color: var(--tde-muted);
   max-width: 560px;
 }
 .tde-editorial-copy .tde-text-link {
@@ -1625,14 +1626,14 @@
   gap: 30px;
   margin-top: 90px;
   padding-top: 30px;
-  border-top: 1px solid #1113;
+  border-top: 1px solid var(--tde-border);
 }
 .tde-contact-links > a {
   display: grid;
   grid-template-columns: 1fr auto;
   padding: 30px 0;
   gap: 16px;
-  border-top: 1px solid #1113;
+  border-top: 1px solid var(--tde-border);
 }
 .tde-contact-links > a span {
   grid-column: 1 / -1;
@@ -1647,7 +1648,7 @@
   flex-wrap: wrap;
   gap: 25px;
   padding-top: 25px;
-  border-top: 1px solid #1113;
+  border-top: 1px solid var(--tde-border);
 }
 .tde-contact-socials a {
   display: flex;
@@ -1660,7 +1661,7 @@
   grid-template-columns: 25px 1fr;
   gap: 25px;
   padding: 25px 0;
-  border-top: 1px solid #1113;
+  border-top: 1px solid var(--tde-border);
 }
 .tde-editorial-list li > span {
   font-size: 12px;
@@ -1672,14 +1673,14 @@
 }
 .tde-editorial-list p {
   margin-top: 10px;
-  color: #505349;
+  color: var(--tde-muted);
 }
 .tde-awards-list li {
   display: flex;
   align-items: baseline;
   gap: 25px;
   padding: 22px 0;
-  border-top: 1px solid #1113;
+  border-top: 1px solid var(--tde-border);
 }
 .tde-awards-list span {
   font-size: 13px;
@@ -1697,7 +1698,7 @@
 .tde-editorial figcaption {
   font-size: 13px;
   margin-top: 15px;
-  color: #505349;
+  color: var(--tde-muted);
 }
 .tde-gallery-grid {
   display: grid;
@@ -1717,14 +1718,14 @@
   gap: 65px 45px;
 }
 .tde-information-grid section {
-  border-top: 1px solid #1113;
+  border-top: 1px solid var(--tde-border);
   padding-top: 25px;
 }
 .tde-information-grid h2 {
   margin: 25px 0 20px;
 }
 .tde-information-grid p {
-  color: #505349;
+  color: var(--tde-muted);
   margin-bottom: 25px;
 }
 @media (max-width: 900px) {
@@ -1757,28 +1758,18 @@
 .tde-skills > span {
   border-color: var(--tde-border);
   border-radius: 9999px;
-  background: white;
+  background: var(--tde-surface);
   color: var(--tde-blue-ink);
 }
-.tde-class-list {
-  background: white;
-  border: 1px solid var(--tde-border);
-  border-radius: 1rem;
-  padding: 0 24px;
-  box-shadow: 0 1px 2px hsl(222 30% 10% / 0.03), 0 12px 32px -18px hsl(222 30% 10% / 0.08);
-}
-.tde-class-list > .tde-class-row:first-child { border-top: 0; }
-.tde-class-list > .tde-class-row:last-child { border-bottom: 0; }
 .tde-class-row { border-color: var(--tde-border); }
 .tde-directory-venues > a {
-  background: white;
+  background: var(--tde-surface);
   border: 1px solid var(--tde-border);
   border-radius: 1rem;
   margin-bottom: 16px;
   padding: 28px;
 }
 @media (max-width: 767px) {
-  .tde-class-list { padding-inline: 18px; }
   .tde-directory-venues > a { padding: 22px 18px; }
 }
 @media (max-width: 900px) {

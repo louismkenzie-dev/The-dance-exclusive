@@ -1,6 +1,6 @@
 # Public website media
 
-The existing Dance Exclusive logo assets are unchanged. The public design retains the booking system's blue (HSL 193 100% 44%) and pink (HSL 330 90% 55%), as explicitly requested by the user. The live school's Intro Black Alt display face, white crown wordmark, dark performance sections and signature motto anchor the homepage. Inter, warm off-white backgrounds, rounded cards and pill controls connect class browsing to the booking UI. Darker blue/pink text shades keep contrast on light backgrounds. See `WEBSITE_BRAND_AUDIT.md` for the source-site analysis and the two-reference design synthesis.
+The existing Dance Exclusive logo assets are unchanged. Amie's 26 September feedback sets the current direction: blue school branding (HSL 193 100% 44%), with pink (HSL 330 90% 55%) reserved for adult content. Dark stage backgrounds, the original Intro Black Alt face, white crown wordmark, live school footage and bold blue graphics carry the public site. Inter remains on controls and task-oriented cards. See `WEBSITE_STREET_DIRECTION.md` for the current brief and `WEBSITE_BRAND_AUDIT.md` for the original source-site analysis.
 
 The following media was retrieved from the school's current public Wix site, `https://www.thedanceexclusive.co.uk/`, on 25 September 2026. These are actual school performance images/footage, not generated images. The clips are silent, H.264, 24 fps, 1024 pixels wide, with fast-start metadata. They load and play near the viewport, pause outside it, and fall back to stills for reduced motion or a video error.
 

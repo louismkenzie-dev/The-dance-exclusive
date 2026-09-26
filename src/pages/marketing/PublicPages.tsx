@@ -4,6 +4,7 @@ import { usePublicSchool } from "@/hooks/usePublicSchool";
 import { PageMeta } from "@/components/marketing/PageMeta";
 import { PUBLIC_ORIGIN } from "@/components/marketing/PageHeadContext";
 import { PublicClassList } from "@/components/marketing/PublicClassList";
+import { DiscoveryHero } from "@/components/marketing/DiscoveryHero";
 import { MotionMedia } from "@/components/marketing/MotionMedia";
 import { CoachCard, FounderSpotlight } from "@/components/marketing/CoachProfiles";
 import { coachPhotoUrl } from "@/lib/staffPhoto";
@@ -64,7 +65,7 @@ export default function PublicPages() {
     );
     if (!venue) return <Missing back="/venues" label="location" />;
     const classes = school.classes.filter((item) => item.venue_id === venue.id);
-    const image = venue.hero_image || venue.photo_outside;
+    const image = venue.photo_outside || venue.hero_image;
     return (
       <article className="tde-directory tde-paper">
         <PageMeta
@@ -102,7 +103,7 @@ export default function PublicPages() {
               <MotionMedia
                 image={image}
                 alt={venue.name}
-                className="tde-profile-media"
+                className="tde-profile-media tde-venue-profile-media"
               />
             ) : (
               <div className="tde-no-image">
@@ -250,7 +251,7 @@ export default function PublicPages() {
     const venue = school.venues.find((item) => item.id === camp.venue_id);
     const price = campPriceLabel(camp);
     return (
-      <article className="tde-directory tde-paper">
+      <article className="tde-directory tde-paper" data-audience={camp.class_type}>
         <PageMeta
           title={camp.name}
           description={
@@ -335,61 +336,34 @@ export default function PublicPages() {
         }
         path={pathname}
       />
-      <div className="tde-page-top">
-        <span className="tde-eyebrow">THE DANCE EXCLUSIVE / {label}</span>
-        <h1>
-          {isVenue ? (
-            <>
-              Big energy.
-              <br />
-              <em>Local roots.</em>
-            </>
-          ) : isCoach ? (
-            <>
-              Your people.
-              <br />
-              <em>Your hype team.</em>
-            </>
-          ) : (
-            <>
-              More reasons
-              <br />
-              <em>to move.</em>
-            </>
-          )}
-        </h1>
-        <p>
-          {isVenue
-            ? "Find your local floor. Explore the locations we call home and the classes happening near you."
-            : isCoach
-              ? "Meet the people who bring the energy, share their craft and help you find your confidence."
-              : "Make room for something different. Here's what's coming up at The Dance Exclusive."}
-        </p>
-      </div>
+      <DiscoveryHero
+        eyebrow={`THE DANCE EXCLUSIVE / ${label}`}
+        title={isVenue ? <>Find your<br /><em>local floor.</em></> : isCoach ? <>Meet your<br /><em>hype team.</em></> : <>Make some<br /><em>moves.</em></>}
+        description={isVenue ? "Big energy, close to home. Find your nearest dance floor and see what's happening this week." : isCoach ? "The people who bring the energy, champion your progress and make every class feel like your place." : "Camps, workshops and more time on the dance floor. Here's what's coming up."}
+        image={isCoach ? undefined : isVenue ? "/media/tde-children-stage.jpg" : "/media/tde-community.jpg"}
+        alt="The Dance Exclusive dancers performing together on stage"
+      />
       {isVenue ? (
-        <div className="tde-directory-venues">
-          {school.venues.map((venue, i) => (
-            <Link to={venuePath(venue)} key={venue.id}>
-              <span className="tde-directory-number">
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <div>
-                <span className="tde-eyebrow">{venue.city}</span>
-                <h2>{venue.name}</h2>
-                <p>
-                  {venue.address_line1} · {venue.postcode}
-                </p>
-              </div>
-              <span className="tde-directory-count">
-                {
-                  school.classes.filter((item) => item.venue_id === venue.id)
-                    .length
-                }{" "}
-                classes
-              </span>
-              <ArrowUpRight size={30} aria-hidden />
-            </Link>
-          ))}
+        <div className="tde-location-cards">
+          {school.venues.map((venue) => {
+            const image = venue.photo_outside || venue.hero_image;
+            const count = school.classes.filter((item) => item.venue_id === venue.id).length;
+            return (
+              <Link to={venuePath(venue)} key={venue.id} className="tde-location-card">
+                <div className="tde-venue-card-media">
+                  {image ? <img src={image} alt={venue.name} loading="lazy" /> : (
+                    <div className="tde-venue-city-art" aria-hidden="true"><MapPin /><span>{venue.city || "Essex"}</span></div>
+                  )}
+                  <span className="tde-venue-city"><MapPin size={14} aria-hidden />{venue.city || "Essex"}</span>
+                </div>
+                <div className="tde-venue-card-copy">
+                  <h2>{venue.name}</h2>
+                  <p>{venue.address_line1} · {venue.postcode}</p>
+                  <div><span>{count} {count === 1 ? "class" : "classes"} to explore</span><ArrowUpRight size={24} aria-hidden /></div>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       ) : isCoach ? (
         school.coaches.length ? (
@@ -411,7 +385,7 @@ export default function PublicPages() {
       ) : school.camps.length ? (
         <div className="tde-event-list">
           {school.camps.map((camp) => (
-            <Link to={`/events/${camp.id}`} key={camp.id}>
+            <Link to={`/events/${camp.id}`} key={camp.id} data-audience={camp.class_type}>
               <span>{shortDateRange(camp.start_date, camp.end_date)}</span>
               <h3>{camp.name}</h3>
               <span>{camp.class_type === "adult" ? "Adults" : "Children"}</span>

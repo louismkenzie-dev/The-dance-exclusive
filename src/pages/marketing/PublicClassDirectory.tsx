@@ -2,6 +2,7 @@ import { useSearchParams } from "react-router-dom";
 import { ArrowUpRight, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import { usePublicSchool } from "@/hooks/usePublicSchool";
+import { DiscoveryHero } from "@/components/marketing/DiscoveryHero";
 import { PageMeta } from "@/components/marketing/PageMeta";
 import { PublicClassList } from "@/components/marketing/PublicClassList";
 
@@ -50,25 +51,26 @@ export default function PublicClassDirectory() {
     );
   });
   return (
-    <div className="tde-directory tde-paper">
+    <div className="tde-directory tde-paper" data-audience={type === "adult" ? "adult" : "children"}>
       <PageMeta
         title="Dance classes for children & adults in Essex"
         description="Find your Dance Exclusive class by location, day and style. Explore current times, age groups, prices and availability across Essex."
         path="/classes"
         noindex={params.size > 0}
       />
-      <div className="tde-page-top">
-        <span className="tde-eyebrow">YOUR FLOOR IS WAITING</span>
-        <h1>
-          Find your
-          <br />
-          <em>frequency.</em>
-        </h1>
-        <p>
-          A first class. A fresh challenge. Your next crew. Find the class that
-          fits your week.
-        </p>
-      </div>
+      <DiscoveryHero
+        eyebrow={type === "adult" ? "YOUR TIME. YOUR ENERGY." : "STREET DANCE. NEW FRIENDS. BIG ENERGY."}
+        title={<>Find your<br /><em>{type === "adult" ? "release." : "crew."}</em></>}
+        description={type === "adult" ? "Turn up the music. Switch off the day. Find your next street or commercial class and make some time for you." : "From first steps to centre stage. Find your class, meet your people and get moving."}
+        image={type === "adult" ? "/media/tde-adult-community.jpg" : "/media/tde-children-stage.jpg"}
+        alt={type === "adult" ? "The Dance Exclusive adult dancers together in the studio" : "The Dance Exclusive young dancers performing on stage"}
+      >
+        <div className="tde-style-links" aria-label="Explore dance styles">
+          {["Street", "Commercial", "Hip Hop"].map((style) => (
+            <button key={style} onClick={() => setFilter("q", style)} aria-pressed={search === style}>{style} ↗</button>
+          ))}
+        </div>
+      </DiscoveryHero>
       <form
         className="tde-class-filters"
         aria-label="Filter dance classes"

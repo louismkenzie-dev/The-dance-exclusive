@@ -47,7 +47,7 @@ export function PublicSiteShell({ children }: { children: ReactNode }) {
           className="tde-brand"
           aria-label="The Dance Exclusive home"
         >
-          <BrandLogo tone={home ? "white" : "ink"} className="h-11" />
+          <BrandLogo tone="white" className="h-11" />
         </Link>
         <div className="tde-header-right">
           <Link

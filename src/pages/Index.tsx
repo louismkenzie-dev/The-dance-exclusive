@@ -55,7 +55,7 @@ export default function Index() {
         />
         <div className="tde-hero-shade" />
         <div className="tde-hero-top" data-entrance="hero">
-          <span className="tde-eyebrow"><i aria-hidden="true" /> Essex. This is your stage.</span>
+          <span className="tde-eyebrow"><i aria-hidden="true" /> Street dance. Big energy. Essex.</span>
           <span className="tde-eyebrow">
             Commercial. Street. Your kind of energy.
           </span>
@@ -67,20 +67,22 @@ export default function Index() {
           </h1>
           <div className="tde-hero-bottom" data-entrance="hero" data-delay="330">
             <p>
-              Giving young people a stage<br />
-              to become their best selves.
+              Your music. Your people. Your moment.<br />
+              Street & commercial dance for children and adults.
             </p>
             <div className="tde-hero-actions">
-              <span>Children + adults. Beginners welcome.</span>
-              <a href="#find-your-class" className="tde-button">
-                Find your class <ArrowUpRight size={22} aria-hidden />
-              </a>
+              <Link to="/classes?type=children" className="tde-button">
+                Children's classes <ArrowUpRight size={22} aria-hidden />
+              </Link>
+              <Link to="/classes?type=adult" className="tde-button tde-adult-button" data-audience="adult">
+                Adult classes <ArrowUpRight size={22} aria-hidden />
+              </Link>
             </div>
           </div>
         </div>
         <div className="tde-hero-caption">
-          <a href="#the-feeling">
-            Scroll to feel it <ArrowDown size={15} aria-hidden />
+          <a href="#find-your-class">
+            Find your crew <ArrowDown size={15} aria-hidden />
           </a>
           <button
             onClick={() => setMotion(!motion)}
@@ -106,15 +108,144 @@ export default function Index() {
         <div>
           {[0, 1, 2, 3].map((n) => (
             <span key={n}>
-              DANCE. <i>✳</i> GROW. <i>✳</i> ACHIEVE. <i>✳</i>{" "}
+              STREET. <i>✳</i> COMMERCIAL. <i>✳</i> YOUR CREW. <i>✳</i>{" "}
             </span>
           ))}
         </div>
       </div>
 
+      <section className="tde-classes tde-paper" id="find-your-class">
+        <div className="tde-section-note" data-entrance="">
+          <span>FIND YOUR CREW</span>
+          <span>FIRST TIMERS TO FULL-TIMERS</span>
+        </div>
+        <div className="tde-section-heading" data-entrance="">
+          <h2>
+            Find your
+            <br />
+            <em>crew.</em>
+          </h2>
+          <p>
+            A first class. A fresh challenge.
+            <br />
+            Something that's just for you.
+          </p>
+        </div>
+        <div className="tde-class-panels">
+          {[
+            {
+              type: "children",
+              title: "The next\ngeneration.",
+              sub: "Children's classes",
+              image: "/media/tde-school.jpg",
+              copy: "Big energy. Growing confidence. A place to be themselves.",
+            },
+            {
+              type: "adult",
+              title: "Your time.\nYour energy.",
+              sub: "Adult classes",
+              image: "/media/tde-adult-community.jpg",
+              copy: "Switch off the day. Turn up the music. Make your move.",
+            },
+          ].map((item, i) => (
+            <Link
+              to={`/classes?type=${item.type}`}
+              key={item.type}
+              className={`tde-class-panel tde-class-panel-${item.type}`}
+              data-audience={item.type}
+              data-entrance=""
+              data-delay={i * 120}
+            >
+              <MotionMedia
+                image={item.image}
+                alt={
+                  item.type === "adult"
+                    ? "The Dance Exclusive adult dancers together in their studio"
+                    : "The Dance Exclusive young dancers performing on stage"
+                }
+                active={move}
+              />
+              <div className="tde-panel-top">
+                <span>
+                  0{i + 1} / {item.sub}
+                </span>
+                <ArrowUpRight size={32} aria-hidden />
+              </div>
+              <div className="tde-panel-copy">
+                <h3>
+                  {item.title.split("\n").map((line) => (
+                    <span key={line}>{line}</span>
+                  ))}
+                </h3>
+                <p>{item.copy}</p>
+                <span className="tde-panel-link">
+                  Explore {item.sub.toLowerCase()}{" "}
+                  <ArrowUpRight size={17} aria-hidden />
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+        <div className="tde-class-list-heading">
+          <span className="tde-eyebrow">On the TIMETABLE</span>
+          <Link to="/classes?type=children" className="tde-text-link">
+            Explore classes <ArrowUpRight size={17} aria-hidden />
+          </Link>
+        </div>
+        <div className="tde-class-list">
+          {isLoading ? (
+            <p className="tde-loading" role="status">
+              Finding your next class…
+            </p>
+          ) : isError ? (
+            <p className="tde-loading">
+              The timetable is taking a moment.{" "}
+              <Link to="/classes?type=children">Open the class browser</Link>.
+            </p>
+          ) : (
+            school?.classes.slice(0, 4).map((item, index) => {
+              const venue = school.venues.find((v) => v.id === item.venue_id);
+              const price = classPriceSummary(item, item.remainingSessions);
+              return (
+                <Link
+                  to={publicClassPath(item)}
+                  key={item.id}
+                  className="tde-class-row"
+                  data-audience={item.class_type}
+                  data-entrance=""
+                  data-delay={index * 70}
+                >
+                  <span className="tde-class-type">
+                    {item.class_type === "adult" ? "ADULTS" : "CHILDREN"}
+                  </span>
+                  <div>
+                    <h3>{item.name}</h3>
+                    <span>
+                      {venue?.city || venue?.name || "View venue details"}
+                    </span>
+                  </div>
+                  <span>
+                    {classDaysLabel(item.days_of_week, item.day_of_week)}
+                    <small>
+                      {item.start_time.slice(0, 5)} –{" "}
+                      {item.end_time.slice(0, 5)}
+                    </small>
+                  </span>
+                  <span className="tde-class-price">
+                    {price.priceLabel}
+                    <small>{price.priceHint}</small>
+                  </span>
+                  <ArrowUpRight size={23} aria-hidden />
+                </Link>
+              );
+            })
+          )}
+        </div>
+      </section>
+
       <section className="tde-intro" id="the-feeling">
         <div className="tde-section-note" data-entrance="">
-          <span>01 / More than movement</span>
+          <span>More than movement</span>
           <span>THIS IS THE DANCE EXCLUSIVE</span>
         </div>
         <div className="tde-intro-grid">
@@ -203,136 +334,9 @@ export default function Index() {
         )}
       </section>
 
-      <section className="tde-classes tde-paper" id="find-your-class">
-        <div className="tde-section-note" data-entrance="">
-          <span>02 / YOUR FLOOR IS WAITING</span>
-          <span>FIRST TIMERS TO FULL-TIMERS</span>
-        </div>
-        <div className="tde-section-heading" data-entrance="">
-          <h2>
-            Find your
-            <br />
-            <em>next move.</em>
-          </h2>
-          <p>
-            A first class. A fresh challenge.
-            <br />
-            Something that's just for you.
-          </p>
-        </div>
-        <div className="tde-class-panels">
-          {[
-            {
-              type: "children",
-              title: "The next\ngeneration.",
-              sub: "Children's classes",
-              image: "/media/tde-school.jpg",
-              copy: "Big energy. Growing confidence. A place to be themselves.",
-            },
-            {
-              type: "adult",
-              title: "Your time.\nYour energy.",
-              sub: "Adult classes",
-              image: "/media/tde-adult-community.jpg",
-              copy: "Switch off the day. Turn up the music. Make your move.",
-            },
-          ].map((item, i) => (
-            <Link
-              to={`/classes?type=${item.type}`}
-              key={item.type}
-              className={`tde-class-panel tde-class-panel-${item.type}`}
-              data-entrance=""
-              data-delay={i * 120}
-            >
-              <MotionMedia
-                image={item.image}
-                alt={
-                  item.type === "adult"
-                    ? "The Dance Exclusive adult dancers together in their studio"
-                    : "The Dance Exclusive young dancers performing on stage"
-                }
-                active={move}
-              />
-              <div className="tde-panel-top">
-                <span>
-                  0{i + 1} / {item.sub}
-                </span>
-                <ArrowUpRight size={32} aria-hidden />
-              </div>
-              <div className="tde-panel-copy">
-                <h3>
-                  {item.title.split("\n").map((line) => (
-                    <span key={line}>{line}</span>
-                  ))}
-                </h3>
-                <p>{item.copy}</p>
-                <span className="tde-panel-link">
-                  Explore {item.sub.toLowerCase()}{" "}
-                  <ArrowUpRight size={17} aria-hidden />
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
-        <div className="tde-class-list-heading">
-          <span className="tde-eyebrow">On the TIMETABLE</span>
-          <Link to="/classes?type=children" className="tde-text-link">
-            Explore classes <ArrowUpRight size={17} aria-hidden />
-          </Link>
-        </div>
-        <div className="tde-class-list">
-          {isLoading ? (
-            <p className="tde-loading" role="status">
-              Finding your next class…
-            </p>
-          ) : isError ? (
-            <p className="tde-loading">
-              The timetable is taking a moment.{" "}
-              <Link to="/classes?type=children">Open the class browser</Link>.
-            </p>
-          ) : (
-            school?.classes.slice(0, 4).map((item, index) => {
-              const venue = school.venues.find((v) => v.id === item.venue_id);
-              const price = classPriceSummary(item, item.remainingSessions);
-              return (
-                <Link
-                  to={publicClassPath(item)}
-                  key={item.id}
-                  className="tde-class-row"
-                  data-entrance=""
-                  data-delay={index * 70}
-                >
-                  <span className="tde-class-type">
-                    {item.class_type === "adult" ? "ADULTS" : "CHILDREN"}
-                  </span>
-                  <div>
-                    <h3>{item.name}</h3>
-                    <span>
-                      {venue?.city || venue?.name || "View venue details"}
-                    </span>
-                  </div>
-                  <span>
-                    {classDaysLabel(item.days_of_week, item.day_of_week)}
-                    <small>
-                      {item.start_time.slice(0, 5)} –{" "}
-                      {item.end_time.slice(0, 5)}
-                    </small>
-                  </span>
-                  <span className="tde-class-price">
-                    {price.priceLabel}
-                    <small>{price.priceHint}</small>
-                  </span>
-                  <ArrowUpRight size={23} aria-hidden />
-                </Link>
-              );
-            })
-          )}
-        </div>
-      </section>
-
       <section className="tde-film-section">
         <div className="tde-section-note" data-entrance="">
-          <span>03 / Feel the ROOM</span>
+          <span>Feel the ROOM</span>
           <span>REAL people. ALL energy.</span>
         </div>
         <div className="tde-film-stage">
@@ -370,7 +374,7 @@ export default function Index() {
 
       <section className="tde-venues-section tde-paper">
         <div className="tde-section-note" data-entrance="">
-          <span>04 / CLOSE TO HOME</span>
+          <span>CLOSE TO HOME</span>
           <span>ALL ACROSS ESSEX</span>
         </div>
         <div className="tde-venues-grid">
@@ -425,7 +429,7 @@ export default function Index() {
       {school && school.coaches.length > 0 && (
         <section className="tde-crew-section">
           <div className="tde-section-note">
-            <span>05 / THE PEOPLE BEHIND IT</span>
+            <span>THE PEOPLE BEHIND IT</span>
             <span>MEET YOUR HYPE TEAM</span>
           </div>
           <div className="tde-section-heading">
@@ -453,7 +457,7 @@ export default function Index() {
       {school && school.camps.length > 0 && (
         <section className="tde-events-section tde-paper">
           <div className="tde-section-note">
-            <span>06 / KEEP THE GOOD TIMES COMING</span>
+            <span>KEEP THE GOOD TIMES COMING</span>
             <span>CAMPS + WORKSHOPS</span>
           </div>
           <div className="tde-section-heading">
@@ -468,7 +472,7 @@ export default function Index() {
           </div>
           <div className="tde-event-list">
             {school.camps.slice(0, 3).map((camp) => (
-              <Link key={camp.id} to={`/events/${camp.id}`}>
+              <Link key={camp.id} to={`/events/${camp.id}`} data-audience={camp.class_type}>
                 <span>{shortDateRange(camp.start_date, camp.end_date)}</span>
                 <h3>{camp.name}</h3>
                 <span>

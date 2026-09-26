@@ -76,7 +76,7 @@ export default function PublicClassPage() {
   const description = `${cls.name}${venue?.city ? ` in ${venue.city}` : ""}. ${days}, ${formatTimeRange(cls.start_time, cls.end_time)}. ${audience}. ${price.priceLabel} ${price.priceHint}.`;
 
   return (
-    <article className="tde-directory tde-paper">
+    <article className="tde-directory tde-paper" data-audience={cls.class_type}>
       <PageMeta
         title={`${cls.name}${venue?.city ? ` in ${venue.city}` : ""}`}
         description={description}

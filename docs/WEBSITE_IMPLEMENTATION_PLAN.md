@@ -2,6 +2,8 @@
 
 Status: public website implemented on a Vercel preview, ready for design review. The coach-publication migration was explicitly approved and applied on 26 September 2026; 12 profiles are now available and Amie is featured as Founder. The production website and domain remain unchanged.
 
+Current creative direction: Amie's 26 September feedback supersedes the earlier shared blue/pink and off-white treatment. First impressions must be street dance, current/modern and fun. Use blue school branding, pink only for adult content, dark backgrounds, prominent school imagery and the original booking homepage's energy. See `WEBSITE_STREET_DIRECTION.md`.
+
 Source: `The-Dance-Exclusive-Website-Proposal-2.pdf`, supplied by the user, all six pages reviewed. Code baseline inspected: `99614da`, 25 September 2026. Existing behaviour below is established from source inspection, not a live end-to-end verification.
 
 ## Intended outcome

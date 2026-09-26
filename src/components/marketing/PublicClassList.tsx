@@ -31,6 +31,7 @@ export function PublicClassList({
             key={item.id}
             to={publicClassPath(item)}
             className="tde-class-row"
+            data-audience={item.class_type}
           >
             <span className="tde-class-type">
               {item.class_type === "adult" ? "ADULTS" : "CHILDREN"}

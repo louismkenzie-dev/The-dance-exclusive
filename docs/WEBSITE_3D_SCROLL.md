@@ -22,3 +22,9 @@ The user requested an original Blender scene with 3D elements anchored to the pa
 Preview only; no production, domain or database change is included.
 
 Final local checks confirm progress 0.9 remains pinned at top 0; progress 1.0 releases the stage into normal document flow. Simulated WebGL context loss removed the canvas and restored a visible poster. The scene WCAG A/AA scan is clear after correcting its caption group's semantics. A fresh reduced-motion production browser requested neither the GLB nor the scene chunk and created no WebGL canvas. The 3D runtime is a separate lazy chunk (approximately 157 KB gzip); it is not part of initial page rendering.
+
+## Verified Vercel preview
+
+Code commit `2e4951c` is deployed as `dpl_8P7qLCmF6okiXwSsJR1gQy7vY4TG` (READY): https://the-dance-exclusive-fcz3w2mv4-nullshift.vercel.app/#turn-it-up.
+
+The deployed scene was visually checked in the in-app browser. Its original blue Blender sculpture renders successfully; scrolling changes the model from joined cabinets to separated, rotated speakers while keeping the heading and scene anchored, and advances the caption/progress indicator. The preview was left open for review. The production website and deployment protection remain unchanged.

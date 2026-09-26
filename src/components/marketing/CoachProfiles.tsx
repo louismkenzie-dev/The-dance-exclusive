@@ -1,53 +1,67 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpRight } from "lucide-react";
-import { MotionMedia } from "./MotionMedia";
+import { ArrowUpRight, Plus } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { coachPath, type PublicCoach } from "@/lib/publicSchool";
-import { publicCoachTitle } from "@/lib/publicCoaches";
+import { isFounderCoach, orderPublicCoaches, publicCoachTitle } from "@/lib/publicCoaches";
 import { coachPhotoUrl } from "@/lib/staffPhoto";
 
-export function FounderSpotlight({ coach, active = true }: { coach: PublicCoach; active?: boolean }) {
+function CoachPhotoCard({ coach }: { coach: PublicCoach }) {
+  const [previewDismissed, setPreviewDismissed] = useState(false);
   const image = coachPhotoUrl(coach.profile_photo);
-  const introduction = coach.description?.trim().split(/\n\s*\n/)[0];
+  const title = publicCoachTitle(coach);
+  const bio = coach.description?.trim();
+  const intro = bio ? bio.split(/\n\s*\n/)[0] : "Get to know the person behind the moves. Explore their current classes.";
+  const excerpt = intro.length > 245 ? `${intro.slice(0, 245).replace(/\s+\S*$/, "")}…` : intro;
   return (
-    <article className="tde-founder-feature" aria-label={`${coach.first_name}, Founder`} data-entrance="">
-      <header>
-        <span className="tde-founder-label">Founder</span>
-        <h2>{coach.first_name}<span>.</span></h2>
-      </header>
-      <div className="tde-founder-layout">
-        <p className="tde-founder-statement">A place to grow.<br />A team to believe<br />in you.</p>
-        <Link to={coachPath(coach)} className="tde-founder-portrait" aria-label={`Meet ${coach.first_name}, Founder`}>
-          {image ? (
-            <MotionMedia image={image} alt={`${coach.first_name}, Founder of The Dance Exclusive`} active={active} travel={0} />
-          ) : (
-            <div className="tde-no-image"><span>{coach.first_name?.[0]}</span></div>
-          )}
-        </Link>
-        <div className="tde-founder-story">
-          {introduction && <p>{introduction}</p>}
-          <Link className="tde-text-link" to={coachPath(coach)}>
-            Meet {coach.first_name} <ArrowUpRight size={20} aria-hidden />
-          </Link>
+    <Dialog>
+      <DialogTrigger asChild>
+        <button
+          className={`tde-team-photo-card${isFounderCoach(coach) ? " tde-team-founder" : ""}`}
+          aria-label={`Meet ${coach.first_name}, ${title}. Open biography`}
+          data-preview-hidden={previewDismissed || undefined}
+          onMouseEnter={() => setPreviewDismissed(false)}
+          onMouseLeave={() => setPreviewDismissed(false)}
+          onFocus={() => setPreviewDismissed(false)}
+          onKeyDown={(event) => { if (event.key === "Escape") setPreviewDismissed(true); }}
+        >
+          <span className="tde-team-portrait">
+            {image ? <img src={image} alt="" loading="lazy" width="400" height="400" /> : <span className="tde-team-initial" aria-hidden="true">{coach.first_name?.[0]}</span>}
+          </span>
+          <span className="tde-team-caption">
+            <span><strong>{coach.first_name}</strong><span className="tde-team-role">{title}</span></span>
+            <span className="tde-team-open" aria-hidden="true"><Plus size={21} /></span>
+          </span>
+          <span className="tde-team-peek" aria-hidden="true">
+            <span>{excerpt}</span>
+            <span className="tde-team-peek-link">Open full profile <ArrowUpRight size={17} /></span>
+          </span>
+        </button>
+      </DialogTrigger>
+      <DialogContent className="tde-coach-dialog">
+        <div className="tde-coach-dialog-layout">
+          <div className="tde-coach-dialog-portrait">
+            {image ? <img src={image} alt={`${coach.first_name}, ${title}`} width="400" height="400" /> : <span className="tde-team-initial" aria-hidden="true">{coach.first_name?.[0]}</span>}
+          </div>
+          <div className="tde-coach-dialog-copy">
+            <span className="tde-coach-dialog-role">{title}</span>
+            <DialogTitle>{coach.first_name}</DialogTitle>
+            <DialogDescription>{bio || "A biography hasn't been added yet. You can still explore their current classes below."}</DialogDescription>
+            {!!coach.dance_skills?.length && <ul className="tde-coach-dialog-skills" aria-label="Dance styles">{coach.dance_skills.map(skill => <li key={skill}>{skill}</li>)}</ul>}
+            <Link to={coachPath(coach)} className="tde-coach-dialog-link">Explore {coach.first_name}'s classes <ArrowUpRight size={18} aria-hidden /></Link>
+          </div>
         </div>
-      </div>
-    </article>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-export function CoachCard({ coach, active = true, index = 0 }: { coach: PublicCoach; active?: boolean; index?: number }) {
-  const image = coachPhotoUrl(coach.profile_photo);
+/** All published coaches, with no carousel or nested scroll area. */
+export function CoachPhotoGrid({ coaches }: { coaches: PublicCoach[] }) {
+  const ordered = orderPublicCoaches(coaches);
   return (
-    <Link to={coachPath(coach)} className="tde-coach-card" data-entrance="" data-delay={index * 60}>
-      <div className="tde-coach-photo">
-        {image ? (
-          <MotionMedia image={image} alt={`${coach.first_name}, ${publicCoachTitle(coach)}`} active={active} travel={0} />
-        ) : (
-          <div className="tde-no-image"><span>{coach.first_name?.[0]}</span></div>
-        )}
-      </div>
-      <div><h3>{coach.first_name}</h3><ArrowUpRight size={22} aria-hidden /></div>
-      <p className="tde-coach-role">{publicCoachTitle(coach)}</p>
-      {!!coach.dance_skills?.length && <p>{coach.dance_skills.slice(0, 3).join(" / ")}</p>}
-    </Link>
+    <div className={`tde-team-photo-grid${ordered.some(isFounderCoach) ? " tde-team-has-founder" : ""}`}>
+      {ordered.map(coach => <CoachPhotoCard key={coach.id} coach={coach} />)}
+    </div>
   );
 }

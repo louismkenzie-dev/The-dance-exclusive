@@ -6,10 +6,10 @@ import { PUBLIC_ORIGIN } from "@/components/marketing/PageHeadContext";
 import { PublicClassList } from "@/components/marketing/PublicClassList";
 import { DiscoveryHero } from "@/components/marketing/DiscoveryHero";
 import { MotionMedia } from "@/components/marketing/MotionMedia";
-import { CoachCard, FounderSpotlight } from "@/components/marketing/CoachProfiles";
+import { CoachPhotoGrid } from "@/components/marketing/CoachProfiles";
 import { coachPhotoUrl } from "@/lib/staffPhoto";
 import { coachPath, venuePath } from "@/lib/publicSchool";
-import { isFounderCoach, publicCoachTitle } from "@/lib/publicCoaches";
+import { publicCoachTitle } from "@/lib/publicCoaches";
 import { campPriceLabel, shortDateRange } from "@/lib/classPresentation";
 import { campBrowserPath } from "@/lib/classLinks";
 
@@ -316,7 +316,6 @@ export default function PublicPages() {
     );
   }
 
-  const founder = school.coaches.find(isFounderCoach);
   return (
     <div className={`tde-directory tde-paper${isCoach ? " tde-team-directory" : ""}`}>
       <PageMeta
@@ -367,14 +366,7 @@ export default function PublicPages() {
         </div>
       ) : isCoach ? (
         school.coaches.length ? (
-          <>
-            {founder && <FounderSpotlight coach={founder} />}
-            <div className="tde-crew-grid">
-              {school.coaches.filter((coach) => !isFounderCoach(coach)).map((coach, index) => (
-                <CoachCard coach={coach} key={coach.id} index={index} />
-              ))}
-            </div>
-          </>
+          <CoachPhotoGrid coaches={school.coaches} />
         ) : (
           <p className="tde-empty">
             Coach profiles are currently unavailable.{" "}

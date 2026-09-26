@@ -11,8 +11,7 @@ import {
   shortDateRange,
 } from "@/lib/classPresentation";
 import { venuePath, publicClassPath } from "@/lib/publicSchool";
-import { isFounderCoach } from "@/lib/publicCoaches";
-import { CoachCard, FounderSpotlight } from "@/components/marketing/CoachProfiles";
+import { CoachPhotoGrid } from "@/components/marketing/CoachProfiles";
 import { PageMeta } from "@/components/marketing/PageMeta";
 import { useEntranceMotion } from "@/hooks/useEntranceMotion";
 
@@ -23,7 +22,6 @@ export default function Index() {
   const [motion, setMotion] = useState(true);
   const move = motion && !reducedMotion;
   const home = useEntranceMotion(move, Boolean(school));
-  const founder = school?.coaches.find(isFounderCoach);
   if (!loading && user && role === "admin")
     return <Navigate to="/admin" replace />;
   if (!loading && user && role === "staff")
@@ -442,15 +440,7 @@ export default function Index() {
               Meet the whole team <ArrowUpRight size={20} aria-hidden />
             </Link>
           </div>
-          {founder && <FounderSpotlight coach={founder} active={move} />}
-          <div className="tde-crew-grid">
-            {school.coaches
-              .filter((coach) => !isFounderCoach(coach))
-              .slice(0, 4)
-              .map((coach, i) => (
-                <CoachCard key={coach.id} coach={coach} active={move} index={i} />
-              ))}
-          </div>
+          <CoachPhotoGrid coaches={school.coaches} />
         </section>
       )}
 

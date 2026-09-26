@@ -27,3 +27,14 @@ The new /about, /schools and /results pages paraphrase the school's existing pub
 - https://www.thedanceexclusive.co.uk/dance-competitions — four published 2024/2025 achievements. No legacy placeholder trophy totals or pass rates were carried forward.
 
 Contact details and social accounts come from the booking system's public email_address, phone_number, social_instagram and social_facebook settings. Parent information links to current booking options and published calendars without copying stale hardcoded prices or inventing school policies. The real party enquiry and shop checkout flows are preserved.
+
+## Schools page refinement — 26 September 2026
+
+Amie identified the existing schools page as a favourite. The revised page keeps its classroom group-photo opening, school-performance imagery, service categories and expandable questions, with the shared blue/dark branding and bounded image movement. Source: https://www.thedanceexclusive.co.uk/schools, checked 26 September 2026.
+
+| Local asset | Original school asset |
+| --- | --- |
+| `public/media/tde-schools-banner.jpg` | `https://static.wixstatic.com/media/923365_2ed806d71e43437984e2e305261b5fee~mv2.jpeg` |
+| `public/media/tde-schools-group.jpg` | `https://static.wixstatic.com/media/923365_0e3c5c4f6da6497ba418b86578e1ba8a~mv2.png` (delivered as JPEG bytes) |
+
+These are unaltered first-party images, not generated replacements. Services and FAQ answers paraphrase the current schools page; enquiries open an email addressed to the published school contact. No form submission or email is sent automatically.

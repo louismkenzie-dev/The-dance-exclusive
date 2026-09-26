@@ -115,26 +115,50 @@ export default function PublicEditorialPages() {
   );
 
   if (pathname === "/schools") return (
-    <EditorialPage title="Dance in schools" eyebrow="For schools & educators" heading={<>Move the<br /><em>whole school.</em></>}
-      description="Dance sessions that bring energy, creativity and teamwork into the school day. Across Essex, for different ages and abilities.">
-      <div className="tde-editorial-split">
-        <div className="tde-editorial-copy">
-          <h2>Make room<br />for movement.</h2>
-          <p>Build dance into your PE programme, enrichment activities or a special event. We work with schools on one-off visits and ongoing sessions, shaped around their pupils and timetable.</p>
-          <p>Tell us what you are planning and we can discuss a programme for your school.</p>
-          <a className="tde-button tde-button-dark" href={`mailto:${contact.email}?subject=School%20dance%20enquiry`}>Let's plan it <ArrowUpRight size={18} aria-hidden /></a>
+    <article className="tde-schools-page">
+      <PageMeta title="Dance for schools in Essex" description="Dance sessions for Essex schools: PPA cover, clubs, themed workshops, choreography and teacher development." path="/schools" />
+      <header className="tde-schools-hero">
+        <MotionMedia image="/media/tde-schools-banner.jpg" alt="The Dance Exclusive school dancers celebrating together in their classroom" eager travel={25} />
+        <div className="tde-schools-hero-shade" />
+        <div><span className="tde-eyebrow">Confidence. Creativity. A whole lot of energy.</span><h1>Dance for schools<br /><em>in Essex.</em></h1></div>
+      </header>
+      <section className="tde-schools-intro">
+        <div>
+          <span className="tde-eyebrow">Bring movement into the school day</span>
+          <h2>Big smiles.<br /><em>Brilliant moves.</em></h2>
+          <p>From PE and PPA cover to clubs and special events, we bring dance into schools across Essex. Our experienced, DBS-checked teachers help pupils build confidence, creativity and teamwork while staying active.</p>
+          <p>One-off workshops or regular sessions, shaped around your pupils' ages, abilities and school timetable.</p>
+          <a className="tde-button" href={`mailto:${contact.email}?subject=School%20dance%20enquiry`}>Enquire about school sessions <ArrowUpRight size={20} aria-hidden /></a>
         </div>
-        <ul className="tde-editorial-list">
+        <MotionMedia className="tde-schools-group" image="/media/tde-schools-group.jpg" alt="The Dance Exclusive school dance group celebrating a performance together" travel={30} />
+      </section>
+      <section className="tde-schools-services" aria-labelledby="school-services-title">
+        <div className="tde-section-heading"><h2 id="school-services-title">Your school.<br /><em>Your way to move.</em></h2></div>
+        <div className="tde-school-service-grid">
           {[
-            ["01", "PPA cover", "Dance teaching as part of your school's provision."],
-            ["02", "Clubs", "Breakfast, lunchtime and after-school sessions."],
-            ["03", "Workshops", "Themed dance experiences for your pupils."],
-            ["04", "Performances", "Choreography for shows, events and competitions."],
-            ["05", "Teacher development", "Dance education and training for your staff."],
-          ].map(([number, title, copy]) => <li key={number}><span>{number}</span><div><h2>{title}</h2><p>{copy}</p></div></li>)}
-        </ul>
-      </div>
-    </EditorialPage>
+            ["PPA cover", "Regular dance sessions as part of your school's provision."],
+            ["Clubs", "Breakfast, lunchtime and after-school dance."],
+            ["Themed workshops", "One-off sessions to bring a topic or special day to life."],
+            ["Shows & choreography", "Routines for school events, performances and competitions."],
+            ["Teacher development", "Dance education and training for your staff."],
+          ].map(([title, copy], i) => <div key={title}><span aria-hidden="true">0{i + 1} ↗</span><h3>{title}</h3><p>{copy}</p></div>)}
+        </div>
+      </section>
+      <section className="tde-schools-questions" aria-label="School session questions">
+        <h2>A few things<br /><em>to know.</em></h2>
+        <div>
+          {[
+            ["Can we book a one-off workshop?", "Yes. We offer both one-off workshops and ongoing sessions."],
+            ["Are teachers DBS-checked?", "Yes, all teachers are DBS-checked."],
+            ["Can sessions suit different ages?", "Yes. Sessions are adapted for different ages and abilities."],
+          ].map(([question, answer]) => <details key={question}><summary>{question}<span aria-hidden="true">+</span></summary><p>{answer}</p></details>)}
+        </div>
+      </section>
+      <section className="tde-schools-enquiry">
+        <h2>Let's get your<br />school moving.</h2>
+        <a className="tde-button" href={`mailto:${contact.email}?subject=School%20dance%20enquiry`}>Get in touch <ArrowUpRight size={22} aria-hidden /></a>
+      </section>
+    </article>
   );
 
   if (pathname === "/results") return (

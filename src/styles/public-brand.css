@@ -155,6 +155,90 @@
 .tde-home:not([data-motion-ready]) *,
 .tde-home[data-motion="off"] * { animation: none !important; transition: none !important; }
 
+/* The founder leads the team in a centred feature; portraits keep their
+   original circular artwork instead of cropping it into tall rectangles. */
+.tde-founder-feature {
+  padding: 42px clamp(24px, 4vw, 60px) 50px;
+  margin: 0 auto 70px;
+  border-radius: 1.25rem;
+  color: var(--tde-paper);
+  background: var(--tde-stage);
+}
+.tde-founder-feature > header { text-align: center; margin-bottom: 25px; }
+.tde-founder-label {
+  display: inline-flex;
+  color: var(--tde-blue);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+}
+.tde-founder-feature h2 { margin-top: 10px; font-size: clamp(48px, 5vw, 74px); }
+.tde-founder-feature h2 > span { color: var(--tde-pink); }
+.tde-founder-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 360px) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(22px, 3.4vw, 48px);
+}
+.tde-founder-layout .tde-founder-statement {
+  font-size: clamp(23px, 2.3vw, 35px);
+  line-height: 1.2;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+}
+.tde-founder-portrait {
+  display: block;
+  aspect-ratio: 1;
+  padding: 5px;
+  border-radius: 50%;
+  background: linear-gradient(140deg, var(--tde-blue), var(--tde-blue) 35%, var(--tde-pink) 75%);
+}
+.tde-founder-portrait > .tde-media,
+.tde-founder-portrait > .tde-no-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--tde-stage);
+}
+.tde-founder-story > p { font-size: 14px; line-height: 1.75; color: #d1d3d7; }
+.tde-founder-story .tde-text-link { color: var(--tde-blue); margin-top: 17px; }
+.tde-coach-photo .tde-media,
+.tde-directory .tde-coach-photo { aspect-ratio: 1; border-radius: 50%; background: transparent; }
+.tde-coach-photo > .tde-no-image { aspect-ratio: 1; border-radius: 50%; }
+.tde-coach-photo .tde-media img { filter: none; }
+.tde-coach-profile .tde-profile-media {
+  aspect-ratio: 1;
+  width: 100%;
+  border-radius: 50%;
+  background: transparent;
+  align-self: start;
+}
+.tde-founder-portrait .tde-media-layer,
+.tde-coach-photo .tde-media-layer,
+.tde-coach-profile .tde-profile-media .tde-media-layer { inset: 0; transform: none; }
+.tde-founder-portrait img,
+.tde-coach-photo .tde-media img,
+.tde-coach-profile .tde-profile-media img { object-fit: contain; }
+.tde-coach-card .tde-coach-role { font-weight: 600; margin-block: 8px 4px; }
+.tde-team-directory > .tde-page-top { text-align: center; }
+.tde-team-directory > .tde-page-top h1,
+.tde-team-directory > .tde-page-top p { margin-inline: auto; }
+
+@media (max-width: 1100px) {
+  .tde-founder-layout { grid-template-columns: minmax(230px, 330px) minmax(0, 1fr); }
+  .tde-founder-layout .tde-founder-statement { display: none; }
+  .tde-founder-feature { max-width: 850px; }
+}
+@media (max-width: 767px) {
+  .tde-founder-feature { padding: 28px 22px 32px; margin-bottom: 45px; }
+  .tde-founder-layout { grid-template-columns: 1fr; gap: 28px; }
+  .tde-founder-portrait { width: min(100%, 340px); margin-inline: auto; }
+  .tde-founder-story { text-align: center; }
+  .tde-founder-feature h2 { font-size: 52px; }
+  .tde-founder-feature > header { margin-bottom: 25px; }
+}
+
 @supports (animation-timeline: view()) {
   .tde-intro-images { view-timeline-name: --tde-intro; }
   .tde-home[data-motion="on"] .tde-intro-main-photo {

@@ -2,6 +2,8 @@
 -- The private staff table and all its existing policies stay unchanged.
 -- staff_public remains an invoker view; anonymous reads never touch staff.
 begin;
+set local lock_timeout = '5s';
+set local statement_timeout = '30s';
 
 lock table public.staff in share row exclusive mode;
 

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Tables } from "@/integrations/supabase/types";
+import { orderPublicCoaches } from "./publicCoaches";
 
 export type PublicVenue = Pick<
   Tables<"venues">,
@@ -257,9 +258,9 @@ export async function fetchPublicSchool(
         };
       }),
     venues: venueResult.data ?? [],
-    coaches: (coachResult.data ?? []).filter(
+    coaches: orderPublicCoaches((coachResult.data ?? []).filter(
       (coach) => coach.id && coach.first_name,
-    ),
+    )),
     camps: campResult.data ?? [],
     contact: publicContact(contactResult.data ?? []),
   };

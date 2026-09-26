@@ -5,17 +5,12 @@ import { PageMeta } from "@/components/marketing/PageMeta";
 import { PUBLIC_ORIGIN } from "@/components/marketing/PageHeadContext";
 import { PublicClassList } from "@/components/marketing/PublicClassList";
 import { MotionMedia } from "@/components/marketing/MotionMedia";
+import { CoachCard, FounderSpotlight } from "@/components/marketing/CoachProfiles";
+import { coachPhotoUrl } from "@/lib/staffPhoto";
 import { coachPath, venuePath } from "@/lib/publicSchool";
+import { isFounderCoach, publicCoachTitle } from "@/lib/publicCoaches";
 import { campPriceLabel, shortDateRange } from "@/lib/classPresentation";
 import { campBrowserPath } from "@/lib/classLinks";
-import { supabase } from "@/integrations/supabase/client";
-
-const staffPhoto = (path: string | null) =>
-  path?.startsWith("http")
-    ? path
-    : path
-      ? supabase.storage.from("staff-photos").getPublicUrl(path).data.publicUrl
-      : null;
 
 export default function PublicPages() {
   const { pathname } = useLocation();
@@ -177,11 +172,12 @@ export default function PublicPages() {
   if (coachId) {
     const coach = school.coaches.find((item) => item.id === coachId);
     if (!coach) return <Missing back="/team" label="coach" />;
-    const image = staffPhoto(coach.profile_photo);
+    const image = coachPhotoUrl(coach.profile_photo);
+    const title = publicCoachTitle(coach);
     return (
       <article className="tde-directory tde-paper">
         <PageMeta
-          title={`Meet ${coach.first_name}`}
+          title={`Meet ${coach.first_name} · ${title}`}
           description={
             coach.description?.slice(0, 155) ||
             `Meet ${coach.first_name} and explore their current classes at The Dance Exclusive in Essex.`
@@ -191,6 +187,7 @@ export default function PublicPages() {
             "@context": "https://schema.org",
             "@type": "Person",
             name: coach.first_name,
+            jobTitle: title,
             description: coach.description,
             image,
             url: `${PUBLIC_ORIGIN}${coachPath(coach)}`,
@@ -203,8 +200,9 @@ export default function PublicPages() {
           {image ? (
             <MotionMedia
               image={image}
-              alt={`${coach.first_name}, The Dance Exclusive coach`}
+              alt={`${coach.first_name}, ${title} at The Dance Exclusive`}
               className="tde-profile-media"
+              travel={0}
             />
           ) : (
             <div className="tde-no-image">
@@ -215,7 +213,7 @@ export default function PublicPages() {
             <span className="tde-eyebrow">THE PERSON BEHIND THE MOVES</span>
             <h1>{coach.first_name}</h1>
             <span className="tde-eyebrow">
-              {coach.role === "staff" ? "Dance coach" : coach.role}
+              {title}
             </span>
             <p className="tde-prose">{coach.description}</p>
             {!!coach.dance_skills?.length && (
@@ -317,8 +315,9 @@ export default function PublicPages() {
     );
   }
 
+  const founder = school.coaches.find(isFounderCoach);
   return (
-    <div className="tde-directory tde-paper">
+    <div className={`tde-directory tde-paper${isCoach ? " tde-team-directory" : ""}`}>
       <PageMeta
         title={
           isVenue
@@ -394,33 +393,14 @@ export default function PublicPages() {
         </div>
       ) : isCoach ? (
         school.coaches.length ? (
-          <div className="tde-crew-grid">
-            {school.coaches.map((coach) => (
-              <Link
-                to={coachPath(coach)}
-                className="tde-coach-card"
-                key={coach.id}
-              >
-                <div className="tde-coach-photo">
-                  {staffPhoto(coach.profile_photo) ? (
-                    <MotionMedia
-                      image={staffPhoto(coach.profile_photo)!}
-                      alt={`${coach.first_name}, The Dance Exclusive coach`}
-                    />
-                  ) : (
-                    <div className="tde-no-image">
-                      <span>{coach.first_name?.[0]}</span>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <h3>{coach.first_name}</h3>
-                  <ArrowUpRight size={22} aria-hidden />
-                </div>
-                <p>{coach.dance_skills?.join(" / ")}</p>
-              </Link>
-            ))}
-          </div>
+          <>
+            {founder && <FounderSpotlight coach={founder} />}
+            <div className="tde-crew-grid">
+              {school.coaches.filter((coach) => !isFounderCoach(coach)).map((coach, index) => (
+                <CoachCard coach={coach} key={coach.id} index={index} />
+              ))}
+            </div>
+          </>
         ) : (
           <p className="tde-empty">
             Coach profiles are currently unavailable.{" "}

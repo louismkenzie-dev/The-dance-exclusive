@@ -10,17 +10,11 @@ import {
   classPriceSummary,
   shortDateRange,
 } from "@/lib/classPresentation";
-import { venuePath, coachPath, publicClassPath } from "@/lib/publicSchool";
-import { supabase } from "@/integrations/supabase/client";
+import { venuePath, publicClassPath } from "@/lib/publicSchool";
+import { isFounderCoach } from "@/lib/publicCoaches";
+import { CoachCard, FounderSpotlight } from "@/components/marketing/CoachProfiles";
 import { PageMeta } from "@/components/marketing/PageMeta";
 import { useEntranceMotion } from "@/hooks/useEntranceMotion";
-
-const photo = (path: string | null) =>
-  path?.startsWith("http")
-    ? path
-    : path
-      ? supabase.storage.from("staff-photos").getPublicUrl(path).data.publicUrl
-      : null;
 
 export default function Index() {
   const { user, role, loading } = useAuth();
@@ -29,6 +23,7 @@ export default function Index() {
   const [motion, setMotion] = useState(true);
   const move = motion && !reducedMotion;
   const home = useEntranceMotion(move, Boolean(school));
+  const founder = school?.coaches.find(isFounderCoach);
   if (!loading && user && role === "admin")
     return <Navigate to="/admin" replace />;
   if (!loading && user && role === "staff")
@@ -443,34 +438,13 @@ export default function Index() {
               Meet the whole team <ArrowUpRight size={20} aria-hidden />
             </Link>
           </div>
+          {founder && <FounderSpotlight coach={founder} active={move} />}
           <div className="tde-crew-grid">
             {school.coaches
-              .filter((coach) => coach.profile_photo)
+              .filter((coach) => !isFounderCoach(coach))
               .slice(0, 4)
               .map((coach, i) => (
-                <Link
-                  to={coachPath(coach)}
-                  key={coach.id}
-                  className="tde-coach-card"
-                >
-                  <div className="tde-coach-photo">
-                    <MotionMedia
-                      image={photo(coach.profile_photo) ?? ""}
-                      alt={`${coach.first_name}, The Dance Exclusive coach`}
-                      active={move}
-                      travel={30}
-                    />
-                    <span>0{i + 1}</span>
-                  </div>
-                  <div>
-                    <h3>{coach.first_name}</h3>
-                    <ArrowUpRight size={22} aria-hidden />
-                  </div>
-                  <p>
-                    {coach.dance_skills?.slice(0, 2).join(" / ") ||
-                      "The Dance Exclusive team"}
-                  </p>
-                </Link>
+                <CoachCard key={coach.id} coach={coach} active={move} index={i} />
               ))}
           </div>
         </section>

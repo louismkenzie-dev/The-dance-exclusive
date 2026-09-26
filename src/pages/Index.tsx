@@ -6,11 +6,9 @@ import { usePublicSchool } from "@/hooks/usePublicSchool";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { MotionMedia } from "@/components/marketing/MotionMedia";
 import {
-  classDaysLabel,
-  classPriceSummary,
   shortDateRange,
 } from "@/lib/classPresentation";
-import { venuePath, publicClassPath } from "@/lib/publicSchool";
+import { HomeClassFinder, HomeLocations } from "@/components/marketing/HomeDiscovery";
 import { CoachPhotoGrid } from "@/components/marketing/CoachProfiles";
 import { ScrollDanceStudio } from "@/components/marketing/ScrollDanceStudio";
 import { PageMeta } from "@/components/marketing/PageMeta";
@@ -185,75 +183,20 @@ export default function Index() {
             </Link>
           ))}
         </div>
-        <div className="tde-class-list-heading">
-          <span className="tde-eyebrow">On the TIMETABLE</span>
-          <Link to="/classes?type=children" className="tde-text-link">
-            Explore classes <ArrowUpRight size={17} aria-hidden />
-          </Link>
-        </div>
-        <div className="tde-class-list">
-          {isLoading ? (
-            <p className="tde-loading" role="status">
-              Finding your next class…
-            </p>
-          ) : isError ? (
-            <p className="tde-loading">
-              The timetable is taking a moment.{" "}
-              <Link to="/classes?type=children">Open the class browser</Link>.
-            </p>
-          ) : (
-            school?.classes.slice(0, 4).map((item, index) => {
-              const venue = school.venues.find((v) => v.id === item.venue_id);
-              const price = classPriceSummary(item, item.remainingSessions);
-              return (
-                <Link
-                  to={publicClassPath(item)}
-                  key={item.id}
-                  className="tde-class-row"
-                  data-audience={item.class_type}
-                  data-entrance=""
-                  data-delay={index * 70}
-                >
-                  <span className="tde-class-type">
-                    {item.class_type === "adult" ? "ADULTS" : "CHILDREN"}
-                  </span>
-                  <div>
-                    <h3>{item.name}</h3>
-                    <span>
-                      {venue?.city || venue?.name || "View venue details"}
-                    </span>
-                  </div>
-                  <span>
-                    {classDaysLabel(item.days_of_week, item.day_of_week)}
-                    <small>
-                      {item.start_time.slice(0, 5)} –{" "}
-                      {item.end_time.slice(0, 5)}
-                    </small>
-                  </span>
-                  <span className="tde-class-price">
-                    {price.priceLabel}
-                    <small>{price.priceHint}</small>
-                  </span>
-                  <ArrowUpRight size={23} aria-hidden />
-                </Link>
-              );
-            })
-          )}
-        </div>
+        <HomeClassFinder school={school} loading={isLoading} error={isError} />
       </section>
-
-      <ScrollDanceStudio active={move} onToggle={() => setMotion(value => !value)} />
 
       <section className="tde-intro" id="the-feeling">
         <div className="tde-section-note" data-entrance="">
-          <span>More than movement</span>
-          <span>THIS IS THE DANCE EXCLUSIVE</span>
+          <span>YOUR FIRST SESSION</span>
+          <span>LET’S GET YOU STARTED</span>
         </div>
         <div className="tde-intro-grid">
           <div className="tde-intro-images" data-entrance="">
             <div className="tde-intro-main-photo">
               <MotionMedia
-                image="/media/tde-community.jpg"
+                image="/media/tde-film-poster.jpg"
+                video="/media/tde-performance-film.mp4"
                 alt="The Dance Exclusive dancers performing together on stage"
                 active={move}
                 travel={55}
@@ -273,107 +216,23 @@ export default function Index() {
             </span>
           </div>
           <div className="tde-intro-copy">
-            <h2 className="tde-signature" aria-label="Dance. Grow. Achieve.">
-              <span data-entrance="">Dance<span>.</span></span>
-              <span data-entrance="" data-delay="100">Grow<span>.</span></span>
-              <span data-entrance="" data-delay="200">Achieve<span>.</span></span>
-            </h2>
-            <div data-entrance="" data-delay="200">
-              <p>
-                First steps or centre stage, confidence grows here. Real classes,
-                brilliant teachers and people who cheer you on. This is your
-                space to find out what you can do.
-              </p>
-              <p>
-                Commercial and street dance for children and adults across Essex.
-                Come as you are. We'll find your next move together.
-              </p>
-              <Link to="/about" className="tde-text-link">
-                Get to know us <ArrowUpRight size={20} aria-hidden />
-              </Link>
+            <h2 className="tde-signature">First class?<br /><span>Start here.</span></h2>
+            <div className="tde-first-class">
+              <p>Find a class that fits your age group, your week and your journey.</p>
+              <ol>
+                <li><strong>Find your fit.</strong><span>Check the age or school-year group, venue and timetable on the class page.</span></li>
+                <li><strong>See your options.</strong><span>Each class page shows its current prices and booking options before you book.</span></li>
+                <li><strong>Ask us anything.</strong><span>For clothing, footwear, arrival or extra support, speak to the team before your first session.</span></li>
+              </ol>
+              <div className="tde-first-links"><Link to="/info" className="tde-text-link">First-session guide <ArrowUpRight size={20} aria-hidden /></Link><Link to="/contact" className="tde-text-link">Ask the team <ArrowUpRight size={20} aria-hidden /></Link></div>
             </div>
-          </div>
-        </div>
-        {school && (
-          <div className="tde-live-stats" data-entrance="">
-            <div>
-              <strong>
-                {school.classes.length.toString().padStart(2, "0")}
-              </strong>
-              <span>Classes to discover</span>
-            </div>
-            <div>
-              <strong>
-                {school.venues.length.toString().padStart(2, "0")}
-              </strong>
-              <span>Places to move</span>
-            </div>
-            <div>
-              <strong>
-                {(
-                  school.coaches.length ||
-                  new Set(
-                    school.classes
-                      .map((item) => item.dance_style)
-                      .filter(Boolean),
-                  ).size
-                )
-                  .toString()
-                  .padStart(2, "0")}
-              </strong>
-              <span>
-                {school.coaches.length
-                  ? "Faces behind the feeling"
-                  : "Styles to explore"}
-              </span>
-            </div>
-            <p>
-              One dance family. <br />
-              Room for your next chapter.
-            </p>
-          </div>
-        )}
-      </section>
-
-      <section className="tde-film-section">
-        <div className="tde-section-note" data-entrance="">
-          <span>Feel the ROOM</span>
-          <span>REAL people. ALL energy.</span>
-        </div>
-        <div className="tde-film-stage">
-          <div className="tde-film-type" aria-hidden="true">
-            ALL
-            <br />
-            <span>IN.</span>
-          </div>
-          <MotionMedia
-            image="/media/tde-film-poster.jpg"
-            video="/media/tde-performance-film.mp4"
-            alt="The Dance Exclusive performing on stage"
-            active={move}
-            travel={65}
-          />
-          <span className="tde-film-label">THE MUSIC IS JUST THE START.</span>
-        </div>
-        <div className="tde-film-bottom" data-entrance="">
-          <h2>
-            There's something
-            <br />
-            about this place.
-          </h2>
-          <div>
-            <p>
-              The shared routine. The little breakthroughs. The friends cheering
-              you on. Find out what happens when you give yourself room to move.
-            </p>
-            <Link to="/gallery" className="tde-text-link">
-              Life at The Dance Exclusive <ArrowUpRight size={19} aria-hidden />
-            </Link>
           </div>
         </div>
       </section>
 
-      <section className="tde-venues-section tde-paper">
+      <ScrollDanceStudio active={move} onToggle={() => setMotion(value => !value)} />
+
+      <section className="tde-venues-section tde-paper" id="find-a-location">
         <div className="tde-section-note" data-entrance="">
           <span>CLOSE TO HOME</span>
           <span>ALL ACROSS ESSEX</span>
@@ -381,13 +240,12 @@ export default function Index() {
         <div className="tde-venues-grid">
           <div data-entrance="">
             <h2>
-              Big energy.
+              Find your
               <br />
-              <em>Local roots.</em>
+              <em>local class.</em>
             </h2>
             <p>
-              Your next class could be closer than you think. Find your local
-              studio and see what's happening there.
+              Choose your town to see our venues, then explore the classes at a location that works for you.
             </p>
             <Link to="/venues" className="tde-button tde-button-dark">
               Find a location <ArrowUpRight size={20} aria-hidden />
@@ -400,30 +258,7 @@ export default function Index() {
               />
             </div>
           </div>
-          <div className="tde-venue-list">
-            {school?.venues.slice(0, 7).map((venue, index) => (
-              <Link to={venuePath(venue)} key={venue.id} data-entrance="" data-delay={index * 45}>
-                <span>0{index + 1}</span>
-                <div>
-                  <h3>{venue.city || venue.name}</h3>
-                  <p>{venue.name}</p>
-                </div>
-                <ArrowUpRight size={24} aria-hidden />
-              </Link>
-            ))}
-            {!school && (
-              <Link to="/venues">
-                <span>↗</span>
-                <h3>Explore our locations</h3>
-              </Link>
-            )}
-            {school && school.venues.length > 7 && (
-              <Link to="/venues" className="tde-all-venues">
-                All {school.venues.length} locations{" "}
-                <ArrowUpRight size={20} aria-hidden />
-              </Link>
-            )}
-          </div>
+          <HomeLocations school={school} loading={isLoading} error={isError} />
         </div>
       </section>
 

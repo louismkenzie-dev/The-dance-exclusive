@@ -112,6 +112,7 @@ export function PublicSiteShell({ children }: { children: ReactNode }) {
           the floor.
           <ArrowUpRight aria-hidden />
         </Link>
+        <Link to="/classes" className="tde-text-link tde-footer-class-link">Find your class <ArrowUpRight size={20} aria-hidden /></Link>
         <div className="tde-footer-links">
           <BrandLogo tone="white" className="h-16" />
           <div>

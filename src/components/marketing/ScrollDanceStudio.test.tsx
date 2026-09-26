@@ -20,8 +20,8 @@ describe("progressively enhanced Blender stage", () => {
     create.mockRejectedValue(new Error("WebGL unavailable"));
     const { container } = render(<ScrollDanceStudio active onToggle={() => {}} />);
     await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
-    expect(screen.getByRole("heading", { name: "Your space. To move." })).toBeVisible();
-    expect(screen.getByRole("link", { name: "Meet your people" })).toHaveAttribute("href", "#the-feeling");
+    expect(screen.getByRole("heading", { name: "Turn it up." })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Find your local class" })).toHaveAttribute("href", "#find-a-location");
     expect(container.querySelector("section")).toHaveAttribute("data-enhanced", "false");
     expect(container.querySelector("picture img")).toHaveAttribute("src", "/media/tde-animated-studio.jpg");
   });

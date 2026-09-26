@@ -12,6 +12,7 @@ import {
 } from "@/lib/classPresentation";
 import { venuePath, publicClassPath } from "@/lib/publicSchool";
 import { CoachPhotoGrid } from "@/components/marketing/CoachProfiles";
+import { ScrollSoundStage } from "@/components/marketing/ScrollSoundStage";
 import { PageMeta } from "@/components/marketing/PageMeta";
 import { useEntranceMotion } from "@/hooks/useEntranceMotion";
 
@@ -240,6 +241,8 @@ export default function Index() {
           )}
         </div>
       </section>
+
+      <ScrollSoundStage active={move} onToggle={() => setMotion(value => !value)} />
 
       <section className="tde-intro" id="the-feeling">
         <div className="tde-section-note" data-entrance="">

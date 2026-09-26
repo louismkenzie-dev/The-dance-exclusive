@@ -2,3 +2,4 @@
 /docs/
 /supabase/
 .env*
+/design/

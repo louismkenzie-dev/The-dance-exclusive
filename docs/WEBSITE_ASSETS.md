@@ -38,3 +38,7 @@ Amie identified the existing schools page as a favourite. The revised page keeps
 | `public/media/tde-schools-group.jpg` | `https://static.wixstatic.com/media/923365_0e3c5c4f6da6497ba418b86578e1ba8a~mv2.png` (delivered as JPEG bytes) |
 
 These are unaltered first-party images, not generated replacements. Services and FAQ answers paraphrase the current schools page; enquiries open an email addressed to the published school contact. No form submission or email is sent automatically.
+
+## Blender sound stage — 26 September 2026
+
+`public/models/tde-sound-stage.glb` and `public/media/tde-sound-stage.webp` are original assets created in Blender for the scroll-responsive homepage section. The source project, modelling script and transparent render are retained in `design/blender/`. The still uses the same sculpture and materials as the interactive scene. See `WEBSITE_3D_SCROLL.md` for implementation and verification details.

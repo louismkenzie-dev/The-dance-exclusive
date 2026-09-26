@@ -33,3 +33,9 @@ Portrait, built-in edit with the generated landscape as reference:
 301 tests pass. Application TypeScript and changed-file ESLint pass. Desktop (1440px) and phone (390px) browser review confirms the correct composition, working WebGL projection, original logo, no runtime errors and no horizontal overflow. WCAG A/AA scans are clear for the checked scene layouts. Additional production and deployment checks are recorded below after completion.
 
 The client/server production build passes. A fresh reduced-motion production browser creates no WebGL canvas and makes no GLB requests; the regular production browser loads the scene without runtime errors. Scroll progress reaches 0.651 while the section remains pinned at top 0, with no horizontal overflow. The built-in image generation mode was used for both assets; no image API/CLI fallback was used.
+
+## Verified preview
+
+Code commit `ef1f399` deployed as `dpl_D6Kh5gS46QkKsnaNycPgQvBboHDc` (READY): https://the-dance-exclusive-qirj2mkqp-nullshift.vercel.app/#turn-it-up.
+
+The deployed preview was opened and visually checked in the in-app browser: the realistic dancer/studio image fills the section, the original white logo and blue text remain clear, and scrolling produces the restrained camera move while the scene stays pinned. The preview was left open. Production and database state were not changed. Moving choreography remains pending Higgsfield reauthentication; this preview uses a still photographic projection.

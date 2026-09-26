@@ -149,9 +149,18 @@ security definer
 set search_path = public
 as $$
 begin
-  -- Staff take registers, so staff can hand merchandise over. Authorisation is inside the
-  -- statement, not a separate check that could be forgotten.
-  if not (public.has_role(auth.uid(), 'admin') or public.has_role(auth.uid(), 'staff')) then
+  -- Staff take registers, so staff can hand merchandise over.
+  --
+  -- The staff test is get_staff_id_for_user, NOT has_role(..., 'staff') — copied from
+  -- get_unpaid_membership_attendees, which is the predicate that already decides who may see a
+  -- register at all. The two are not the same thing: a user_roles row and a staff record are
+  -- separate, and on live today 12 people hold the role while only 10 have a staff record. If
+  -- someone can take the register, they can hand the garment over; if they cannot, they should
+  -- not be able to either.
+  if not (
+    public.has_role(auth.uid(), 'admin')
+    or public.get_staff_id_for_user(auth.uid()) is not null
+  ) then
     raise exception 'Not authorised';
   end if;
 

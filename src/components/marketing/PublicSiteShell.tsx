@@ -1,7 +1,7 @@
 import CartButton from "@/components/portal/CartButton";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { ArrowUpRight, Menu, House, CalendarDays, MapPin, UserRound } from "lucide-react";
+import { ArrowUpRight, Menu, House, CalendarDays, MapPin, UserRound, LogOut } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import {
   Sheet,
@@ -15,6 +15,7 @@ import { defaultPublicContact } from "@/lib/publicSchool";
 import "@/styles/public-site.css";
 import "@/styles/public-brand.css";
 import "@/styles/public-v2.css";
+import "@/styles/customer-system.css";
 
 const navigation = [
   { to: "/classes?type=children", label: "Children's classes" },
@@ -25,25 +26,30 @@ const navigation = [
   { to: "/events", label: "Camps & workshops" },
 ];
 
-export function PublicSiteShell({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+export function PublicSiteShell({ children, product = false, focus = false }: { children: ReactNode; product?: boolean; focus?: boolean }) {
+  const { user, signOut } = useAuth();
   const { data: school } = usePublicSchool();
   const contact = school?.contact ?? defaultPublicContact;
   const { pathname, search } = useLocation();
   const home = pathname === "/";
+  const adult = pathname.startsWith("/classes/adult") || (pathname === "/classes" && new URLSearchParams(search).get("type") === "adult");
+  const hideTabs = focus || pathname.startsWith("/book/");
+  useEffect(() => {
+    document.body.classList.add("tde-customer-theme");
+    document.body.classList.toggle("tde-customer-adult", adult);
+    return () => document.body.classList.remove("tde-customer-theme", "tde-customer-adult");
+  }, [adult]);
   const [open, setOpen] = useState(false);
   useEffect(() => setOpen(false), [pathname, search]);
   return (
-    <div className={`tde-site tde-v2${home ? " tde-site-home" : ""}`}>
+    <div className={`tde-site tde-v2 tde-customer-theme${adult ? " tde-customer-adult" : ""}${product ? " tde-product" : ""}${focus ? " tde-focus" : ""}${home ? " tde-site-home" : ""}`}>
       <a className="tde-skip" href="#main-content">
         Skip to content
       </a>
       <header className="tde-header">
         <div className="tde-header-signal" aria-hidden="true">Street dance<br />Commercial<br />Essex / UK</div>
         <nav className="tde-desktop-nav" aria-label="Main navigation">
-          <Link to="/classes?type=children">Children</Link>
-          <Link to="/classes?type=adult">Adults</Link>
-          <Link to="/venues">Locations</Link>
+          {product ? <><Link to="/classes">Classes</Link><Link to="/timetable">Timetable</Link><Link to="/account/bookings">My bookings</Link></> : <><Link to="/classes?type=children">Children</Link><Link to="/classes?type=adult">Adults</Link><Link to="/venues">Locations</Link></>}
         </nav>
         <Link
           to="/"
@@ -53,7 +59,7 @@ export function PublicSiteShell({ children }: { children: ReactNode }) {
           <BrandLogo tone="ink" className="h-11" />
         </Link>
         <div className="tde-header-right">
-          {user && <div className="tde-booking-theme"><CartButton /></div>}
+          {(user || product) && !focus && <div className="tde-booking-theme"><CartButton /></div>}
           <Link
             to={user ? "/account/bookings" : "/auth"}
             className="tde-account"
@@ -93,6 +99,8 @@ export function PublicSiteShell({ children }: { children: ReactNode }) {
                   {user ? "Your account" : "Member login"}
                 </Link>
                 <Link to="/term-dates">Term dates</Link>
+                <Link to="/timetable">My timetable</Link>
+                {user && <><Link to="/account/bookings">My bookings</Link><button type="button" onClick={() => void signOut()}><LogOut size={16} aria-hidden /> Sign out</button></>}
               </div>
             </SheetContent>
           </Sheet>
@@ -101,12 +109,13 @@ export function PublicSiteShell({ children }: { children: ReactNode }) {
       <main id="main-content" tabIndex={-1}>
         {children}
       </main>
-      <nav className="tde-mobile-tabs" aria-label="Quick navigation">
+      {!hideTabs && <nav className="tde-mobile-tabs" aria-label="Quick navigation">
         <NavLink to="/" end><House size={21} aria-hidden /><span>Home</span></NavLink>
         <NavLink to="/classes"><CalendarDays size={21} aria-hidden /><span>Classes</span></NavLink>
-        <NavLink to="/venues"><MapPin size={21} aria-hidden /><span>Locations</span></NavLink>
-        <NavLink to={user ? "/account/bookings" : "/auth"}><UserRound size={21} aria-hidden /><span>{user ? "Bookings" : "Sign in"}</span></NavLink>
-      </nav>
+        <NavLink to={user ? "/timetable" : "/venues"}>{user ? <CalendarDays size={21} aria-hidden /> : <MapPin size={21} aria-hidden />}<span>{user ? "Timetable" : "Locations"}</span></NavLink>
+        <NavLink to={user ? "/account" : "/auth"}><UserRound size={21} aria-hidden /><span>{user ? "Account" : "Sign in"}</span></NavLink>
+      </nav>}
+      {product ? <footer className="tde-product-footer"><Link to="/classes">Find your class <ArrowUpRight size={16} aria-hidden /></Link><Link to="/info">Booking information</Link><Link to="/contact">Need a hand?</Link><span>© {new Date().getFullYear()} The Dance Exclusive</span></footer> :
       <footer className="tde-footer">
         <div className="tde-footer-top">
           <span className="tde-eyebrow">
@@ -170,7 +179,7 @@ export function PublicSiteShell({ children }: { children: ReactNode }) {
           <span>Essex, UK. Everyone welcome.</span>
           <Link to="/info">Useful information</Link>
         </div>
-      </footer>
+      </footer>}
     </div>
   );
 }

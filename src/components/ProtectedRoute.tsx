@@ -1,4 +1,4 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import BrandLoader from "@/components/BrandLoader";
 
@@ -9,13 +9,14 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
   const { user, loading, role } = useAuth();
+  const { pathname, search, hash } = useLocation();
 
   if (loading) {
     return <BrandLoader />;
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to={`/auth?redirect=${encodeURIComponent(pathname + search + hash)}`} replace />;
   }
 
   if (requiredRole && role !== requiredRole) {

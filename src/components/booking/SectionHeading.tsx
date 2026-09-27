@@ -21,6 +21,7 @@ export function SectionHeading({ eyebrow, title, subtitle, aside, as = "h2", siz
       <div className="min-w-0">
         {eyebrow && <p className="mb-1.5 text-[13px] font-medium text-muted-foreground">{eyebrow}</p>}
         <Tag
+          data-booking-heading={size}
           className={cn(
             "font-semibold tracking-tight text-foreground",
             size === "page" ? "text-[28px] leading-[1.15] sm:text-4xl" : "text-xl sm:text-2xl",

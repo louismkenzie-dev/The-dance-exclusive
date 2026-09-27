@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-27T11:51:34.049046+00:00",
-  "title": "Design System: The Dance Exclusive \u2014 Public V2",
+  "generatedAt": "2026-09-27T21:35:52.703404+00:00",
+  "title": "Design System: The Dance Exclusive — Public V2 & Customer Journey",
   "extensions": {
     "colorMeta": {
       "tde-blue": {
@@ -213,6 +213,244 @@
           "oklch(83.57% 0.0474 341.36)",
           "oklch(95.00% 0.0474 341.36)"
         ]
+      },
+      "customer-background": {
+        "role": "neutral",
+        "displayName": "Customer Background",
+        "tonalRamp": [
+          "oklch(15.00% 0.0200 254.97)",
+          "oklch(26.43% 0.0200 254.97)",
+          "oklch(37.86% 0.0200 254.97)",
+          "oklch(49.29% 0.0200 254.97)",
+          "oklch(60.71% 0.0200 254.97)",
+          "oklch(72.14% 0.0200 254.97)",
+          "oklch(83.57% 0.0200 254.97)",
+          "oklch(95.00% 0.0200 254.97)"
+        ]
+      },
+      "customer-foreground": {
+        "role": "neutral",
+        "displayName": "Customer Foreground",
+        "tonalRamp": [
+          "oklch(15.00% 0.0150 223.29)",
+          "oklch(26.43% 0.0150 223.29)",
+          "oklch(37.86% 0.0150 223.29)",
+          "oklch(49.29% 0.0150 223.29)",
+          "oklch(60.71% 0.0150 223.29)",
+          "oklch(72.14% 0.0150 223.29)",
+          "oklch(83.57% 0.0150 223.29)",
+          "oklch(95.00% 0.0150 223.29)"
+        ]
+      },
+      "customer-card": {
+        "role": "neutral",
+        "displayName": "Customer Card",
+        "tonalRamp": [
+          "oklch(15.00% 0.0310 240.86)",
+          "oklch(26.43% 0.0310 240.86)",
+          "oklch(37.86% 0.0310 240.86)",
+          "oklch(49.29% 0.0310 240.86)",
+          "oklch(60.71% 0.0310 240.86)",
+          "oklch(72.14% 0.0310 240.86)",
+          "oklch(83.57% 0.0310 240.86)",
+          "oklch(95.00% 0.0310 240.86)"
+        ]
+      },
+      "customer-primary": {
+        "role": "primary",
+        "displayName": "Customer Primary",
+        "tonalRamp": [
+          "oklch(15.00% 0.1146 225.97)",
+          "oklch(26.43% 0.1146 225.97)",
+          "oklch(37.86% 0.1146 225.97)",
+          "oklch(49.29% 0.1146 225.97)",
+          "oklch(60.71% 0.1146 225.97)",
+          "oklch(72.14% 0.1146 225.97)",
+          "oklch(83.57% 0.1146 225.97)",
+          "oklch(95.00% 0.1146 225.97)"
+        ]
+      },
+      "customer-secondary": {
+        "role": "neutral",
+        "displayName": "Customer Secondary",
+        "tonalRamp": [
+          "oklch(15.00% 0.0345 240.44)",
+          "oklch(26.43% 0.0345 240.44)",
+          "oklch(37.86% 0.0345 240.44)",
+          "oklch(49.29% 0.0345 240.44)",
+          "oklch(60.71% 0.0345 240.44)",
+          "oklch(72.14% 0.0345 240.44)",
+          "oklch(83.57% 0.0345 240.44)",
+          "oklch(95.00% 0.0345 240.44)"
+        ]
+      },
+      "customer-muted": {
+        "role": "neutral",
+        "displayName": "Customer Muted",
+        "tonalRamp": [
+          "oklch(15.00% 0.0293 243.78)",
+          "oklch(26.43% 0.0293 243.78)",
+          "oklch(37.86% 0.0293 243.78)",
+          "oklch(49.29% 0.0293 243.78)",
+          "oklch(60.71% 0.0293 243.78)",
+          "oklch(72.14% 0.0293 243.78)",
+          "oklch(83.57% 0.0293 243.78)",
+          "oklch(95.00% 0.0293 243.78)"
+        ]
+      },
+      "customer-muted-text": {
+        "role": "neutral",
+        "displayName": "Customer Muted Text",
+        "tonalRamp": [
+          "oklch(15.00% 0.0308 231.23)",
+          "oklch(26.43% 0.0308 231.23)",
+          "oklch(37.86% 0.0308 231.23)",
+          "oklch(49.29% 0.0308 231.23)",
+          "oklch(60.71% 0.0308 231.23)",
+          "oklch(72.14% 0.0308 231.23)",
+          "oklch(83.57% 0.0308 231.23)",
+          "oklch(95.00% 0.0308 231.23)"
+        ]
+      },
+      "customer-accent": {
+        "role": "neutral",
+        "displayName": "Customer Accent",
+        "tonalRamp": [
+          "oklch(15.00% 0.0464 237.73)",
+          "oklch(26.43% 0.0464 237.73)",
+          "oklch(37.86% 0.0464 237.73)",
+          "oklch(49.29% 0.0464 237.73)",
+          "oklch(60.71% 0.0464 237.73)",
+          "oklch(72.14% 0.0464 237.73)",
+          "oklch(83.57% 0.0464 237.73)",
+          "oklch(95.00% 0.0464 237.73)"
+        ]
+      },
+      "customer-accent-text": {
+        "role": "neutral",
+        "displayName": "Customer Accent Text",
+        "tonalRamp": [
+          "oklch(15.00% 0.0708 222.52)",
+          "oklch(26.43% 0.0708 222.52)",
+          "oklch(37.86% 0.0708 222.52)",
+          "oklch(49.29% 0.0708 222.52)",
+          "oklch(60.71% 0.0708 222.52)",
+          "oklch(72.14% 0.0708 222.52)",
+          "oklch(83.57% 0.0708 222.52)",
+          "oklch(95.00% 0.0708 222.52)"
+        ]
+      },
+      "customer-border": {
+        "role": "neutral",
+        "displayName": "Customer Border",
+        "tonalRamp": [
+          "oklch(15.00% 0.0434 234.65)",
+          "oklch(26.43% 0.0434 234.65)",
+          "oklch(37.86% 0.0434 234.65)",
+          "oklch(49.29% 0.0434 234.65)",
+          "oklch(60.71% 0.0434 234.65)",
+          "oklch(72.14% 0.0434 234.65)",
+          "oklch(83.57% 0.0434 234.65)",
+          "oklch(95.00% 0.0434 234.65)"
+        ]
+      },
+      "customer-input": {
+        "role": "neutral",
+        "displayName": "Customer Input",
+        "tonalRamp": [
+          "oklch(15.00% 0.0548 232.69)",
+          "oklch(26.43% 0.0548 232.69)",
+          "oklch(37.86% 0.0548 232.69)",
+          "oklch(49.29% 0.0548 232.69)",
+          "oklch(60.71% 0.0548 232.69)",
+          "oklch(72.14% 0.0548 232.69)",
+          "oklch(83.57% 0.0548 232.69)",
+          "oklch(95.00% 0.0548 232.69)"
+        ]
+      },
+      "customer-success": {
+        "role": "secondary",
+        "displayName": "Customer Success",
+        "tonalRamp": [
+          "oklch(15.00% 0.1237 160.91)",
+          "oklch(26.43% 0.1237 160.91)",
+          "oklch(37.86% 0.1237 160.91)",
+          "oklch(49.29% 0.1237 160.91)",
+          "oklch(60.71% 0.1237 160.91)",
+          "oklch(72.14% 0.1237 160.91)",
+          "oklch(83.57% 0.1237 160.91)",
+          "oklch(95.00% 0.1237 160.91)"
+        ]
+      },
+      "customer-warning": {
+        "role": "secondary",
+        "displayName": "Customer Warning",
+        "tonalRamp": [
+          "oklch(15.00% 0.1263 81.22)",
+          "oklch(26.43% 0.1263 81.22)",
+          "oklch(37.86% 0.1263 81.22)",
+          "oklch(49.29% 0.1263 81.22)",
+          "oklch(60.71% 0.1263 81.22)",
+          "oklch(72.14% 0.1263 81.22)",
+          "oklch(83.57% 0.1263 81.22)",
+          "oklch(95.00% 0.1263 81.22)"
+        ]
+      },
+      "customer-danger": {
+        "role": "secondary",
+        "displayName": "Customer Danger",
+        "tonalRamp": [
+          "oklch(15.00% 0.1379 20.94)",
+          "oklch(26.43% 0.1379 20.94)",
+          "oklch(37.86% 0.1379 20.94)",
+          "oklch(49.29% 0.1379 20.94)",
+          "oklch(60.71% 0.1379 20.94)",
+          "oklch(72.14% 0.1379 20.94)",
+          "oklch(83.57% 0.1379 20.94)",
+          "oklch(95.00% 0.1379 20.94)"
+        ]
+      },
+      "customer-adult-primary": {
+        "role": "secondary",
+        "displayName": "Customer Adult Primary",
+        "tonalRamp": [
+          "oklch(15.00% 0.1391 351.60)",
+          "oklch(26.43% 0.1391 351.60)",
+          "oklch(37.86% 0.1391 351.60)",
+          "oklch(49.29% 0.1391 351.60)",
+          "oklch(60.71% 0.1391 351.60)",
+          "oklch(72.14% 0.1391 351.60)",
+          "oklch(83.57% 0.1391 351.60)",
+          "oklch(95.00% 0.1391 351.60)"
+        ]
+      },
+      "customer-adult-accent": {
+        "role": "secondary",
+        "displayName": "Customer Adult Accent",
+        "tonalRamp": [
+          "oklch(15.00% 0.0496 349.21)",
+          "oklch(26.43% 0.0496 349.21)",
+          "oklch(37.86% 0.0496 349.21)",
+          "oklch(49.29% 0.0496 349.21)",
+          "oklch(60.71% 0.0496 349.21)",
+          "oklch(72.14% 0.0496 349.21)",
+          "oklch(83.57% 0.0496 349.21)",
+          "oklch(95.00% 0.0496 349.21)"
+        ]
+      },
+      "customer-adult-accent-text": {
+        "role": "secondary",
+        "displayName": "Customer Adult Accent Text",
+        "tonalRamp": [
+          "oklch(15.00% 0.0767 349.16)",
+          "oklch(26.43% 0.0767 349.16)",
+          "oklch(37.86% 0.0767 349.16)",
+          "oklch(49.29% 0.0767 349.16)",
+          "oklch(60.71% 0.0767 349.16)",
+          "oklch(72.14% 0.0767 349.16)",
+          "oklch(83.57% 0.0767 349.16)",
+          "oklch(95.00% 0.0767 349.16)"
+        ]
       }
     },
     "typographyMeta": {
@@ -223,9 +461,35 @@
       "headline": {
         "displayName": "Homepage heading",
         "purpose": "Condensed headings within the V2 homepage."
+      },
+      "customer-page": {
+        "displayName": "Customer Page",
+        "purpose": "Customer page titles on desktop."
+      },
+      "customer-page-mobile": {
+        "displayName": "Customer Page Mobile",
+        "purpose": "Customer page titles at widths up to 767px."
+      },
+      "customer-section": {
+        "displayName": "Customer Section",
+        "purpose": "Functional customer section headings."
+      },
+      "customer-body": {
+        "displayName": "Customer Body",
+        "purpose": "Customer paragraphs and task descriptions."
+      },
+      "customer-input-mobile": {
+        "displayName": "Customer Input Mobile",
+        "purpose": "Mobile customer fields avoid text zoom."
       }
     },
-    "shadows": [],
+    "shadows": [
+      {
+        "name": "payment-focus-ring",
+        "value": "0 0 0 3px hsl(196 69% 57% / 0.2)",
+        "purpose": "Stripe input focus ring follows semantic primary, including the adult override; not panel elevation."
+      }
+    ],
     "motion": [
       {
         "name": "public-state",
@@ -241,6 +505,11 @@
         "name": "rhythm-frame-rate",
         "value": "30fps",
         "purpose": "Canvas draw target; paused offscreen, in hidden tabs and when motion is disabled."
+      },
+      {
+        "name": "customer-state",
+        "value": "180ms",
+        "purpose": "Customer button state transitions; disabled for reduced motion."
       }
     ],
     "breakpoints": [
@@ -255,10 +524,14 @@
       {
         "name": "wide-display",
         "value": "1700px"
+      },
+      {
+        "name": "customer-mobile",
+        "value": "767px"
       }
     ],
     "rampNote": "Synthesized OKLCH swatch ramps are panel visualization aids, not shipping CSS tokens. Rule ramp represents its hue without source alpha.",
-    "snippetNote": "Static HTML/CSS extracts; no React state is simulated. V2 properties are wrapper-scoped, so snippets resolve them to literals. TDE Condensed and Inter use their existing app-loaded font faces.",
+    "snippetNote": "Static HTML/CSS extracts; no React state or payment behavior is simulated. Public and customer values are scoped in the app, so snippets resolve them to literals. TDE Condensed and Inter use their existing app-loaded font faces.",
     "homepageChoreography": {
       "engine": "GSAP ScrollTrigger + Lenis",
       "wheelLerp": 0.085,
@@ -318,7 +591,7 @@
       "kind": "card",
       "refersTo": "panel-copy",
       "description": "Ruled copy region beneath an authentic audience photograph.",
-      "html": "<a class=\"ds-panel\" href=\"#classes\"><h3>The next<br>generation.</h3><p>Children\u2019s classes</p><span>Explore children\u2019s classes</span></a>",
+      "html": "<a class=\"ds-panel\" href=\"#classes\"><h3>The next<br>generation.</h3><p>Children’s classes</p><span>Explore children’s classes</span></a>",
       "css": ".ds-panel{display:block;padding:24px;border-top:1px solid #080e16;border-radius:0;background:#48b5dd;color:#080e16;text-decoration:none}.ds-panel h3{margin:0;font:400 clamp(38px,4.2vw,65px)/1.05 \"TDE Condensed\",sans-serif;text-transform:uppercase;letter-spacing:-.015em}.ds-panel p{margin-top:15px;font:16px/1.7 Inter,sans-serif}.ds-panel span{display:block;margin-top:23px;padding-top:16px;border-top:1px solid #080e16;font:600 14px Inter,sans-serif}.ds-panel:hover h3{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:7px}.ds-panel:focus-visible{outline:2px solid #48b5dd;outline-offset:5px}"
     },
     {
@@ -327,14 +600,39 @@
       "description": "Labelled pause control; functional state remains in React.",
       "html": "<button class=\"ds-motion\" aria-pressed=\"false\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><rect x=\"6\" y=\"4\" width=\"4\" height=\"16\" rx=\"1\"/><rect x=\"14\" y=\"4\" width=\"4\" height=\"16\" rx=\"1\"/></svg>Pause motion</button>",
       "css": ".ds-motion{display:flex;gap:8px;align-items:center;min-height:40px;padding:10px 16px;border:1px solid #080e16;border-radius:0;background:#48b5dd;color:#080e16;font:10px/1 \"SFMono-Regular\",Consolas,\"Liberation Mono\",monospace;text-transform:uppercase}.ds-motion:hover{background:#080e16;color:#48b5dd}.ds-motion:disabled{cursor:default}.ds-motion:focus-visible{outline:2px solid #080e16;outline-offset:-4px}"
+    },
+    {
+      "name": "Customer primary button",
+      "kind": "button",
+      "refersTo": "customer-button",
+      "description": "Shared customer action with a comfortable minimum target.",
+      "html": "<button class=\"ds-customer-button\">Continue</button>",
+      "css": ".ds-customer-button { background: hsl(196 69% 57%); color: hsl(214 47% 6%); border: 0; border-radius: 6px; min-height: 44px; padding: 8px 16px; font: 500 14px/20px Inter, sans-serif; letter-spacing: -.01em; transition: background-color 180ms; } .ds-customer-button:hover { background: hsl(196 69% 57% / .9); } .ds-customer-button:focus-visible { outline: 2px solid hsl(196 69% 57%); outline-offset: 2px; } .ds-customer-button:disabled { opacity: .5; pointer-events: none; } @media (prefers-reduced-motion: reduce) { .ds-customer-button { transition: none; } }"
+    },
+    {
+      "name": "Customer input",
+      "kind": "input",
+      "refersTo": "customer-input",
+      "description": "Dark semantic field with visible focus and mobile text sizing.",
+      "html": "<input class=\"ds-customer-input\" aria-label=\"Email address\" placeholder=\"Email address\" type=\"email\">",
+      "css": ".ds-customer-input { background: hsl(214 47% 6%); color: hsl(197 69% 95%); caret-color: hsl(196 69% 57%); border: 1px solid hsl(201 28% 42%); border-radius: 6px; min-height: 40px; padding: 8px 12px; font: 400 14px/20px Inter, sans-serif; } .ds-customer-input::placeholder { color: hsl(201 28% 75%); opacity: 1; } .ds-customer-input:focus-visible { outline: 2px solid hsl(196 69% 57%); outline-offset: 2px; } .ds-customer-input:disabled { opacity: .5; cursor: not-allowed; } @media (max-width: 767px) { .ds-customer-input { font-size: 16px; } }"
+    },
+    {
+      "name": "Customer panel",
+      "kind": "card",
+      "refersTo": "customer-panel",
+      "description": "Flat reusable customer surface; inner spacing remains owned by each task.",
+      "html": "<div class=\"ds-customer-panel\"><div class=\"ds-customer-panel-content\">Your booking details</div></div>",
+      "css": ".ds-customer-panel { background: hsl(205 45% 12%); color: hsl(197 69% 95%); border: 1px solid hsl(202 30% 29%); border-radius: 8px; box-shadow: none; font: 400 15px/1.6 Inter, sans-serif; } .ds-customer-panel-content { padding: 24px; }"
     }
   ],
   "narrative": {
     "northStar": "The rhythm becomes the image",
-    "overview": "The rhythm becomes the image. TDE blue, near-black grounds, ruled cells and condensed headlines give the public site a direct street-dance character. Real school photography carries the human story below the original moving line field. The original TDE logo remains the identity asset.\n\nThis documents the implemented V2 public shell and homepage, plus the shared public patterns they reuse. It does not redefine the booking application: authentication, eligibility, attendee selection and payment behavior remain governed by the existing components. The selected reference is Antoine Wodniack\u2019s warped hairline field and separated headline composition; the canvas, divider geometry and TDE content are original implementation.",
+    "overview": "The rhythm becomes the image. TDE blue, near-black grounds, ruled cells and condensed headlines give the public site a direct street-dance character. Real school photography carries the human story below the original moving line field. The original TDE logo remains the identity asset.\n\nThis documents the implemented V2 public shell and homepage, together with its extension across customer booking, account, timetable, basket, checkout, confirmation, standalone authentication and recovery. These tools share the blue/ink identity while retaining their functional layouts. Authentication, eligibility, attendee selection, pricing and payment behavior remain governed by the existing components; admin and staff management are outside this visual scope. The selected reference is Antoine Wodniack’s warped hairline field and separated headline composition; the canvas, divider geometry and TDE content are original implementation.",
     "keyCharacteristics": [
       "TDE blue and near-black, with pink restricted to adult-oriented content.",
-      "One-pixel rules, square public frames and oversized condensed headings.",
+      "One-pixel rules and square public frames, with gently rounded customer controls and panels.",
+      "Condensed page titles paired with Inter for customer forms, dates, prices and task navigation.",
       "Authentic TDE media and practical class discovery.",
       "User-controlled motion with static reduced-motion rendering."
     ],
@@ -343,6 +641,11 @@
         "name": "The Adult Context Rule",
         "body": "Pink is reserved for adult-oriented content.",
         "section": "colors"
+      },
+      {
+        "name": "The Task Type Rule",
+        "body": "Use condensed type for customer page titles and Inter for controls, forms, dates, prices and dialog headings.",
+        "section": "typography"
       }
     ],
     "dos": [
@@ -350,13 +653,14 @@
       "Do use real TDE photographs and preserve their source mapping.",
       "Do maintain readable ink-on-blue shell text and blue-on-dark headings, including emphasized words.",
       "Do retain native touch/keyboard scrolling, visible keyboard focus, the skip link and motion controls.",
-      "Do keep booking inputs, theme tokens and interaction behavior consistent with the existing booking components."
+      "Do reuse the customer semantic tokens across booking, accounts, calendars, dialogs and payment appearance while preserving existing business behavior.",
+      "Do keep customer tasks natively scrollable, with mobile field text at 16px and one bottom navigation/action layer at a time."
     ],
     "donts": [
-      "Don\u2019t use pink as a general school-wide accent; reserve it for adult-oriented content.",
-      "Don\u2019t replace the selected code-driven line field with a generated raster or copy the reference site\u2019s source or claims.",
-      "Don\u2019t turn the public site into the previously rejected white editorial/blog treatment.",
-      "Don\u2019t treat this public-shell document as evidence of a complete account or checkout redesign."
+      "Don’t use pink as a general school-wide accent; reserve it for adult-oriented content.",
+      "Don’t replace the selected code-driven line field with a generated raster or copy the reference site’s source or claims.",
+      "Don’t turn the public site into the previously rejected white editorial/blog treatment.",
+      "Don’t extend homepage scroll choreography or oversized display typography into customer forms and payment controls."
     ]
   }
 }

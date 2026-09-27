@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Bone, SectionHeading, SuccessCheck, TextSkeleton } from "@/components/booking";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff } from "lucide-react";
-import logo from "@/assets/logo.png";
+import { PublicSiteShell } from "@/components/marketing/PublicSiteShell";
 
 type Status = "verifying" | "ready" | "invalid" | "success";
 
@@ -16,19 +16,18 @@ const labelClass = "text-[13px] font-medium text-foreground";
 const eyeButtonClass =
   "absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-/** Same shell as the sign-in page: light product theme, centred card. */
+/** Same shell as the sign-in page: shared customer theme, centred card. */
 const AuthShell = ({ title, subtitle, children }: { title?: ReactNode; subtitle?: ReactNode; children: ReactNode }) => (
-  <div className="theme-children portal-ui min-h-screen bg-background text-foreground">
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-4 py-10">
+  <PublicSiteShell product focus><div className="tde-auth-page portal-ui text-foreground">
+    <div className="mx-auto flex w-full max-w-lg flex-col items-center justify-center px-4 py-12 sm:py-20">
       <div className="w-full animate-rise-in">
         <div className="mb-6 text-center">
-          <img src={logo} alt="The Dance Exclusive" className="mx-auto mb-4 h-20 w-20 object-contain" />
           {title && <SectionHeading as="h1" size="page" title={title} subtitle={subtitle} className="justify-center text-center" />}
         </div>
         <div className="surface p-5 sm:p-8">{children}</div>
       </div>
     </div>
-  </div>
+  </div></PublicSiteShell>
 );
 
 const ResetPassword = () => {

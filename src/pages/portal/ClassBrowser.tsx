@@ -807,11 +807,10 @@ const ClassBrowser = () => {
         <SectionHeading
           as="h1"
           size="page"
-          eyebrow="Essex · term-time classes"
           title={isAdult ? "Adult classes" : "Children's classes"}
           subtitle={isAdult
             ? "Weekly pay-as-you-go classes for all levels — step out of your comfort zone and into the spotlight."
-            : "Fun, high-energy weekly classes across Essex — pick a class to see dates, prices and who's teaching."}
+            : "Fun, high-energy term-time classes across Essex — pick a class to see dates, prices and who's teaching."}
           aside={<div className="hidden sm:block">{audienceSwitch}</div>}
         />
         <div className="mt-5 sm:hidden">{audienceSwitch}</div>

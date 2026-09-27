@@ -1,0 +1,73 @@
+/* One customer-facing token system. Scoped so staff/admin remain independent. */
+.tde-customer-theme,
+.tde-customer-theme :is(.theme-children, .theme-adult, .tde-booking-theme) {
+  --background: 214 47% 6%; --foreground: 197 69% 95%;
+  --card: 205 45% 12%; --card-foreground: 197 69% 95%;
+  --popover: 205 45% 12%; --popover-foreground: 197 69% 95%;
+  --primary: 196 69% 57%; --primary-foreground: 214 47% 6%;
+  --secondary: 205 35% 18%; --secondary-foreground: 197 69% 95%;
+  --muted: 207 32% 16%; --muted-foreground: 201 28% 75%;
+  --accent: 203 45% 20%; --accent-foreground: 196 84% 80%;
+  --border: 202 30% 29%; --input: 201 28% 42%; --ring: 196 69% 57%;
+  --success: 151 61% 66%; --success-strong: 151 61% 74%; --success-foreground: 214 47% 6%;
+  --warning: 39 95% 70%; --warning-strong: 39 95% 76%; --warning-foreground: 214 47% 6%;
+  --destructive: 0 85% 74%; --destructive-strong: 0 85% 80%; --destructive-foreground: 214 47% 6%;
+  --radius: .375rem;
+  color: hsl(var(--foreground)); color-scheme: dark;
+}
+.tde-customer-theme.tde-customer-adult,
+.tde-customer-theme.tde-customer-adult .tde-booking-theme,
+.tde-customer-theme .theme-adult,
+.tde-customer-theme .tde-booking-adult {
+  --primary: 332 76% 73%; --primary-foreground: 214 47% 6%;
+  --accent: 330 30% 19%; --accent-foreground: 332 90% 87%; --ring: 332 76% 73%;
+}
+body.tde-customer-theme { background: #080e16; }
+.tde-customer-theme ::selection { background: #48b5dd; color: #080e16; }
+.tde-customer-theme :is(input, textarea) { caret-color: hsl(var(--primary)); }
+.tde-customer-theme :is(input, textarea)::placeholder { color: hsl(var(--muted-foreground)); opacity: 1; }
+.tde-customer-theme :is(.surface, .card-elevated) { border-radius: 8px; box-shadow: none; }
+.tde-customer-theme :is(.surface-interactive:hover, .surface-interactive:active) { transform: none; box-shadow: none; border-color: hsl(var(--primary)); }
+.tde-customer-theme [data-tde-button] { min-height: 44px; border-radius: 6px; font-family: Inter, sans-serif; letter-spacing: -.01em; text-transform: none; transition-duration: 180ms; }
+.tde-customer-theme [data-tde-button][data-variant="ink"] { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+.tde-customer-theme [data-tde-button][data-variant="ink"]:hover { filter: brightness(1.12); }
+.tde-customer-theme .portal-ui button.pressable { min-height: 44px; border-radius: 6px; }
+.tde-customer-theme .portal-ui :is(button[aria-pressed="true"], button[role="option"][aria-selected="true"]) { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); border-color: hsl(var(--primary)); }
+.tde-customer-theme :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select, button[role="combobox"]) { border-radius: 6px; }
+.tde-customer-theme :is([role="dialog"], [role="alertdialog"]) { color: hsl(var(--foreground)); color-scheme: dark; }
+.tde-customer-theme :is([role="dialog"], [role="alertdialog"]) :is(h1,h2,h3,h4) { font-family: Inter, sans-serif; text-transform: none; letter-spacing: -.02em; }
+.tde-customer-theme :is(.portal-ui, .tde-booking-page) :is(p, button, input, select, textarea) { font-family: Inter, sans-serif; }
+.tde-customer-theme :is(.portal-ui, .tde-booking-page) p { font-size: 15px; line-height: 1.6; letter-spacing: -.01em; }
+.tde-customer-theme .portal-ui :is(h2,h3,h4) { font-family: Inter, sans-serif; text-transform: none; letter-spacing: -.02em; line-height: 1.25; font-weight: 600; }
+.tde-customer-theme .portal-ui h2 { font-size: 24px; }
+.tde-customer-theme .portal-ui h3 { font-size: 18px; }
+.tde-customer-theme .portal-ui h4 { font-size: 16px; }
+.tde-product .portal-ui h1,
+.tde-product .portal-ui [data-booking-heading="page"] { font: 400 48px/1.12 "TDE Condensed", sans-serif; text-transform: uppercase; letter-spacing: -.015em; color: #48b5dd; text-wrap: balance; }
+.tde-product .portal-ui [data-booking-heading="section"] { font: 600 24px/1.25 Inter, sans-serif; text-transform: none; letter-spacing: -.02em; }
+.tde-product #main-content { min-height: 65svh; }
+.tde-booking-page { padding-top: 24px; }
+.tde-product .tde-booking-page > .min-h-screen { min-height: 65svh; }
+.tde-product-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 24px; padding: 28px 4%; border-top: 1px solid #48b5dd70; margin-top: 40px; font: 500 13px/1.5 Inter, sans-serif; color: #b6d8e5; }
+.tde-product-footer > a { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; }
+.tde-product-footer > a:hover { color: #83d9f6; }
+.tde-product-footer > span { margin-left: auto; }
+.tde-focus .tde-header-signal, .tde-focus .tde-desktop-nav, .tde-focus .tde-header-cta { display: none; }
+.tde-focus .tde-header { grid-template-columns: 130px 1fr auto; }
+.tde-focus .tde-header-right { grid-column: 3; }
+.tde-focus .tde-account { display: none; }
+.tde-focus .tde-product-footer { margin-top: 12px; }
+.tde-auth-page .surface { border-top: 2px solid #48b5dd; }
+.tde-menu-small > button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
+@media (max-width: 767px) {
+  .tde-customer-theme :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select, button[role="combobox"]) { font-size: 16px; }
+  .tde-product .portal-ui h1, .tde-product .portal-ui [data-booking-heading="page"] { font-size: 36px; }
+  .tde-booking-page { padding-top: 12px; }
+  .tde-product-footer { gap: 12px 22px; padding: 24px 16px 90px; }
+  .tde-product-footer > span { width: 100%; margin-left: 0; }
+  .tde-focus .tde-product-footer { padding-bottom: 110px; }
+  .tde-focus .tde-header { grid-template-columns: 100px 1fr auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tde-customer-theme .pressable, .tde-customer-theme [data-tde-button] { transition: none; }
+}

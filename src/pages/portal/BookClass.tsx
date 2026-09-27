@@ -561,7 +561,7 @@ const BookClass = ({ embedded = false }: { embedded?: boolean } = {}) => {
                   title="This term"
                   aside={<span className="text-[13px] text-muted-foreground">{sessions.length} {sessions.length === 1 ? "class" : "classes"}</span>}
                 />
-                <div className="surface mt-4 px-5 py-2">
+                <div className="surface mt-4 px-5 pb-2 pt-5">
                   <TermSessionGroups
                     sessions={visibleSessions}
                     dateOf={(s) => s.session_date}

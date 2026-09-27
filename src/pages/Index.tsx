@@ -233,7 +233,7 @@ export default function Index() {
           <div className="tde-event-list">
             {school.camps.slice(0, 3).map((camp) => (
               <Link key={camp.id} to={`/events/${camp.id}`} data-audience={camp.class_type} className="tde-photo-event">
-                <ClassMedia item={camp} decorative sizes="(max-width: 640px) 100vw, 240px" />
+                <ClassMedia item={camp} decorative sizes="(max-width: 640px) 100vw, 33vw" />
                 <span>{shortDateRange(camp.start_date, camp.end_date)}</span>
                 <h3>{camp.name}</h3>
                 <span>

@@ -152,3 +152,11 @@ MOVE.HER uses its workshop photograph; White Court classes use their attached
 covers with saved crop/zoom. Halloween and the Christmas party currently have
 no cover attached and retain their photo fallbacks. No database or storage
 permissions were changed.
+
+### Responsive booking covers — 27 September 2026
+
+Public class/workshop cards and banners now serve supported booking-cover uploads through Vercel image optimisation (WebP, quality 80, 480–1920px responsive widths). The original attachment and admin framing remain authoritative. Only this project's public `workshop-media` bucket is allowlisted; private/signed and external URLs are not proxied. New attachment URLs work without a rebuild. Local development uses originals; optimisation errors retry the original, then the existing school-photo fallback.
+
+The first three class covers load eagerly; subsequent covers stay lazy. Images reveal after load/decode rather than painting JPEG scan lines, including cached images during hydration. Existing card geometry reserves the image area.
+
+Verification: 13 focused tests, TypeScript, lint and client/SSR build passed. Preview desktop and 390px mobile checked with actual attached covers. White Court Street Dance original: 6,528,747 bytes / 5000×3333; the observed 480px mobile WebP: 13,604 bytes (99.79% smaller). Higher-density screens select larger candidates. These are measured asset sizes, not a claim of equivalent page-load-time reduction or physical-device benchmarking.

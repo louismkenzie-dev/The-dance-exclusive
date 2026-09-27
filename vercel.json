@@ -2,6 +2,29 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "images": {
+    "sizes": [
+      480,
+      768,
+      1080,
+      1440,
+      1920
+    ],
+    "formats": [
+      "image/webp"
+    ],
+    "qualities": [
+      80
+    ],
+    "minimumCacheTTL": 3600,
+    "remotePatterns": [
+      {
+        "protocol": "https",
+        "hostname": "suwaetnsszlpaaykhpif.supabase.co",
+        "pathname": "/storage/v1/object/public/workshop-media/**"
+      }
+    ]
+  },
   "functions": {
     "api/render.js": {
       "includeFiles": "{dist/app.html,dist-ssr/**}",

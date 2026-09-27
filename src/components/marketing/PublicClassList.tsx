@@ -12,14 +12,14 @@ export function PublicClassList({ classes, venues }: { classes: PublicClass[]; v
     <Link to="/classes?type=children">Explore the full timetable</Link> or <Link to="/contact">get in touch</Link>.</p>;
   return (
     <div className="tde-class-list tde-photo-class-grid">
-      {classes.map(item => {
+      {classes.map((item, index) => {
         const venue = item.venue_id ? venueById.get(item.venue_id) : undefined;
         const price = classPriceSummary(item, item.remainingSessions);
         const AudienceIcon = item.class_type === "adult" ? PersonStanding : Baby;
         return (
           <Link key={item.id} to={publicClassPath(item)} className="tde-photo-class" data-audience={item.class_type}>
             <div className="tde-photo-class-image">
-              <ClassMedia item={item} decorative sizes="(max-width: 640px) 100vw, (max-width: 1050px) 50vw, 33vw" />
+              <ClassMedia item={item} eager={index < 3} decorative sizes="(max-width: 640px) 100vw, (max-width: 1050px) 50vw, 33vw" />
               <span className="tde-photo-class-audience"><AudienceIcon size={16} aria-hidden />{item.class_type === "adult" ? "Adults" : "Children"}</span>
             </div>
             <div className="tde-photo-class-body">

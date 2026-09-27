@@ -1,14 +1,36 @@
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ClassMedia } from "./ClassMedia";
 import { classPhoto } from "@/lib/tdeMedia";
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { storage: { from: () => ({ getPublicUrl: (path: string) => ({ data: { publicUrl: `https://storage.example/workshop-media/${path}` } }) }) } } }));
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.unstubAllEnvs(); });
 const item = { id: "test-class", name: "Street dance", class_type: "children" };
 const cover = { cover_image: "covers/class.jpg", cover_position: "52% 58%", cover_zoom: 1.15, cover_fit: "cover" };
 
 describe("booking artwork on public pages", () => {
+  it("retries the original artwork if optimisation fails before using a school fallback", () => {
+    vi.stubEnv("PROD", true);
+    const original = "https://suwaetnsszlpaaykhpif.supabase.co/storage/v1/object/public/workshop-media/covers/class.jpeg";
+    const { container } = render(<ClassMedia item={{ ...item, workshops: { ...cover, cover_image: original } }} sizes="33vw" />);
+    expect(container.querySelector("img")!.getAttribute("src")).toMatch(/^\/_vercel\/image\?/);
+    expect(container.querySelector("img")).toHaveAttribute("sizes", "33vw");
+    fireEvent.error(container.querySelector("img")!);
+    expect(container.querySelector("img")).toHaveAttribute("src", original);
+    expect(container.querySelector("img")).not.toHaveAttribute("srcset");
+    fireEvent.error(container.querySelector("img")!);
+    expect(container.querySelector("img")).toHaveAttribute("src", classPhoto(item).src);
+  });
+  it("reveals the whole photo after decoding instead of painting scan lines", async () => {
+    const { container } = render(<ClassMedia item={{ ...item, workshops: cover }} />);
+    const image = container.querySelector("img")!;
+    expect(image).toHaveStyle({ opacity: "0" });
+    Object.defineProperty(image, "naturalWidth", { value: 768 });
+    image.decode = vi.fn().mockResolvedValue(undefined);
+    fireEvent.load(image);
+    await waitFor(() => expect(image.style.opacity).toBe(""));
+    expect(image.decode).toHaveBeenCalledOnce();
+  });
   it("uses attached artwork with the saved focal point and zoom", () => {
     const { container } = render(<ClassMedia item={{ ...item, workshops: cover }} />);
     const image = container.querySelector("img")!;

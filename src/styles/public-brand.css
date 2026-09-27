@@ -552,9 +552,20 @@
 .tde-team-peek-link { display: flex; align-items: center; gap: 10px; margin-top: 17px; color: #7de3ff; font-size: 12px; font-weight: 600; }
 .tde-team-photo-card:focus-visible:not([data-preview-hidden]) .tde-team-peek { opacity: 1; transform: none; }
 @media (hover: hover) and (pointer: fine) {
-  .tde-team-photo-card:hover { transform: scale(1.035); z-index: 3; border-color: #80e4ff; box-shadow: 0 20px 50px #0005; }
-  .tde-team-photo-card:hover .tde-team-portrait { transform: scale(1.12); }
-  .tde-team-photo-card:hover:not([data-preview-hidden]) .tde-team-peek { opacity: 1; transform: none; }
+  .tde-team-photo-card:hover { z-index: 3; border-color: #80e4ff; box-shadow: 0 20px 50px #0005; }
+  .tde-team-photo-card:not([data-coach-motion]):hover { transform: scale(1.018); }
+  .tde-team-photo-card:not([data-coach-motion]):hover .tde-team-portrait { transform: scale(1.065); }
+  .tde-team-photo-card:not([data-coach-motion]):hover:not([data-preview-hidden]) .tde-team-peek { opacity: 1; transform: none; }
+}
+/* One spring drives all three layers; no second CSS tween on these values. */
+.tde-team-photo-card[data-coach-motion] { transform: scale(calc(1 + var(--coach-hover, 0) * .018)); transition: border-color 350ms, box-shadow 350ms; }
+.tde-team-photo-card[data-coach-motion] .tde-team-portrait { transform: scale(calc(1 + var(--coach-hover, 0) * .065)); transition: none; }
+.tde-team-photo-card[data-coach-motion] .tde-team-peek { opacity: var(--coach-hover, 0); transition: none; }
+.tde-team-photo-card:focus-visible:not([data-preview-hidden]) .tde-team-peek { opacity: 1; }
+.tde-team-photo-card[data-preview-hidden] .tde-team-peek { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .tde-team-photo-card, .tde-team-photo-card .tde-team-portrait { transform: none !important; transition: none !important; }
+  .tde-team-peek { transition: none; }
 }
 @media (min-width: 700px) {
   .tde-team-has-founder > .tde-team-founder { grid-column: 2; grid-row: 1; }

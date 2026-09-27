@@ -1,12 +1,15 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight, Plus } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { coachPath, type PublicCoach } from "@/lib/publicSchool";
 import { isFounderCoach, orderPublicCoaches, publicCoachTitle } from "@/lib/publicCoaches";
 import { publicCoachPhoto } from "@/lib/publicCoachPhoto";
+import { useCoachHoverMotion } from "@/hooks/useCoachHoverMotion";
 
 function CoachPhotoCard({ coach }: { coach: PublicCoach }) {
+  const cardRef = useRef<HTMLButtonElement>(null);
+  useCoachHoverMotion(cardRef);
   const [previewDismissed, setPreviewDismissed] = useState(false);
   const image = publicCoachPhoto(coach);
   const title = publicCoachTitle(coach);
@@ -17,6 +20,7 @@ function CoachPhotoCard({ coach }: { coach: PublicCoach }) {
     <Dialog>
       <DialogTrigger asChild>
         <button
+          ref={cardRef}
           className={`tde-team-photo-card${isFounderCoach(coach) ? " tde-team-founder" : ""}`}
           aria-label={`Meet ${coach.first_name}, ${title}. Open biography`}
           data-preview-hidden={previewDismissed || undefined}

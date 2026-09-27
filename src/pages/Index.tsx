@@ -13,7 +13,6 @@ import {
 } from "@/lib/classPresentation";
 import { HomeLocations } from "@/components/marketing/HomeDiscovery";
 import { CoachPhotoGrid } from "@/components/marketing/CoachProfiles";
-import { ScrollDanceStudio } from "@/components/marketing/ScrollDanceStudio";
 import { PageMeta } from "@/components/marketing/PageMeta";
 import { useHomeChoreography } from "@/hooks/useHomeChoreography";
 import { DanceScrollScene } from "@/components/marketing/DanceScrollScene";
@@ -164,8 +163,6 @@ export default function Index() {
           </div>
         </div>
       </section>
-
-      <ScrollDanceStudio active={move} onToggle={() => setMotion(value => !value)} />
 
       <section className="tde-venues-section tde-paper" id="find-a-location">
         <div className="tde-section-note" data-entrance="">

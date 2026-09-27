@@ -1,7 +1,7 @@
 import CartButton from "@/components/portal/CartButton";
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { ArrowUpRight, Menu } from "lucide-react";
+import { Link, NavLink, useLocation } from "react-router-dom";
+import { ArrowUpRight, Menu, House, CalendarDays, MapPin, UserRound } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import {
   Sheet,
@@ -101,6 +101,12 @@ export function PublicSiteShell({ children }: { children: ReactNode }) {
       <main id="main-content" tabIndex={-1}>
         {children}
       </main>
+      <nav className="tde-mobile-tabs" aria-label="Quick navigation">
+        <NavLink to="/" end><House size={21} aria-hidden /><span>Home</span></NavLink>
+        <NavLink to="/classes"><CalendarDays size={21} aria-hidden /><span>Classes</span></NavLink>
+        <NavLink to="/venues"><MapPin size={21} aria-hidden /><span>Locations</span></NavLink>
+        <NavLink to={user ? "/account/bookings" : "/auth"}><UserRound size={21} aria-hidden /><span>{user ? "Bookings" : "Sign in"}</span></NavLink>
+      </nav>
       <footer className="tde-footer">
         <div className="tde-footer-top">
           <span className="tde-eyebrow">

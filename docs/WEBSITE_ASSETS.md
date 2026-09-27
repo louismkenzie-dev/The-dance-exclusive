@@ -99,3 +99,40 @@ the real source portraits; original uploads remain unchanged. Prompt set,
 provenance and delivery details: [coach portraits](design/coach-portraits/prompts.md).
 The public website uses the edits only while each coach's original source path
 matches the manifest, so a later staff photo change is not hidden by an override.
+
+
+## Mobile homepage and HD hero — 27 September 2026
+
+The homepage no longer mounts the “Turn it up” Blender studio. Its source and
+assets remain in the repository, but the homepage does not load its WebGL code
+or model.
+
+A higher-quality rendition of the original school film was available at:
+`https://video.wixstatic.com/video/923365_71e7ec3236b24f55ae5fe77a172f2b21/1080p/mp4/file.mp4`
+The source is 1920 × 1080, native 30 fps, 35.87 seconds. The hero keeps the same
+first 14-second excerpt. New delivery assets:
+
+- `tde-hero-film-hd.mp4`: 1920 × 1080, 30 fps, approximately 7 MB.
+- `tde-hero-film-mobile.mp4`: 1280 × 720, 30 fps, approximately 3.5 MB; selected
+  once on mount for viewports at or below 760px, avoiding two video downloads.
+- `tde-hero-poster-hd.jpg`: frame at 3 seconds from the 1080p source.
+
+Both films use H.264/yuv420p, CRF 23, slow preset, 60-frame keyframe interval,
+no audio and fast-start metadata. Desktop maxrate/bufsize: 4M/8M; mobile: 2M/4M.
+The mobile encode also uses `scale=1280:720`. No frame interpolation or AI
+upscaling. For a further quality increase, use the original camera/export
+master instead of another social-media or website-compressed copy.
+
+Phones and coarse-pointer tablets use native scrolling, a static hero line
+field and no image parallax. The mobile star scene follows scroll directly;
+pause freezes it without changing document height. Its height is reserved in
+SSR/CSS, with an ordinary photo layout for reduced motion. Films pause offscreen
+and retain their source when scrolling back. Autoplay remains muted and inline;
+reduced motion and playback errors retain a still image.
+
+Mobile navigation has four persistent destinations and safe-area clearance.
+The homepage presents four coaches, including Amie first, and links to the full
+team grid. First-session details and location browsing remain on their dedicated
+pages. The class directory opens with compact imagery and its existing filters.
+Inputs remain at least 16px through tablet sizes to prevent iOS focus zoom;
+pinch zoom is retained.

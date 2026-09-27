@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { rhythmPath, rhythmX } from "@/lib/rhythmField";
 import { onScrollFrame } from "@/lib/scrollFrame";
 
@@ -6,6 +7,7 @@ import { onScrollFrame } from "@/lib/scrollFrame";
 const fallbackPaths = Array.from({ length: 220 }, (_, i) => rhythmPath(-.15 + i / 219 * 1.3));
 
 export function RhythmField({ active }: { active: boolean }) {
+  const lightweight = useMediaQuery("(max-width: 1023px), (pointer: coarse)");
   const host = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const phase = useRef(0);
@@ -16,6 +18,8 @@ export function RhythmField({ active }: { active: boolean }) {
     const element = host.current;
     const surface = canvas.current;
     if (!element || !surface) return;
+    // Keep the line artwork, but leave the phone GPU/CPU free for the film.
+    if (lightweight || window.matchMedia("(max-width: 1023px), (pointer: coarse)").matches) { setReady(false); return; }
     const context = surface.getContext("2d", { alpha: true });
     if (!context) return;
     let width = 0, height = 0, frame = 0, last = 0;
@@ -93,7 +97,7 @@ export function RhythmField({ active }: { active: boolean }) {
       element.removeEventListener("pointermove", move); element.removeEventListener("pointerleave", leave);
       document.removeEventListener("visibilitychange", resume); reduced.removeEventListener("change", resume);
     };
-  }, [active]);
+  }, [active, lightweight]);
 
   return <div ref={host} className="tde-rhythm-field" aria-hidden="true" data-renderer={ready ? "canvas" : "svg"}>
     <svg viewBox="0 0 1440 480" preserveAspectRatio="none" className="tde-rhythm-fallback" style={{ visibility: ready ? "hidden" : "visible" }}>

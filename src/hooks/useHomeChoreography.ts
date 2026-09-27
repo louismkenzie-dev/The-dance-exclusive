@@ -2,17 +2,19 @@ import { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
+import { useMediaQuery } from "./useMediaQuery";
 import "lenis/dist/lenis.css";
 
 gsap.registerPlugin(ScrollTrigger);
 
 /** Homepage-only choreography. All styles revert on pause, route change or reduced motion. */
 export function useHomeChoreography(active: boolean) {
+  const desktop = useMediaQuery("(min-width: 1024px) and (pointer: fine)");
   const root = useRef<HTMLDivElement>(null);
   const entered = useRef(false);
   useEffect(() => {
     const element = root.current;
-    if (!element || !active || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (!element || !active || !desktop || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let disposed = false;
     const lenis = new Lenis({
       lerp: .085,
@@ -52,6 +54,6 @@ export function useHomeChoreography(active: boolean) {
       lenis.stop();
       lenis.destroy();
     };
-  }, [active]);
+  }, [active, desktop]);
   return root;
 }

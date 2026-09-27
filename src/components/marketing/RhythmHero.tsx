@@ -11,7 +11,7 @@ export function RhythmStar({ className = "" }: { className?: string }) {
 export function RhythmHero({ active, reduced, onToggle }: { active: boolean; reduced: boolean; onToggle: () => void }) {
   return <section className="tde-rhythm-hero" aria-labelledby="hero-title">
     <div className="tde-rhythm-art">
-      <MotionMedia className="tde-rhythm-underlay" image="/media/tde-film-poster.jpg" video="/media/tde-hero-film.mp4" alt="The Dance Exclusive dancers performing on stage" active={active} eager travel={0} />
+      <MotionMedia className="tde-rhythm-underlay" image="/media/tde-hero-poster-hd.jpg" video="/media/tde-hero-film-hd.mp4" mobileVideo="/media/tde-hero-film-mobile.mp4" alt="The Dance Exclusive dancers performing on stage" active={active} eager travel={0} />
       <RhythmField active={active} />
       <div className="tde-rhythm-control">
         <span>Find your rhythm.</span>

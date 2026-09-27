@@ -7,6 +7,7 @@ import { onScrollFrame } from "@/lib/scrollFrame";
 export function MotionMedia({
   image,
   video,
+  mobileVideo,
   alt,
   className = "",
   active = true,
@@ -16,6 +17,7 @@ export function MotionMedia({
 }: {
   image: string;
   video?: string;
+  mobileVideo?: string;
   alt: string;
   className?: string;
   active?: boolean;
@@ -27,27 +29,32 @@ export function MotionMedia({
   const container = useRef<HTMLDivElement>(null);
   const film = useRef<HTMLVideoElement>(null);
   const reduced = useMediaQuery("(prefers-reduced-motion: reduce)");
+  const desktop = useMediaQuery("(min-width: 1024px) and (pointer: fine)");
+  const [source, setSource] = useState<string>();
+  const [loaded, setLoaded] = useState(eager);
   const [visible, setVisible] = useState(eager);
   const [failed, setFailed] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const canMove = active && !reduced;
 
   useEffect(() => {
-    setMounted(true);
+    setSource(mobileVideo && window.matchMedia("(max-width: 760px)").matches ? mobileVideo : video);
     const element = container.current;
     if (!element) return;
     const observer = new IntersectionObserver(
-      ([entry]) => setVisible(entry.isIntersecting),
+      ([entry]) => {
+        setVisible(entry.isIntersecting);
+        if (entry.isIntersecting) setLoaded(true);
+      },
       { rootMargin: "160px" },
     );
     observer.observe(element);
     return () => observer.disconnect();
-  }, []);
+  }, [video, mobileVideo]);
 
   useEffect(() => {
     const element = container.current;
-    if (!element || !canMove || !visible) {
-      if (reduced) element?.style.setProperty("--media-shift", "0px");
+    if (!element || !canMove || !visible || !desktop || travel === 0) {
+      if (!canMove || !desktop) element?.style.setProperty("--media-shift", "0px");
       return;
     }
     return onScrollFrame(() => {
@@ -66,11 +73,12 @@ export function MotionMedia({
           `${(progress * travel).toFixed(2)}px`,
         );
     });
-  }, [canMove, visible, travel, reduced]);
+  }, [canMove, visible, travel, desktop]);
 
   useEffect(() => {
     const video = film.current;
     if (!video) return;
+    video.muted = true;
     const update = () => {
       if (visible && canMove && !failed && !document.hidden) void video.play().catch(() => {});
       else video.pause();
@@ -78,7 +86,7 @@ export function MotionMedia({
     update();
     document.addEventListener("visibilitychange", update);
     return () => { document.removeEventListener("visibilitychange", update); video.pause(); };
-  }, [visible, canMove, failed, mounted]);
+  }, [visible, canMove, failed, source, loaded, reduced]);
 
   return (
     <div ref={container} className={`tde-media ${className}`}>
@@ -95,15 +103,15 @@ export function MotionMedia({
           {...{ fetchpriority: eager ? "high" : "auto" }}
           decoding="async"
         />
-        {video && mounted && !reduced && !failed && (
+        {source && loaded && !reduced && !failed && (
           <video
             ref={film}
-            src={visible ? video : undefined}
+            src={source}
             poster={image}
             muted
             loop
             playsInline
-            preload="none"
+            preload={eager ? "auto" : "metadata"}
             aria-hidden="true"
             onError={() => setFailed(true)}
           />

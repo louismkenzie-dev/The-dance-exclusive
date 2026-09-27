@@ -52,7 +52,7 @@ export default function PublicClassDirectory() {
     );
   });
   return (
-    <div className="tde-directory tde-paper" data-audience={type === "adult" ? "adult" : "children"}>
+    <div className="tde-directory tde-class-directory tde-paper" data-audience={type === "adult" ? "adult" : "children"}>
       <PageMeta
         title="Dance classes for children & adults in Essex"
         description="Find your Dance Exclusive class by location, day and style. Explore current times, age groups, prices and availability across Essex."

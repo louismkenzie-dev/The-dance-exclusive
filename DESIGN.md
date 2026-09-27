@@ -206,3 +206,10 @@ Keyboard focus uses a visible two-pixel outline. Dark sections use blue; header,
 - **Don’t** replace the selected code-driven line field with a generated raster or copy the reference site’s source or claims.
 - **Don’t** turn the public site into the previously rejected white editorial/blog treatment.
 - **Don’t** treat this public-shell document as evidence of a complete account or checkout redesign.
+
+## Venue map and media tour
+The /venues directory pairs a blue heading band with an ink geographic map and a real venue-photo preview beneath its hero. Desktop uses a 1.45:1 split; mobile stacks map, native venue select and preview. Nearby overlapping 44px pin targets group into named venue choices; a native select also reaches every published venue. Individual numbers match the venue select. Page scrolling stays native, with wheel and touch map zoom disabled and explicit zoom controls available.
+
+The 5.5-second tour follows admin gallery order and primary photos, then legacy venue photos, then saved hero artwork only where no photos exist. Media keeps a 4:3 frame and fixed-height detail area while changing. Manual selection pauses the tour; hover, keyboard focus, offscreen state, hidden tabs and reduced motion suspend automatic progression. Images show loading/error states and production delivery uses responsive WebP optimisation. Public records and galleries refresh through the existing public-school query.
+
+Provenance: venue images are existing booking-admin uploads in the public venue-photos bucket, not generated assets. Basemap is OpenStreetMap with visible copyright attribution. Saved admin coordinates take priority; postcodes.io supplies explicitly approximate postcode pins when coordinates are missing. No coordinates or media are written back to live records by the map. No business-home/private address is requested.

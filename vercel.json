@@ -22,6 +22,11 @@
         "protocol": "https",
         "hostname": "suwaetnsszlpaaykhpif.supabase.co",
         "pathname": "/storage/v1/object/public/workshop-media/**"
+      },
+      {
+        "protocol": "https",
+        "hostname": "suwaetnsszlpaaykhpif.supabase.co",
+        "pathname": "/storage/v1/object/public/venue-photos/**"
       }
     ]
   },

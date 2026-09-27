@@ -5,7 +5,7 @@ export function bookingCoverImage(src: string, sizes: string, enabled = import.m
   let url: URL;
   try { url = new URL(src); } catch { return null; }
   if (url.origin !== "https://suwaetnsszlpaaykhpif.supabase.co" ||
-      !url.pathname.startsWith("/storage/v1/object/public/workshop-media/") ||
+      !["workshop-media", "venue-photos"].some(bucket => url.pathname.startsWith(`/storage/v1/object/public/${bucket}/`)) ||
       !/\.(jpe?g|png|webp)$/i.test(url.pathname)) return null;
   const resized = (width: number) => `/_vercel/image?url=${encodeURIComponent(src)}&w=${width}&q=80`;
   return {

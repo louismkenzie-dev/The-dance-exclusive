@@ -16,7 +16,9 @@ export type PublicVenue = Pick<
   | "photo_outside"
   | "accessibility_info"
   | "has_parking"
->;
+> & Partial<Pick<Tables<"venues">, "latitude" | "longitude" | "photo_indoor" | "photo_parking">> & {
+  venue_photos?: Pick<Tables<"venue_photos">, "id" | "file_path" | "caption" | "category" | "is_primary" | "sort_order">[];
+};
 export type PublicCoach = Pick<
   Tables<"staff_public">,
   | "id"
@@ -167,7 +169,7 @@ export async function fetchPublicSchool(
       client
         .from("venues")
         .select(
-          "id,name,slug,city,postcode,address_line1,description,short_description,hero_image,photo_outside,accessibility_info,has_parking",
+          "id,name,slug,city,postcode,address_line1,description,short_description,hero_image,photo_outside,photo_indoor,photo_parking,latitude,longitude,accessibility_info,has_parking,venue_photos(id,file_path,caption,category,is_primary,sort_order)",
         )
         .eq("publicly_visible", true)
         .neq("status", "inactive")

@@ -21,4 +21,10 @@ describe("responsive booking cover delivery", () => {
       expect(bookingCoverImage(src, "33vw", true)).toBeNull();
     }
   });
+  it("optimises public admin venue photos with an allowed deployment pattern", () => {
+    const venue = original.replace("workshop-media/covers/class.jpeg", "venue-photos/hall/gallery/inside.jpg");
+    expect(bookingCoverImage(venue, "40vw", true)?.src).toContain(encodeURIComponent(venue));
+    expect(config.images.remotePatterns.some(pattern => pattern.pathname === "/storage/v1/object/public/venue-photos/**")).toBe(true);
+    expect(bookingCoverImage(venue.replace("/public/", "/authenticated/"), "40vw", true)).toBeNull();
+  });
 });

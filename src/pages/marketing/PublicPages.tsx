@@ -1,4 +1,5 @@
 import { tdePhoto } from "@/lib/tdeMedia";
+import { VenueExplorer } from "@/components/marketing/VenueExplorer";
 import { ClassMedia } from "@/components/marketing/ClassMedia";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowUpRight, MapPin } from "lucide-react";
@@ -346,6 +347,8 @@ export default function PublicPages() {
         alt="The Dance Exclusive dancers performing together on stage"
       />
       {isVenue ? (
+        <>
+        <VenueExplorer venues={school.venues} />
         <div className="tde-location-cards">
           {school.venues.map((venue) => {
             const image = venue.photo_outside || venue.hero_image;
@@ -367,6 +370,7 @@ export default function PublicPages() {
             );
           })}
         </div>
+        </>
       ) : isCoach ? (
         school.coaches.length ? (
           <CoachPhotoGrid coaches={school.coaches} />

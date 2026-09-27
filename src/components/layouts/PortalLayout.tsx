@@ -71,10 +71,10 @@ const PortalLayout = () => {
   const customerType = profile?.customer_type as string | null;
   const isAdultSection = pathname.startsWith("/classes/adult") || pathname.includes("adult");
   const isChildrenSection = pathname.startsWith("/classes/children");
-  // The marketing site keeps its dark stage-light look; everything a family
-  // does — browse, book, pay, manage — is one light product, unless they are
-  // an adult dancer, whose whole journey stays in the after-dark theme.
-  const isMarketing = MARKETING_PATHS.has(pathname) || pathname.startsWith("/venues/") || pathname.startsWith("/team/") || pathname === "/events" || pathname.startsWith("/events/") || pathname === "/classes" || /^\/classes\/(children|adult)\/[^/]+$/.test(pathname);
+  // Public discovery and class booking share the dark brand. Account and
+  // checkout routes retain their current product theme during the gradual rollout.
+  const isIntegratedClass = /^\/classes\/(children|adult)\/[^/]+$/.test(pathname);
+  const isMarketing = pathname.startsWith("/book/") || MARKETING_PATHS.has(pathname) || pathname.startsWith("/venues/") || pathname.startsWith("/team/") || pathname === "/events" || pathname.startsWith("/events/") || pathname === "/classes" || isIntegratedClass;
   const isAdultDancer = customerType === "adult_dancer";
   const themeClass = isMarketing ? "" : isAdultSection
     ? "theme-adult"
@@ -102,6 +102,12 @@ const PortalLayout = () => {
     if (isBookingJourney) document.body.classList.add("portal-ui");
     return () => document.body.classList.remove("theme-adult", "theme-children", "portal-ui");
   }, [themeClass, isBookingJourney]);
+
+  useEffect(() => {
+    document.body.classList.toggle("tde-booking-theme", isIntegratedClass);
+    document.body.classList.toggle("tde-booking-adult", isIntegratedClass && isAdultSection);
+    return () => document.body.classList.remove("tde-booking-theme", "tde-booking-adult");
+  }, [isIntegratedClass, isAdultSection]);
 
   // Determine nav order and emphasis based on customer preference
   const primaryIsAdult = customerType === "adult_dancer";

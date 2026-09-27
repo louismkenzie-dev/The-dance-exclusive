@@ -72,6 +72,7 @@ export interface QuickBookClass {
 }
 
 interface QuickBookDialogProps {
+  inline?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   classData: QuickBookClass | null;
@@ -110,6 +111,7 @@ const joinNotes = (parts: (string | null | false | undefined)[]) => parts.filter
  * who is attending, dates (for pay-as-you-go and trials), then one action.
  */
 export function QuickBookDialog({
+  inline = false,
   open,
   onOpenChange,
   classData,
@@ -394,7 +396,7 @@ export function QuickBookDialog({
 
   // Sheets portal to <body>, which carries the page theme; portal-ui keeps
   // the title in the product face rather than the marketing headline face.
-  const themeClass = "portal-ui";
+  const themeClass = inline ? `portal-ui tde-booking-theme${isAdult ? " tde-booking-adult" : ""}` : "portal-ui";
 
   // The plan the class pre-selects for a child — the one worth recommending.
   const recommendedPlan = isChildren ? defaultChildPlan(c, sessions.length > 0) : null;
@@ -506,6 +508,7 @@ export function QuickBookDialog({
   return (
     <>
     <ResponsiveSheet
+      inline={inline}
       open={open}
       onOpenChange={onOpenChange}
       title={c.name}
@@ -642,6 +645,7 @@ export function QuickBookDialog({
 
     {/* Add / complete an attendee profile in place */}
     <ChildFormDialog
+      themeOverride={inline ? themeClass : undefined}
       open={!!childDialog}
       onOpenChange={(o) => { if (!o) setChildDialog(null); }}
       editing={childDialog?.editing ?? null}

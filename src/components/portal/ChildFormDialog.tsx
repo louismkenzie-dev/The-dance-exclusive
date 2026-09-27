@@ -53,6 +53,7 @@ const ABILITY_LEVELS = [
 const DANCE_STYLES = ["Ballet", "Tap", "Jazz", "Contemporary", "Street Dance", "Commercial", "Lyrical", "Musical Theatre", "Acro", "Ballroom", "Latin", "Not sure yet"];
 
 interface ChildFormDialogProps {
+  themeOverride?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
@@ -112,7 +113,7 @@ const SectionTrigger = ({ title, summary }: { title: string; summary: string }) 
 const SECTION_ITEM = "rounded-2xl border border-border bg-card px-5 transition-colors data-[state=open]:border-foreground/20";
 const SECTION_BODY = "space-y-5 pb-5 pt-1";
 
-export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode = false }: ChildFormDialogProps) => {
+export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode = false, themeOverride }: ChildFormDialogProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
@@ -416,7 +417,7 @@ export const ChildFormDialog = ({ open, onOpenChange, onSaved, editing, selfMode
   const age = getAge(form.date_of_birth);
   // Children are themed BLUE, adults PINK. Radix Select popovers portal to
   // document.body, so the theme class must also go on every SelectContent.
-  const themeClass = selfMode ? "theme-adult" : "theme-children";
+  const themeClass = themeOverride || (selfMode ? "theme-adult" : "theme-children");
   // Child profiles MUST have an emergency contact with a plausible phone
   // number — mirrored by a database CHECK constraint, so this is the friendly
   // half of a rule the server enforces regardless.

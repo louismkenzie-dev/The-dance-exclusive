@@ -1,3 +1,4 @@
+import { safeReturnPath } from "@/lib/authReturn";
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,7 +18,11 @@ const eyeButtonClass =
   "absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 /** The sign-in pages live outside PortalLayout, so they carry the light product theme themselves. */
-const AuthShell = ({ title, subtitle, children }: { title: ReactNode; subtitle?: ReactNode; children: ReactNode }) => (
+const AuthShell = ({ title, subtitle, children, embedded = false }: { title: ReactNode; subtitle?: ReactNode; children: ReactNode; embedded?: boolean }) => embedded ? (
+  <section className="tde-booking-theme portal-ui tde-inline-auth" aria-label="Sign up or sign in to book">
+    <h2>{title}</h2><p className="mb-6 text-muted-foreground">{subtitle}</p>{children}
+  </section>
+) : (
   <div className="theme-children portal-ui min-h-screen bg-background text-foreground">
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-4 py-10">
       <div className="w-full animate-rise-in">
@@ -40,7 +45,7 @@ const GoogleMark = () => (
   </svg>
 );
 
-const Auth = () => {
+const Auth = ({ embedded = false, returnTo }: { embedded?: boolean; returnTo?: string } = {}) => {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
@@ -62,9 +67,9 @@ const Auth = () => {
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const redirectTo = searchParams.get("redirect");
+  const redirectTo = safeReturnPath(returnTo || searchParams.get("redirect"));
   /** Sent here mid-booking: say so, so the detour makes sense. */
-  const bookingIntent = !!redirectTo && redirectTo.startsWith("/book/");
+  const bookingIntent = embedded || redirectTo.startsWith("/book/") || /^\/classes\/(children|adult)\//.test(redirectTo);
   const { toast } = useToast();
 
   // /auth?forgot=1 opens the "send me a reset link" form directly — where
@@ -100,6 +105,8 @@ const Auth = () => {
         variant: "destructive",
       });
     } else {
+      // The embedded form completes the booking intent on this same class page.
+      if (embedded) { setLoading(false); navigate(redirectTo, { replace: true }); return; }
       // Check role to redirect appropriately
       const { data: roles } = await supabase
         .from("user_roles")
@@ -120,7 +127,7 @@ const Auth = () => {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error, needsEmailConfirmation } = await signUp(signupEmail, signupPassword, signupName);
+    const { error, needsEmailConfirmation } = await signUp(signupEmail, signupPassword, signupName, redirectTo);
     setLoading(false);
     if (error) {
       toast({ title: "Signup failed", description: error.message, variant: "destructive" });
@@ -138,7 +145,7 @@ const Auth = () => {
   const handleOAuth = async (provider: "google") => {
     setLoading(true);
     const dest = redirectTo
-      ? `${window.location.origin}${redirectTo}`
+      ? `${window.location.origin}${redirectTo.split("#")[0]}`
       : window.location.origin;
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
@@ -174,7 +181,7 @@ const Auth = () => {
 
   if (showForgotPassword) {
     return (
-      <AuthShell title="Reset password" subtitle="Enter your email and we'll send you a reset link">
+      <AuthShell embedded={embedded} title="Reset password" subtitle="Enter your email and we'll send you a reset link">
         <form onSubmit={handleForgotPassword} className="space-y-5">
           <div className="space-y-2">
             <Label htmlFor="forgot-email" className={labelClass}>Email</Label>
@@ -207,14 +214,15 @@ const Auth = () => {
 
   return (
     <AuthShell
-      title={tab === "signup" ? "Create your account" : <>Sign in to <span className="whitespace-nowrap">The Dance Exclusive</span></>}
+      embedded={embedded}
+      title={tab === "signup" ? "Create your account" : <>Sign in to <span className={embedded ? undefined : "whitespace-nowrap"}>The Dance Exclusive</span></>}
       subtitle={
         tab === "signup"
           ? bookingIntent
-            ? "It takes a minute, and then we'll take you straight back to book."
+            ? embedded ? "Create your account to choose a place in this class." : "It takes a minute, and then we'll take you straight back to book."
             : "Set up an account to book and manage classes"
           : bookingIntent
-            ? "Sign in and we'll take you straight back to book."
+            ? embedded ? "Sign in to choose your place right here." : "Sign in and we'll take you straight back to book."
             : "Sign in to book your dance classes"
       }
     >

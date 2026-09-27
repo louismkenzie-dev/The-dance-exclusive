@@ -1,3 +1,5 @@
+import { lazy, Suspense, useEffect, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowUpRight, Baby, CalendarDays, Clock3, MapPin, PersonStanding } from "lucide-react";
 import { format, parseISO } from "date-fns";
@@ -15,12 +17,22 @@ import {
 } from "@/lib/classPresentation";
 import { audienceText } from "@/lib/classAudience";
 import { availabilityFor, formatTimeRange } from "@/lib/bookingFormat";
-import { classLinkPath } from "@/lib/classLinks";
+
 import { coachPath, publicClassPath, venuePath } from "@/lib/publicSchool";
+
+const EmbeddedBooking = lazy(() => import("@/pages/portal/BookClass"));
+const BookingAuth = lazy(() => import("@/pages/Auth"));
 
 /** Public discovery and the existing booking sheet share the same price rules. */
 export default function PublicClassPage() {
   const { classId, type } = useParams();
+  const { user, loading: authLoading } = useAuth();
+  const [authOpen, setAuthOpen] = useState(false);
+  useEffect(() => {
+    if (!authOpen) return;
+    const frame = requestAnimationFrame(() => document.getElementById("choose-place")?.scrollIntoView({ block: "start", behavior: "auto" }));
+    return () => cancelAnimationFrame(frame);
+  }, [authOpen]);
   const { data: school, isPending, isError, refetch } = usePublicSchool();
   const cls = school?.classes.find(
     (item) => item.id === classId && item.class_type === type,
@@ -145,6 +157,11 @@ export default function PublicClassPage() {
           </div>
         </div>
       </header>
+      {user ? (
+        <Suspense fallback={<p role="status">Loading your booking options…</p>}>
+          <EmbeddedBooking embedded key={`${user.id}:${cls.id}`} />
+        </Suspense>
+      ) : <>
       <div className="tde-class-detail-grid">
         <div className="tde-class-story">
           <h2>
@@ -262,12 +279,10 @@ export default function PublicClassPage() {
               </Link>
             </>
           ) : (
-            <Link to={classLinkPath(cls.id)} className="tde-button">
-              {state === "full"
-                ? "View class & waiting list"
-                : "Choose your place"}{" "}
+            <a href="#choose-place" className="tde-button" onClick={() => setAuthOpen(true)} aria-expanded={authOpen}>
+              {authLoading ? "Checking your account…" : "Sign up / sign in to book"}
               <ArrowUpRight size={20} aria-hidden />
-            </Link>
+            </a>
           )}
           <p className="tde-booking-note">
             {cls.allow_trial && cls.class_type === "children"
@@ -277,6 +292,12 @@ export default function PublicClassPage() {
           </p>
         </aside>
       </div>
+      {authOpen && <div id="choose-place" className="tde-booking-auth-area">
+        <Suspense fallback={<p role="status">Loading sign in…</p>}>
+          <BookingAuth embedded returnTo={`${publicClassPath(cls)}#choose-place`} />
+        </Suspense>
+      </div>}
+      </>}
     </article>
   );
 }

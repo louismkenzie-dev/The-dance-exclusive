@@ -15,6 +15,7 @@ const makeClass = (class_type: "adult" | "children", name: string): PublicClass 
   start_time: "17:00:00", end_time: "18:00:00", day_of_week: "monday", days_of_week: ["monday"],
   price_per_session: 8, allow_monthly: false, allow_termly: false, allow_yearly: false,
   remainingSessions: 10,
+  sessions: [{ id: `${class_type}-date`, session_date: "2026-10-05", start_time: "17:00:00", end_time: "18:00:00" }],
 } as PublicClass);
 const school = { classes: [makeClass("children", "Junior street"), makeClass("adult", "Adult commercial")], venues } as PublicSchool;
 afterEach(cleanup);
@@ -23,7 +24,7 @@ describe("homepage discovery", () => {
   it("switches the results and destination together, retaining eligibility and schedule", () => {
     render(<MemoryRouter><HomeClassFinder school={school} loading={false} error={false} /></MemoryRouter>);
     expect(screen.getByText("Ages 6+", { exact: false })).toBeVisible();
-    expect(screen.getByText(/17:00/)).toBeVisible();
+    expect(screen.getByText("5:00pm")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Adults" }));
     expect(screen.getByRole("button", { name: "Adults" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("Adult commercial")).toBeVisible();

@@ -1,3 +1,4 @@
+import CartButton from "@/components/portal/CartButton";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ArrowUpRight, Menu } from "lucide-react";
@@ -50,6 +51,7 @@ export function PublicSiteShell({ children }: { children: ReactNode }) {
           <BrandLogo tone="white" className="h-11" />
         </Link>
         <div className="tde-header-right">
+          {user && <div className="tde-booking-theme"><CartButton /></div>}
           <Link
             to={user ? "/account/bookings" : "/auth"}
             className="tde-account"

@@ -6,6 +6,7 @@ import { useIsPhone } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
 
 interface ResponsiveSheetProps {
+  inline?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: ReactNode;
@@ -28,6 +29,7 @@ interface ResponsiveSheetProps {
  */
 export function ResponsiveSheet({
   open,
+  inline = false,
   onOpenChange,
   title,
   description,
@@ -38,6 +40,15 @@ export function ResponsiveSheet({
   themeClass,
 }: ResponsiveSheetProps) {
   const isPhone = useIsPhone();
+
+  if (inline) {
+    if (!open) return null;
+    return <section className={cn("tde-inline-booking", themeClass)} aria-label="Choose your place">
+      <div className="mb-6"><h2 className="text-2xl font-semibold">Choose your place</h2>{description && <p className="mt-2 text-sm text-muted-foreground">{description}</p>}</div>
+      <div className={bodyClassName}>{children}</div>
+      {footer && <div className="mt-6 border-t border-border pt-5">{footer}</div>}
+    </section>;
+  }
 
   if (isPhone) {
     return (

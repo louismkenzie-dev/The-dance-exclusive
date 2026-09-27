@@ -1,5 +1,5 @@
 import { classPhoto } from "@/lib/tdeMedia";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { format, parseISO } from "date-fns";
 import { ArrowLeft, CalendarDays, MapPin, User } from "lucide-react";
@@ -152,10 +152,10 @@ const INITIAL_DATES = 8;
 const INVITE_ONLY_NOTE =
   "This is an invite-only session. Places are offered directly by The Dance Exclusive team — please contact us if you think this crew is for you.";
 
-const BookClass = () => {
+const BookClass = ({ embedded = false }: { embedded?: boolean } = {}) => {
   const { classId } = useParams();
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
   const { user } = useAuth();
 
   const [status, setStatus] = useState<"loading" | "ready" | "missing" | "error">("loading");
@@ -164,6 +164,7 @@ const BookClass = () => {
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [enrolled, setEnrolled] = useState<number | null>(null);
   const [children, setChildren] = useState<ChildRow[]>([]);
+  const [attendeeStatus, setAttendeeStatus] = useState<"loading" | "ready" | "error">("loading");
   const [selfStudent, setSelfStudent] = useState<ChildRow | null>(null);
   const [hasExistingBookings, setHasExistingBookings] = useState<boolean | null>(null);
   const invitedPlans = useInvitedPlans();
@@ -246,33 +247,28 @@ const BookClass = () => {
 
   // Attendee profiles for signed-in families: children for children's
   // classes, plus the adult's own self profile (required to book adult classes).
-  const fetchAttendees = () => {
+  const fetchAttendees = useCallback(async () => {
     if (!user) return;
-    supabase.from("students")
-      .select("*")
-      .eq("parent_id", user.id)
-      .then(({ data }) => {
-        if (!data) return;
-        setChildren(data.filter((s) => !s.is_self));
-        setSelfStudent(data.find((s) => s.is_self) ?? null);
-      });
-  };
-  useEffect(fetchAttendees, [user]);
+    setAttendeeStatus("loading");
+    const { data, error } = await supabase.from("students").select("*").eq("parent_id", user.id);
+    if (error || !data) { setAttendeeStatus("error"); return; }
+    setChildren(data.filter((student) => !student.is_self));
+    setSelfStudent(data.find((student) => student.is_self) ?? null);
+    setAttendeeStatus("ready");
+  }, [user]);
+  useEffect(() => { void fetchAttendees(); }, [fetchAttendees]);
 
-  // Any existing bookings? (Trial eligibility.)
-  // A visitor who isn't signed in counts as a first-timer: most people
-  // opening a link the studio shared have never booked, and hiding the trial
-  // from them hid the one price that brings them in. Nothing can be paid for
-  // signed out — the booking sheet sends them to sign in first — so once
-  // they have an account the real answer below takes over.
+  // Unknown history never grants trial eligibility; personal invitations still apply.
   useEffect(() => {
-    if (!user) { setHasExistingBookings(false); return; }
+    let cancelled = false;
+    setHasExistingBookings(null);
+    if (!user) return;
     supabase.from("bookings").select("id", { count: "exact", head: true })
-      .eq("parent_id", user.id)
-      .eq("status", "confirmed")
-      .then(({ count }) => {
-        setHasExistingBookings((count ?? 0) > 0);
+      .eq("parent_id", user.id).eq("status", "confirmed")
+      .then(({ count, error }) => {
+        if (!cancelled && !error && count !== null) setHasExistingBookings(count > 0);
       });
+    return () => { cancelled = true; };
   }, [user]);
 
   // Already waitlisted for this class?
@@ -313,6 +309,12 @@ const BookClass = () => {
     }
     setWaitlistBusy(false);
   };
+
+  useEffect(() => {
+    if (!embedded || status !== "ready" || hash !== "#choose-place") return;
+    const frame = requestAnimationFrame(() => document.getElementById("choose-place")?.scrollIntoView({ block: "start", behavior: "auto" }));
+    return () => cancelAnimationFrame(frame);
+  }, [embedded, status, hash]);
 
   if (status === "loading") {
     return (
@@ -360,7 +362,7 @@ const BookClass = () => {
           body="It may have finished, or the link is out of date."
           action={
             <Button variant="soft" className="h-11 rounded-full px-5" asChild>
-              <Link to="/classes/children">Browse classes</Link>
+              <Link to="/classes?type=children">Browse classes</Link>
             </Button>
           }
         />
@@ -402,6 +404,7 @@ const BookClass = () => {
   const ctaLabel = state === "full" ? (onWaitlist ? "Leave waitlist" : "Join waitlist")
     : state === "invite" ? "Invite only"
     : state === "soon" ? "Coming soon"
+    : embedded ? "Choose your place"
     : offersTrial ? "Book a trial"
     : "Book";
   const ctaDisabled = waitlistBusy || state === "invite" || state === "soon";
@@ -421,8 +424,9 @@ const BookClass = () => {
     }
     setPresetPlan(plan);
     setBookOpen(true);
+    if (embedded) document.getElementById("choose-place")?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
   };
-  const onPrimary = () => startBooking(offersTrial ? "trial" : undefined);
+  const onPrimary = () => startBooking(!embedded && offersTrial ? "trial" : undefined);
 
   const nextStepNote = state === "invite"
     ? INVITE_ONLY_NOTE
@@ -437,10 +441,10 @@ const BookClass = () => {
   // What the headline price is, in the sticky card. Where a trial is on
   // offer that is the price being asked for today, so it leads, and the
   // ongoing price follows underneath rather than standing in for it.
-  const headlinePrice = offersTrial && trialPlan
+  const headlinePrice = !embedded && offersTrial && trialPlan
     ? { caption: "Trial class", label: trialPlan.price, hint: "one class" }
-    : { caption: isAdult ? "Pay as you go" : priceHint === "/month" ? "Monthly membership" : priceHint === "/term" ? "Pay for the term" : "Per class", label: priceLabel, hint: priceHint };
-  const afterTrialNote = offersTrial ? `Then ${priceLabel}${priceHint === "/month" ? " a month" : priceHint === "/term" ? " a term" : ` ${priceHint}`} if you carry on.` : null;
+    : { caption: isAdult ? "Pay as you go" : priceHint === "/month" ? "Monthly membership" : priceHint === "/term" ? "Pay for the term" : priceHint === "/year" ? "Yearly membership" : "Class price", label: priceLabel, hint: priceHint };
+  const afterTrialNote = !embedded && offersTrial ? `Then ${priceLabel}${priceHint === "/month" ? " a month" : priceHint === "/term" ? " a term" : ` ${priceHint}`} if you carry on.` : null;
 
   const ctaButton = (extraClass: string) => (
     <Button
@@ -455,19 +459,23 @@ const BookClass = () => {
   );
 
   return (
-    <div className="bg-background">
-      <div className="container py-6 sm:py-10">
-        <Link
+    <div className={embedded ? "tde-booking-theme portal-ui tde-embedded-class" : "bg-background"}>
+      {embedded && <div className="mt-6 flex flex-wrap items-center justify-between gap-4 lg:hidden">
+        <p className="text-xl font-semibold">{priceLabel}<span className="ml-1 text-sm font-normal text-muted-foreground">{priceHint}</span></p>
+        {ctaButton("px-6")}
+      </div>}
+      <div className={embedded ? "" : "container py-6 sm:py-10"}>
+        {!embedded && <Link
           to={`/classes/${cls.class_type}`}
           className="inline-flex items-center gap-1.5 rounded-md text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
           All {isAdult ? "adult" : "children's"} classes
-        </Link>
+        </Link>}
 
         <div className="mt-4 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-12 xl:gap-16">
           <div className="min-w-0 lg:max-w-2xl">
-            {cover && (
+            {!embedded && cover && (
               <div className="-mx-4 aspect-[16/9] overflow-hidden bg-muted sm:mx-0 sm:rounded-2xl">
                 <WorkshopCover
                   src={cover}
@@ -479,9 +487,9 @@ const BookClass = () => {
               </div>
             )}
 
-            <div className={cover ? "mt-6" : "mt-2"}>
+            {!embedded && <div className={cover ? "mt-6" : "mt-2"}>
               <SectionHeading as="h1" size="page" eyebrow={eyebrow || undefined} title={cls.name} />
-            </div>
+            </div>}
 
             <ul className="mt-5 space-y-2 text-[15px] text-foreground/90">
               <li className="flex items-center gap-3">
@@ -673,6 +681,7 @@ const BookClass = () => {
         </div>
       </div>
 
+      {!embedded && <>
       <StickyActionBarSpacer />
       {/* Sits above the app tab bar, which stays on this page. */}
       <StickyActionBar className="bottom-[calc(53px+env(safe-area-inset-bottom))] !pb-0" action={ctaButton("px-7")}>
@@ -684,11 +693,21 @@ const BookClass = () => {
         </p>
         <AvailabilityPill availability={availability} className="mt-0.5" />
       </StickyActionBar>
+      </>}
 
-      <QuickBookDialog
-        open={bookOpen}
+      <div id={embedded ? "choose-place" : undefined} className={embedded ? "tde-booking-form-area" : undefined}>
+      {embedded && attendeeStatus !== "ready" ? (
+        <div className="tde-inline-booking" role="status">
+          {attendeeStatus === "loading" ? "Loading your attendee profiles…" : <>
+            <p>We couldn’t load your attendee profiles. Try again to choose who’s dancing.</p>
+            <Button className="mt-4" onClick={() => void fetchAttendees()}>Try again</Button>
+          </>}
+        </div>
+      ) : <QuickBookDialog
+        inline={embedded}
+        open={embedded ? state === "bookable" : bookOpen}
         onOpenChange={(o) => { if (!o) setBookOpen(false); }}
-        classData={bookOpen ? cls : null}
+        classData={embedded || bookOpen ? cls : null}
         sessions={sessions}
         children={children}
         hasExistingBookings={trialGate}
@@ -696,7 +715,8 @@ const BookClass = () => {
         isAdult={isAdult}
         selfStudent={selfStudent}
         onChildrenChanged={fetchAttendees}
-      />
+      />}
+      </div>
     </div>
   );
 };

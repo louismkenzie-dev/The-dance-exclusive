@@ -846,3 +846,37 @@
   .tde-photo-class, .tde-photo-class-image > img { transition: none; }
   .tde-photo-class:hover, .tde-photo-class:hover .tde-photo-class-image > img { transform: none; }
 }
+
+/* Bridge booking controls into the public site's palette without retheming admin/account pages. */
+.tde-booking-theme {
+  --background: 215 45% 7%; --foreground: 210 35% 96%;
+  --card: 212 43% 12%; --card-foreground: 210 35% 96%;
+  --popover: 212 43% 12%; --popover-foreground: 210 35% 96%;
+  --primary: 193 85% 64%; --primary-foreground: 215 45% 7%;
+  --secondary: 210 38% 18%; --secondary-foreground: 210 35% 96%;
+  --muted: 212 34% 17%; --muted-foreground: 210 24% 75%;
+  --accent: 204 50% 19%; --accent-foreground: 193 90% 80%;
+  --border: 210 24% 25%; --input: 210 24% 32%; --ring: 193 85% 64%;
+  --success: 151 61% 66%; --warning: 39 95% 70%; --destructive: 0 80% 72%;
+  color: hsl(var(--foreground)); color-scheme: dark;
+}
+.tde-booking-adult, [data-audience="adult"] .tde-booking-theme {
+  --primary: 330 90% 75%; --accent: 330 40% 19%; --accent-foreground: 330 90% 88%; --ring: 330 90% 75%;
+}
+.tde-inline-auth { max-width: 520px; margin: auto; padding: 32px; border: 1px solid hsl(var(--border)); border-radius: 16px; background: hsl(var(--card)); }
+.tde-inline-auth h2 { font-size: 28px; margin-bottom: 12px; }
+.tde-booking-auth-area, .tde-booking-form-area { scroll-margin-top: 110px; margin-top: 48px; }
+.tde-inline-booking { max-width: 760px; margin-inline: auto; padding: 32px; border: 1px solid hsl(var(--border)); border-radius: 16px; background: hsl(var(--card)); }
+.tde-embedded-class .container { padding-inline: 0; }
+.tde-embedded-class h2, .tde-public-timetable h3, .tde-public-timetable h4 { font-family: Inter, sans-serif; text-transform: none; letter-spacing: -.02em; }
+.tde-embedded-class h2 { font-size: 24px; }
+.tde-public-timetable { margin-top: 28px; }
+.tde-timetable-venue { display: grid; gap: 8px; max-width: 400px; font-size: 14px; }
+.tde-timetable-venue select { width: 100%; min-height: 48px; padding: 10px 14px; border: 1px solid hsl(var(--input)); border-radius: 12px; background: hsl(var(--card)); color: hsl(var(--foreground)); }
+.tde-timetable-view { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 9px 14px; border-radius: 999px; background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); font-size: 13px; white-space: nowrap; }
+.tde-public-timetable .surface { overflow: hidden; }
+@media (max-width: 640px) {
+  .tde-inline-auth, .tde-inline-booking { padding: 22px 16px; }
+  .tde-public-timetable .tde-timetable-view { font-size: 12px; padding-inline: 10px; }
+  .tde-site .tde-header-right { gap: 6px; }
+}

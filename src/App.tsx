@@ -22,7 +22,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const ClassBrowser = lazy(() => import("./pages/portal/ClassBrowser"));
 const Timetable = lazy(() => import("./pages/portal/Timetable"));
-const BookClass = lazy(() => import("./pages/portal/BookClass"));
+const BookClass = lazy(() => import("./pages/marketing/LegacyClassLink"));
 const Account = lazy(() => import("./pages/portal/Account"));
 const MyBookings = lazy(() => import("./pages/portal/MyBookings"));
 const Checkout = lazy(() => import("./pages/portal/Checkout"));

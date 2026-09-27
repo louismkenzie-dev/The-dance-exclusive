@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
-import { PublicClassList } from "./PublicClassList";
+import { PublicTimetable } from "./PublicTimetable";
 import { venuePath, type PublicSchool } from "@/lib/publicSchool";
 
 type DiscoveryProps = { school?: PublicSchool; loading: boolean; error: boolean };
@@ -11,7 +11,7 @@ export function HomeClassFinder({ school, loading, error }: DiscoveryProps) {
   const classes = school?.classes.filter(item => item.class_type === audience) ?? [];
   const label = audience === "children" ? "children’s" : "adult";
   return (
-    <div className="tde-home-finder">
+    <div className="tde-home-finder" data-audience={audience}>
       <div className="tde-finder-heading">
         <h3>On the timetable</h3>
         <div className="tde-audience-switch" role="group" aria-label="Choose class audience">
@@ -21,10 +21,10 @@ export function HomeClassFinder({ school, loading, error }: DiscoveryProps) {
       </div>
       {loading ? <p role="status" className="tde-loading">Loading the timetable…</p>
         : error ? <p className="tde-loading">We couldn’t load the timetable. <Link to={`/classes?type=${audience}`}>Open {label} classes</Link> or <Link to="/contact">ask the team</Link>.</p>
-          : classes.length ? <PublicClassList classes={classes.slice(0, 4)} venues={school?.venues ?? []} />
+          : classes.length ? <PublicTimetable key={audience} classes={classes} venues={school?.venues ?? []} />
             : <p role="status" className="tde-empty">No {label} classes are currently listed. <Link to="/contact">Ask the team about your options</Link>.</p>}
       <div className="tde-finder-footer">
-        <span role="status" aria-live="polite">{!loading && !error && classes.length > 0 ? `Showing ${Math.min(4, classes.length)} of ${classes.length} ${label} classes` : ""}</span>
+        <span role="status" aria-live="polite">{!loading && !error && classes.length > 0 ? `${classes.length} ${label} classes to explore` : ""}</span>
         <Link to={`/classes?type=${audience}`} className="tde-text-link">Explore all {label} classes <ArrowUpRight size={18} aria-hidden /></Link>
       </div>
     </div>

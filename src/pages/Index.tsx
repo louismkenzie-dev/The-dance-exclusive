@@ -76,6 +76,7 @@ export default function Index() {
               title: "The next\ngeneration.",
               sub: "Children's classes",
               image: tdePhoto("young-crew").src,
+              position: "50% 22%",
               copy: "Big energy. Growing confidence. A place to be themselves.",
             },
             {
@@ -83,6 +84,7 @@ export default function Index() {
               title: "Your time.\nYour energy.",
               sub: "Adult classes",
               image: tdePhoto("studio-energy").src,
+              position: "50% 80%",
               copy: "Switch off the day. Turn up the music. Make your move.",
             },
           ].map((item, i) => (
@@ -96,6 +98,9 @@ export default function Index() {
             >
               <MotionMedia
                 image={item.image}
+                objectPosition={item.position}
+                travel={0}
+                sizes="(max-width: 760px) 50vw, (max-width: 900px) 100vw, 50vw"
                 alt={
                   item.type === "adult"
                     ? "A Dance Exclusive dancer in a blue and pink-lit studio"

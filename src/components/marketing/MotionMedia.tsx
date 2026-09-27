@@ -14,6 +14,7 @@ export function MotionMedia({
   eager = false,
   travel = 44,
   sizes = "100vw",
+  objectPosition,
 }: {
   image: string;
   video?: string;
@@ -24,6 +25,7 @@ export function MotionMedia({
   eager?: boolean;
   travel?: number;
   sizes?: string;
+  objectPosition?: string;
 }) {
   const photo = photoFromSrc(image);
   const container = useRef<HTMLDivElement>(null);
@@ -97,7 +99,7 @@ export function MotionMedia({
           sizes={photo ? sizes : undefined}
           width={photo?.width}
           height={photo?.height}
-          style={photo ? { objectPosition: photo.position } : undefined}
+          style={{ objectPosition: objectPosition ?? photo?.position }}
           alt={alt}
           loading={eager ? "eager" : "lazy"}
           {...{ fetchpriority: eager ? "high" : "auto" }}

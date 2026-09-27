@@ -22,7 +22,7 @@ describe("class discovery signup banner", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sign up / sign in" }));
     const dialog = screen.getByRole("dialog", { name: "Sign up or sign in" });
     expect(await within(dialog).findByRole("heading", { name: "Create your account" })).toBeVisible();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Sign in", exact: true }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Sign in" }));
     fireEvent.change(within(dialog).getByLabelText("Email"), { target: { value: "test@example.com" } });
     fireEvent.change(within(dialog).getByLabelText("Password", { exact: true }), { target: { value: "test-only-password" } });
     fireEvent.submit(within(dialog).getByLabelText("Email").closest("form")!);

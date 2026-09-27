@@ -12,6 +12,9 @@ export default defineConfig(({ mode }) => ({
     },
   },
   plugins: [react()],
+  // Compile GSAP's browser-oriented module exports into the server bundle;
+  // Vercel's Node runtime cannot resolve ScrollTrigger's named ESM export.
+  ssr: { noExternal: ["gsap"] },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

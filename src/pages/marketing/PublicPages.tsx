@@ -1,4 +1,7 @@
 import { tdePhoto } from "@/lib/tdeMedia";
+import { venueSlides } from "@/lib/venueTour";
+import { bookingCoverImage } from "@/lib/bookingCoverImage";
+import WorkshopCover from "@/components/WorkshopCover";
 import { VenueExplorer } from "@/components/marketing/VenueExplorer";
 import { ClassMedia } from "@/components/marketing/ClassMedia";
 import { Link, useLocation, useParams } from "react-router-dom";
@@ -15,6 +18,8 @@ import { coachPath, venuePath } from "@/lib/publicSchool";
 import { publicCoachTitle } from "@/lib/publicCoaches";
 import { campPriceLabel, shortDateRange } from "@/lib/classPresentation";
 import { campBrowserPath } from "@/lib/classLinks";
+
+const venueStorageUrl = import.meta.env.VITE_SUPABASE_URL || "https://suwaetnsszlpaaykhpif.supabase.co";
 
 export default function PublicPages() {
   const { pathname } = useLocation();
@@ -68,7 +73,7 @@ export default function PublicPages() {
     );
     if (!venue) return <Missing back="/venues" label="location" />;
     const classes = school.classes.filter((item) => item.venue_id === venue.id);
-    const image = venue.photo_outside || venue.hero_image;
+    const photo = venueSlides(venue, venueStorageUrl)[0];
     return (
       <article className="tde-directory tde-paper">
         <PageMeta
@@ -102,12 +107,11 @@ export default function PublicPages() {
         </div>
         <div className="tde-profile-grid">
           <div>
-            {image ? (
-              <MotionMedia
-                image={image}
-                alt={venue.name}
-                className="tde-profile-media tde-venue-profile-media"
-              />
+            {photo ? (
+              <div className="tde-profile-media tde-venue-profile-media">
+                <WorkshopCover src={photo.src} alt={photo.caption} cover_position="50% 50%" loading="eager" revealWhenLoaded
+                  {...bookingCoverImage(photo.src, "(max-width: 760px) 100vw, 60vw")} />
+              </div>
             ) : (
               <div className="tde-no-image">
                 <MapPin size={60} strokeWidth={1} aria-hidden />
@@ -351,12 +355,13 @@ export default function PublicPages() {
         <VenueExplorer venues={school.venues} />
         <div className="tde-location-cards">
           {school.venues.map((venue) => {
-            const image = venue.photo_outside || venue.hero_image;
+            const photo = venueSlides(venue, venueStorageUrl)[0];
             const count = school.classes.filter((item) => item.venue_id === venue.id).length;
             return (
               <Link to={venuePath(venue)} key={venue.id} className="tde-location-card">
                 <div className="tde-venue-card-media">
-                  {image ? <img src={image} alt={venue.name} loading="lazy" /> : (
+                  {photo ? <WorkshopCover src={photo.src} alt={photo.caption} cover_position="50% 50%" loading="lazy" revealWhenLoaded
+                    {...bookingCoverImage(photo.src, "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw")} /> : (
                     <div className="tde-venue-city-art" aria-hidden="true"><MapPin /><span>{venue.city || "Essex"}</span></div>
                   )}
                   <span className="tde-venue-city"><MapPin size={14} aria-hidden />{venue.city || "Essex"}</span>

@@ -30,6 +30,8 @@ export type PublicSession = Pick<
   Tables<"class_sessions">,
   "id" | "session_date" | "start_time" | "end_time"
 >;
+export type PublicWorkshopCover = Pick<Tables<"workshops">, "cover_image" | "cover_position" | "cover_zoom" | "cover_fit">;
+
 export type PublicClass = Pick<
   Tables<"classes">,
   | "id"
@@ -64,6 +66,7 @@ export type PublicClass = Pick<
   | "publicly_visible"
   | "is_active"
 > & {
+  workshops?: PublicWorkshopCover | null;
   remainingSessions: number;
   sessions: PublicSession[];
   enrolled: number | null;
@@ -80,7 +83,7 @@ export type PublicCamp = Pick<
   | "price_total"
   | "venue_id"
   | "workshop_id"
->;
+> & { workshops?: PublicWorkshopCover | null };
 export interface PublicSchool {
   classes: PublicClass[];
   venues: PublicVenue[];
@@ -154,7 +157,7 @@ export async function fetchPublicSchool(
       client
         .from("classes")
         .select(
-          "id,name,description,class_type,dance_style,age_min,age_max,school_year_min,school_year_max,audience_label,day_of_week,days_of_week,start_time,end_time,venue_id,instructor_id,term_end,capacity,price_per_session,price_per_month,price_per_term,price_per_year,allow_monthly,allow_termly,allow_yearly,allow_trial,invite_only,booking_enabled,status,publicly_visible,is_active",
+          "id,name,description,class_type,dance_style,age_min,age_max,school_year_min,school_year_max,audience_label,day_of_week,days_of_week,start_time,end_time,venue_id,instructor_id,term_end,capacity,price_per_session,price_per_month,price_per_term,price_per_year,allow_monthly,allow_termly,allow_yearly,allow_trial,invite_only,booking_enabled,status,publicly_visible,is_active,workshops(cover_image,cover_position,cover_zoom,cover_fit)",
         )
         .eq("is_active", true)
         .eq("publicly_visible", true)
@@ -178,7 +181,7 @@ export async function fetchPublicSchool(
       client
         .from("camps")
         .select(
-          "id,name,description,class_type,start_date,end_date,price_per_day,price_total,venue_id,workshop_id",
+          "id,name,description,class_type,start_date,end_date,price_per_day,price_total,venue_id,workshop_id,workshops(cover_image,cover_position,cover_zoom,cover_fit)",
         )
         .eq("is_active", true)
         .gte("end_date", today)

@@ -4,8 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowUpRight, Baby, CalendarDays, Clock3, MapPin, PersonStanding } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { usePublicSchool } from "@/hooks/usePublicSchool";
-import { SchoolPhoto } from "@/components/marketing/SchoolPhoto";
-import { classPhoto } from "@/lib/tdeMedia";
+import { ClassMedia } from "@/components/marketing/ClassMedia";
 import { PageMeta } from "@/components/marketing/PageMeta";
 import { PUBLIC_ORIGIN } from "@/components/marketing/PageHeadContext";
 import {
@@ -87,7 +86,6 @@ export default function PublicClassPage() {
       : availabilityFor(cls.capacity, cls.enrolled).label;
   const days = classDaysLabel(cls.days_of_week, cls.day_of_week);
   const audience = audienceText(cls);
-  const photo = classPhoto(cls);
   const AudienceIcon = cls.class_type === "adult" ? PersonStanding : Baby;
   const description = `${cls.name}${venue?.city ? ` in ${venue.city}` : ""}. ${days}, ${formatTimeRange(cls.start_time, cls.end_time)}. ${audience}. ${price.priceLabel} ${price.priceHint}.`;
 
@@ -146,7 +144,7 @@ export default function PublicClassPage() {
         {cls.class_type === "adult" ? "adult" : "children's"} classes
       </Link>
       <header className="tde-class-banner">
-        <SchoolPhoto photo={photo} eager sizes="100vw" />
+        <ClassMedia item={cls} eager sizes="100vw" />
         <div className="tde-class-banner-copy">
           <div className="tde-class-banner-tags"><span><AudienceIcon size={18} aria-hidden />{audience || (cls.class_type === "adult" ? "Adults" : "Children")}</span>{cls.dance_style && <span>{cls.dance_style}</span>}</div>
           <h1>{cls.name}</h1>

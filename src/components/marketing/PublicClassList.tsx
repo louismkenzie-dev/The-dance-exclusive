@@ -3,8 +3,7 @@ import { ArrowUpRight, Baby, CalendarDays, Clock3, MapPin, Music2, PersonStandin
 import { classDaysLabel, classPriceSummary } from "@/lib/classPresentation";
 import { audienceText } from "@/lib/classAudience";
 import { publicClassPath } from "@/lib/publicSchool";
-import { classPhoto } from "@/lib/tdeMedia";
-import { SchoolPhoto } from "./SchoolPhoto";
+import { ClassMedia } from "./ClassMedia";
 import type { PublicClass, PublicVenue } from "@/lib/publicSchool";
 
 export function PublicClassList({ classes, venues }: { classes: PublicClass[]; venues: PublicVenue[] }) {
@@ -20,7 +19,7 @@ export function PublicClassList({ classes, venues }: { classes: PublicClass[]; v
         return (
           <Link key={item.id} to={publicClassPath(item)} className="tde-photo-class" data-audience={item.class_type}>
             <div className="tde-photo-class-image">
-              <SchoolPhoto photo={classPhoto(item)} decorative sizes="(max-width: 640px) 100vw, (max-width: 1050px) 50vw, 33vw" />
+              <ClassMedia item={item} decorative sizes="(max-width: 640px) 100vw, (max-width: 1050px) 50vw, 33vw" />
               <span className="tde-photo-class-audience"><AudienceIcon size={16} aria-hidden />{item.class_type === "adult" ? "Adults" : "Children"}</span>
             </div>
             <div className="tde-photo-class-body">

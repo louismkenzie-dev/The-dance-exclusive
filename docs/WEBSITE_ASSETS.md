@@ -136,3 +136,19 @@ team grid. First-session details and location browsing remain on their dedicated
 pages. The class directory opens with compact imagery and its existing filters.
 Inputs remain at least 16px through tablet sizes to prevent iOS focus zoom;
 pinch zoom is retained.
+
+## Booking artwork on public listings — 27 September 2026
+
+Public class and camp reads now include the related workshop's `cover_image`,
+`cover_position`, `cover_zoom` and `cover_fit`, using the existing public read
+permissions. `ClassMedia` applies these through the same `WorkshopCover`
+renderer used in booking. Homepage event cards, event listings/details, class
+listings and class detail banners all prefer this attached artwork. Storage
+paths resolve in `workshop-media`; legacy full URLs are retained. General school
+photographs are used only if the attachment is missing or fails to load.
+
+Verified anonymously: NEXUS and IGNITE use their attached logos with `contain`;
+MOVE.HER uses its workshop photograph; White Court classes use their attached
+covers with saved crop/zoom. Halloween and the Christmas party currently have
+no cover attached and retain their photo fallbacks. No database or storage
+permissions were changed.

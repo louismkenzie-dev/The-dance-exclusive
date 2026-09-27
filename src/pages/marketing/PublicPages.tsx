@@ -1,5 +1,5 @@
-import { tdePhoto, classPhoto } from "@/lib/tdeMedia";
-import { SchoolPhoto } from "@/components/marketing/SchoolPhoto";
+import { tdePhoto } from "@/lib/tdeMedia";
+import { ClassMedia } from "@/components/marketing/ClassMedia";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowUpRight, MapPin } from "lucide-react";
 import { usePublicSchool } from "@/hooks/usePublicSchool";
@@ -290,7 +290,7 @@ export default function PublicPages() {
           </span>
           <h1>{camp.name}</h1>
         </div>
-        <div className="tde-event-banner"><SchoolPhoto photo={classPhoto(camp)} eager sizes="100vw" /></div>
+        <div className="tde-event-banner"><ClassMedia item={camp} eager sizes="100vw" /></div>
         <div className="tde-event-detail">
           <p className="tde-prose">
             {camp.description ||
@@ -381,7 +381,7 @@ export default function PublicPages() {
         <div className="tde-event-list">
           {school.camps.map((camp) => (
             <Link to={`/events/${camp.id}`} key={camp.id} data-audience={camp.class_type} className="tde-photo-event">
-              <SchoolPhoto photo={classPhoto(camp)} decorative sizes="(max-width: 640px) 100vw, 240px" />
+              <ClassMedia item={camp} decorative sizes="(max-width: 640px) 100vw, 240px" />
               <span>{shortDateRange(camp.start_date, camp.end_date)}</span>
               <h3>{camp.name}</h3>
               <span>{camp.class_type === "adult" ? "Adults" : "Children"}</span>

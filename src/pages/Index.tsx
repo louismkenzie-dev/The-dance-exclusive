@@ -1,6 +1,7 @@
 import { tdePhoto } from "@/lib/tdeMedia";
 import { ClassMedia } from "@/components/marketing/ClassMedia";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { HomeIntro } from "@/components/marketing/HomeIntro";
 import { RhythmHero } from "@/components/marketing/RhythmHero";
 import { Link, Navigate } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
@@ -22,8 +23,13 @@ export default function Index() {
   const { data: school, isError, isLoading } = usePublicSchool();
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const [motion, setMotion] = useState(true);
-  const move = motion && !reducedMotion;
+  const [introComplete, setIntroComplete] = useState(false);
+  const finishIntro = useCallback(() => setIntroComplete(true), []);
+  const move = motion && !reducedMotion && introComplete;
   const home = useHomeChoreography(move);
+  useEffect(() => {
+    if (!loading && user && (role === "admin" || role === "staff")) delete document.documentElement.dataset.homeIntro;
+  }, [loading, user, role]);
   if (!loading && user && role === "admin")
     return <Navigate to="/admin" replace />;
   if (!loading && user && role === "staff")
@@ -31,6 +37,7 @@ export default function Index() {
 
   return (
     <div ref={home} className="tde-home tde-home-v2" data-motion={move ? "on" : "off"}>
+      <HomeIntro onReveal={finishIntro} />
       <PageMeta
         title="Step in. Stand out."
         description="Find your rhythm at The Dance Exclusive. Commercial and street dance for children and adults across Essex. Explore live classes, venues and events."

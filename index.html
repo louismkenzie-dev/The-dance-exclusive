@@ -4,6 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#080e16" />
+    <style>html[data-home-intro="boot"]::before{content:"";position:fixed;inset:0;background:#000;z-index:1100;pointer-events:none}</style>
+    <script>
+      // Avoid a flash of the homepage before its first-visit brand arrival.
+      // With JavaScript unavailable there is no curtain; slow/failed hydration
+      // also releases it automatically instead of blocking the site.
+      try {
+        if (location.pathname === "/" && !location.hash && sessionStorage.getItem("tde-home-intro-seen") !== "1" && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          document.documentElement.dataset.homeIntro = "boot";
+          setTimeout(function () {
+            if (document.documentElement.dataset.homeIntro === "boot") delete document.documentElement.dataset.homeIntro;
+          }, 3000);
+        }
+      } catch (_) {}
+    </script>
     <link rel="preload" href="/fonts/anton.ttf" as="font" type="font/ttf" crossorigin />
     <!--public-head:start-->
     <title>The Dance Exclusive — Dance Classes in Essex</title>

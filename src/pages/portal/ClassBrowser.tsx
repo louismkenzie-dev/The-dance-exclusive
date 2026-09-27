@@ -1,3 +1,4 @@
+import { signInPath } from "@/lib/authReturn";
 import { classPhoto } from "@/lib/tdeMedia";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -37,7 +38,7 @@ import { CampBookDialog } from "@/components/portal/CampBookDialog";
 import { AdultPassesCard } from "@/components/portal/AdultPassesCard";
 import WorkshopCover from "@/components/WorkshopCover";
 import { audienceText, isChildAgeEligible } from "@/lib/classAudience";
-import { classLinkPath } from "@/lib/classLinks";
+import { campBrowserPath, classLinkPath } from "@/lib/classLinks";
 import { availabilityFor, formatTime, formatTimeRange } from "@/lib/bookingFormat";
 import {
   campPriceLabel,
@@ -367,7 +368,7 @@ const ClassBrowser = () => {
   }, [user]);
 
   const toggleWaitlist = async (classId: string, className: string) => {
-    if (!user) { navigate("/auth"); return; }
+    if (!user) { navigate(signInPath(classLinkPath(classId))); return; }
     setWaitlistBusy(classId);
     const table = supabase.from("class_waitlist" as any) as any;
     if (waitlistClassIds.has(classId)) {
@@ -696,7 +697,7 @@ const ClassBrowser = () => {
   const handlePrimary = (c: ClassItem, state: ClassCardData["state"]) => {
     if (state === "full") { toggleWaitlist(c.id, c.name); return; }
     if (state !== "bookable") return;
-    if (!user) { navigate("/auth"); return; }
+    if (!user) { navigate(`${classLinkPath(c.id)}#choose-place`); return; }
     setQuickBookClassId(c.id);
   };
 
@@ -1090,7 +1091,7 @@ const ClassBrowser = () => {
                           <button
                             type="button"
                             onClick={() => {
-                              if (!user) { navigate("/auth"); return; }
+                              if (!user) { navigate(signInPath(campBrowserPath(camp.id, classType))); return; }
                               setBookCampId(camp.id);
                             }}
                             className="pressable inline-flex h-11 shrink-0 items-center justify-center rounded-full bg-primary px-5 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
@@ -1156,7 +1157,7 @@ const ClassBrowser = () => {
                           <Button
                             variant="soft"
                             className="h-11 rounded-full px-5 text-[15px] font-semibold"
-                            onClick={() => { if (!user) navigate("/auth"); }}
+                            onClick={() => { if (!user) navigate(signInPath(`/classes/${classType}?${searchParams}`)); }}
                           >
                             Get Tickets
                           </Button>

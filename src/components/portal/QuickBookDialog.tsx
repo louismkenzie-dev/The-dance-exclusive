@@ -1,3 +1,5 @@
+import { signInPath } from "@/lib/authReturn";
+import { classLinkPath } from "@/lib/classLinks";
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
@@ -241,7 +243,7 @@ export function QuickBookDialog({
   const selfProfileReady = isAttendeeProfileComplete(selfStudent as any);
 
   const handleAddToCart = () => {
-    if (!user) { navigate("/auth"); return; }
+    if (!user) { navigate(signInPath(`${classLinkPath(classData.id)}#choose-place`)); return; }
     if (noKidsSelected || noSessionsSelected) return;
 
     // Every booking needs a complete attendee profile for the register.

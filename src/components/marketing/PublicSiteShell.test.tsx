@@ -7,6 +7,12 @@ vi.mock("@/hooks/usePublicSchool", () => ({usePublicSchool: () => ({data: null})
 vi.mock("@/components/portal/CartButton", () => ({default: () => <button>Open basket</button>}));
 afterEach(cleanup);
 describe("customer design shell", () => {
+ it.each(["/", "/classes", "/account"])("keeps member navigation consistent on %s", (path) => {
+  render(<MemoryRouter initialEntries={[path]}><PublicSiteShell product={path === "/account"}><p>Page</p></PublicSiteShell></MemoryRouter>);
+  expect(screen.getByRole("navigation",{name:"Main navigation"})).toHaveTextContent("ClassesTimetableMy bookings");
+  expect(screen.getByRole("link",{name:"Your account"})).toHaveAttribute("href","/account");
+  expect(screen.getByRole("button",{name:"Open basket"})).toBeInTheDocument();
+ });
  it("themes portalled controls and removes the customer theme on leaving", () => {
   const {unmount} = render(<MemoryRouter initialEntries={["/account"]}><PublicSiteShell product><p>Account</p></PublicSiteShell></MemoryRouter>);
   expect(document.body).toHaveClass("tde-customer-theme");

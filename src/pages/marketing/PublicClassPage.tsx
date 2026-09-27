@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowUpRight, Baby, CalendarDays, Clock3, MapPin, PersonStanding } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { usePublicSchool } from "@/hooks/usePublicSchool";
@@ -26,12 +26,14 @@ const BookingAuth = lazy(() => import("@/pages/Auth"));
 /** Public discovery and the existing booking sheet share the same price rules. */
 export default function PublicClassPage() {
   const { classId, type } = useParams();
+  const { hash } = useLocation();
   const { user, loading: authLoading } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
   const authTitleRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     if (user) setAuthOpen(false);
-  }, [user]);
+    else if (!authLoading && hash === "#choose-place") setAuthOpen(true);
+  }, [user, authLoading, hash]);
   const { data: school, isPending, isError, refetch } = usePublicSchool();
   const cls = school?.classes.find(
     (item) => item.id === classId && item.class_type === type,

@@ -279,7 +279,7 @@ const TermDates = () => {
               body="Every date for the classes you've booked, term by term."
               action={
                 <Button asChild size="lg" className="rounded-full">
-                  <Link to="/auth">Sign in</Link>
+                  <Link to="/auth?redirect=%2Fterm-dates">Sign in</Link>
                 </Button>
               }
             />

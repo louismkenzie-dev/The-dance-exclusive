@@ -1,3 +1,4 @@
+import { signInPath } from "@/lib/authReturn";
 import CartButton from "@/components/portal/CartButton";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
@@ -49,7 +50,7 @@ export function PublicSiteShell({ children, product = false, focus = false }: { 
       <header className="tde-header">
         <div className="tde-header-signal" aria-hidden="true">Street dance<br />Commercial<br />Essex / UK</div>
         <nav className="tde-desktop-nav" aria-label="Main navigation">
-          {product ? <><Link to="/classes">Classes</Link><Link to="/timetable">Timetable</Link><Link to="/account/bookings">My bookings</Link></> : <><Link to="/classes?type=children">Children</Link><Link to="/classes?type=adult">Adults</Link><Link to="/venues">Locations</Link></>}
+          {user ? <><Link to="/classes">Classes</Link><Link to="/timetable">Timetable</Link><Link to="/account/bookings">My bookings</Link></> : <><Link to="/classes?type=children">Children</Link><Link to="/classes?type=adult">Adults</Link><Link to="/venues">Locations</Link></>}
         </nav>
         <Link
           to="/"
@@ -59,12 +60,12 @@ export function PublicSiteShell({ children, product = false, focus = false }: { 
           <BrandLogo tone="ink" className="h-11" />
         </Link>
         <div className="tde-header-right">
-          {(user || product) && !focus && <div className="tde-booking-theme"><CartButton /></div>}
+          {!focus && <div className="tde-booking-theme"><CartButton /></div>}
           <Link
-            to={user ? "/account/bookings" : "/auth"}
+            to={user ? "/account" : signInPath(pathname + search)}
             className="tde-account"
           >
-            {user ? "My bookings" : "Member login"}
+            {user ? "Your account" : "Member login"}
           </Link>
           <Link to="/classes" className="tde-button tde-header-cta">
             Find your class <ArrowUpRight size={17} aria-hidden />
@@ -95,7 +96,7 @@ export function PublicSiteShell({ children, product = false, focus = false }: { 
               </nav>
               <div className="tde-menu-small">
                 <Link to="/contact">Get in touch</Link>
-                <Link to={user ? "/account" : "/auth"}>
+                <Link to={user ? "/account" : signInPath(pathname + search)}>
                   {user ? "Your account" : "Member login"}
                 </Link>
                 <Link to="/term-dates">Term dates</Link>
@@ -113,7 +114,7 @@ export function PublicSiteShell({ children, product = false, focus = false }: { 
         <NavLink to="/" end><House size={21} aria-hidden /><span>Home</span></NavLink>
         <NavLink to="/classes"><CalendarDays size={21} aria-hidden /><span>Classes</span></NavLink>
         <NavLink to={user ? "/timetable" : "/venues"}>{user ? <CalendarDays size={21} aria-hidden /> : <MapPin size={21} aria-hidden />}<span>{user ? "Timetable" : "Locations"}</span></NavLink>
-        <NavLink to={user ? "/account" : "/auth"}><UserRound size={21} aria-hidden /><span>{user ? "Account" : "Sign in"}</span></NavLink>
+        <NavLink to={user ? "/account" : signInPath(pathname + search)}><UserRound size={21} aria-hidden /><span>{user ? "Account" : "Sign in"}</span></NavLink>
       </nav>}
       {product ? <footer className="tde-product-footer"><Link to="/classes">Find your class <ArrowUpRight size={16} aria-hidden /></Link><Link to="/info">Booking information</Link><Link to="/contact">Need a hand?</Link><span>© {new Date().getFullYear()} The Dance Exclusive</span></footer> :
       <footer className="tde-footer">

@@ -1,3 +1,5 @@
+import { signInPath } from "@/lib/authReturn";
+import { campBrowserPath } from "@/lib/classLinks";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
@@ -118,7 +120,7 @@ export function CampBookDialog({ open, onOpenChange, camp, children, onNeedChild
   const total = round2(pricePerChild * Math.max(selKids.length, 1));
 
   const handleAdd = () => {
-    if (!user) { navigate("/auth"); return; }
+    if (!user) { navigate(signInPath(campBrowserPath(camp.id, camp.class_type))); return; }
     if (noKids || noDays) return;
 
     const incomplete = selKids
@@ -241,7 +243,7 @@ export function CampBookDialog({ open, onOpenChange, camp, children, onNeedChild
               className="rounded-full px-6"
               disabled={!!user && children.length > 0 && (noKids || noDays)}
               onClick={() => {
-                if (!user) { navigate("/auth"); return; }
+                if (!user) { navigate(signInPath(campBrowserPath(camp.id, camp.class_type))); return; }
                 if (children.length === 0) { onNeedChild(null); return; }
                 handleAdd();
               }}

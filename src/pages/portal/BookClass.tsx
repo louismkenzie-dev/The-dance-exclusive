@@ -1,3 +1,4 @@
+import { signInPath } from "@/lib/authReturn";
 import { classPhoto } from "@/lib/tdeMedia";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
@@ -155,7 +156,7 @@ const INVITE_ONLY_NOTE =
 const BookClass = ({ embedded = false }: { embedded?: boolean } = {}) => {
   const { classId } = useParams();
   const navigate = useNavigate();
-  const { pathname, hash } = useLocation();
+  const { pathname, search, hash } = useLocation();
   const { user } = useAuth();
 
   const [status, setStatus] = useState<"loading" | "ready" | "missing" | "error">("loading");
@@ -285,7 +286,7 @@ const BookClass = ({ embedded = false }: { embedded?: boolean } = {}) => {
 
   const toggleWaitlist = async () => {
     if (!cls) return;
-    if (!user) { navigate("/auth"); return; }
+    if (!user) { navigate(signInPath(pathname + search + hash)); return; }
     setWaitlistBusy(true);
     const table = supabase.from("class_waitlist" as any) as any;
     if (onWaitlist) {
@@ -419,7 +420,7 @@ const BookClass = ({ embedded = false }: { embedded?: boolean } = {}) => {
     if (state === "full") { void toggleWaitlist(); return; }
     if (state !== "bookable") return;
     if (!user) {
-      navigate(`/auth?mode=signup&redirect=${encodeURIComponent(pathname)}`);
+      navigate(signInPath(`${pathname}${search}#choose-place`, "signup"));
       return;
     }
     setPresetPlan(plan);

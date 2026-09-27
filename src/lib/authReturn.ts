@@ -6,3 +6,10 @@ export function safeReturnPath(value: string | null | undefined): string {
     return url.origin === "https://tde.invalid" ? `${url.pathname}${url.search}${url.hash}` : "/";
   } catch { return "/"; }
 }
+
+/** One same-origin sign-in handoff, preserving the visitor's next task. */
+export function signInPath(returnTo: string, mode?: "signup"): string {
+  const params = new URLSearchParams({ redirect: safeReturnPath(returnTo) });
+  if (mode) params.set("mode", mode);
+  return `/auth?${params}`;
+}

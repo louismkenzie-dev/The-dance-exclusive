@@ -1,3 +1,4 @@
+import { signInPath } from "@/lib/authReturn";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO } from "date-fns";
@@ -92,7 +93,7 @@ export function AdultPassesCard({ sessionOptions, selfStudent, onRedeemed }: Adu
     (birthdayCountdown != null && birthdayCountdown <= BIRTHDAY_CLASS_EARLY_DAYS);
 
   const buyPass = (pass: PassDef) => {
-    if (!user) { navigate("/auth"); return; }
+    if (!user) { navigate(signInPath("/classes/adult#class-passes")); return; }
     const type = pass.code;
     if (cartItems.some((ci) => ci.itemKind === "pass" && ci.passType === type)) {
       toast.info("That pass is already in your basket");
@@ -130,7 +131,7 @@ export function AdultPassesCard({ sessionOptions, selfStudent, onRedeemed }: Adu
 
   return (
     <>
-      <section className="surface p-5 sm:p-6" aria-label="Class passes">
+      <section id="class-passes" className="surface p-5 sm:p-6" aria-label="Class passes">
         <h2 className="text-xl font-semibold tracking-tight text-foreground">Class passes</h2>
         <p className="mt-1.5 max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
           Mix and match any adult classes — each pass shows how many classes it

@@ -7,10 +7,17 @@ vi.mock("@/contexts/AuthContext",()=>({useAuth:()=>({user:mocks.user,loading:fal
 vi.mock("@/pages/portal/BookClass",()=>({default:({embedded}:{embedded:boolean})=><section aria-label="Existing booking controls">{embedded ? "Embedded attendee and plan controls" : "Old page"}</section>}));
 vi.mock("@/hooks/usePublicSchool",()=>({usePublicSchool:()=>({isPending:false,isError:false,data:{classes:[{id:"white",name:"White Court Street Dance",class_type:"children",age_min:6,age_max:11,day_of_week:"tuesday",start_time:"08:00",end_time:"08:45",price_per_term:91,allow_termly:true,allow_monthly:false,allow_yearly:false,allow_trial:false,capacity:30,enrolled:4,booking_enabled:true,is_active:true,publicly_visible:true,status:"confirmed",remainingSessions:10,sessions:[]}],venues:[],coaches:[]}})}));
 function Location(){const l=useLocation();return <output data-testid="route">{l.pathname}{l.hash}</output>;}
-function setup(){return render(<MemoryRouter initialEntries={["/classes/children/white"]}><Location/><Routes><Route path="/classes/:type/:classId" element={<PublicClassPage/>}/></Routes></MemoryRouter>);}
+function setup(path="/classes/children/white"){return render(<MemoryRouter initialEntries={[path]}><Location/><Routes><Route path="/classes/:type/:classId" element={<PublicClassPage/>}/></Routes></MemoryRouter>);}
 afterEach(cleanup);
 beforeEach(()=>{mocks.user=null;mocks.signIn.mockReset().mockResolvedValue({error:null});Element.prototype.scrollIntoView=vi.fn();});
 describe("unified class and authentication page",()=>{
+ it("opens the same class login popup when Book was pressed in the calendar",async()=>{
+  setup("/classes/children/white#choose-place");
+  expect(await screen.findByRole("dialog",{name:"Sign up or sign in to book"})).toBeVisible();
+  fireEvent.click(screen.getByRole("button",{name:"Close"}));
+  await waitFor(()=>expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(screen.getByRole("heading",{name:"White Court Street Dance"})).toBeVisible();
+ });
  it("opens sign-in and signup in a modal without scrolling or navigating away",async()=>{
   setup();
   expect(screen.getByRole("heading",{name:"White Court Street Dance"})).toBeVisible();

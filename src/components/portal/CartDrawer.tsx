@@ -1,3 +1,4 @@
+import { signInPath } from "@/lib/authReturn";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ChevronDown, Pencil, Trash2, X } from "lucide-react";
@@ -133,7 +134,7 @@ const CartDrawer = () => {
     if (!user) {
       toast({ title: "Sign in required", description: "Please sign in to complete your booking.", variant: "destructive" });
       setIsOpen(false);
-      navigate("/auth");
+      navigate(signInPath("/checkout"));
       return;
     }
     setIsOpen(false);

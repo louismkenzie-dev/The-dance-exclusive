@@ -90,3 +90,12 @@ Changed public components passed ESLint. The two existing portal files retain
 50 pre-existing lint findings, with zero new findings versus HEAD. Impeccable
 flagged two existing Inter declarations; these are retained to match the booking
 system typography requested by the user.
+
+## Uniform blue coach portraits — 27 September 2026
+
+All 12 published coach photos have separate GPT Image edits with rectangular
+4:5 framing and a shared blue studio backdrop. These are AI-edited versions of
+the real source portraits; original uploads remain unchanged. Prompt set,
+provenance and delivery details: [coach portraits](design/coach-portraits/prompts.md).
+The public website uses the edits only while each coach's original source path
+matches the manifest, so a later staff photo change is not hidden by an override.

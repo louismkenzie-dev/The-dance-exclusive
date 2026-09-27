@@ -4,11 +4,11 @@ import { ArrowUpRight, Plus } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { coachPath, type PublicCoach } from "@/lib/publicSchool";
 import { isFounderCoach, orderPublicCoaches, publicCoachTitle } from "@/lib/publicCoaches";
-import { coachPhotoUrl } from "@/lib/staffPhoto";
+import { publicCoachPhoto } from "@/lib/publicCoachPhoto";
 
 function CoachPhotoCard({ coach }: { coach: PublicCoach }) {
   const [previewDismissed, setPreviewDismissed] = useState(false);
-  const image = coachPhotoUrl(coach.profile_photo);
+  const image = publicCoachPhoto(coach);
   const title = publicCoachTitle(coach);
   const bio = coach.description?.trim();
   const intro = bio ? bio.split(/\n\s*\n/)[0] : "Get to know the person behind the moves. Explore their current classes.";
@@ -26,7 +26,7 @@ function CoachPhotoCard({ coach }: { coach: PublicCoach }) {
           onKeyDown={(event) => { if (event.key === "Escape") setPreviewDismissed(true); }}
         >
           <span className="tde-team-portrait">
-            {image ? <img src={image} alt="" loading="lazy" width="400" height="400" /> : <span className="tde-team-initial" aria-hidden="true">{coach.first_name?.[0]}</span>}
+            {image ? <img src={image} alt="" loading="lazy" width="800" height="1000" /> : <span className="tde-team-initial" aria-hidden="true">{coach.first_name?.[0]}</span>}
           </span>
           <span className="tde-team-caption">
             <span><strong>{coach.first_name}</strong><span className="tde-team-role">{title}</span></span>
@@ -41,7 +41,7 @@ function CoachPhotoCard({ coach }: { coach: PublicCoach }) {
       <DialogContent className="tde-coach-dialog">
         <div className="tde-coach-dialog-layout">
           <div className="tde-coach-dialog-portrait">
-            {image ? <img src={image} alt={`${coach.first_name}, ${title}`} width="400" height="400" /> : <span className="tde-team-initial" aria-hidden="true">{coach.first_name?.[0]}</span>}
+            {image ? <img src={image} alt={`${coach.first_name}, ${title}`} width="800" height="1000" /> : <span className="tde-team-initial" aria-hidden="true">{coach.first_name?.[0]}</span>}
           </div>
           <div className="tde-coach-dialog-copy">
             <span className="tde-coach-dialog-role">{title}</span>

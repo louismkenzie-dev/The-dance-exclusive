@@ -9,7 +9,7 @@ import { PublicClassList } from "@/components/marketing/PublicClassList";
 import { DiscoveryHero } from "@/components/marketing/DiscoveryHero";
 import { MotionMedia } from "@/components/marketing/MotionMedia";
 import { CoachPhotoGrid } from "@/components/marketing/CoachProfiles";
-import { coachPhotoUrl } from "@/lib/staffPhoto";
+import { publicCoachPhoto } from "@/lib/publicCoachPhoto";
 import { coachPath, venuePath } from "@/lib/publicSchool";
 import { publicCoachTitle } from "@/lib/publicCoaches";
 import { campPriceLabel, shortDateRange } from "@/lib/classPresentation";
@@ -175,7 +175,7 @@ export default function PublicPages() {
   if (coachId) {
     const coach = school.coaches.find((item) => item.id === coachId);
     if (!coach) return <Missing back="/team" label="coach" />;
-    const image = coachPhotoUrl(coach.profile_photo);
+    const image = publicCoachPhoto(coach);
     const title = publicCoachTitle(coach);
     return (
       <article className="tde-directory tde-paper">

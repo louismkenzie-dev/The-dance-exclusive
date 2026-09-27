@@ -11,7 +11,7 @@ import { MotionMedia } from "@/components/marketing/MotionMedia";
 import {
   shortDateRange,
 } from "@/lib/classPresentation";
-import { HomeClassFinder, HomeLocations } from "@/components/marketing/HomeDiscovery";
+import { HomeLocations } from "@/components/marketing/HomeDiscovery";
 import { CoachPhotoGrid } from "@/components/marketing/CoachProfiles";
 import { ScrollDanceStudio } from "@/components/marketing/ScrollDanceStudio";
 import { PageMeta } from "@/components/marketing/PageMeta";
@@ -118,7 +118,6 @@ export default function Index() {
             </Link>
           ))}
         </div>
-        <HomeClassFinder school={school} loading={isLoading} error={isError} />
       </section>
 
       <DanceScrollScene active={move} reduced={reducedMotion} onToggle={() => setMotion(value => !value)} />

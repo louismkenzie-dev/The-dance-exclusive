@@ -208,9 +208,9 @@
 .tde-coach-photo > .tde-no-image { aspect-ratio: 1; border-radius: 50%; }
 .tde-coach-photo .tde-media img { filter: none; }
 .tde-coach-profile .tde-profile-media {
-  aspect-ratio: 1;
+  aspect-ratio: 4 / 5;
   width: 100%;
-  border-radius: 50%;
+  border-radius: 0;
   background: transparent;
   align-self: start;
 }
@@ -537,11 +537,11 @@
 
 /* Everyone together: a photo grid, with hover previews and touch biographies. */
 .tde-team-photo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
-.tde-team-photo-card { position: relative; min-width: 0; aspect-ratio: 1; padding: 0; text-align: left; border: 1px solid #ffffff28; border-radius: 24px; background: radial-gradient(ellipse at 50% 30%, #143951, #08131f 85%); color: #f6f8fb; isolation: isolate; overflow: hidden; cursor: pointer; transition: transform 250ms, border-color 250ms, box-shadow 250ms; }
+.tde-team-photo-card { position: relative; min-width: 0; aspect-ratio: 4 / 5; padding: 0; text-align: left; border: 1px solid #ffffff28; border-radius: 24px; background: radial-gradient(ellipse at 50% 30%, #143951, #08131f 85%); color: #f6f8fb; isolation: isolate; overflow: hidden; cursor: pointer; transition: transform 250ms, border-color 250ms, box-shadow 250ms; }
 .tde-team-founder { border-color: #75dfff; box-shadow: 0 0 0 1px #00b0e050; }
-.tde-team-portrait { display: block; position: absolute; inset: 12px 12px 62px; transition: transform 350ms; }
-.tde-team-portrait > img { width: 100%; height: 100%; object-fit: contain; }
-.tde-team-initial { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; background: #12384e; color: #79e0ff; font: 900 90px "TDE Intro", Inter, sans-serif; }
+.tde-team-portrait { display: block; position: absolute; inset: 0; transition: transform 350ms; }
+.tde-team-portrait > img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+.tde-team-initial { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 0; background: #12384e; color: #79e0ff; font: 900 90px "TDE Intro", Inter, sans-serif; }
 .tde-team-caption { position: absolute; inset: auto 0 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 22px; background: linear-gradient(transparent, #08131f 28%); }
 .tde-team-caption strong { display: block; font: 600 26px / 1.15 Inter, sans-serif; }
 .tde-team-role { display: block; font-size: 12px; color: #83e1fa; margin-top: 5px; }
@@ -562,8 +562,8 @@
 }
 .tde-coach-dialog[role="dialog"] { --accent: 193 60% 18%; --muted: 210 35% 15%; --muted-foreground: 195 70% 85%; --ring: 193 100% 44%; background: #0a1724; color: #f6f8fb; border: 1px solid #00b0e060; width: min(960px, 95vw); max-width: 960px; padding: 48px 35px 35px; font-family: Inter, sans-serif; }
 .tde-coach-dialog-layout { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 36px; align-items: start; }
-.tde-coach-dialog-portrait { position: sticky; top: 0; aspect-ratio: 1; }
-.tde-coach-dialog-portrait img { width: 100%; height: 100%; object-fit: contain; }
+.tde-coach-dialog-portrait { position: sticky; top: 0; aspect-ratio: 4 / 5; overflow: hidden; }
+.tde-coach-dialog-portrait img { width: 100%; height: 100%; object-fit: cover; }
 .tde-coach-dialog-role { color: #76ddfa; font-size: 12px; text-transform: uppercase; letter-spacing: 0.09em; }
 .tde-coach-dialog-copy h2 { font: 900 clamp(36px, 5vw, 58px) / 1 "TDE Intro", Inter, sans-serif; margin: 12px 0 24px; }
 .tde-coach-dialog-copy > p { white-space: pre-line; font-size: 14px; line-height: 1.75; color: #c6d4e2; }
@@ -573,7 +573,7 @@
 .tde-coach-dialog :focus-visible { outline: 2px solid #00b0e0; outline-offset: 4px; }
 @media (min-width: 700px) and (max-width: 1000px) {
   .tde-team-photo-grid { gap: 15px; }
-  .tde-team-photo-card { aspect-ratio: 0.86; border-radius: 18px; }
+  .tde-team-photo-card { aspect-ratio: 4 / 5; border-radius: 0; }
   .tde-team-caption { padding: 16px 14px; }
   .tde-team-caption strong { font-size: 22px; }
   .tde-team-peek { padding-inline: 14px; font-size: 12px; }
@@ -581,8 +581,8 @@
 }
 @media (max-width: 699px) {
   .tde-team-photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
-  .tde-team-photo-card { aspect-ratio: 0.78; border-radius: 17px; }
-  .tde-team-portrait { inset: 7px 7px 65px; }
+  .tde-team-photo-card { aspect-ratio: 4 / 5; border-radius: 0; }
+  .tde-team-portrait { inset: 0; }
   .tde-team-caption { padding: 12px; gap: 5px; }
   .tde-team-caption strong { font-size: 21px; }
   .tde-team-role { font-size: 10px; line-height: 1.3; }

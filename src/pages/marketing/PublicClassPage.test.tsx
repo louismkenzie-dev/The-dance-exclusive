@@ -11,29 +11,37 @@ function setup(){return render(<MemoryRouter initialEntries={["/classes/children
 afterEach(cleanup);
 beforeEach(()=>{mocks.user=null;mocks.signIn.mockReset().mockResolvedValue({error:null});Element.prototype.scrollIntoView=vi.fn();});
 describe("unified class and authentication page",()=>{
- it("opens the real sign-in and signup form beneath the class without navigating away",async()=>{
+ it("opens sign-in and signup in a modal without scrolling or navigating away",async()=>{
   setup();
   expect(screen.getByRole("heading",{name:"White Court Street Dance"})).toBeVisible();
-  fireEvent.click(screen.getByRole("link",{name:"Sign up / sign in to book"}));
+  fireEvent.click(screen.getByRole("button",{name:"Sign up / sign in to book"}));
   const form=await screen.findByRole("region",{name:"Sign up or sign in to book"},{timeout:5000});
+  expect(screen.getByRole("dialog",{name:"Sign up or sign in to book"})).toContainElement(form);
+  expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
   expect(within(form).getByLabelText("Email")).toBeVisible();
   expect(screen.getByTestId("route")).toHaveTextContent("/classes/children/white");
   fireEvent.click(within(form).getByRole("button",{name:"Create account"}));
   expect(within(form).getByRole("heading",{name:"Create your account"})).toBeVisible();
+  fireEvent.click(screen.getByRole("button",{name:"Close"}));
+  await waitFor(()=>expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(screen.getByRole("button",{name:"Sign up / sign in to book"})).toHaveFocus();
  });
  it("returns a successful sign-in to this class's booking anchor",async()=>{
-  setup();fireEvent.click(screen.getByRole("link",{name:"Sign up / sign in to book"}));
+  mocks.signIn.mockImplementation(async()=>{mocks.user={id:"parent-test"};return {error:null};});
+  setup();fireEvent.click(screen.getByRole("button",{name:"Sign up / sign in to book"}));
   const form=await screen.findByRole("region",{name:"Sign up or sign in to book"},{timeout:5000});
   fireEvent.change(within(form).getByLabelText("Email"),{target:{value:"test@example.com"}});
   fireEvent.change(within(form).getByLabelText("Password",{exact:true}),{target:{value:"test-only-password"}});
   fireEvent.submit(within(form).getByLabelText("Email").closest("form")!);
   await waitFor(()=>expect(mocks.signIn).toHaveBeenCalledWith("test@example.com","test-only-password"));
   await waitFor(()=>expect(screen.getByTestId("route")).toHaveTextContent("/classes/children/white#choose-place"));
+  expect(await screen.findByRole("region",{name:"Existing booking controls"})).toBeVisible();
+  await waitFor(()=>expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
  });
  it("shows existing booking controls inline for an authenticated parent and keeps the class banner",async()=>{
   mocks.user={id:"parent-test"};setup();
   expect(await screen.findByRole("region",{name:"Existing booking controls"})).toHaveTextContent("Embedded attendee and plan controls");
   expect(screen.getByRole("heading",{name:"White Court Street Dance"})).toBeVisible();
-  expect(screen.queryByRole("link",{name:"Sign up / sign in to book"})).not.toBeInTheDocument();
+  expect(screen.queryByRole("button",{name:"Sign up / sign in to book"})).not.toBeInTheDocument();
  });
 });

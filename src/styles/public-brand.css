@@ -866,6 +866,18 @@
 }
 .tde-inline-auth { max-width: 520px; margin: auto; padding: 32px; border: 1px solid hsl(var(--border)); border-radius: 16px; background: hsl(var(--card)); }
 .tde-inline-auth h2 { font-size: 28px; margin-bottom: 12px; }
+.tde-booking-theme.tde-booking-auth-dialog { max-width: 560px; max-height: calc(100dvh - 24px); padding: 0; gap: 0; background: hsl(var(--card)); overscroll-behavior: contain; }
+.tde-booking-auth-dialog .tde-inline-auth { width: 100%; max-width: none; margin: 0; padding: 48px 28px 28px; border: 0; border-radius: 0; }
+.tde-booking-auth-dialog .tde-inline-auth h2 { font: 600 26px / 1.2 Inter, sans-serif; letter-spacing: -.02em; }
+.tde-booking-auth-dialog > button:last-child { min-width: 44px; min-height: 44px; top: 4px; right: 4px; }
+@media (max-width: 767px) {
+  .tde-booking-theme.tde-booking-auth-dialog { max-width: none; max-height: calc(100dvh - max(12px, env(safe-area-inset-top))); }
+  .tde-booking-auth-dialog .tde-inline-auth { padding: 44px 20px max(24px, env(safe-area-inset-bottom)); }
+  .tde-booking-auth-dialog > div[aria-hidden="true"] { margin-top: 10px; margin-bottom: -16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tde-booking-theme.tde-booking-auth-dialog { animation: none !important; }
+}
 .tde-booking-auth-area, .tde-booking-form-area { scroll-margin-top: 110px; margin-top: 48px; }
 .tde-inline-booking { max-width: 760px; margin-inline: auto; padding: 32px; border: 1px solid hsl(var(--border)); border-radius: 16px; background: hsl(var(--card)); }
 .tde-embedded-class .container { padding-inline: 0; }

@@ -1,10 +1,11 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowUpRight, Baby, CalendarDays, Clock3, MapPin, PersonStanding } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { usePublicSchool } from "@/hooks/usePublicSchool";
 import { ClassMedia } from "@/components/marketing/ClassMedia";
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { PageMeta } from "@/components/marketing/PageMeta";
 import { PUBLIC_ORIGIN } from "@/components/marketing/PageHeadContext";
 import {
@@ -27,11 +28,10 @@ export default function PublicClassPage() {
   const { classId, type } = useParams();
   const { user, loading: authLoading } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
+  const authTitleRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
-    if (!authOpen) return;
-    const frame = requestAnimationFrame(() => document.getElementById("choose-place")?.scrollIntoView({ block: "start", behavior: "auto" }));
-    return () => cancelAnimationFrame(frame);
-  }, [authOpen]);
+    if (user) setAuthOpen(false);
+  }, [user]);
   const { data: school, isPending, isError, refetch } = usePublicSchool();
   const cls = school?.classes.find(
     (item) => item.id === classId && item.class_type === type,
@@ -90,6 +90,7 @@ export default function PublicClassPage() {
   const description = `${cls.name}${venue?.city ? ` in ${venue.city}` : ""}. ${days}, ${formatTimeRange(cls.start_time, cls.end_time)}. ${audience}. ${price.priceLabel} ${price.priceHint}.`;
 
   return (
+    <Dialog open={authOpen && !user} onOpenChange={setAuthOpen}>
     <article className="tde-directory tde-paper" data-audience={cls.class_type}>
       <PageMeta
         title={`${cls.name}${venue?.city ? ` in ${venue.city}` : ""}`}
@@ -277,10 +278,10 @@ export default function PublicClassPage() {
               </Link>
             </>
           ) : (
-            <a href="#choose-place" className="tde-button" onClick={() => setAuthOpen(true)} aria-expanded={authOpen}>
+            <DialogTrigger asChild><button type="button" className="tde-button" disabled={authLoading}>
               {authLoading ? "Checking your account…" : "Sign up / sign in to book"}
               <ArrowUpRight size={20} aria-hidden />
-            </a>
+            </button></DialogTrigger>
           )}
           <p className="tde-booking-note">
             {cls.allow_trial && cls.class_type === "children"
@@ -290,12 +291,16 @@ export default function PublicClassPage() {
           </p>
         </aside>
       </div>
-      {authOpen && <div id="choose-place" className="tde-booking-auth-area">
-        <Suspense fallback={<p role="status">Loading sign in…</p>}>
-          <BookingAuth embedded returnTo={`${publicClassPath(cls)}#choose-place`} />
-        </Suspense>
-      </div>}
       </>}
     </article>
+    <DialogContent className={`tde-booking-theme tde-booking-auth-dialog${cls.class_type === "adult" ? " tde-booking-adult" : ""}`} data-audience={cls.class_type}
+      onOpenAutoFocus={event => { event.preventDefault(); authTitleRef.current?.focus(); }}>
+      <DialogTitle ref={authTitleRef} tabIndex={-1} className="sr-only">Sign up or sign in to book</DialogTitle>
+      <DialogDescription className="sr-only">Continue booking {cls.name}. Close this window to return to the class details.</DialogDescription>
+      <Suspense fallback={<p className="p-8" role="status">Loading sign in…</p>}>
+        <BookingAuth embedded returnTo={`${publicClassPath(cls)}#choose-place`} />
+      </Suspense>
+    </DialogContent>
+    </Dialog>
   );
 }

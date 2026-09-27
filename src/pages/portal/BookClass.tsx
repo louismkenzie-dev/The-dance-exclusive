@@ -458,6 +458,27 @@ const BookClass = ({ embedded = false }: { embedded?: boolean } = {}) => {
     </Button>
   );
 
+  const bookingForm = embedded && attendeeStatus !== "ready" ? (
+    <div className="tde-inline-booking" role="status">
+      {attendeeStatus === "loading" ? "Loading your attendee profiles…" : <>
+        <p>We couldn’t load your attendee profiles. Try again to choose who’s dancing.</p>
+        <Button className="mt-4" onClick={() => void fetchAttendees()}>Try again</Button>
+      </>}
+    </div>
+  ) : <QuickBookDialog
+    inline={embedded}
+    open={embedded ? state === "bookable" : bookOpen}
+    onOpenChange={(o) => { if (!o) setBookOpen(false); }}
+    classData={embedded || bookOpen ? cls : null}
+    sessions={sessions}
+    children={children}
+    hasExistingBookings={trialGate}
+    presetPlan={presetPlan}
+    isAdult={isAdult}
+    selfStudent={selfStudent}
+    onChildrenChanged={fetchAttendees}
+  />;
+
   return (
     <div className={embedded ? "tde-booking-theme portal-ui tde-embedded-class" : "bg-background"}>
       {embedded && <div className="mt-6 flex flex-wrap items-center justify-between gap-4 lg:hidden">
@@ -473,7 +494,7 @@ const BookClass = ({ embedded = false }: { embedded?: boolean } = {}) => {
           All {isAdult ? "adult" : "children's"} classes
         </Link>}
 
-        <div className="mt-4 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-12 xl:gap-16">
+        <div className={embedded ? "tde-embedded-booking-grid" : "mt-4 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-12 xl:gap-16"}>
           <div className="min-w-0 lg:max-w-2xl">
             {!embedded && cover && (
               <div className="-mx-4 aspect-[16/9] overflow-hidden bg-muted sm:mx-0 sm:rounded-2xl">
@@ -664,9 +685,9 @@ const BookClass = ({ embedded = false }: { embedded?: boolean } = {}) => {
             )}
           </div>
 
-          {/* Desktop: the price and the one action stay in view */}
-          <aside className="hidden lg:block">
-            <div className="surface sticky top-32 p-6">
+          {/* The public page keeps the actual booking controls beside the timetable. */}
+          <aside id={embedded ? "choose-place" : undefined} className={embedded ? "tde-booking-column" : "hidden lg:block"} aria-label="Book this class">
+            {embedded && state === "bookable" ? bookingForm : <div className="surface sticky top-32 p-6">
               <p className="text-[13px] font-medium text-muted-foreground">{headlinePrice.caption}</p>
               <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums text-foreground">
                 {headlinePrice.label}
@@ -676,7 +697,7 @@ const BookClass = ({ embedded = false }: { embedded?: boolean } = {}) => {
               <AvailabilityPill availability={availability} className="mt-2" />
               {ctaButton("mt-5 w-full")}
               <p className="mt-3 text-center text-[13px] leading-relaxed text-muted-foreground">{nextStepNote}</p>
-            </div>
+            </div>}
           </aside>
         </div>
       </div>
@@ -695,28 +716,7 @@ const BookClass = ({ embedded = false }: { embedded?: boolean } = {}) => {
       </StickyActionBar>
       </>}
 
-      <div id={embedded ? "choose-place" : undefined} className={embedded ? "tde-booking-form-area" : undefined}>
-      {embedded && attendeeStatus !== "ready" ? (
-        <div className="tde-inline-booking" role="status">
-          {attendeeStatus === "loading" ? "Loading your attendee profiles…" : <>
-            <p>We couldn’t load your attendee profiles. Try again to choose who’s dancing.</p>
-            <Button className="mt-4" onClick={() => void fetchAttendees()}>Try again</Button>
-          </>}
-        </div>
-      ) : <QuickBookDialog
-        inline={embedded}
-        open={embedded ? state === "bookable" : bookOpen}
-        onOpenChange={(o) => { if (!o) setBookOpen(false); }}
-        classData={embedded || bookOpen ? cls : null}
-        sessions={sessions}
-        children={children}
-        hasExistingBookings={trialGate}
-        presetPlan={presetPlan}
-        isAdult={isAdult}
-        selfStudent={selfStudent}
-        onChildrenChanged={fetchAttendees}
-      />}
-      </div>
+      {!embedded && bookingForm}
     </div>
   );
 };

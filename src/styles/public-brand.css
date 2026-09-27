@@ -880,6 +880,13 @@
 }
 .tde-booking-auth-area, .tde-booking-form-area { scroll-margin-top: 110px; margin-top: 48px; }
 .tde-inline-booking { max-width: 760px; margin-inline: auto; padding: 32px; border: 1px solid hsl(var(--border)); border-radius: 16px; background: hsl(var(--card)); }
+.tde-embedded-booking-grid { display: grid; gap: 32px; margin-top: 24px; align-items: start; }
+.tde-booking-column { min-width: 0; scroll-margin-top: 110px; }
+.tde-booking-column .tde-inline-booking { width: 100%; max-width: none; margin: 0; }
+@media (min-width: 1024px) {
+  .tde-embedded-booking-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: clamp(24px, 3vw, 48px); }
+  .tde-booking-column .tde-inline-booking { padding: clamp(20px, 2vw, 32px); }
+}
 .tde-embedded-class .container { padding-inline: 0; }
 .tde-embedded-class h2, .tde-public-timetable h3, .tde-public-timetable h4 { font-family: Inter, sans-serif; text-transform: none; letter-spacing: -.02em; }
 .tde-embedded-class h2 { font-size: 24px; }

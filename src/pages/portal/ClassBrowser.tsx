@@ -8,7 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useInvitedPlans, trialGateFor } from "@/hooks/useInvitedPlans";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PostcodeSearchForm } from "@/components/booking/PostcodeSearchForm";
+import { searchPostcode } from "@/lib/postcodeSearch";
 import {
   Chip,
   ChipRow,
@@ -424,16 +425,9 @@ const ClassBrowser = () => {
     setSearchLoading(true);
     setSearchError("");
     try {
-      const res = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(cleaned)}`);
-      const json = await res.json();
-      if (json.status === 200 && json.result) {
-        setSearchCoords({ lat: json.result.latitude, lon: json.result.longitude });
-      } else {
-        setSearchError("Postcode not found. Please try again.");
-        setSearchCoords(null);
-      }
-    } catch {
-      setSearchError("Could not search postcode. Please try again.");
+      setSearchCoords(await searchPostcode(cleaned));
+    } catch (error) {
+      setSearchError(error instanceof Error ? error.message : "Could not search postcode. Please try again.");
       setSearchCoords(null);
     }
     setSearchLoading(false);
@@ -775,20 +769,7 @@ const ClassBrowser = () => {
           )}
         </div>
       ) : searchOpen ? (
-        <form onSubmit={submitPostcode} className="flex items-center gap-2">
-          <Input
-            aria-label="Your postcode"
-            placeholder="Your postcode"
-            autoFocus
-            autoComplete="postal-code"
-            value={postcode}
-            onChange={(e) => setPostcode(e.target.value)}
-            className="h-12 rounded-xl text-base"
-          />
-          <Button type="submit" variant="ink" className="h-12 shrink-0 rounded-xl px-5" disabled={searchLoading || !postcode.trim()}>
-            {searchLoading ? "Searching…" : "Search"}
-          </Button>
-        </form>
+        <PostcodeSearchForm postcode={postcode} onChange={setPostcode} onSubmit={submitPostcode} loading={searchLoading} autoFocus error={searchError} />
       ) : (
         <button
           type="button"
@@ -802,7 +783,7 @@ const ClassBrowser = () => {
           </span>
         </button>
       )}
-      {searchError && <p className="mt-2 text-[13px] text-destructive">{searchError}</p>}
+
     </div>
   );
 

@@ -257,7 +257,7 @@
   .tde-v2 .tde-intro-grid, .tde-v2 .tde-venues-grid { display: block; }
   .tde-v2 .tde-first-class > p { margin-block: 18px; }
   .tde-home-v2 .tde-first-links { gap: 16px; }
-  .tde-home-v2 .tde-town-finder { display: none; }
+  .tde-home-v2 .tde-town-finder { display: block; margin-top: 28px; }
   .tde-home-v2 .tde-venues-grid h2 br { display: none; }
   .tde-home-v2 .tde-venues-grid h2 em::before { content: " "; }
   .tde-home-v2 .tde-team-photo-card:nth-child(n+5) { display: none; }
@@ -396,3 +396,9 @@
 @media (max-width: 760px) { .tde-map-preview-copy { height: 310px; } }
 
 .tde-venue-map-canvas-wrap:has(.leaflet-popup) .tde-map-reset, .tde-venue-map-canvas:has(.leaflet-popup) .leaflet-control-zoom { visibility: hidden; }
+
+.tde-v2 .tde-postcode-finder > h3 { font: 600 clamp(19px, 2.3vw, 28px)/1.25 Inter, sans-serif; text-transform: none; letter-spacing: -.02em; margin: 0 0 20px; }
+.tde-postcode-finder input { background: #061a2d; border-color: #7fabbf; color: #eff9ff; font-size: 16px; }
+.tde-postcode-finder .tde-postcode-control button { background: #48b5dd; color: #080e16; }
+.tde-postcode-finder .tde-postcode-control button:hover { background: #83d9f6; }
+.tde-postcode-clear { display: block; min-height: 44px; color: #83d9f6; font-size: 14px; text-decoration: underline; text-underline-offset: 4px; }

@@ -189,7 +189,7 @@ export default function Index() {
               <em>local class.</em>
             </h2>
             <p>
-              Choose your town to see our venues, then explore the classes at a location that works for you.
+              Enter your postcode to find your closest clubs, then explore the classes at a location that works for you.
             </p>
             <Link to="/venues" className="tde-button tde-button-dark">
               Find a location <ArrowUpRight size={20} aria-hidden />

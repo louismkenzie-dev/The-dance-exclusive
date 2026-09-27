@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
+import { PostcodeSearchForm } from "@/components/booking/PostcodeSearchForm";
+import { searchPostcode } from "@/lib/postcodeSearch";
+import { haversineDistance, distanceLabel } from "@/lib/classPresentation";
+import { formatPostcode } from "@/lib/customerAddress";
+import { lookupVenuePostcodes, normalisePostcode, savedVenuePoint } from "@/lib/venueTour";
 import { PublicTimetable } from "./PublicTimetable";
 import { venuePath, type PublicSchool } from "@/lib/publicSchool";
 
@@ -32,33 +37,59 @@ export function HomeClassFinder({ school, loading, error }: DiscoveryProps) {
 }
 
 export function HomeLocations({ school, loading, error }: DiscoveryProps) {
-  const [town, setTown] = useState("");
-  const groups = new Map<string, NonNullable<DiscoveryProps["school"]>["venues"]>();
-  for (const venue of school?.venues ?? []) {
-    const city = venue.city?.trim() || "Other locations";
-    const key = city.toLocaleLowerCase("en-GB");
-    groups.set(key, [...(groups.get(key) ?? []), venue]);
-  }
-  const towns = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0], "en-GB"));
-  const venues = groups.get(town) ?? [];
+  const [postcode, setPostcode] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const [result, setResult] = useState<{ postcode: string; venues: { id: string; miles: number }[] } | null>(null);
+  const request = useRef<AbortController | null>(null);
+  useEffect(() => () => request.current?.abort(), []);
+
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!postcode.trim() || loading || error || searchLoading) return;
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
+    setSearchLoading(true);
+    setSearchError("");
+    setResult(null);
+    try {
+      const coords = await searchPostcode(postcode, controller.signal);
+      const venues = (school?.venues ?? []).filter(venue => school?.classes.some(item => item.venue_id === venue.id));
+      const missing = [...new Set(venues.filter(v => !savedVenuePoint(v)).map(v => normalisePostcode(v.postcode)).filter(Boolean))];
+      const fallback = await lookupVenuePostcodes(missing, controller.signal);
+      if (controller.signal.aborted) return;
+      const nearest = venues.flatMap(venue => {
+        const point = savedVenuePoint(venue) ?? fallback[normalisePostcode(venue.postcode)];
+        return point ? [{ id: venue.id, miles: haversineDistance(coords.lat, coords.lon, point.latitude, point.longitude) }] : [];
+      }).sort((a, b) => a.miles - b.miles);
+      setResult({ postcode: formatPostcode(postcode), venues: nearest });
+    } catch (error) {
+      if (!controller.signal.aborted) setSearchError(error instanceof Error ? error.message : "Could not search postcode. Please try again.");
+    } finally {
+      if (!controller.signal.aborted) setSearchLoading(false);
+    }
+  };
   return (
-    <div className="tde-town-finder">
-      <label htmlFor="home-town">Where would you like to dance?</label>
-      <select id="home-town" value={town} onChange={event => setTown(event.target.value)} disabled={loading || error || !towns.length}>
-        <option value="">Choose your town</option>
-        {towns.map(([key, items]) => <option value={key} key={key}>{items[0].city?.trim() || "Other locations"} ({items.length})</option>)}
-      </select>
-      {loading ? <p role="status">Loading locations…</p> : error ? <p>Locations couldn’t load. <Link to="/venues">Open the location directory</Link> or <Link to="/contact">ask the team</Link>.</p> : !town ? <p>See venue details and current classes in your chosen town.</p> : null}
+    <div className="tde-town-finder tde-postcode-finder">
+      <h3>Where would you like to dance?</h3>
+      <PostcodeSearchForm postcode={postcode} onChange={value => { setPostcode(value); setResult(null); setSearchError(""); }}
+        onSubmit={submit} loading={searchLoading} disabled={loading || error || !school?.venues.length} error={searchError} />
+      {loading ? <p role="status">Loading locations…</p> : error ? <p>Locations couldn’t load. <Link to="/venues">Open the location directory</Link> or <Link to="/contact">ask the team</Link>.</p>
+        : !result && !searchLoading ? <p>Enter your postcode to find your closest clubs.</p> : searchLoading ? <p role="status">Finding your closest clubs…</p> : null}
       <div className="tde-town-results" aria-live="polite" aria-atomic="true">
-        {town && <p>{venues.length} {venues.length === 1 ? "venue" : "venues"} in {venues[0]?.city?.trim() || "other locations"}</p>}
-        {venues.map(venue => {
+        {result && <p>{result.venues.length ? `Closest clubs to ${result.postcode} · approximate distance` : "We couldn’t locate venues nearby. Explore all locations below."}</p>}
+        {result?.venues.slice(0, 3).map(({ id, miles }) => {
+          const venue = school?.venues.find(venue => venue.id === id);
+          if (!venue) return null;
           const count = school?.classes.filter(item => item.venue_id === venue.id).length ?? 0;
           return <Link to={venuePath(venue)} key={venue.id} className="tde-town-venue">
-            <div><h3>{venue.name}</h3><p>{venue.address_line1}{venue.postcode ? ` · ${venue.postcode}` : ""}</p><span>{count ? `${count} ${count === 1 ? "class" : "classes"} to explore` : "View venue details"}</span></div>
+            <div><h3>{venue.name}</h3><p>{distanceLabel(miles)} away · {venue.city}</p><span>{count ? `${count} ${count === 1 ? "class" : "classes"} to explore` : "View venue details"}</span></div>
             <ArrowUpRight size={22} aria-hidden />
           </Link>;
         })}
       </div>
+      {result && <button className="tde-postcode-clear" type="button" onClick={() => { setPostcode(""); setResult(null); }}>Clear postcode</button>}
       <Link to="/venues" className="tde-text-link">All {school?.venues.length || "our"} locations <ArrowUpRight size={18} aria-hidden /></Link>
     </div>
   );

@@ -69,9 +69,15 @@ export function MotionMedia({
   }, [canMove, visible, travel, reduced]);
 
   useEffect(() => {
-    if (!film.current) return;
-    if (visible && canMove && !failed) void film.current.play().catch(() => {});
-    else film.current.pause();
+    const video = film.current;
+    if (!video) return;
+    const update = () => {
+      if (visible && canMove && !failed && !document.hidden) void video.play().catch(() => {});
+      else video.pause();
+    };
+    update();
+    document.addEventListener("visibilitychange", update);
+    return () => { document.removeEventListener("visibilitychange", update); video.pause(); };
   }, [visible, canMove, failed, mounted]);
 
   return (

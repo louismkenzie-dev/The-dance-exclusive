@@ -15,7 +15,8 @@ import { HomeClassFinder, HomeLocations } from "@/components/marketing/HomeDisco
 import { CoachPhotoGrid } from "@/components/marketing/CoachProfiles";
 import { ScrollDanceStudio } from "@/components/marketing/ScrollDanceStudio";
 import { PageMeta } from "@/components/marketing/PageMeta";
-import { useEntranceMotion } from "@/hooks/useEntranceMotion";
+import { useHomeChoreography } from "@/hooks/useHomeChoreography";
+import { DanceScrollScene } from "@/components/marketing/DanceScrollScene";
 
 export default function Index() {
   const { user, role, loading } = useAuth();
@@ -23,7 +24,7 @@ export default function Index() {
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const [motion, setMotion] = useState(true);
   const move = motion && !reducedMotion;
-  const home = useEntranceMotion(move, Boolean(school));
+  const home = useHomeChoreography(move);
   if (!loading && user && role === "admin")
     return <Navigate to="/admin" replace />;
   if (!loading && user && role === "staff")
@@ -120,6 +121,7 @@ export default function Index() {
         <HomeClassFinder school={school} loading={isLoading} error={isError} />
       </section>
 
+      <DanceScrollScene active={move} reduced={reducedMotion} onToggle={() => setMotion(value => !value)} />
       <section className="tde-intro" id="the-feeling">
         <div className="tde-section-note" data-entrance="">
           <span>YOUR FIRST SESSION</span>

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "generatedAt": "2026-09-27T11:51:34.049046+00:00",
-  "title": "Design System: The Dance Exclusive — Public V2",
+  "title": "Design System: The Dance Exclusive \u2014 Public V2",
   "extensions": {
     "colorMeta": {
       "tde-blue": {
@@ -258,7 +258,20 @@
       }
     ],
     "rampNote": "Synthesized OKLCH swatch ramps are panel visualization aids, not shipping CSS tokens. Rule ramp represents its hue without source alpha.",
-    "snippetNote": "Static HTML/CSS extracts; no React state is simulated. V2 properties are wrapper-scoped, so snippets resolve them to literals. TDE Condensed and Inter use their existing app-loaded font faces."
+    "snippetNote": "Static HTML/CSS extracts; no React state is simulated. V2 properties are wrapper-scoped, so snippets resolve them to literals. TDE Condensed and Inter use their existing app-loaded font faces.",
+    "homepageChoreography": {
+      "engine": "GSAP ScrollTrigger + Lenis",
+      "wheelLerp": 0.085,
+      "nativeTouch": true,
+      "scrubSeconds": 0.8,
+      "trackDesktop": "260svh",
+      "trackMobile": "220svh",
+      "stickyHeight": "100svh",
+      "heroUnderlay": "/media/tde-hero-film.mp4",
+      "pausedFallback": "normal-flow photo grid and still hero",
+      "sceneHeading": "clamp(38px, 5vw, 76px)",
+      "sceneHeadingMobile": "36px"
+    }
   },
   "components": [
     {
@@ -305,7 +318,7 @@
       "kind": "card",
       "refersTo": "panel-copy",
       "description": "Ruled copy region beneath an authentic audience photograph.",
-      "html": "<a class=\"ds-panel\" href=\"#classes\"><h3>The next<br>generation.</h3><p>Children’s classes</p><span>Explore children’s classes</span></a>",
+      "html": "<a class=\"ds-panel\" href=\"#classes\"><h3>The next<br>generation.</h3><p>Children\u2019s classes</p><span>Explore children\u2019s classes</span></a>",
       "css": ".ds-panel{display:block;padding:24px;border-top:1px solid #080e16;border-radius:0;background:#48b5dd;color:#080e16;text-decoration:none}.ds-panel h3{margin:0;font:400 clamp(38px,4.2vw,65px)/1.05 \"TDE Condensed\",sans-serif;text-transform:uppercase;letter-spacing:-.015em}.ds-panel p{margin-top:15px;font:16px/1.7 Inter,sans-serif}.ds-panel span{display:block;margin-top:23px;padding-top:16px;border-top:1px solid #080e16;font:600 14px Inter,sans-serif}.ds-panel:hover h3{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:7px}.ds-panel:focus-visible{outline:2px solid #48b5dd;outline-offset:5px}"
     },
     {
@@ -318,7 +331,7 @@
   ],
   "narrative": {
     "northStar": "The rhythm becomes the image",
-    "overview": "The rhythm becomes the image. TDE blue, near-black grounds, ruled cells and condensed headlines give the public site a direct street-dance character. Real school photography carries the human story below the original moving line field. The original TDE logo remains the identity asset.\n\nThis documents the implemented V2 public shell and homepage, plus the shared public patterns they reuse. It does not redefine the booking application: authentication, eligibility, attendee selection and payment behavior remain governed by the existing components. The selected reference is Antoine Wodniack’s warped hairline field and separated headline composition; the canvas, divider geometry and TDE content are original implementation.",
+    "overview": "The rhythm becomes the image. TDE blue, near-black grounds, ruled cells and condensed headlines give the public site a direct street-dance character. Real school photography carries the human story below the original moving line field. The original TDE logo remains the identity asset.\n\nThis documents the implemented V2 public shell and homepage, plus the shared public patterns they reuse. It does not redefine the booking application: authentication, eligibility, attendee selection and payment behavior remain governed by the existing components. The selected reference is Antoine Wodniack\u2019s warped hairline field and separated headline composition; the canvas, divider geometry and TDE content are original implementation.",
     "keyCharacteristics": [
       "TDE blue and near-black, with pink restricted to adult-oriented content.",
       "One-pixel rules, square public frames and oversized condensed headings.",
@@ -336,14 +349,14 @@
       "Do preserve the original logo geometry and recognisable blue identity.",
       "Do use real TDE photographs and preserve their source mapping.",
       "Do maintain readable ink-on-blue shell text and blue-on-dark headings, including emphasized words.",
-      "Do retain native scrolling, visible keyboard focus, the skip link and motion controls.",
+      "Do retain native touch/keyboard scrolling, visible keyboard focus, the skip link and motion controls.",
       "Do keep booking inputs, theme tokens and interaction behavior consistent with the existing booking components."
     ],
     "donts": [
-      "Don’t use pink as a general school-wide accent; reserve it for adult-oriented content.",
-      "Don’t replace the selected code-driven line field with a generated raster or copy the reference site’s source or claims.",
-      "Don’t turn the public site into the previously rejected white editorial/blog treatment.",
-      "Don’t treat this public-shell document as evidence of a complete account or checkout redesign."
+      "Don\u2019t use pink as a general school-wide accent; reserve it for adult-oriented content.",
+      "Don\u2019t replace the selected code-driven line field with a generated raster or copy the reference site\u2019s source or claims.",
+      "Don\u2019t turn the public site into the previously rejected white editorial/blog treatment.",
+      "Don\u2019t treat this public-shell document as evidence of a complete account or checkout redesign."
     ]
   }
 }

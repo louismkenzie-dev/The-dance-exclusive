@@ -146,7 +146,7 @@ Condensed capitals deliver the poster scale; Inter keeps descriptions, prices an
 
 The public shell has a thin dark outer frame. Its header is a ruled grid, 94px high on desktop: logo, locality/style signal, navigation and account/class controls. At 1100px the signal disappears. At 760px the shell frame tightens, the header becomes 76px high, desktop navigation and its class CTA disappear, and the account link plus menu remain.
 
-The homepage hero keeps artwork, rhythm strip, headline and audience actions in separate bands. Artwork height is `clamp(260px, 41svh, 500px)` on desktop and `clamp(210px, 29svh, 310px)` on mobile. The action grid changes from four columns to three at 1100px, then two audience columns beneath the intro at 760px. Native scrolling remains intact.
+The homepage hero keeps artwork, rhythm strip, headline and audience actions in separate bands. Artwork height is `clamp(260px, 41svh, 500px)` on desktop and `clamp(210px, 29svh, 310px)` on mobile. The action grid changes from four columns to three at 1100px, then two audience columns beneath the intro at 760px. Homepage wheel scrolling uses Lenis (lerp 0.085), with native touch and keyboard scrolling. It is removed on pause, reduced motion and route exit; dialogs and form controls bypass smoothing.
 
 Below the hero, sections use the frontmatter padding values. Children's and adult photo panels share a ruled boundary and stack on mobile. Their image rows are 330px on desktop and 280px on mobile. The intro portrait changes from 4:5 to square. This composition belongs to the homepage; other routes retain their own functional layouts inside the updated shell.
 
@@ -180,6 +180,10 @@ The public timetable venue select retains its existing booking-theme background,
 
 ### Rhythm field and motion controls
 
+The hero film `/media/tde-hero-film.mp4` plays muted beneath the transparent hairline canvas, blue-tinted through a color blend. GSAP sequences a 1.25s aperture reveal and 1.05s masked letter rolls with 25ms stagger. The scroll-linked star, ticker and video scale use 0.7–0.8s scrub smoothing.
+
+`DanceScrollScene` is the reference-inspired focal scroll sequence: a 260svh desktop / 220svh mobile track holds a 100svh sticky viewport. An elliptical aperture opens onto counter-moving DANCE rows and three supplied photos travelling across the frame. A 0.8s scrub reverses with scroll. Its heading uses `clamp(38px, 5vw, 76px)` / 36px mobile, controls 11px / 10px, mobile links 13px. Pause and reduced motion revert to a normal-flow photo grid; scene actions remain stationary. Video pauses offscreen and in hidden tabs.
+
 `RhythmField.tsx` renders decorative canvas linework and an SVG fallback when canvas is unavailable. Animation combines time, non-touch pointer movement and native scroll displacement. It targets 30 frames per second, caps canvas pixel ratio at 2, and suspends animation outside the viewport or in a hidden tab.
 
 The hero's labelled pause/play button controls the homepage motion state. The same state is passed to homepage motion components. Reduced-motion preference forces static rendering and labels the disabled control “Reduced motion.” Decorative canvas, rhythm strip and star are hidden from assistive technology; the real heading and actions remain semantic HTML. Do not infer a no-JavaScript application guarantee from the SVG fallback.
@@ -193,7 +197,7 @@ Keyboard focus uses a visible two-pixel outline. Dark sections use blue; header,
 - **Do** preserve the original logo geometry and recognisable blue identity.
 - **Do** use real TDE photographs and preserve their source mapping.
 - **Do** maintain readable ink-on-blue shell text and blue-on-dark headings, including emphasized words.
-- **Do** retain native scrolling, visible keyboard focus, the skip link and motion controls.
+- **Do** retain native touch/keyboard scrolling, visible keyboard focus, the skip link and motion controls.
 - **Do** keep booking inputs, theme tokens and interaction behavior consistent with the existing booking components.
 
 ### Don't:

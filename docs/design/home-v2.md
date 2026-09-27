@@ -35,3 +35,10 @@ Existing photos: TDE Assets, mapped by src/lib/tdePhotos.json and docs/WEBSITE_A
 - Valid viewport captures are local in .impeccable/review/v2 (gitignored). The browser's stitched full-page images were malformed and excluded; desktop/mobile hero plus section captures were used instead.
 - Production remains unchanged; this branch is a preview implementation.
 - Deployed preview: https://the-dance-exclusive-22o8mm8pz-nullshift.vercel.app/ — opened successfully in the browser, live timetable/team content present and no console errors observed.
+
+## Video and scroll choreography refinement
+The supplied reference HTML linked public `/_astro/hoisted.BvNyQ0G_.js` and `/_astro/index.MJ9FiCyD.css`; both were available for inspection. The original source project is not needed to identify the effects. Source analysis found Lenis wheel interpolation, GSAP masked/character entrances, a sticky expanding aperture, travelling portfolio imagery and repeated lettering. TDE recreates these techniques with original component code, TDE type and supplied media; the reference bundle is not redistributed.
+
+Implemented: blue dance-video hero underlay, masked letter entrance, scroll-reactive star/ticker/video, and a reversible sticky dance-photo sequence. Native touch and keyboard scrolling, dialog bypass, pause and reduced-motion fallbacks remain. Reference-only cursor toys, developer loading messages and portfolio content are not included.
+
+Verification: 331 regression tests, TypeScript, targeted ESLint and production build passed. Desktop 1280×900 and mobile 390×844 inspected; no horizontal overflow. Video played with readyState 4, pause stopped videos and reverted sticky effects, scroll positions changed mask and image transforms, reverse scrolling restored preceding scene states. Detector advisories concern literal type sizes; new scene sizes are intentional and documented; existing type-ramp documentation drift was not redesigned.

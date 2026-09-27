@@ -538,15 +538,16 @@
 /* Everyone together: a photo grid, with hover previews and touch biographies. */
 .tde-team-photo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
 .tde-team-photo-card { position: relative; min-width: 0; aspect-ratio: 4 / 5; padding: 0; text-align: left; border: 1px solid #ffffff28; border-radius: 24px; background: radial-gradient(ellipse at 50% 30%, #143951, #08131f 85%); color: #f6f8fb; isolation: isolate; overflow: hidden; cursor: pointer; transition: transform 250ms, border-color 250ms, box-shadow 250ms; }
+.tde-team-photo-card::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(to top, #08131f 0%, #08131fe6 16%, #08131f00 48%); }
 .tde-team-founder { border-color: #75dfff; box-shadow: 0 0 0 1px #00b0e050; }
 .tde-team-portrait { display: block; position: absolute; inset: 0; transition: transform 350ms; }
 .tde-team-portrait > img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
 .tde-team-initial { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 0; background: #12384e; color: #79e0ff; font: 900 90px "TDE Intro", Inter, sans-serif; }
-.tde-team-caption { position: absolute; inset: auto 0 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 22px; background: linear-gradient(transparent, #08131f 28%); }
+.tde-team-caption { position: absolute; inset: auto 0 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 22px; background: transparent; }
 .tde-team-caption strong { display: block; font: 600 26px / 1.15 Inter, sans-serif; }
 .tde-team-role { display: block; font-size: 12px; color: #83e1fa; margin-top: 5px; }
 .tde-team-open { display: grid; place-items: center; flex-shrink: 0; width: 35px; height: 35px; border-radius: 50%; border: 1px solid #00b0e070; color: #83e1fa; }
-.tde-team-peek { position: absolute; inset: 0 0 77px; display: flex; flex-direction: column; justify-content: flex-end; padding: 26px 22px 17px; background: linear-gradient(transparent 12%, #071320f5 64%); opacity: 0; transform: translateY(12px); transition: opacity 220ms, transform 220ms; pointer-events: none; font: 400 14px / 1.65 Inter, sans-serif; }
+.tde-team-peek { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; justify-content: flex-end; padding: 26px 22px 110px; background: linear-gradient(to top, #08131f 0%, #08131ff5 38%, #08131f00 88%); opacity: 0; transition: opacity 220ms; pointer-events: none; font: 400 14px / 1.65 Inter, sans-serif; }
 .tde-team-peek > span:first-child { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
 .tde-team-peek-link { display: flex; align-items: center; gap: 10px; margin-top: 17px; color: #7de3ff; font-size: 12px; font-weight: 600; }
 .tde-team-photo-card:focus-visible:not([data-preview-hidden]) .tde-team-peek { opacity: 1; transform: none; }

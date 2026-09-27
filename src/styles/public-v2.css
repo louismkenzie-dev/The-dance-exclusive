@@ -95,10 +95,10 @@
 .tde-v2 .tde-team-photo-card, .tde-v2 .tde-team-portrait, .tde-v2 .tde-team-caption { border-radius: 0; }
 .tde-v2 .tde-team-photo-card { border-color: #48b5dd70; box-shadow: none; }
 .tde-v2 .tde-team-founder { border-color: var(--tde-blue); }
-.tde-v2 .tde-team-caption { border-top: 1px solid var(--tde-blue); }
-.tde-v2 .tde-team-founder .tde-team-caption { background: var(--tde-blue); color: var(--tde-ink); }
-.tde-v2 .tde-team-founder .tde-team-role { color: var(--tde-ink); }
-.tde-v2 .tde-team-founder .tde-team-open { color: var(--tde-ink); border-color: var(--tde-ink); }
+.tde-v2 .tde-team-caption { border: 0; }
+.tde-v2 .tde-team-founder .tde-team-caption { background: transparent; color: #f6f8fb; }
+.tde-v2 .tde-team-founder .tde-team-role { color: var(--tde-blue); }
+.tde-v2 .tde-team-founder .tde-team-open { color: var(--tde-blue); border-color: var(--tde-blue); }
 .tde-v2 .tde-photo-event, .tde-v2 .tde-photo-event img { border-radius: 0; }
 .tde-v2 .tde-button, .tde-v2 .tde-photo-class, .tde-v2 .tde-class-banner, .tde-v2 .tde-booking-card, .tde-v2 .tde-inline-auth, .tde-v2 .tde-inline-booking { border-radius: 0; }
 .tde-v2 .tde-photo-class { box-shadow: none; border-color: #48b5dd70; }

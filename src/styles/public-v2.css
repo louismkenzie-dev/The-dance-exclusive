@@ -315,3 +315,16 @@
 @media (prefers-reduced-motion: reduce) {
   .tde-home-arrival, .tde-arrival-panel img, .tde-arrival-blue { animation: none; }
 }
+
+.tde-v2 .tde-class-signup-banner { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; align-items: center; gap: 24px; margin: 0 0 28px; padding: 28px 32px; background: #48b5dd; color: #080e16; }
+.tde-v2 .tde-class-signup-banner h2 { margin: 0; font: 600 clamp(22px, 2.1vw, 30px) / 1.2 Inter, sans-serif; letter-spacing: -.025em; color: #080e16; text-transform: none; }
+.tde-class-signup-spark { transform: rotate(-12deg); }
+.tde-class-signup-button { display: inline-flex; justify-content: center; align-items: center; gap: 20px; min-height: 52px; padding: 14px 22px; background: #080e16; color: #e9f6fb; font: 600 14px / 1.3 Inter, sans-serif; white-space: nowrap; transition: background-color 180ms, color 180ms; }
+.tde-class-signup-button:hover { background: #e9f6fb; color: #080e16; }
+.tde-site .tde-class-signup-button:focus-visible { outline: 2px solid #080e16; outline-offset: 5px; }
+@media (max-width: 767px) {
+  .tde-v2 .tde-class-signup-banner { grid-template-columns: 36px minmax(0, 1fr); gap: 16px; padding: 22px 20px; margin-bottom: 20px; }
+  .tde-class-signup-spark { width: 36px; height: 36px; }
+  .tde-signup-break { display: none; }
+  .tde-class-signup-button { grid-column: 1 / -1; width: 100%; min-height: 48px; }
+}

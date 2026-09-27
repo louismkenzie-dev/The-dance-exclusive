@@ -6,6 +6,7 @@ import { usePublicSchool } from "@/hooks/usePublicSchool";
 import { DiscoveryHero } from "@/components/marketing/DiscoveryHero";
 import { PageMeta } from "@/components/marketing/PageMeta";
 import { PublicClassList } from "@/components/marketing/PublicClassList";
+import { ClassSignupBanner } from "@/components/marketing/ClassSignupBanner";
 
 const days = [
   "monday",
@@ -72,6 +73,7 @@ export default function PublicClassDirectory() {
           ))}
         </div>
       </DiscoveryHero>
+      <ClassSignupBanner />
       <form
         className="tde-class-filters"
         aria-label="Filter dance classes"

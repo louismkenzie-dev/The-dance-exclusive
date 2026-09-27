@@ -45,7 +45,7 @@ const GoogleMark = () => (
   </svg>
 );
 
-const Auth = ({ embedded = false, returnTo }: { embedded?: boolean; returnTo?: string } = {}) => {
+const Auth = ({ embedded = false, discovery = false, returnTo }: { embedded?: boolean; discovery?: boolean; returnTo?: string } = {}) => {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
@@ -62,7 +62,7 @@ const Auth = ({ embedded = false, returnTo }: { embedded?: boolean; returnTo?: s
   // have never made one — so open on Create account. Signing in is still one
   // tap away for anyone who already has an account.
   const [tab, setTab] = useState<"login" | "signup">(
-    () => (new URLSearchParams(window.location.search).get("mode") === "signup" ? "signup" : "login"),
+    () => (discovery || new URLSearchParams(window.location.search).get("mode") === "signup" ? "signup" : "login"),
   );
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
@@ -217,7 +217,7 @@ const Auth = ({ embedded = false, returnTo }: { embedded?: boolean; returnTo?: s
       embedded={embedded}
       title={tab === "signup" ? "Create your account" : <>Sign in to <span className={embedded ? undefined : "whitespace-nowrap"}>The Dance Exclusive</span></>}
       subtitle={
-        tab === "signup"
+        discovery ? (tab === "signup" ? "Create your account, then find your next class." : "Sign in and keep exploring classes.") : tab === "signup"
           ? bookingIntent
             ? embedded ? "Create your account to choose a place in this class." : "It takes a minute, and then we'll take you straight back to book."
             : "Set up an account to book and manage classes"

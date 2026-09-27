@@ -168,9 +168,9 @@
 .tde-rhythm-art { isolation: isolate; }
 .tde-v2 .tde-rhythm-underlay { position: absolute; inset: 0; width: 100%; height: 100%; }
 .tde-rhythm-underlay .tde-media-layer { inset: 0; transform: none; }
-.tde-rhythm-underlay img, .tde-rhythm-underlay video { filter: grayscale(1) contrast(.9); opacity: .76; }
-.tde-rhythm-underlay::after { content: ""; position: absolute; inset: 0; background: #48b5dd; mix-blend-mode: color; pointer-events: none; }
-.tde-rhythm-field { position: relative; z-index: 1; opacity: .62; }
+.tde-rhythm-underlay img, .tde-rhythm-underlay video { filter: none; opacity: 1; }
+.tde-rhythm-underlay::after { content: ""; position: absolute; inset: 0; background: #148bb414; pointer-events: none; }
+.tde-rhythm-field { position: relative; z-index: 1; opacity: .42; }
 .tde-rhythm-control { z-index: 2; }
 .tde-rhythm-letter { display: inline-block; overflow: clip; vertical-align: top; }
 .tde-rhythm-letter-inner { display: inline-block; }
@@ -240,8 +240,6 @@
   .tde-mobile-tabs a:focus-visible { outline-offset: -3px; }
   .tde-rhythm-control button { min-height: 44px; }
   .tde-rhythm-strip { display: none; }
-  .tde-rhythm-underlay img, .tde-rhythm-underlay video { filter: none; opacity: 1; }
-  .tde-rhythm-underlay::after { background: #148bb42b; mix-blend-mode: normal; }
   .tde-rhythm-field { opacity: .28; }
   .tde-v2 .tde-rhythm-title { font-size: 18vw; padding-block: 14px; }
   .tde-rhythm-actions > p { padding-block: 10px; }

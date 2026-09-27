@@ -56,3 +56,18 @@ Browser verified at 1440×900 and 390×844: expanded aperture is exactly viewpor
 starts at (0,0), has zero clip inset and creates no horizontal overflow. Pause removes
 the enhanced layout and restores the static photo layout. Build, TypeScript and
 component ESLint passed. Existing reduced-motion guard and GSAP cleanup retained.
+
+## Star opening and closing — 27 September 2026
+
+Follow-up direction replaces the earlier rounded opening and held-open ending:
+the scene now opens from and closes into the same four-point silhouette as
+RhythmStar. A viewport-measured eight-point polygon keeps the closed star square
+on desktop and mobile, with matching pixel units throughout interpolation. The
+middle remains completely full bleed; the scene fades inside the mask at both
+ends so the small star is a clean, recognisable icon. Scrolling backward reverses
+the same timeline. Refresh recalculates the mask for viewport changes.
+
+Browser checked opening, full-screen middle, and closing at 1440×900, then the
+responsive closing star at 390×844. Pausing removes the polygon and restores all
+photo content at full opacity. No horizontal overflow. TypeScript, targeted
+ESLint and production build passed.

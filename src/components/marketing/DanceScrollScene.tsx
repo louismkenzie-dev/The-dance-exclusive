@@ -18,11 +18,27 @@ export function DanceScrollScene({ active, reduced, onToggle }: { active: boolea
     if (!element || !active || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     element.dataset.enhanced = "true";
     const context = gsap.context(() => {
+      // Match RhythmStar's 60 × 60 outline in pixels, so the star stays square
+      // on both wide desktop and portrait mobile viewports.
+      const closedStar = () => {
+        const viewport = element.querySelector<HTMLElement>(".tde-scroll-scene-sticky")!;
+        const { width, height } = viewport.getBoundingClientRect();
+        const size = Math.min(width, height) * .36;
+        const points = [[30, 0], [36, 24], [60, 30], [36, 36], [30, 60], [24, 36], [0, 30], [24, 24]];
+        return `polygon(${points.map(([x, y]) => `${width / 2 + (x / 60 - .5) * size}px ${height / 2 + (y / 60 - .5) * size}px`).join(", ")})`;
+      };
+      const openStar = () => {
+        const { width, height } = element.querySelector<HTMLElement>(".tde-scroll-scene-sticky")!.getBoundingClientRect();
+        return `polygon(${width / 2}px 0px, ${width}px 0px, ${width}px ${height / 2}px, ${width}px ${height}px, ${width / 2}px ${height}px, 0px ${height}px, 0px ${height / 2}px, 0px 0px)`;
+      };
       const timeline = gsap.timeline({ scrollTrigger: { trigger: element, start: "top top", end: "bottom bottom", scrub: .8, invalidateOnRefresh: true } });
-      timeline.fromTo(".tde-scroll-aperture", { clipPath: "inset(18% 32% round 50%)" }, { clipPath: "inset(0% 0% round 0%)", duration: .22, ease: "power3.inOut" }, 0)
+      timeline.fromTo(".tde-scroll-aperture", { clipPath: closedStar }, { clipPath: openStar, duration: .22, ease: "power3.inOut" }, .03)
+        .fromTo(".tde-scroll-scene-world", { opacity: 0 }, { opacity: 1, duration: .14, ease: "none" }, .07)
         .fromTo(".tde-scroll-scene-world", { scale: .78 }, { scale: 1, duration: .22, ease: "power3.inOut" }, 0)
         .fromTo(".tde-scroll-echo:nth-child(odd)", { xPercent: -10 }, { xPercent: 10, duration: 1, ease: "none" }, 0)
-        .fromTo(".tde-scroll-echo:nth-child(even)", { xPercent: 8 }, { xPercent: -12, duration: 1, ease: "none" }, 0);
+        .fromTo(".tde-scroll-echo:nth-child(even)", { xPercent: 8 }, { xPercent: -12, duration: 1, ease: "none" }, 0)
+        .to(".tde-scroll-aperture", { clipPath: closedStar, duration: .2, ease: "power3.inOut" }, .78)
+        .to(".tde-scroll-scene-world", { opacity: 0, duration: .14, ease: "none" }, .84);
       gsap.utils.toArray<HTMLElement>(".tde-scroll-photo").forEach((photo, index) => {
         timeline.fromTo(photo, { x: () => window.innerWidth * .95, yPercent: index % 2 ? 20 : -15, rotation: index % 2 ? 9 : -8, scale: .78 }, { x: () => -window.innerWidth * .95, yPercent: index % 2 ? -12 : 12, rotation: index % 2 ? -5 : 5, scale: 1.08, duration: .48, ease: "none" }, .08 + index * .2);
       });

@@ -150,7 +150,9 @@ const PortalLayout = () => {
   const menuIcon = (Icon: typeof User) => (j ? null : <Icon className="w-4 h-4" />);
 
   if (isMarketing) {
-    return <PublicSiteShell><Outlet /><CartDrawer /><AttendeeOnboarding /></PublicSiteShell>;
+    // The class form owns attendee setup and refreshes its profiles after saving.
+    // A second global wizard here would interrupt sign-in and leave that form stale.
+    return <PublicSiteShell><Outlet /><CartDrawer />{!isIntegratedClass && !pathname.startsWith("/book/") && <AttendeeOnboarding />}</PublicSiteShell>;
   }
 
   return (

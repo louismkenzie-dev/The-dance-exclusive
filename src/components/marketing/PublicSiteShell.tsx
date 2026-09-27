@@ -14,6 +14,7 @@ import { usePublicSchool } from "@/hooks/usePublicSchool";
 import { defaultPublicContact } from "@/lib/publicSchool";
 import "@/styles/public-site.css";
 import "@/styles/public-brand.css";
+import "@/styles/public-v2.css";
 
 const navigation = [
   { to: "/classes?type=children", label: "Children's classes" },
@@ -33,11 +34,12 @@ export function PublicSiteShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   useEffect(() => setOpen(false), [pathname, search]);
   return (
-    <div className={`tde-site${home ? " tde-site-home" : ""}`}>
+    <div className={`tde-site tde-v2${home ? " tde-site-home" : ""}`}>
       <a className="tde-skip" href="#main-content">
         Skip to content
       </a>
       <header className="tde-header">
+        <div className="tde-header-signal" aria-hidden="true">Street dance<br />Commercial<br />Essex / UK</div>
         <nav className="tde-desktop-nav" aria-label="Main navigation">
           <Link to="/classes?type=children">Children</Link>
           <Link to="/classes?type=adult">Adults</Link>
@@ -48,7 +50,7 @@ export function PublicSiteShell({ children }: { children: ReactNode }) {
           className="tde-brand"
           aria-label="The Dance Exclusive home"
         >
-          <BrandLogo tone="white" className="h-11" />
+          <BrandLogo tone="ink" className="h-11" />
         </Link>
         <div className="tde-header-right">
           {user && <div className="tde-booking-theme"><CartButton /></div>}
@@ -116,7 +118,7 @@ export function PublicSiteShell({ children }: { children: ReactNode }) {
         </Link>
         <Link to="/classes" className="tde-text-link tde-footer-class-link">Find your class <ArrowUpRight size={20} aria-hidden /></Link>
         <div className="tde-footer-links">
-          <BrandLogo tone="white" className="h-16" />
+          <BrandLogo tone="ink" className="h-16" />
           <div>
             <span className="tde-eyebrow">Find your movement</span>
             {navigation.slice(0, 2).map((item) => (

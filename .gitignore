@@ -33,6 +33,7 @@ supabase/.branches
 *.sw?
 
 # Website build and local review artifacts
+.impeccable/review/
 /tmp/
 .vercel/
 .vercel

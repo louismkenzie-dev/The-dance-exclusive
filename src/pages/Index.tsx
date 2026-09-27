@@ -1,8 +1,9 @@
 import { tdePhoto, classPhoto } from "@/lib/tdeMedia";
 import { SchoolPhoto } from "@/components/marketing/SchoolPhoto";
 import { useState } from "react";
+import { RhythmHero } from "@/components/marketing/RhythmHero";
 import { Link, Navigate } from "react-router-dom";
-import { ArrowDown, ArrowUpRight, Pause, Play } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePublicSchool } from "@/hooks/usePublicSchool";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -29,7 +30,7 @@ export default function Index() {
     return <Navigate to="/staff" replace />;
 
   return (
-    <div ref={home} className="tde-home" data-motion={move ? "on" : "off"}>
+    <div ref={home} className="tde-home tde-home-v2" data-motion={move ? "on" : "off"}>
       <PageMeta
         title="Step in. Stand out."
         description="Find your rhythm at The Dance Exclusive. Commercial and street dance for children and adults across Essex. Explore live classes, venues and events."
@@ -42,76 +43,7 @@ export default function Index() {
           areaServed: { "@type": "AdministrativeArea", name: "Essex, UK" },
         }}
       />
-      <section className="tde-hero" aria-labelledby="hero-title">
-        <MotionMedia
-          image="/media/tde-film-poster.jpg"
-          video="/media/tde-hero-film.mp4"
-          alt="The Dance Exclusive dancers performing together on stage"
-          className="tde-hero-media"
-          active={move}
-          eager
-          travel={70}
-        />
-        <div className="tde-hero-shade" />
-        <div className="tde-hero-top" data-entrance="hero">
-          <span className="tde-eyebrow"><i aria-hidden="true" /> Street dance. Big energy. Essex.</span>
-          <span className="tde-eyebrow">
-            Commercial. Street. Your kind of energy.
-          </span>
-        </div>
-        <div className="tde-hero-content">
-          <h1 id="hero-title" aria-label="Step in. Stand out.">
-            <span className="tde-hero-line"><span data-entrance="hero" data-delay="100">Step in<span className="tde-brand-dot">.</span></span></span>
-            <span className="tde-hero-line"><span data-entrance="hero" data-delay="220">Stand out.</span></span>
-          </h1>
-          <div className="tde-hero-bottom" data-entrance="hero" data-delay="330">
-            <p>
-              Your music. Your people. Your moment.<br />
-              Street & commercial dance for children and adults.
-            </p>
-            <div className="tde-hero-actions">
-              <Link to="/classes?type=children" className="tde-button">
-                Children's classes <ArrowUpRight size={22} aria-hidden />
-              </Link>
-              <Link to="/classes?type=adult" className="tde-button tde-adult-button" data-audience="adult">
-                Adult classes <ArrowUpRight size={22} aria-hidden />
-              </Link>
-            </div>
-          </div>
-        </div>
-        <div className="tde-hero-caption">
-          <a href="#find-your-class">
-            Find your crew <ArrowDown size={15} aria-hidden />
-          </a>
-          <button
-            onClick={() => setMotion(!motion)}
-            disabled={reducedMotion}
-            aria-pressed={!move}
-          >
-            {move ? (
-              <Pause size={14} aria-hidden />
-            ) : (
-              <Play size={14} aria-hidden />
-            )}
-            {reducedMotion
-              ? "Reduced motion"
-              : move
-                ? "Pause motion"
-                : "Play motion"}
-          </button>
-          <span>Children + adults / All levels</span>
-        </div>
-      </section>
-
-      <div className="tde-ticker" aria-hidden="true">
-        <div>
-          {[0, 1, 2, 3].map((n) => (
-            <span key={n}>
-              STREET. <i>✳</i> COMMERCIAL. <i>✳</i> YOUR CREW. <i>✳</i>{" "}
-            </span>
-          ))}
-        </div>
-      </div>
+      <RhythmHero active={move} reduced={reducedMotion} onToggle={() => setMotion(value => !value)} />
 
       <section className="tde-classes tde-paper" id="find-your-class">
         <div className="tde-section-note" data-entrance="">
@@ -166,7 +98,7 @@ export default function Index() {
               />
               <div className="tde-panel-top">
                 <span>
-                  0{i + 1} / {item.sub}
+                  {item.sub}
                 </span>
                 <ArrowUpRight size={32} aria-hidden />
               </div>

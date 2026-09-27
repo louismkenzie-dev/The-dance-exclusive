@@ -1,0 +1,349 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-27T11:51:34.049046+00:00",
+  "title": "Design System: The Dance Exclusive — Public V2",
+  "extensions": {
+    "colorMeta": {
+      "tde-blue": {
+        "role": "primary",
+        "displayName": "Tde Blue",
+        "tonalRamp": [
+          "oklch(15.00% 0.1135 226.02)",
+          "oklch(26.43% 0.1135 226.02)",
+          "oklch(37.86% 0.1135 226.02)",
+          "oklch(49.29% 0.1135 226.02)",
+          "oklch(60.71% 0.1135 226.02)",
+          "oklch(72.14% 0.1135 226.02)",
+          "oklch(83.57% 0.1135 226.02)",
+          "oklch(95.00% 0.1135 226.02)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "tonalRamp": [
+          "oklch(15.00% 0.0196 255.33)",
+          "oklch(26.43% 0.0196 255.33)",
+          "oklch(37.86% 0.0196 255.33)",
+          "oklch(49.29% 0.0196 255.33)",
+          "oklch(60.71% 0.0196 255.33)",
+          "oklch(72.14% 0.0196 255.33)",
+          "oklch(83.57% 0.0196 255.33)",
+          "oklch(95.00% 0.0196 255.33)"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "tonalRamp": [
+          "oklch(15.00% 0.1135 226.02)",
+          "oklch(26.43% 0.1135 226.02)",
+          "oklch(37.86% 0.1135 226.02)",
+          "oklch(49.29% 0.1135 226.02)",
+          "oklch(60.71% 0.1135 226.02)",
+          "oklch(72.14% 0.1135 226.02)",
+          "oklch(83.57% 0.1135 226.02)",
+          "oklch(95.00% 0.1135 226.02)"
+        ]
+      },
+      "body-light": {
+        "role": "neutral",
+        "displayName": "Body Light",
+        "tonalRamp": [
+          "oklch(15.00% 0.0153 222.68)",
+          "oklch(26.43% 0.0153 222.68)",
+          "oklch(37.86% 0.0153 222.68)",
+          "oklch(49.29% 0.0153 222.68)",
+          "oklch(60.71% 0.0153 222.68)",
+          "oklch(72.14% 0.0153 222.68)",
+          "oklch(83.57% 0.0153 222.68)",
+          "oklch(95.00% 0.0153 222.68)"
+        ]
+      },
+      "adult-panel": {
+        "role": "secondary",
+        "displayName": "Adult Panel",
+        "tonalRamp": [
+          "oklch(15.00% 0.1384 351.30)",
+          "oklch(26.43% 0.1384 351.30)",
+          "oklch(37.86% 0.1384 351.30)",
+          "oklch(49.29% 0.1384 351.30)",
+          "oklch(60.71% 0.1384 351.30)",
+          "oklch(72.14% 0.1384 351.30)",
+          "oklch(83.57% 0.1384 351.30)",
+          "oklch(95.00% 0.1384 351.30)"
+        ]
+      },
+      "adult-hover": {
+        "role": "secondary",
+        "displayName": "Adult Hover",
+        "tonalRamp": [
+          "oklch(15.00% 0.1664 352.61)",
+          "oklch(26.43% 0.1664 352.61)",
+          "oklch(37.86% 0.1664 352.61)",
+          "oklch(49.29% 0.1664 352.61)",
+          "oklch(60.71% 0.1664 352.61)",
+          "oklch(72.14% 0.1664 352.61)",
+          "oklch(83.57% 0.1664 352.61)",
+          "oklch(95.00% 0.1664 352.61)"
+        ]
+      },
+      "button-ink": {
+        "role": "neutral",
+        "displayName": "Button Ink",
+        "tonalRamp": [
+          "oklch(15.00% 0.0082 285.52)",
+          "oklch(26.43% 0.0082 285.52)",
+          "oklch(37.86% 0.0082 285.52)",
+          "oklch(49.29% 0.0082 285.52)",
+          "oklch(60.71% 0.0082 285.52)",
+          "oklch(72.14% 0.0082 285.52)",
+          "oklch(83.57% 0.0082 285.52)",
+          "oklch(95.00% 0.0082 285.52)"
+        ]
+      },
+      "white": {
+        "role": "neutral",
+        "displayName": "White",
+        "tonalRamp": [
+          "oklch(15.00% 0.0000 89.88)",
+          "oklch(26.43% 0.0000 89.88)",
+          "oklch(37.86% 0.0000 89.88)",
+          "oklch(49.29% 0.0000 89.88)",
+          "oklch(60.71% 0.0000 89.88)",
+          "oklch(72.14% 0.0000 89.88)",
+          "oklch(83.57% 0.0000 89.88)",
+          "oklch(95.00% 0.0000 89.88)"
+        ]
+      },
+      "field-bg": {
+        "role": "neutral",
+        "displayName": "Field Bg",
+        "tonalRamp": [
+          "oklch(15.00% 0.0459 249.33)",
+          "oklch(26.43% 0.0459 249.33)",
+          "oklch(37.86% 0.0459 249.33)",
+          "oklch(49.29% 0.0459 249.33)",
+          "oklch(60.71% 0.0459 249.33)",
+          "oklch(72.14% 0.0459 249.33)",
+          "oklch(83.57% 0.0459 249.33)",
+          "oklch(95.00% 0.0459 249.33)"
+        ]
+      },
+      "field-text": {
+        "role": "neutral",
+        "displayName": "Field Text",
+        "tonalRamp": [
+          "oklch(15.00% 0.0133 233.74)",
+          "oklch(26.43% 0.0133 233.74)",
+          "oklch(37.86% 0.0133 233.74)",
+          "oklch(49.29% 0.0133 233.74)",
+          "oklch(60.71% 0.0133 233.74)",
+          "oklch(72.14% 0.0133 233.74)",
+          "oklch(83.57% 0.0133 233.74)",
+          "oklch(95.00% 0.0133 233.74)"
+        ]
+      },
+      "field-border": {
+        "role": "neutral",
+        "displayName": "Field Border",
+        "tonalRamp": [
+          "oklch(15.00% 0.0555 227.70)",
+          "oklch(26.43% 0.0555 227.70)",
+          "oklch(37.86% 0.0555 227.70)",
+          "oklch(49.29% 0.0555 227.70)",
+          "oklch(60.71% 0.0555 227.70)",
+          "oklch(72.14% 0.0555 227.70)",
+          "oklch(83.57% 0.0555 227.70)",
+          "oklch(95.00% 0.0555 227.70)"
+        ]
+      },
+      "chip-blue": {
+        "role": "primary",
+        "displayName": "Chip Blue",
+        "tonalRamp": [
+          "oklch(15.00% 0.1351 226.16)",
+          "oklch(26.43% 0.1351 226.16)",
+          "oklch(37.86% 0.1351 226.16)",
+          "oklch(49.29% 0.1351 226.16)",
+          "oklch(60.71% 0.1351 226.16)",
+          "oklch(72.14% 0.1351 226.16)",
+          "oklch(83.57% 0.1351 226.16)",
+          "oklch(95.00% 0.1351 226.16)"
+        ]
+      },
+      "chip-ink": {
+        "role": "neutral",
+        "displayName": "Chip Ink",
+        "tonalRamp": [
+          "oklch(15.00% 0.0390 246.87)",
+          "oklch(26.43% 0.0390 246.87)",
+          "oklch(37.86% 0.0390 246.87)",
+          "oklch(49.29% 0.0390 246.87)",
+          "oklch(60.71% 0.0390 246.87)",
+          "oklch(72.14% 0.0390 246.87)",
+          "oklch(83.57% 0.0390 246.87)",
+          "oklch(95.00% 0.0390 246.87)"
+        ]
+      },
+      "chip-adult": {
+        "role": "secondary",
+        "displayName": "Chip Adult",
+        "tonalRamp": [
+          "oklch(15.00% 0.1146 355.84)",
+          "oklch(26.43% 0.1146 355.84)",
+          "oklch(37.86% 0.1146 355.84)",
+          "oklch(49.29% 0.1146 355.84)",
+          "oklch(60.71% 0.1146 355.84)",
+          "oklch(72.14% 0.1146 355.84)",
+          "oklch(83.57% 0.1146 355.84)",
+          "oklch(95.00% 0.1146 355.84)"
+        ]
+      },
+      "chip-adult-ink": {
+        "role": "secondary",
+        "displayName": "Chip Adult Ink",
+        "tonalRamp": [
+          "oklch(15.00% 0.0474 341.36)",
+          "oklch(26.43% 0.0474 341.36)",
+          "oklch(37.86% 0.0474 341.36)",
+          "oklch(49.29% 0.0474 341.36)",
+          "oklch(60.71% 0.0474 341.36)",
+          "oklch(72.14% 0.0474 341.36)",
+          "oklch(83.57% 0.0474 341.36)",
+          "oklch(95.00% 0.0474 341.36)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Hero display",
+        "purpose": "Separated oversized homepage headline."
+      },
+      "headline": {
+        "displayName": "Homepage heading",
+        "purpose": "Condensed headings within the V2 homepage."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "public-state",
+        "value": "background 0.2s, color 0.2s",
+        "purpose": "Inherited public button state transitions."
+      },
+      {
+        "name": "class-photo",
+        "value": "450ms cubic-bezier(.16, 1, .3, 1)",
+        "purpose": "Inherited class image hover zoom; disabled for reduced motion."
+      },
+      {
+        "name": "rhythm-frame-rate",
+        "value": "30fps",
+        "purpose": "Canvas draw target; paused offscreen, in hidden tabs and when motion is disabled."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "header-compact",
+        "value": "1100px"
+      },
+      {
+        "name": "mobile-v2",
+        "value": "760px"
+      },
+      {
+        "name": "wide-display",
+        "value": "1700px"
+      }
+    ],
+    "rampNote": "Synthesized OKLCH swatch ramps are panel visualization aids, not shipping CSS tokens. Rule ramp represents its hue without source alpha.",
+    "snippetNote": "Static HTML/CSS extracts; no React state is simulated. V2 properties are wrapper-scoped, so snippets resolve them to literals. TDE Condensed and Inter use their existing app-loaded font faces."
+  },
+  "components": [
+    {
+      "name": "Public primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Shared public action with square V2 corners.",
+      "html": "<button class=\"ds-primary\">Find your class</button>",
+      "css": ".ds-primary{display:inline-flex;align-items:center;justify-content:space-between;min-height:54px;padding:15px 24px;border:0;border-radius:0;background:#48b5dd;color:#101014;font:600 14px Inter,sans-serif;letter-spacing:-.015em;transition:background .2s,color .2s}.ds-primary:hover{background:#fff;color:#111}.ds-primary:focus-visible{outline:2px solid #48b5dd;outline-offset:5px}"
+    },
+    {
+      "name": "Header class action",
+      "kind": "button",
+      "refersTo": "header-cta",
+      "description": "Reversed action within the blue ruled header.",
+      "html": "<a class=\"ds-header-cta\" href=\"#classes\">Find your class</a>",
+      "css": ".ds-header-cta{display:inline-flex;align-items:center;min-height:43px;padding:20px;background:#080e16;color:#48b5dd;border-radius:0;font:600 14px Inter,sans-serif;text-decoration:none;transition:background .2s,color .2s}.ds-header-cta:hover{background:#48b5dd;color:#080e16}.ds-header-cta:focus-visible{outline:2px solid #48b5dd;outline-offset:-5px}"
+    },
+    {
+      "name": "Header navigation",
+      "kind": "nav",
+      "description": "Desktop links on a blue header cell.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Sample navigation\"><a href=\"#children\">Children</a><a href=\"#adult\">Adults</a><a href=\"#locations\">Locations</a></nav>",
+      "css": ".ds-nav{display:flex;align-items:center;justify-content:space-evenly;gap:16px;padding:0 20px;background:#48b5dd;color:#080e16;font:12px/1 \"SFMono-Regular\",Consolas,\"Liberation Mono\",monospace;text-transform:uppercase}.ds-nav a{padding:20px 0;color:inherit;text-decoration:none;transition:color .2s}.ds-nav a:hover{text-decoration:underline;text-underline-offset:5px}.ds-nav a:focus-visible{outline:2px solid #080e16;outline-offset:-5px}"
+    },
+    {
+      "name": "Audience switch",
+      "kind": "chip",
+      "refersTo": "audience-chip-selected",
+      "description": "Existing audience states inside a square V2 switch.",
+      "html": "<div class=\"ds-switch\"><button aria-pressed=\"true\">Children</button><button data-audience=\"adult\" aria-pressed=\"false\">Adults</button></div>",
+      "css": ".ds-switch{display:flex;gap:6px;padding:5px;background:#080e16;border:1px solid #42657b;border-radius:0}.ds-switch button{min-height:44px;padding:10px 20px;border:0;border-radius:0;background:transparent;color:#d8eaf4;font:14px Inter,sans-serif}.ds-switch button[aria-pressed=\"true\"]{background:#00b0e0;color:#031322}.ds-switch button[data-audience=\"adult\"][aria-pressed=\"true\"]{background:#f49abc;color:#281020}.ds-switch button:hover{outline:1px solid #81def6}.ds-switch button:focus-visible{outline:2px solid #48b5dd;outline-offset:5px}"
+    },
+    {
+      "name": "Town selector",
+      "kind": "input",
+      "refersTo": "town-select",
+      "description": "Existing town selector retained within the public location finder.",
+      "html": "<label class=\"ds-town\">Choose your town<select><option>All towns</option><option>Example town</option></select></label>",
+      "css": ".ds-town{display:grid;gap:20px;color:#e9f6fb;font:600 19px Inter,sans-serif;background:#080e16;padding:20px}.ds-town select{width:100%;min-height:56px;background:#061a2d;color:#eff9ff;border:1px solid #7fabbf;border-radius:8px;padding:12px;font:inherit}.ds-town select:focus-visible{outline:2px solid #48b5dd;outline-offset:5px}"
+    },
+    {
+      "name": "Audience panel copy",
+      "kind": "card",
+      "refersTo": "panel-copy",
+      "description": "Ruled copy region beneath an authentic audience photograph.",
+      "html": "<a class=\"ds-panel\" href=\"#classes\"><h3>The next<br>generation.</h3><p>Children’s classes</p><span>Explore children’s classes</span></a>",
+      "css": ".ds-panel{display:block;padding:24px;border-top:1px solid #080e16;border-radius:0;background:#48b5dd;color:#080e16;text-decoration:none}.ds-panel h3{margin:0;font:400 clamp(38px,4.2vw,65px)/1.05 \"TDE Condensed\",sans-serif;text-transform:uppercase;letter-spacing:-.015em}.ds-panel p{margin-top:15px;font:16px/1.7 Inter,sans-serif}.ds-panel span{display:block;margin-top:23px;padding-top:16px;border-top:1px solid #080e16;font:600 14px Inter,sans-serif}.ds-panel:hover h3{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:7px}.ds-panel:focus-visible{outline:2px solid #48b5dd;outline-offset:5px}"
+    },
+    {
+      "name": "Motion control",
+      "kind": "button",
+      "description": "Labelled pause control; functional state remains in React.",
+      "html": "<button class=\"ds-motion\" aria-pressed=\"false\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><rect x=\"6\" y=\"4\" width=\"4\" height=\"16\" rx=\"1\"/><rect x=\"14\" y=\"4\" width=\"4\" height=\"16\" rx=\"1\"/></svg>Pause motion</button>",
+      "css": ".ds-motion{display:flex;gap:8px;align-items:center;min-height:40px;padding:10px 16px;border:1px solid #080e16;border-radius:0;background:#48b5dd;color:#080e16;font:10px/1 \"SFMono-Regular\",Consolas,\"Liberation Mono\",monospace;text-transform:uppercase}.ds-motion:hover{background:#080e16;color:#48b5dd}.ds-motion:disabled{cursor:default}.ds-motion:focus-visible{outline:2px solid #080e16;outline-offset:-4px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The rhythm becomes the image",
+    "overview": "The rhythm becomes the image. TDE blue, near-black grounds, ruled cells and condensed headlines give the public site a direct street-dance character. Real school photography carries the human story below the original moving line field. The original TDE logo remains the identity asset.\n\nThis documents the implemented V2 public shell and homepage, plus the shared public patterns they reuse. It does not redefine the booking application: authentication, eligibility, attendee selection and payment behavior remain governed by the existing components. The selected reference is Antoine Wodniack’s warped hairline field and separated headline composition; the canvas, divider geometry and TDE content are original implementation.",
+    "keyCharacteristics": [
+      "TDE blue and near-black, with pink restricted to adult-oriented content.",
+      "One-pixel rules, square public frames and oversized condensed headings.",
+      "Authentic TDE media and practical class discovery.",
+      "User-controlled motion with static reduced-motion rendering."
+    ],
+    "rules": [
+      {
+        "name": "The Adult Context Rule",
+        "body": "Pink is reserved for adult-oriented content.",
+        "section": "colors"
+      }
+    ],
+    "dos": [
+      "Do preserve the original logo geometry and recognisable blue identity.",
+      "Do use real TDE photographs and preserve their source mapping.",
+      "Do maintain readable ink-on-blue shell text and blue-on-dark headings, including emphasized words.",
+      "Do retain native scrolling, visible keyboard focus, the skip link and motion controls.",
+      "Do keep booking inputs, theme tokens and interaction behavior consistent with the existing booking components."
+    ],
+    "donts": [
+      "Don’t use pink as a general school-wide accent; reserve it for adult-oriented content.",
+      "Don’t replace the selected code-driven line field with a generated raster or copy the reference site’s source or claims.",
+      "Don’t turn the public site into the previously rejected white editorial/blog treatment.",
+      "Don’t treat this public-shell document as evidence of a complete account or checkout redesign."
+    ]
+  }
+}

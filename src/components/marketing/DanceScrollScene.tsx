@@ -22,8 +22,7 @@ export function DanceScrollScene({ active, reduced, onToggle }: { active: boolea
       timeline.fromTo(".tde-scroll-aperture", { clipPath: "inset(18% 32% round 50%)" }, { clipPath: "inset(0% 0% round 0%)", duration: .22, ease: "power3.inOut" }, 0)
         .fromTo(".tde-scroll-scene-world", { scale: .78 }, { scale: 1, duration: .22, ease: "power3.inOut" }, 0)
         .fromTo(".tde-scroll-echo:nth-child(odd)", { xPercent: -10 }, { xPercent: 10, duration: 1, ease: "none" }, 0)
-        .fromTo(".tde-scroll-echo:nth-child(even)", { xPercent: 8 }, { xPercent: -12, duration: 1, ease: "none" }, 0)
-        .to(".tde-scroll-aperture", { clipPath: "inset(12% 18% round 0%)", duration: .16, ease: "power3.inOut" }, .84);
+        .fromTo(".tde-scroll-echo:nth-child(even)", { xPercent: 8 }, { xPercent: -12, duration: 1, ease: "none" }, 0);
       gsap.utils.toArray<HTMLElement>(".tde-scroll-photo").forEach((photo, index) => {
         timeline.fromTo(photo, { x: () => window.innerWidth * .95, yPercent: index % 2 ? 20 : -15, rotation: index % 2 ? 9 : -8, scale: .78 }, { x: () => -window.innerWidth * .95, yPercent: index % 2 ? -12 : 12, rotation: index % 2 ? -5 : 5, scale: 1.08, duration: .48, ease: "none" }, .08 + index * .2);
       });

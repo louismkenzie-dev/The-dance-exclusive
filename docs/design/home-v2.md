@@ -42,3 +42,17 @@ The supplied reference HTML linked public `/_astro/hoisted.BvNyQ0G_.js` and `/_a
 Implemented: blue dance-video hero underlay, masked letter entrance, scroll-reactive star/ticker/video, and a reversible sticky dance-photo sequence. Native touch and keyboard scrolling, dialog bypass, pause and reduced-motion fallbacks remain. Reference-only cursor toys, developer loading messages and portfolio content are not included.
 
 Verification: 331 regression tests, TypeScript, targeted ESLint and production build passed. Desktop 1280×900 and mobile 390×844 inspected; no horizontal overflow. Video played with readyState 4, pause stopped videos and reverted sticky effects, scroll positions changed mask and image transforms, reverse scrolling restored preceding scene states. Detector advisories concern literal type sizes; new scene sizes are intentional and documented; existing type-ramp documentation drift was not redesigned.
+
+## Full-bleed rhythm scene — 27 September 2026
+
+The user requested that the moving DANCE field expand beyond its framed panel.
+The scene now breaks out of the shared page gutter; its aperture covers the entire
+sticky viewport behind the heading, controls and links. It opens with the existing
+scroll-driven mask, then stays fully expanded through the travelling-photo sequence
+instead of contracting again at the end. Three oversized type rows fill the viewport
+height, including portrait mobile. Dark interface backplates maintain legibility.
+
+Browser verified at 1440×900 and 390×844: expanded aperture is exactly viewport-sized,
+starts at (0,0), has zero clip inset and creates no horizontal overflow. Pause removes
+the enhanced layout and restores the static photo layout. Build, TypeScript and
+component ESLint passed. Existing reduced-motion guard and GSAP cleanup retained.

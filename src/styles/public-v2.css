@@ -4,7 +4,8 @@
   --tde-blue: #48b5dd; --tde-blue-ink: #48b5dd; --tde-ink: #080e16;
   --tde-border: #48b5dd70; --tde-accent: var(--tde-blue); --tde-accent-text: var(--tde-blue);
   --v2-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  padding: 12px; background: var(--tde-ink); scrollbar-color: var(--tde-blue) var(--tde-ink);
+  --v2-frame: 12px;
+  padding: var(--v2-frame); background: var(--tde-ink); scrollbar-color: var(--tde-blue) var(--tde-ink);
 }
 .tde-v2 ::selection { background: var(--tde-blue); color: var(--tde-ink); }
 .tde-v2 input, .tde-v2 textarea { caret-color: var(--tde-blue); }
@@ -118,7 +119,7 @@
   .tde-rhythm-actions > * { padding: 18px; }
 }
 @media (max-width: 760px) {
-  .tde-v2 { padding: 8px; }
+  .tde-v2 { --v2-frame: 8px; }
   .tde-v2 .tde-header { height: 76px; grid-template-columns: 102px 1fr; }
   .tde-v2 .tde-brand img { width: 78px; }
   .tde-v2 .tde-desktop-nav { display: none; }
@@ -174,7 +175,7 @@
 .tde-rhythm-letter { display: inline-block; overflow: clip; vertical-align: top; }
 .tde-rhythm-letter-inner { display: inline-block; }
 .tde-rhythm-strip > span { transform: translateX(var(--ticker-shift, 0px)); }
-.tde-v2 .tde-home-v2 > .tde-scroll-scene { padding: 0; background: var(--tde-blue); color: var(--tde-ink); }
+.tde-v2 .tde-home-v2 > .tde-scroll-scene { padding: 0; margin-inline: calc(-1 * var(--v2-frame)); background: var(--tde-blue); color: var(--tde-ink); }
 .tde-scroll-scene-sticky { position: relative; padding: 24px; overflow: clip; }
 .tde-scroll-scene-heading, .tde-scroll-scene-links { position: relative; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .tde-v2 .tde-scroll-scene-heading h2 { color: var(--tde-ink); font-size: clamp(38px, 5vw, 76px); }
@@ -189,18 +190,26 @@
 .tde-scroll-photo img { width: 100%; height: 100%; object-fit: cover; }
 .tde-scroll-scene-links a { display: flex; align-items: center; gap: 28px; padding: 14px 0; border-bottom: 1px solid currentColor; font-weight: 600; }
 .tde-scroll-scene[data-enhanced] { height: 260svh; }
-.tde-scroll-scene[data-enhanced] .tde-scroll-scene-sticky { position: sticky; top: 0; height: 100svh; display: flex; flex-direction: column; }
-.tde-scroll-scene[data-enhanced] .tde-scroll-aperture { flex: 1; min-height: 0; }
+.tde-scroll-scene[data-enhanced] .tde-scroll-scene-sticky { position: sticky; top: 0; height: 100svh; display: flex; flex-direction: column; justify-content: space-between; isolation: isolate; }
+/* The aperture owns the whole viewport; interface and photos float above it. */
+.tde-scroll-scene[data-enhanced] .tde-scroll-aperture { position: absolute; inset: 0; margin: 0; min-height: 0; }
 .tde-scroll-scene[data-enhanced] .tde-scroll-scene-world { height: 100%; min-height: 0; }
+.tde-scroll-scene[data-enhanced] .tde-scroll-echo { font-size: max(18vw, 36svh); line-height: .95; }
+.tde-scroll-scene[data-enhanced] .tde-scroll-scene-heading h2,
+.tde-scroll-scene[data-enhanced] .tde-scroll-scene-controls,
+.tde-scroll-scene[data-enhanced] .tde-scroll-scene-links a { background: var(--tde-ink); color: var(--tde-blue); padding: 10px 14px; }
+.tde-scroll-scene[data-enhanced] .tde-scroll-scene-controls { padding: 0 0 0 14px; }
+.tde-scroll-scene[data-enhanced] :focus-visible { outline-color: var(--tde-blue); }
 .tde-scroll-scene[data-enhanced] .tde-scroll-photos { position: absolute; inset: 0; padding: 0; display: block; }
-.tde-scroll-scene[data-enhanced] .tde-scroll-photo { position: absolute; width: min(46vw, 650px); height: 70%; left: 27%; top: 15%; }
+.tde-scroll-scene[data-enhanced] .tde-scroll-photo { position: absolute; width: min(46vw, 650px); height: auto; left: 27%; top: 27%; }
 @media (max-width: 760px) {
   .tde-scroll-scene-sticky { padding: 20px 16px; }
   .tde-scroll-scene-heading { align-items: start; }
   .tde-v2 .tde-scroll-scene-heading h2 { font-size: 43px; max-width: 230px; }
   .tde-scroll-scene-heading > span { display: none; }
   .tde-scroll-scene[data-enhanced] { height: 220svh; }
-  .tde-scroll-scene[data-enhanced] .tde-scroll-photo { width: 76vw; left: calc(50% - 38vw); height: 64%; top: 18%; }
+  .tde-scroll-scene[data-enhanced] .tde-scroll-photo { width: 76vw; left: calc(50% - 38vw); height: auto; top: 33%; }
+  .tde-scroll-scene[data-enhanced] .tde-scroll-scene-controls { padding: 0; }
   .tde-scroll-photos { grid-template-columns: 1fr; padding: 20px; }
   .tde-scroll-scene-links { font-size: 13px; }
 }

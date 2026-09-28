@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { groupPauseWarnings, dueWarnings, describeWarning } from "@/lib/pauseWarnings";
 import { AdminPage } from "@/components/admin/ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarDays, Users, BookOpen, MapPin, TrendingUp, UserCheck, UserCog, Sparkles, Clock, Baby, PersonStanding, AlertTriangle, GraduationCap } from "lucide-react";
@@ -84,7 +85,7 @@ const AdminDashboard = () => {
         childrenClasses, adultClasses,
         childrenBookings, adultBookings,
         upcoming,
-        venueContracts, staffDocs, staffExpiries,
+        venueContracts, staffDocs, staffExpiries, pausedMemberships,
       ] = await Promise.all([
         supabase.from("classes").select("id", { count: "exact", head: true }).eq("is_active", true),
         supabase.from("students").select("id", { count: "exact", head: true }),
@@ -116,6 +117,9 @@ const AdminDashboard = () => {
         supabase.from("staff")
           .select("id, full_name, pli_expiry_date, dbs_expiry_date")
           .eq("is_active", true),
+        supabase.from("memberships")
+          .select("id, user_id, paused_until, pause_reason, monthly_amount, students(first_name, last_name)")
+          .eq("status", "paused"),
       ]);
 
       setStats({
@@ -221,6 +225,40 @@ const AdminDashboard = () => {
               expired: daysUntil < 0,
             });
           }
+        });
+      });
+
+      // Paused memberships.
+      //
+      // A pause voids invoices while it runs and then collection RESUMES AUTOMATICALLY. That is
+      // right for a family coming back and quietly wrong when a pause has been used to mean
+      // "they've left" — the card gets charged again months later for a child who no longer
+      // attends. Poppy Beatwell was paused until Jan 2027 with the reason "Leaving".
+      //
+      // Grouped by family and date, because one household can hold several memberships: Brooke
+      // George has seven sharing a reason and a date, and ungrouped that is seven identical
+      // lines — the same duplicate-warning problem fixed above for PLI.
+      type PausedRow = {
+        id: string; user_id: string | null; paused_until: string | null; pause_reason: string | null;
+        monthly_amount: number | string | null;
+        students: { first_name: string | null; last_name: string | null } | null;
+      };
+      const pausedRows = ((pausedMemberships.data as unknown as PausedRow[] | null) || []).map((m) => ({
+        membershipId: m.id,
+        userId: m.user_id,
+        dancerName: m.students ? `${m.students.first_name ?? ""} ${m.students.last_name ?? ""}`.trim() : null,
+        pausedUntil: m.paused_until,
+        pauseReason: m.pause_reason,
+        monthlyAmount: Number(m.monthly_amount) || 0,
+      }));
+      dueWarnings(groupPauseWarnings(pausedRows, format(startOfToday, "yyyy-MM-dd"))).forEach((w) => {
+        items.push({
+          id: `pause-${w.key}`,
+          label: describeWarning(w, format(parseISO(w.pausedUntil), "d MMM yyyy")),
+          date: w.pausedUntil,
+          // A pause standing in for a cancellation is wrong today, not on the day it bills, so it
+          // shows red rather than waiting to become urgent.
+          expired: w.looksLikeCancellation || w.daysUntil < 0,
         });
       });
 

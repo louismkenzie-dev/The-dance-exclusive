@@ -60,13 +60,13 @@ export function PublicSiteShell({ children, product = false, focus = false }: { 
           <BrandLogo tone="ink" className="h-11" />
         </Link>
         <div className="tde-header-right">
-          {!focus && <div className="tde-booking-theme"><CartButton /></div>}
           <Link
             to={user ? "/account" : signInPath(pathname + search)}
             className="tde-account"
           >
             {user ? "Your account" : "Member login"}
           </Link>
+          {!focus && <div className="tde-booking-theme"><CartButton /></div>}
           <Link to="/classes" className="tde-button tde-header-cta">
             Find your class <ArrowUpRight size={17} aria-hidden />
           </Link>

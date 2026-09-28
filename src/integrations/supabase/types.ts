@@ -1476,6 +1476,8 @@ export type Database = {
           free_month: number | null
           id: string
           monthly_amount: number
+          pause_reason: string | null
+          paused_until: string | null
           payment_failed_notified_at: string | null
           started_at: string
           status: string
@@ -1499,6 +1501,8 @@ export type Database = {
           free_month?: number | null
           id?: string
           monthly_amount?: number
+          pause_reason?: string | null
+          paused_until?: string | null
           payment_failed_notified_at?: string | null
           started_at?: string
           status?: string
@@ -1522,6 +1526,8 @@ export type Database = {
           free_month?: number | null
           id?: string
           monthly_amount?: number
+          pause_reason?: string | null
+          paused_until?: string | null
           payment_failed_notified_at?: string | null
           started_at?: string
           status?: string

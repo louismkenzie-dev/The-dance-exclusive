@@ -15,6 +15,9 @@
 //    invoice item on that month's invoice, so the card is charged the
 //    adjusted amount; the usual price carries on the month after.
 //  - "remove_adjustment" (admin only): undo one before its invoice is raised.
+//  - "cancel_now" (admin only): end a membership TODAY with no further payment,
+//    for a family who has already gone. Deliberately admin-only — a parent must
+//    not be able to waive their own notice period by calling it directly.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
@@ -33,6 +36,7 @@ import {
   ensureAdjustmentInvoiceItem,
   markAdjustmentApplied,
   monthLabel,
+  retirePendingAdjustments,
   yearMonth,
 } from "../_shared/membershipAdjustments.ts";
 import { pauseBlockedReason, planPause } from "../_shared/membershipPause.ts";
@@ -83,7 +87,7 @@ serve(async (req) => {
     }
 
     const { action, membershipId, newClassId, billingMonth, amount, reason, adjustmentId, months } = await req.json();
-    const ADMIN_ACTIONS = ["adjust", "remove_adjustment", "pause", "resume"];
+    const ADMIN_ACTIONS = ["adjust", "remove_adjustment", "pause", "resume", "cancel_now"];
     if (!["cancel", "switch_class", "payment_link", ...ADMIN_ACTIONS].includes(action)) {
       return jsonResponse({ error: "Unknown action" }, 400);
     }
@@ -420,7 +424,7 @@ serve(async (req) => {
       return jsonResponse({ success: true, adjustment: { ...row, status: "removed", removed_at: nowIso } });
     }
 
-    // Fetched once — both remaining actions email a confirmation.
+    // Fetched once — the remaining actions all email a confirmation.
     const { data: profile } = await supabase
       .from("profiles")
       .select("email, full_name")
@@ -430,6 +434,105 @@ serve(async (req) => {
     // ────────────────────────────────────────────────────────────────────
     // CANCEL
     // ────────────────────────────────────────────────────────────────────
+    // ────────────────────────────────────────────────────────────────────
+    // CANCEL NOW (admin) — end it today, nothing further taken.
+    //
+    // For a family who has already left, where charging one more month would
+    // be wrong. The notice-period "cancel" below is still the default; this is
+    // Amie deciding to waive it, which is why it is admin-only.
+    //
+    // Per MEMBERSHIP, not per subscription: a family may be ending one class
+    // and keeping another. Only when this is the last live membership on the
+    // subscription does the subscription itself get cancelled — otherwise just
+    // this item goes, and the rest of the family keeps billing. Same shape as
+    // the nightly memberships-maintenance job, which ends memberships whose
+    // notice period has run out.
+    // ────────────────────────────────────────────────────────────────────
+    if (action === "cancel_now") {
+      const { data: liveSiblings } = await supabase
+        .from("memberships")
+        .select("id")
+        .eq("stripe_subscription_id", membership.stripe_subscription_id)
+        .in("status", ["active", "past_due", "paused", "cancel_scheduled"]);
+      const othersRemain = (liveSiblings ?? []).filter((m: any) => m.id !== membership.id).length > 0;
+
+      const activeItems = (sub.items?.data ?? []) as any[];
+      if (membership.stripe_subscription_item_id && othersRemain && activeItems.length > 1) {
+        await stripe.subscriptionItems.del(
+          membership.stripe_subscription_item_id,
+          { proration_behavior: "none" },
+          connectOpts,
+        );
+      } else {
+        await stripe.subscriptions.cancel(membership.stripe_subscription_id, {}, connectOpts);
+      }
+
+      const nowIso = new Date().toISOString();
+      const { error: endError } = await supabase
+        .from("memberships")
+        .update({
+          status: "cancelled",
+          cancelled_at: nowIso,
+          // Clear any scheduled ending — this one has happened instead.
+          cancel_at: null,
+          final_payment_date: null,
+          paused_until: null,
+          updated_at: nowIso,
+        })
+        .eq("id", membership.id);
+      if (endError) throw endError;
+
+      // A membership that has ended cannot take a payment adjustment either.
+      await retirePendingAdjustments(supabase, membership.id, null, "membership ended");
+
+      // Take the dancer off the register. Without this they stay on it forever.
+      if (membership.class_id) {
+        let q = supabase
+          .from("bookings")
+          .update({ status: "cancelled" })
+          .eq("parent_id", ownerId)
+          .eq("class_id", membership.class_id)
+          .eq("status", "confirmed")
+          .eq("booking_type", "monthly");
+        q = membership.student_id
+          ? q.eq("student_id", membership.student_id)
+          : q.is("student_id", null);
+        const { error: bookingError } = await q;
+        if (bookingError) console.error("Failed to retire booking for membership", membership.id, bookingError);
+      }
+
+      try {
+        const [{ data: student }, { data: cls }] = await Promise.all([
+          membership.student_id
+            ? supabase.from("students").select("first_name, last_name").eq("id", membership.student_id).maybeSingle()
+            : Promise.resolve({ data: null }),
+          membership.class_id
+            ? supabase.from("classes").select("name").eq("id", membership.class_id).maybeSingle()
+            : Promise.resolve({ data: null }),
+        ]);
+        if (profile?.email) {
+          await supabase.functions.invoke("send-email", {
+            headers: { "x-internal-auth": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! },
+            body: {
+              template: "membership_ended",
+              to: profile.email,
+              data: {
+                parentName: profile.full_name,
+                studentName: student ? `${student.first_name} ${student.last_name}` : null,
+                className: cls?.name ?? "your class",
+                endDate: nowIso,
+                scheduled: false,
+              },
+            },
+          });
+        }
+      } catch (e) {
+        console.error("cancel_now email failed:", e);
+      }
+
+      return jsonResponse({ ok: true, endedAt: nowIso });
+    }
+
     if (action === "cancel") {
       if (membership.status === "cancel_scheduled") {
         return jsonResponse({ error: "This membership is already scheduled to end" }, 400);

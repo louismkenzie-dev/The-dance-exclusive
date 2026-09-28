@@ -19,6 +19,7 @@ import { passLabelOf, usePassCatalog } from "@/lib/passCatalog";
 import MoveMembershipDialog, { type MoveMembershipTarget } from "@/components/admin/MoveMembershipDialog";
 import MembershipAdjustDialog, { type AdjustableMembership } from "@/components/admin/MembershipAdjustDialog";
 import MembershipPauseDialog, { type PausableMembership } from "@/components/admin/MembershipPauseDialog";
+import MembershipCancelDialog, { type CancellableMembership } from "@/components/admin/MembershipCancelDialog";
 import OneToOneTab from "@/components/admin/OneToOneTab";
 import TrialsTab from "@/components/admin/TrialsTab";
 import AddBookingDialog from "@/components/admin/AddBookingDialog";
@@ -709,6 +710,7 @@ const MembershipsTab = () => {
   const [adjustTarget, setAdjustTarget] = useState<AdjustableMembership | null>(null);
   /** The family whose monthly payments are being paused or restarted. */
   const [pauseTarget, setPauseTarget] = useState<{ name: string; memberships: PausableMembership[] } | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<CancellableMembership | null>(null);
   // Upcoming one-off payment changes, keyed by membership id.
   const [adjustmentsByMembership, setAdjustmentsByMembership] = useState<Map<string, RowAdjustment[]>>(new Map());
   const [refreshKey, setRefreshKey] = useState(0);
@@ -968,7 +970,12 @@ const MembershipsTab = () => {
     const canAdjust =
       !!r.membershipId &&
       (r.statusLabel === "Active" || r.statusLabel === "Paused" || r.statusLabel === "Payment issue");
-    return { rowAdjustments, canMove, canAdjust };
+    // Anything still live can be ended — including one already scheduled to end, where Amie may
+    // want to stop the final payment too.
+    const canCancel =
+      !!r.membershipId &&
+      ["Active", "Paused", "Payment issue", "Ending"].includes(r.statusLabel);
+    return { rowAdjustments, canMove, canAdjust, canCancel };
   };
   const openMoveFor = (r: PlanRow) => setMoveTarget({
     membershipId: r.membershipId!,
@@ -976,6 +983,15 @@ const MembershipsTab = () => {
     childName: r.childName,
     className: r.className,
     classId: r.classId,
+  });
+  const openCancelFor = (r: PlanRow) => setCancelTarget({
+    membershipId: r.membershipId!,
+    childName: r.childName !== "—" ? r.childName : r.parentName,
+    className: r.className,
+    amount: r.amount,
+    status: r.membershipStatus ?? "",
+    nextCharge: r.nextCharge,
+    pausedUntil: r.pausedUntil ?? null,
   });
   const openAdjustFor = (r: PlanRow) => setAdjustTarget({
     id: r.membershipId!,
@@ -1196,7 +1212,7 @@ const MembershipsTab = () => {
                             as full-width buttons. */}
                         <div className="divide-y divide-border/70 md:hidden">
                           {g.rows.map((r) => {
-                            const { rowAdjustments, canMove, canAdjust } = rowExtras(r);
+                            const { rowAdjustments, canMove, canAdjust, canCancel } = rowExtras(r);
                             return (
                               <div key={r.key} className="p-4">
                                 <div className="flex items-start justify-between gap-3">
@@ -1223,7 +1239,7 @@ const MembershipsTab = () => {
                                   {r.nextCharge && ` · Next charge ${format(new Date(r.nextCharge), "d MMM")}`}
                                   {r.ends && ` · Ends ${format(new Date(r.ends), "d MMM yyyy")}`}
                                 </p>
-                                {(canMove || canAdjust) && (
+                                {(canMove || canAdjust || canCancel) && (
                                   <div className="mt-3 grid grid-cols-2 gap-2">
                                     {canMove && (
                                       <Button variant="outline" className="h-10 rounded-full" onClick={() => openMoveFor(r)}>
@@ -1233,10 +1249,19 @@ const MembershipsTab = () => {
                                     {canAdjust && (
                                       <Button
                                         variant="outline"
-                                        className={`h-10 rounded-full ${canMove ? "" : "col-span-2"}`}
+                                        className="h-10 rounded-full"
                                         onClick={() => openAdjustFor(r)}
                                       >
                                         Adjust payment
+                                      </Button>
+                                    )}
+                                    {canCancel && (
+                                      <Button
+                                        variant="outline"
+                                        className="col-span-2 h-10 rounded-full text-destructive hover:text-destructive"
+                                        onClick={() => openCancelFor(r)}
+                                      >
+                                        Cancel monthly payment
                                       </Button>
                                     )}
                                   </div>
@@ -1261,7 +1286,7 @@ const MembershipsTab = () => {
                           </TableHeader>
                           <TableBody>
                             {g.rows.map((r) => {
-                              const { rowAdjustments, canMove, canAdjust } = rowExtras(r);
+                              const { rowAdjustments, canMove, canAdjust, canCancel } = rowExtras(r);
                               return (
                               <TableRow key={r.key}>
                                 <TableCell>{r.childName}</TableCell>
@@ -1298,6 +1323,16 @@ const MembershipsTab = () => {
                                         onClick={() => openAdjustFor(r)}
                                       >
                                         Adjust payment
+                                      </Button>
+                                    )}
+                                    {canCancel && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                                        onClick={() => openCancelFor(r)}
+                                      >
+                                        Cancel
                                       </Button>
                                     )}
                                   </div>
@@ -1390,6 +1425,13 @@ const MembershipsTab = () => {
             onMoved={() => setRefreshKey((k) => k + 1)}
           />
 
+          {/* End a monthly payment: with notice, or today for a family who has already left */}
+          <MembershipCancelDialog
+            open={!!cancelTarget}
+            onOpenChange={(o) => { if (!o) setCancelTarget(null); }}
+            membership={cancelTarget}
+            onDone={() => setRefreshKey((k) => k + 1)}
+          />
           {/* Stop a family's monthly payments for an agreed few months */}
           <MembershipPauseDialog
             open={!!pauseTarget}

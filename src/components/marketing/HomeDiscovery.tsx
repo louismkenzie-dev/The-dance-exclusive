@@ -90,6 +90,12 @@ export function HomeLocations({ school, loading, error }: DiscoveryProps) {
         })}
       </div>
       {result && <button className="tde-postcode-clear" type="button" onClick={() => { setPostcode(""); setResult(null); }}>Clear postcode</button>}
+      {!result && <div className="tde-postcode-art" aria-hidden="true">
+        <img src="/media/tde/local-dance-finder.webp"
+          srcSet="/media/tde/local-dance-finder-480.webp 480w, /media/tde/local-dance-finder.webp 960w"
+          sizes="(max-width: 700px) 90vw, 44vw" width={960} height={640}
+          alt="" loading="lazy" decoding="async" />
+      </div>}
       <Link to="/venues" className="tde-text-link">All {school?.venues.length || "our"} locations <ArrowUpRight size={18} aria-hidden /></Link>
     </div>
   );

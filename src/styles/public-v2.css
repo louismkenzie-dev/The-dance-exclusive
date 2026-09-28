@@ -402,3 +402,13 @@
 .tde-postcode-finder .tde-postcode-control button { background: #48b5dd; color: #080e16; }
 .tde-postcode-finder .tde-postcode-control button:hover { background: #83d9f6; }
 .tde-postcode-clear { display: block; min-height: 44px; color: #83d9f6; font-size: 14px; text-decoration: underline; text-underline-offset: 4px; }
+
+/* The finder fills its desktop column; real search results replace the illustration. */
+.tde-v2 .tde-home-v2 .tde-postcode-finder { align-self: stretch; display: flex; flex-direction: column; min-width: 0; }
+.tde-postcode-art { position: relative; flex: 1; min-height: 260px; margin: 12px -28px 0; overflow: hidden; }
+.tde-postcode-art img { position: absolute; width: 100%; height: 100%; object-fit: contain; }
+.tde-v2 .tde-postcode-finder > .tde-text-link { align-self: flex-start; margin-top: 24px; }
+.tde-postcode-finder .tde-town-results:not(:empty) { flex: 1; }
+@media (max-width: 700px) {
+  .tde-postcode-art { flex: none; height: 200px; min-height: 0; margin-inline: -20px; }
+}

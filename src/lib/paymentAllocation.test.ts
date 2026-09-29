@@ -164,3 +164,16 @@ describe("the client mirror and the server copy", () => {
       .toEqual(feesFromDetails([{ type: "application_fee", amount: 9 }]));
   });
 });
+
+describe("paymentKind", () => {
+  it("is the kind the payment spent most on", async () => {
+    const { paymentKind, oneOffTargets: t } = await import("./paymentAllocation");
+    expect(paymentKind(t([{ kind: "class", totalPrice: 12 }, { kind: "camp", totalPrice: 60 }]))).toBe("camp");
+    expect(paymentKind(t([{ kind: "pass", totalPrice: 48 }]))).toBe("pass");
+    expect(paymentKind([])).toBe("unknown");
+  });
+  it("calls a membership invoice a membership", async () => {
+    const { paymentKind, subscriptionTargets: s } = await import("./paymentAllocation");
+    expect(paymentKind(s([{ subscriptionItemId: "si_0" }], [{ stripeSubscriptionItemId: "si_0", classId: "c" }]))).toBe("membership");
+  });
+});

@@ -190,3 +190,20 @@ export function withVenues(
       (t.campId ? campVenue.get(t.campId) ?? null : null),
   }));
 }
+
+/**
+ * What kind a payment as a whole counts as, for the payments row. A checkout of one class and one
+ * camp is one payment with two allocations; the allocations keep their own kinds, and the payment
+ * takes the kind of whatever it spent most on.
+ */
+export function paymentKind(targets: AllocationTarget[]): AllocationKind {
+  if (!targets.length) return "unknown";
+  const byKind = new Map<AllocationKind, number>();
+  for (const t of targets) byKind.set(t.kind, (byKind.get(t.kind) ?? 0) + (Number(t.weight) || 0));
+  let best: AllocationKind = targets[0].kind;
+  let bestWeight = -1;
+  for (const [k, w] of byKind) {
+    if (w > bestWeight) { best = k; bestWeight = w; }
+  }
+  return best;
+}

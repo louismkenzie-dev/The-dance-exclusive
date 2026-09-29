@@ -1372,6 +1372,8 @@ export type Database = {
           is_active: boolean
           is_head_office: boolean
           name: string
+          share_percent: number
+          staff_id: string | null
         }
         Insert: {
           created_at?: string
@@ -1380,6 +1382,8 @@ export type Database = {
           is_active?: boolean
           is_head_office?: boolean
           name: string
+          share_percent?: number
+          staff_id?: string | null
         }
         Update: {
           created_at?: string
@@ -1388,8 +1392,18 @@ export type Database = {
           is_active?: boolean
           is_head_office?: boolean
           name?: string
+          share_percent?: number
+          staff_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "franchises_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       medical_waivers: {
         Row: {

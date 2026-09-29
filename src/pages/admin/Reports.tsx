@@ -4,7 +4,8 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { format } from "date-fns";
 import { AlertTriangle, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { AdminPage, EmptyState, PageHeader, SectionHeading, StatGrid, StatTile } from "@/components/admin/ui";
+import { AdminPage, EmptyState, PageHeader, SectionHeading, SegmentedControl, StatGrid, StatTile } from "@/components/admin/ui";
+import { FranchisePayouts } from "@/components/admin/reports/FranchisePayouts";
 import { Button } from "@/components/ui/button";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { useToast } from "@/hooks/use-toast";
@@ -150,6 +151,7 @@ const AdminReports = () => {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [syncing, setSyncing] = useState(false);
+  const [view, setView] = useState<"turnover" | "payouts">("turnover");
   const isPhone = useIsPhone();
 
   const range = useMemo(() => londonMonthRange(year, month), [year, month]);
@@ -252,7 +254,18 @@ const AdminReports = () => {
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
+        <div className="flex flex-wrap items-center gap-3">
+          <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
+          <SegmentedControl
+            ariaLabel="Report"
+            value={view}
+            onChange={(id) => setView(id === "payouts" ? "payouts" : "turnover")}
+            segments={[
+              { id: "turnover", label: "Turnover" },
+              { id: "payouts", label: "Franchise payouts" },
+            ]}
+          />
+        </div>
         {syncedLine && <p className="text-[13px] text-muted-foreground">{syncedLine}</p>}
       </div>
 
@@ -264,6 +277,8 @@ const AdminReports = () => {
           title="The report couldn't load"
           body={report.error instanceof Error ? report.error.message : "Please refresh and try again."}
         />
+      ) : view === "payouts" && (rows.length > 0 || watermark.data) ? (
+        <FranchisePayouts year={year} month={month} revenue={rows} />
       ) : rows.length === 0 ? (
         <EmptyState
           title={`Nothing recorded for ${monthName} yet`}

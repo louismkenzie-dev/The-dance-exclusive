@@ -8,10 +8,13 @@
  *
  *     money in, after Stripe's fee and the Nullshift 1%     (from the ledger — what really arrived)
  *   + class passes used at the franchise's classes          (see below)
- *   − hall hire for every session held                      (venue's hourly rate × class length)
+ *   − hall hire for every session                           (venue's hourly rate × class length)
  *   = profit or loss
- *   − head office's share                                   (franchises.share_percent — 0 today)
- *   = payout
+ *
+ * and then, in Amie's words (30 Sep): "they get 70% profit and [I] get 30%" — head office keeps
+ * franchises.share_percent (30) of a PROFIT and the franchisee is paid the rest. "If they make a
+ * loss, I absorb it and start fresh next month" — a loss pays out £0, head office absorbs it, and
+ * nothing carries into the next month.
  *
  * Money in is what actually reached the studio's Stripe account in that London month, with Stripe's
  * real fee — Louis's call, 30 Sep. A family whose payment failed is not paid out on.
@@ -22,13 +25,16 @@
  * to that class at the pass's own rate — price ÷ sessions, less the same share of fees the purchase
  * really paid.
  *
- * HALL HIRE is charged for every session not cancelled, at the session's own times. Two classes at
- * one venue on one date never pay for the same minutes twice (the alternate-week adult classes at
- * Coval Lane never overlap today, but nothing stops them). A venue with only a daily rate pays it
- * once per date used. A venue with no rate at all is flagged, never silently charged £0.
+ * HALL HIRE is charged for every session, at the session's own times — cancelled ones too: "if
+ * cancelled session, we still pay hall hire" (Amie). The one exception is a class that has been
+ * taken down altogether: cancel-class marks every future session cancelled, and the hall is not
+ * booked for a class that no longer runs, so a retired class's cancelled sessions are not charged.
+ * Two classes at one venue on one date never pay for the same minutes twice. A venue with only a
+ * daily rate pays it once per date used. A venue with no rate at all is flagged, never silently
+ * charged £0.
  *
- * COACH PAY is not deducted. A class led by someone other than the franchisee is listed so Amie can
- * see it, pending her answer on who pays that coach.
+ * COACH PAY is the franchisee's own business: "Brad would pay Kayleigh out of his money" (Amie). So
+ * nothing about coaches appears here.
  */
 import { poundsToPence } from "./money";
 import type { ReportRow, Totals } from "./revenueReport";
@@ -37,9 +43,12 @@ export type PayoutFranchise = {
   id: string;
   name: string;
   franchiseeName: string | null;
+  /** Head office's share of a profit, in percent. */
   sharePercent: number;
-  staffId: string | null;
 };
+
+/** Amie's standard terms: the franchisee keeps 70% of a profit, head office 30%. */
+export const DEFAULT_SHARE_PERCENT = 30;
 export type PayoutVenue = {
   id: string;
   name: string;
@@ -53,6 +62,8 @@ export type PayoutClass = {
   venueId: string | null;
   startTime: string | null;
   endTime: string | null;
+  /** False once the class has been taken down; its cancelled sessions then cost nothing. */
+  isActive?: boolean | null;
 };
 export type PayoutSession = {
   classId: string;
@@ -69,7 +80,6 @@ export type PassUse = {
   /** net ÷ gross of the payment that bought it, from the ledger. Null if it hasn't been synced. */
   netRatio: number | null;
 };
-export type PayoutInstructor = { classId: string; staffId: string; name: string; role: string | null };
 
 export type ClassPayout = {
   id: string;
@@ -79,11 +89,11 @@ export type ClassPayout = {
   passSessions: number;
   passCreditPence: number;
   sessionsHeld: number;
+  /** Cancelled, but the hall was still paid for. */
+  sessionsCancelled: number;
   hireMinutes: number;
   hirePence: number;
   profitPence: number;
-  /** Coaches on this class who are not the franchisee — pay not deducted. */
-  otherCoaches: string[];
 };
 export type VenuePayout = {
   id: string;
@@ -104,6 +114,7 @@ export type PayoutTotals = {
   passSessions: number;
   hirePence: number;
   sessionsHeld: number;
+  sessionsCancelled: number;
   hireMinutes: number;
   profitPence: number;
 };
@@ -111,8 +122,12 @@ export type FranchisePayout = {
   franchise: PayoutFranchise;
   venues: VenuePayout[];
   totals: PayoutTotals;
+  /** Head office's share of a profit. 0 in a loss month. */
   sharePence: number;
+  /** What the franchisee is paid. Never negative. */
   payoutPence: number;
+  /** A loss head office absorbs. 0 in a profitable month. */
+  absorbedPence: number;
   /** Some pass purchases aren't in the ledger yet, so their fees are unknown and weren't taken off. */
   passFeesUnknown: boolean;
 };
@@ -120,7 +135,7 @@ export type FranchisePayout = {
 const zeroTotals = (): Totals => ({ grossPence: 0, stripeFeePence: 0, platformFeePence: 0, netPence: 0 });
 const zeroPayout = (): PayoutTotals => ({
   grossPence: 0, stripeFeePence: 0, platformFeePence: 0, netPence: 0,
-  passCreditPence: 0, passSessions: 0, hirePence: 0, sessionsHeld: 0, hireMinutes: 0, profitPence: 0,
+  passCreditPence: 0, passSessions: 0, hirePence: 0, sessionsHeld: 0, sessionsCancelled: 0, hireMinutes: 0, profitPence: 0,
 });
 const num = (v: number | string | null | undefined) => {
   if (v === null || v === undefined || v === "") return null;
@@ -137,14 +152,15 @@ export function minutesOf(time: string | null | undefined): number | null {
   return h < 24 && min < 60 ? h * 60 + min : null;
 }
 
-export type HireLine = { sessions: number; minutes: number; pence: number };
+export type HireLine = { sessions: number; cancelled: number; minutes: number; pence: number };
 
 /**
  * Hall hire per class, for the sessions given (already limited to one month).
  *
  * Sessions are grouped by venue and date and walked in start order; each is charged only for the
- * minutes no earlier session that day has already paid for. Returns a line per class, and the
- * venues that have no rate at all.
+ * minutes no earlier session that day has already paid for. A cancelled session is charged like any
+ * other unless its class has been taken down. Returns a line per class (`sessions` held,
+ * `cancelled` but charged), and the venues that have no rate at all.
  */
 export function hallHire(
   sessions: PayoutSession[],
@@ -155,18 +171,20 @@ export function hallHire(
   const missingRate = new Set<string>();
   const line = (id: string) => {
     let l = byClass.get(id);
-    if (!l) { l = { sessions: 0, minutes: 0, pence: 0 }; byClass.set(id, l); }
+    if (!l) { l = { sessions: 0, cancelled: 0, minutes: 0, pence: 0 }; byClass.set(id, l); }
     return l;
   };
 
   const days = new Map<string, { classId: string; start: number; end: number }[]>();
   for (const s of sessions) {
-    if (s.status === "cancelled") continue;
     const cls = classes.get(s.classId);
     if (!cls?.venueId) continue;
+    const cancelled = s.status === "cancelled";
+    if (cancelled && cls.isActive === false) continue;
     const start = minutesOf(s.startTime) ?? minutesOf(cls.startTime);
     const end = minutesOf(s.endTime) ?? minutesOf(cls.endTime);
-    line(s.classId).sessions++;
+    if (cancelled) line(s.classId).cancelled++;
+    else line(s.classId).sessions++;
     if (start === null || end === null || end <= start) continue;
     const key = `${cls.venueId}|${s.date}`;
     const list = days.get(key) ?? [];
@@ -212,7 +230,7 @@ function hireRateLabel(v: PayoutVenue): string {
   return "No hire rate set";
 }
 
-function addInto(t: PayoutTotals, c: { moneyIn: Totals; passCreditPence: number; passSessions: number; hirePence: number; sessionsHeld: number; hireMinutes: number }) {
+function addInto(t: PayoutTotals, c: { moneyIn: Totals; passCreditPence: number; passSessions: number; hirePence: number; sessionsHeld: number; sessionsCancelled: number; hireMinutes: number }) {
   t.grossPence += c.moneyIn.grossPence;
   t.stripeFeePence += c.moneyIn.stripeFeePence;
   t.platformFeePence += c.moneyIn.platformFeePence;
@@ -221,6 +239,7 @@ function addInto(t: PayoutTotals, c: { moneyIn: Totals; passCreditPence: number;
   t.passSessions += c.passSessions;
   t.hirePence += c.hirePence;
   t.sessionsHeld += c.sessionsHeld;
+  t.sessionsCancelled += c.sessionsCancelled;
   t.hireMinutes += c.hireMinutes;
   t.profitPence = t.netPence + t.passCreditPence - t.hirePence;
 }
@@ -232,7 +251,6 @@ export function buildPayouts(input: {
   sessions: PayoutSession[];
   passUses: PassUse[];
   revenue: ReportRow[];
-  instructors: PayoutInstructor[];
 }): FranchisePayout[] {
   const venues = new Map(input.venues.map((v) => [v.id, v]));
   const classes = new Map(input.classes.map((c) => [c.id, c]));
@@ -253,7 +271,7 @@ export function buildPayouts(input: {
             id,
             name: classes.get(id)?.name ?? fallbackName ?? "Class",
             payments: 0, moneyIn: zeroTotals(), passSessions: 0, passCreditPence: 0,
-            sessionsHeld: 0, hireMinutes: 0, hirePence: 0, profitPence: 0, otherCoaches: [],
+            sessionsHeld: 0, sessionsCancelled: 0, hireMinutes: 0, hirePence: 0, profitPence: 0,
           };
           lines.set(id, l);
         }
@@ -284,15 +302,13 @@ export function buildPayouts(input: {
         if (classes.get(classId)?.venueId !== venue.id) continue;
         const l = lineFor(classId, null);
         l.sessionsHeld = h.sessions;
+        l.sessionsCancelled = h.cancelled;
         l.hireMinutes = h.minutes;
         l.hirePence = h.pence;
       }
 
       for (const l of lines.values()) {
         l.profitPence = l.moneyIn.netPence + l.passCreditPence - l.hirePence;
-        l.otherCoaches = input.instructors
-          .filter((i) => i.classId === l.id && (!franchise.staffId || i.staffId !== franchise.staffId))
-          .map((i) => (i.role ? `${i.name} (${i.role})` : i.name));
       }
 
       const classList = [...lines.values()].sort(
@@ -300,7 +316,7 @@ export function buildPayouts(input: {
       );
       const totals = zeroPayout();
       classList.forEach((c) => addInto(totals, c));
-      addInto(totals, { moneyIn: otherMoneyIn, passCreditPence: 0, passSessions: 0, hirePence: 0, sessionsHeld: 0, hireMinutes: 0 });
+      addInto(totals, { moneyIn: otherMoneyIn, passCreditPence: 0, passSessions: 0, hirePence: 0, sessionsHeld: 0, sessionsCancelled: 0, hireMinutes: 0 });
 
       return {
         id: venue.id,
@@ -316,15 +332,17 @@ export function buildPayouts(input: {
     if (!venueIds.size) continue;
     const totals = zeroPayout();
     venuePayouts.forEach((v) => addInto(totals, { ...v.totals, moneyIn: v.totals }));
-    const shareBase = totals.netPence + totals.passCreditPence;
     const pct = Math.min(100, Math.max(0, Number(franchise.sharePercent) || 0));
-    const sharePence = shareBase > 0 ? Math.round((shareBase * pct) / 100) : 0;
+    const profit = totals.profitPence;
+    // Share and payout are split from the same whole, so the two always add back to the profit.
+    const sharePence = profit > 0 ? Math.round((profit * pct) / 100) : 0;
     out.push({
       franchise,
       venues: venuePayouts,
       totals,
       sharePence,
-      payoutPence: totals.profitPence - sharePence,
+      payoutPence: profit > 0 ? profit - sharePence : 0,
+      absorbedPence: profit < 0 ? -profit : 0,
       passFeesUnknown,
     });
   }
@@ -334,7 +352,7 @@ export function buildPayouts(input: {
 /** The statement as spreadsheet rows, for Amie to send on. */
 export const PAYOUT_CSV_HEADER = [
   "Venue", "Class", "Payments", "Taken", "Stripe fees", "Nullshift fee", "Money in",
-  "Pass sessions", "Pass credit", "Sessions held", "Hall hours", "Hall hire", "Profit / loss", "Other coaches",
+  "Pass sessions", "Pass credit", "Sessions held", "Cancelled (hall still paid)", "Hall hours", "Hall hire", "Profit / loss",
 ];
 
 /** Money as a number of pounds, so the spreadsheet can add it up and a loss stays negative. */
@@ -348,13 +366,13 @@ export function payoutCsvRows(p: FranchisePayout): (string | number)[][] {
       rows.push([
         v.name, c.name, c.payments, pounds(c.moneyIn.grossPence), pounds(c.moneyIn.stripeFeePence),
         pounds(c.moneyIn.platformFeePence), pounds(c.moneyIn.netPence), c.passSessions, pounds(c.passCreditPence),
-        c.sessionsHeld, hours(c.hireMinutes), pounds(c.hirePence), pounds(c.profitPence), c.otherCoaches.join("; "),
+        c.sessionsHeld, c.sessionsCancelled, hours(c.hireMinutes), pounds(c.hirePence), pounds(c.profitPence),
       ]);
     }
     if (v.otherMoneyIn.grossPence || v.otherMoneyIn.netPence) {
       rows.push([
         v.name, "Camps and other", "", pounds(v.otherMoneyIn.grossPence), pounds(v.otherMoneyIn.stripeFeePence),
-        pounds(v.otherMoneyIn.platformFeePence), pounds(v.otherMoneyIn.netPence), "", "", "", "", "", pounds(v.otherMoneyIn.netPence), "",
+        pounds(v.otherMoneyIn.platformFeePence), pounds(v.otherMoneyIn.netPence), "", "", "", "", "", "", pounds(v.otherMoneyIn.netPence),
       ]);
     }
   }
@@ -362,10 +380,16 @@ export function payoutCsvRows(p: FranchisePayout): (string | number)[][] {
   rows.push([]);
   rows.push([
     "Total", "", "", pounds(t.grossPence), pounds(t.stripeFeePence), pounds(t.platformFeePence), pounds(t.netPence),
-    t.passSessions, pounds(t.passCreditPence), t.sessionsHeld, hours(t.hireMinutes), pounds(t.hirePence), pounds(t.profitPence), "",
+    t.passSessions, pounds(t.passCreditPence), t.sessionsHeld, t.sessionsCancelled, hours(t.hireMinutes), pounds(t.hirePence), pounds(t.profitPence),
   ]);
-  rows.push([`Head office share (${Number(p.franchise.sharePercent) || 0}% of money in)`, "", "", "", "", "", "", "", "", "", "", "", pounds(-p.sharePence) || 0, ""]);
   const who = p.franchise.franchiseeName ?? p.franchise.name;
-  rows.push([p.payoutPence < 0 ? `Loss for the month (${who})` : `Payout to ${who}`, "", "", "", "", "", "", "", "", "", "", "", pounds(p.payoutPence), ""]);
+  const pct = Number(p.franchise.sharePercent) || 0;
+  const last = (label: string, value: number) => [label, "", "", "", "", "", "", "", "", "", "", "", "", value];
+  if (p.absorbedPence > 0) {
+    rows.push(last("Loss absorbed by head office", pounds(p.absorbedPence)));
+  } else {
+    rows.push(last(`Head office share (${pct}% of profit)`, pounds(-p.sharePence) || 0));
+  }
+  rows.push(last(p.absorbedPence > 0 ? `Payout to ${who}` : `Payout to ${who} (${100 - pct}% of profit)`, pounds(p.payoutPence)));
   return rows;
 }

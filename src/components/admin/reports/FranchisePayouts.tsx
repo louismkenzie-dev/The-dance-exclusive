@@ -14,6 +14,7 @@ import { toCsv } from "@/lib/merchCsv";
 import { formatPounds, type ReportRow } from "@/lib/revenueReport";
 import {
   buildPayouts,
+  DEFAULT_SHARE_PERCENT,
   PAYOUT_CSV_HEADER,
   payoutCsvRows,
   type FranchisePayout,
@@ -23,8 +24,9 @@ import {
 
 /**
  * Admin → Reports → Franchise payouts. Amie's monthly calculation for each franchisee, from real
- * data: money in after card fees, plus class passes used at their classes, less hall hire, less
- * head office's share (0% today) — the payout.
+ * data: money in after card fees, plus class passes used at their classes, less hall hire, is the
+ * profit or loss. A profit is split — head office keeps its share (30%), the franchisee is paid the
+ * rest (70%). A loss pays out nothing and head office absorbs it; next month starts fresh.
  */
 
 const hoursLabel = (minutes: number) => {
@@ -99,12 +101,12 @@ function ShareDialog({ franchise, onClose }: { franchise: PayoutFranchise | null
         <DialogHeader>
           <DialogTitle>Head office share — {franchise?.name}</DialogTitle>
           <DialogDescription>
-            The percentage of this franchise's money in (after card fees, including class passes) that head office keeps
-            before paying out. 0% means {franchise?.franchiseeName ?? "the franchisee"} receives the whole profit.
+            The percentage of this franchise's monthly profit that head office keeps. {franchise?.franchiseeName ?? "The franchisee"} is
+            paid the rest. The standard deal is 30%. It never applies to a loss — a loss is absorbed by head office.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
-          <Label htmlFor="share-pct">Share (%)</Label>
+          <Label htmlFor="share-pct">Head office share of profit (%)</Label>
           <Input
             id="share-pct"
             type="number"
@@ -128,22 +130,41 @@ function ShareDialog({ franchise, onClose }: { franchise: PayoutFranchise | null
 function PayoutCard({ p, monthName, monthKey, monthLabel, onEditShare }: { p: FranchisePayout; monthName: string; monthKey: string; monthLabel: string; onEditShare: () => void }) {
   const who = p.franchise.franchiseeName ?? p.franchise.name;
   const t = p.totals;
-  const loss = p.payoutPence < 0;
-  const coachNotes = p.venues.flatMap((v) => v.classes.filter((c) => c.otherCoaches.length).map((c) => ({ cls: c.name, coaches: c.otherCoaches })));
-  const missing = p.venues.filter((v) => v.missingRate && v.totals.sessionsHeld > 0);
+  const loss = p.absorbedPence > 0;
+  const pct = Number(p.franchise.sharePercent) || 0;
+  const missing = p.venues.filter((v) => v.missingRate && v.totals.sessionsHeld + v.totals.sessionsCancelled > 0);
+  const hireHint = [
+    `${t.sessionsHeld} session${t.sessionsHeld === 1 ? "" : "s"}`,
+    t.sessionsCancelled > 0 ? ` + ${t.sessionsCancelled} cancelled (hall still paid)` : "",
+    `, ${hoursLabel(t.hireMinutes)}`,
+  ].join("");
 
   return (
     <section className="surface overflow-hidden">
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 px-4 py-4 sm:px-5">
         <div className="min-w-0">
           <h3 className="text-base font-semibold text-foreground">{p.franchise.name}</h3>
-          <p className="mt-0.5 text-[13px] text-muted-foreground">Franchisee: {who}</p>
+          <p className="mt-0.5 flex items-center gap-1 text-[13px] text-muted-foreground">
+            Franchisee: {who} · keeps {100 - pct}% of profit
+            <button
+              type="button"
+              onClick={onEditShare}
+              aria-label={`Change the profit split for ${p.franchise.name}`}
+              className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          </p>
         </div>
         <div className="text-right">
-          <p className={cn("text-2xl font-semibold leading-none tabular-nums", loss ? "text-destructive" : "text-foreground")}>
-            {formatPounds(p.payoutPence)}
+          <p className="text-2xl font-semibold leading-none tabular-nums text-foreground">{formatPounds(p.payoutPence)}</p>
+          <p className="mt-1 text-[12px] text-muted-foreground">
+            {loss ? (
+              <>Nothing to pay — <span className="text-destructive">loss of {formatPounds(p.absorbedPence)}</span> absorbed</>
+            ) : (
+              `Payout to ${who} for ${monthName}`
+            )}
           </p>
-          <p className="mt-1 text-[12px] text-muted-foreground">{loss ? `Loss for ${monthName}` : `Payout to ${who} for ${monthName}`}</p>
         </div>
       </header>
 
@@ -160,26 +181,22 @@ function PayoutCard({ p, monthName, monthKey, monthLabel, onEditShare }: { p: Fr
               <Money pence={t.passCreditPence} signed />
             </SumLine>
           )}
-          <SumLine label="Hall hire" hint={`${t.sessionsHeld} session${t.sessionsHeld === 1 ? "" : "s"}, ${hoursLabel(t.hireMinutes)}`}>
+          <SumLine label="Hall hire" hint={hireHint}>
             <Money pence={-t.hirePence} />
           </SumLine>
           <SumLine label={t.profitPence < 0 ? "Loss" : "Profit"} strong>
             <Money pence={t.profitPence} />
           </SumLine>
-          <SumLine label={`Head office share (${Number(p.franchise.sharePercent) || 0}%)`}>
-            <span className="inline-flex items-center gap-2">
+          {loss ? (
+            <SumLine label="Absorbed by head office" hint="A loss isn't carried into next month">
+              <Money pence={p.absorbedPence} signed />
+            </SumLine>
+          ) : (
+            <SumLine label={`Head office share (${pct}% of profit)`}>
               <Money pence={-p.sharePence} />
-              <button
-                type="button"
-                onClick={onEditShare}
-                aria-label={`Change head office share for ${p.franchise.name}`}
-                className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </button>
-            </span>
-          </SumLine>
-          <SumLine label={loss ? "Loss for the month" : `Payout to ${who}`} strong>
+            </SumLine>
+          )}
+          <SumLine label={loss ? `Payout to ${who}` : `Payout to ${who} (${100 - pct}%)`} strong>
             <Money pence={p.payoutPence} className="text-base" />
           </SumLine>
           <Button variant="outline" size="sm" className="mt-3 rounded-full" onClick={() => downloadStatement(p, monthKey, monthLabel)}>
@@ -206,17 +223,12 @@ function PayoutCard({ p, monthName, monthKey, monthLabel, onEditShare }: { p: Fr
         </div>
       </div>
 
-      {(coachNotes.length > 0 || missing.length > 0 || p.passFeesUnknown) && (
+      {(missing.length > 0 || p.passFeesUnknown) && (
         <div className="space-y-1.5 border-t border-border/60 bg-muted/30 px-4 py-3 text-[12px] text-muted-foreground sm:px-5">
           {missing.map((v) => (
             <p key={v.id} className="flex items-start gap-1.5 text-warning">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               {v.name} has no hire rate, so its hall hire is missing. Add one on the Venues page.
-            </p>
-          ))}
-          {coachNotes.map((n) => (
-            <p key={n.cls}>
-              <span className="font-medium text-foreground">{n.cls}</span> is also led by {n.coaches.join(", ")}. Their pay is not taken off.
             </p>
           ))}
           {p.passFeesUnknown && <p>Some class passes haven't been synced from Stripe yet, so their card fees aren't taken off.</p>}
@@ -247,6 +259,7 @@ function VenueRows({ venue }: { venue: FranchisePayout["venues"][number] }) {
               {c.passSessions > 0 && `${c.passSessions} pass session${c.passSessions === 1 ? "" : "s"}`}
               {(c.payments > 0 || c.passSessions > 0) && " · "}
               {c.sessionsHeld} held
+              {c.sessionsCancelled > 0 && ` · ${c.sessionsCancelled} cancelled`}
             </p>
           </td>
           <td className="px-2 py-2 text-right"><Money pence={c.moneyIn.netPence + c.passCreditPence} /></td>
@@ -281,15 +294,16 @@ export function FranchisePayouts({ year, month, revenue }: { year: number; month
     queryFn: async () => {
       const { data: fr, error: frErr } = await supabase
         .from("franchises")
-        .select("id, name, franchisee_name, is_head_office, is_active, share_percent, staff_id")
+        .select("id, name, franchisee_name, is_head_office, is_active, share_percent")
         .eq("is_head_office", false)
         .eq("is_active", true)
         .order("name");
       if (frErr) throw frErr;
       const franchises: PayoutFranchise[] = (fr ?? []).map((f) => ({
-        id: f.id, name: f.name, franchiseeName: f.franchisee_name, sharePercent: Number(f.share_percent) || 0, staffId: f.staff_id,
+        id: f.id, name: f.name, franchiseeName: f.franchisee_name,
+        sharePercent: f.share_percent === null || f.share_percent === undefined ? DEFAULT_SHARE_PERCENT : Number(f.share_percent),
       }));
-      if (!franchises.length) return { franchises, venues: [], classes: [], sessions: [], passUses: [], instructors: [] };
+      if (!franchises.length) return { franchises, venues: [], classes: [], sessions: [], passUses: [] };
 
       const { data: vs, error: vErr } = await supabase
         .from("venues")
@@ -299,25 +313,26 @@ export function FranchisePayouts({ year, month, revenue }: { year: number; month
       const venues = (vs ?? []).map((v) => ({
         id: v.id, name: v.name, franchiseId: v.franchise_id, hirePerHour: v.hire_cost_per_hour, hirePerDay: v.hire_cost_per_day,
       }));
-      if (!venues.length) return { franchises, venues, classes: [], sessions: [], passUses: [], instructors: [] };
+      if (!venues.length) return { franchises, venues, classes: [], sessions: [], passUses: [] };
 
       const { data: cs, error: cErr } = await supabase
         .from("classes")
-        .select("id, name, venue_id, start_time, end_time")
+        .select("id, name, venue_id, start_time, end_time, is_active")
         .in("venue_id", venues.map((v) => v.id));
       if (cErr) throw cErr;
-      const classes = (cs ?? []).map((c) => ({ id: c.id, name: c.name, venueId: c.venue_id, startTime: c.start_time, endTime: c.end_time }));
+      const classes = (cs ?? []).map((c) => ({
+        id: c.id, name: c.name, venueId: c.venue_id, startTime: c.start_time, endTime: c.end_time, isActive: c.is_active,
+      }));
       const classIds = classes.map((c) => c.id);
-      if (!classIds.length) return { franchises, venues, classes, sessions: [], passUses: [], instructors: [] };
+      if (!classIds.length) return { franchises, venues, classes, sessions: [], passUses: [] };
 
-      const [sessRes, instRes, passBookRes] = await Promise.all([
+      const [sessRes, passBookRes] = await Promise.all([
         supabase
           .from("class_sessions")
           .select("class_id, session_date, start_time, end_time, status")
           .in("class_id", classIds)
           .gte("session_date", firstDay)
           .lt("session_date", nextFirstDay),
-        supabase.from("class_instructors").select("class_id, staff_id, instructor_role").in("class_id", classIds),
         supabase
           .from("bookings")
           .select("class_id, notes")
@@ -326,7 +341,6 @@ export function FranchisePayouts({ year, month, revenue }: { year: number; month
           .like("notes", "Class pass %"),
       ]);
       if (sessRes.error) throw sessRes.error;
-      if (instRes.error) throw instRes.error;
       if (passBookRes.error) throw passBookRes.error;
 
       const sessions = (sessRes.data ?? []).map((s) => ({
@@ -375,18 +389,7 @@ export function FranchisePayouts({ year, month, revenue }: { year: number; month
         });
       }
 
-      const staffIds = [...new Set((instRes.data ?? []).map((i) => i.staff_id))];
-      const names = new Map<string, string>();
-      if (staffIds.length) {
-        const { data: st } = await supabase.from("staff").select("id, full_name").in("id", staffIds);
-        (st ?? []).forEach((s) => names.set(s.id, s.full_name));
-      }
-      const activeClassIds = new Set(sessions.filter((s) => s.status !== "cancelled").map((s) => s.classId));
-      const instructors = (instRes.data ?? [])
-        .filter((i) => activeClassIds.has(i.class_id))
-        .map((i) => ({ classId: i.class_id, staffId: i.staff_id, name: names.get(i.staff_id) ?? "Another coach", role: i.instructor_role }));
-
-      return { franchises, venues, classes, sessions, passUses, instructors };
+      return { franchises, venues, classes, sessions, passUses };
     },
   });
 
@@ -415,17 +418,18 @@ export function FranchisePayouts({ year, month, revenue }: { year: number; month
   }
 
   const payable = payouts.filter((p) => p.payoutPence > 0);
-  const losses = payouts.length - payable.length;
   const totalPayout = payable.reduce((s, p) => s + p.payoutPence, 0);
+  const totalShare = payouts.reduce((s, p) => s + p.sharePence, 0);
+  const totalAbsorbed = payouts.reduce((s, p) => s + p.absorbedPence, 0);
   const monthLabel = format(new Date(year, month, 1), "MMMM yyyy");
 
   return (
     <div className="space-y-4">
       <p className="text-[13px] text-muted-foreground">
         {payable.length
-          ? `${monthLabel}: ${formatPounds(totalPayout)} to pay out to ${payable.map((p) => p.franchise.franchiseeName ?? p.franchise.name).join(", ")}.`
+          ? `${monthLabel}: ${formatPounds(totalPayout)} to pay ${payable.map((p) => p.franchise.franchiseeName ?? p.franchise.name).join(", ")}; head office keeps ${formatPounds(totalShare)}.`
           : `${monthLabel}: no franchise made a profit, so there is nothing to pay out.`}
-        {payable.length > 0 && losses > 0 && ` ${losses} made a loss.`}
+        {totalAbsorbed > 0 && ` Losses absorbed by head office: ${formatPounds(totalAbsorbed)}.`}
       </p>
       {payouts.map((p) => (
         <PayoutCard key={p.franchise.id} p={p} monthName={monthName} monthKey={monthKey} monthLabel={monthLabel} onEditShare={() => setEditing(p.franchise)} />
@@ -435,9 +439,10 @@ export function FranchisePayouts({ year, month, revenue }: { year: number; month
         <ul className="mt-2 list-disc space-y-1 pl-5">
           <li>Money in is what families at the franchise's venues actually paid this month, after Stripe's fee and the 1% Nullshift fee. A failed payment isn't paid out on.</li>
           <li>Class passes are credited to the class they're used at, at the pass's own price per session, less its share of card fees.</li>
-          <li>Hall hire is the venue's hourly rate × each class's length, for every session that wasn't cancelled.</li>
-          <li>Head office's share is a percentage of money in — 0% unless you change it with the pencil.</li>
-          <li>Coach pay isn't taken off. Classes led by someone other than the franchisee are listed under each franchise.</li>
+          <li>Hall hire is the venue's hourly rate × each class's length, for every session — cancelled ones too, because the hall is still paid for. A class that's been taken down stops being charged.</li>
+          <li>A profit is split: head office keeps its share (30% unless you change it with the pencil) and the franchisee is paid the rest.</li>
+          <li>A loss pays out nothing. Head office absorbs it, and next month starts fresh.</li>
+          <li>Coaches the franchisee brings in are theirs to pay, so coach pay never appears here.</li>
         </ul>
       </section>
       <ShareDialog franchise={editing} onClose={() => setEditing(null)} />

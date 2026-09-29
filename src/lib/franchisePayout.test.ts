@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildPayouts,
+  DEFAULT_SHARE_PERCENT,
   hallHire,
   minutesOf,
   passSessionPence,
@@ -13,7 +14,7 @@ import {
 import type { ReportRow } from "./revenueReport";
 
 // Boo's Harrow, as it is on live: £34 an hour, three Thursday classes.
-const BOO: PayoutFranchise = { id: "f4", name: "Harrow", franchiseeName: "Boo", sharePercent: 0, staffId: "st-boo" };
+const BOO: PayoutFranchise = { id: "f4", name: "Harrow", franchiseeName: "Boo", sharePercent: DEFAULT_SHARE_PERCENT };
 const HARROW: PayoutVenue = { id: "v-harrow", name: "Harrow Arts Centre", franchiseId: "f4", hirePerHour: "34", hirePerDay: null };
 const CLASSES: PayoutClass[] = [
   { id: "c-street", name: "Mixed Street", venueId: "v-harrow", startTime: "17:45:00", endTime: "18:45:00" },
@@ -52,9 +53,9 @@ describe("minutesOf", () => {
 describe("hallHire", () => {
   it("charges each session its own length at the venue's hourly rate", () => {
     const { byClass } = hallHire(SESSIONS, byId(CLASSES), byId([HARROW]));
-    expect(byClass.get("c-street")).toEqual({ sessions: 3, minutes: 180, pence: 10200 });
+    expect(byClass.get("c-street")).toEqual({ sessions: 3, cancelled: 0, minutes: 180, pence: 10200 });
     // 55 minutes at £34 an hour is £31.17, three times.
-    expect(byClass.get("c-comp")).toEqual({ sessions: 3, minutes: 165, pence: 3 * 3117 });
+    expect(byClass.get("c-comp")).toEqual({ sessions: 3, cancelled: 0, minutes: 165, pence: 3 * 3117 });
   });
 
   it("never charges the same minutes twice when classes overlap in one hall", () => {
@@ -95,12 +96,24 @@ describe("hallHire", () => {
     expect(byClass.get("c-street")!.pence).toBe(5100); // 90 minutes
   });
 
-  it("does not charge a cancelled session", () => {
+  it("still charges a cancelled session — the hall is paid for either way (Amie)", () => {
     const { byClass } = hallHire(
       [...sessionsOf("c-street", ["2026-09-10"]), { classId: "c-street", date: "2026-09-17", startTime: null, endTime: null, status: "cancelled" }],
       byId(CLASSES), byId([HARROW]),
     );
-    expect(byClass.get("c-street")).toEqual({ sessions: 1, minutes: 60, pence: 3400 });
+    expect(byClass.get("c-street")).toEqual({ sessions: 1, cancelled: 1, minutes: 120, pence: 6800 });
+  });
+
+  it("stops charging a class that has been taken down, whose future sessions were all cancelled", () => {
+    const retired = CLASSES.map((c) => (c.id === "c-street" ? { ...c, isActive: false } : c));
+    const { byClass } = hallHire(
+      [...sessionsOf("c-street", ["2026-09-10"]),
+       { classId: "c-street", date: "2026-09-17", startTime: null, endTime: null, status: "cancelled" },
+       { classId: "c-street", date: "2026-09-24", startTime: null, endTime: null, status: "cancelled" }],
+      byId(retired), byId([HARROW]),
+    );
+    // The night it ran is still charged; the cancelled weeks after it closed are not.
+    expect(byClass.get("c-street")).toEqual({ sessions: 1, cancelled: 0, minutes: 60, pence: 3400 });
   });
 
   it("charges a daily rate once per date, whatever runs that day", () => {
@@ -149,11 +162,9 @@ describe("buildPayouts", () => {
       { classId: "c-adult", passPrice: 36, passSessions: 4, netRatio: 0.97 },
     ],
     revenue: REVENUE,
-    instructors: [
-      { classId: "c-street", staffId: "st-boo", name: "Boo Morrison", role: "main" },
-      { classId: "c-adult", staffId: "st-kay", name: "Kayleigh Matthias", role: "main" },
-    ],
   };
+  // The same month without the hall bills: a profit, to exercise the 70/30 split.
+  const profitable = { ...base, sessions: [] as PayoutSession[] };
 
   it("works Amie's sum: money in after fees, plus passes, less hall hire", () => {
     const [p] = buildPayouts(base);
@@ -170,12 +181,32 @@ describe("buildPayouts", () => {
 
     const t = p.totals;
     expect(t.profitPence).toBe(t.netPence + t.passCreditPence - t.hirePence);
-    expect(p.payoutPence).toBe(t.profitPence);
   });
 
-  it("can come out as a loss, and says so rather than hiding it", () => {
+  it("pays the franchisee 70% of a profit and keeps 30% for head office, to the penny", () => {
+    const [p] = buildPayouts(profitable);
+    const profit = p.totals.profitPence;
+    expect(profit).toBeGreaterThan(0);
+    expect(p.sharePence).toBe(Math.round(profit * 0.3));
+    expect(p.payoutPence).toBe(profit - p.sharePence);
+    expect(p.sharePence + p.payoutPence).toBe(profit);
+    expect(p.absorbedPence).toBe(0);
+  });
+
+  it("pays nothing in a loss month, and head office absorbs the loss", () => {
     const [p] = buildPayouts(base);
-    expect(p.payoutPence).toBeLessThan(0);
+    expect(p.totals.profitPence).toBeLessThan(0);
+    expect(p.payoutPence).toBe(0);
+    expect(p.sharePence).toBe(0);
+    expect(p.absorbedPence).toBe(-p.totals.profitPence);
+  });
+
+  it("starts fresh each month: a loss is never carried into the next", () => {
+    // Two months built independently; the second's payout doesn't know about the first's loss.
+    const [loss] = buildPayouts(base);
+    const [next] = buildPayouts(profitable);
+    expect(loss.absorbedPence).toBeGreaterThan(0);
+    expect(next.payoutPence).toBe(next.totals.profitPence - next.sharePence);
   });
 
   it("lists classes in the order they run", () => {
@@ -183,22 +214,11 @@ describe("buildPayouts", () => {
     expect(p.venues[0].classes.map((c) => c.name)).toEqual(["Mixed Street", "Competition Team Training", "All Levels Hip Hop"]);
   });
 
-  it("points out a class somebody else leads, without deducting anything for it", () => {
-    const [p] = buildPayouts(base);
-    const adult = p.venues[0].classes.find((c) => c.name === "All Levels Hip Hop")!;
-    expect(adult.otherCoaches).toEqual(["Kayleigh Matthias (main)"]);
-    expect(p.venues[0].classes.find((c) => c.name === "Mixed Street")!.otherCoaches).toEqual([]);
-  });
-
-  it("takes head office's share of money in, when one is set", () => {
-    const [p] = buildPayouts({
-      ...base,
-      franchises: [{ ...BOO, sharePercent: 10 }],
-      sessions: [],
-    });
-    const base_ = p.totals.netPence + p.totals.passCreditPence;
-    expect(p.sharePence).toBe(Math.round(base_ / 10));
-    expect(p.payoutPence).toBe(p.totals.profitPence - p.sharePence);
+  it("uses the franchise's own share when Amie changes it", () => {
+    const [p] = buildPayouts({ ...profitable, franchises: [{ ...BOO, sharePercent: 25 }] });
+    expect(p.sharePence).toBe(Math.round(p.totals.profitPence / 4));
+    const [none] = buildPayouts({ ...profitable, franchises: [{ ...BOO, sharePercent: 0 }] });
+    expect(none.payoutPence).toBe(none.totals.profitPence);
   });
 
   it("puts venue money not tied to a class — a camp — into the venue's total", () => {
@@ -221,16 +241,23 @@ describe("buildPayouts", () => {
     expect(p.passFeesUnknown).toBe(true);
   });
 
-  it("writes a statement whose last line is the payout", () => {
-    const [p] = buildPayouts(base);
+  it("writes a statement ending in head office's share and the payout", () => {
+    const [p] = buildPayouts(profitable);
     const rows = payoutCsvRows(p);
     expect(rows[0].slice(0, 2)).toEqual(["Harrow Arts Centre", "Mixed Street"]);
-    const last = rows[rows.length - 1];
-    expect(last[0]).toBe("Loss for the month (Boo)"); // this sample month is a loss
-    const [profitable] = buildPayouts({ ...base, sessions: [] });
-    const rows2 = payoutCsvRows(profitable);
-    expect(rows2[rows2.length - 1][0]).toBe("Payout to Boo");
-    expect(last[12]).toBe(p.payoutPence / 100);
-    expect(typeof last[12]).toBe("number"); // a loss stays a number in Excel, not text
+    const [share, payout] = rows.slice(-2);
+    expect(share[0]).toBe("Head office share (30% of profit)");
+    expect(share[13]).toBe(-p.sharePence / 100);
+    expect(payout[0]).toBe("Payout to Boo (70% of profit)");
+    expect(payout[13]).toBe(p.payoutPence / 100);
+    expect(typeof payout[13]).toBe("number");
+  });
+
+  it("writes a loss month as absorbed, with a £0 payout", () => {
+    const [p] = buildPayouts(base);
+    const [absorbed, payout] = payoutCsvRows(p).slice(-2);
+    expect(absorbed[0]).toBe("Loss absorbed by head office");
+    expect(absorbed[13]).toBe(p.absorbedPence / 100);
+    expect(payout).toEqual(["Payout to Boo", "", "", "", "", "", "", "", "", "", "", "", "", 0]);
   });
 });

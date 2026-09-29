@@ -1364,6 +1364,33 @@ export type Database = {
           },
         ]
       }
+      franchises: {
+        Row: {
+          created_at: string
+          franchisee_name: string | null
+          id: string
+          is_active: boolean
+          is_head_office: boolean
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          franchisee_name?: string | null
+          id?: string
+          is_active?: boolean
+          is_head_office?: boolean
+          name: string
+        }
+        Update: {
+          created_at?: string
+          franchisee_name?: string | null
+          id?: string
+          is_active?: boolean
+          is_head_office?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
       medical_waivers: {
         Row: {
           consent_given: boolean
@@ -3036,6 +3063,7 @@ export type Database = {
           email: string | null
           featured_order: number | null
           floor_type: string | null
+          franchise_id: string | null
           has_changing_rooms: boolean | null
           has_mirrors: boolean | null
           has_parking: boolean | null
@@ -3089,6 +3117,7 @@ export type Database = {
           email?: string | null
           featured_order?: number | null
           floor_type?: string | null
+          franchise_id?: string | null
           has_changing_rooms?: boolean | null
           has_mirrors?: boolean | null
           has_parking?: boolean | null
@@ -3142,6 +3171,7 @@ export type Database = {
           email?: string | null
           featured_order?: number | null
           floor_type?: string | null
+          franchise_id?: string | null
           has_changing_rooms?: boolean | null
           has_mirrors?: boolean | null
           has_parking?: boolean | null
@@ -3175,7 +3205,15 @@ export type Database = {
           wifi_network?: string | null
           wifi_password?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "venues_franchise_id_fkey"
+            columns: ["franchise_id"]
+            isOneToOne: false
+            referencedRelation: "franchises"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workshop_media: {
         Row: {

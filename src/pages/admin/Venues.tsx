@@ -66,6 +66,14 @@ interface Venue {
   featured_order: number | null;
   slug: string | null;
   short_description: string | null;
+  franchise_id: string | null;
+}
+
+interface Franchise {
+  id: string;
+  name: string;
+  franchisee_name: string | null;
+  is_head_office: boolean;
 }
 
 interface Facility {
@@ -95,6 +103,7 @@ const emptyForm = {
   contract_renewal_date: "", contract_notify_weeks: "",
   status: "confirmed", publicly_visible: true, is_featured: false, featured_order: "",
   slug: "", short_description: "",
+  franchise_id: "",
 };
 
 const AdminVenues = () => {
@@ -107,6 +116,7 @@ const AdminVenues = () => {
   const [contacts, setContacts] = useState<VenueContact[]>([]);
   const [newFacility, setNewFacility] = useState("");
   const [tab, setTab] = useState("details");
+  const [franchises, setFranchises] = useState<Franchise[]>([]);
   const { toast } = useToast();
 
   const fetchVenues = async () => {
@@ -125,7 +135,18 @@ const AdminVenues = () => {
     if (data) setContacts(data as any);
   };
 
-  useEffect(() => { fetchVenues(); }, []);
+  // Who owns each venue — the unit Amie's figures are reported by. Admin-only table.
+  const fetchFranchises = async () => {
+    const { data } = await supabase
+      .from("franchises")
+      .select("id, name, franchisee_name, is_head_office")
+      .eq("is_active", true)
+      .order("is_head_office", { ascending: false })
+      .order("name");
+    if (data) setFranchises(data);
+  };
+
+  useEffect(() => { fetchVenues(); fetchFranchises(); }, []);
 
   const resetForm = () => { setForm({ ...emptyForm }); setEditing(null); setFacilities([]); setContacts([]); setTab("details"); };
 
@@ -156,6 +177,7 @@ const AdminVenues = () => {
       featured_order: v.featured_order?.toString() || "",
       slug: v.slug || "",
       short_description: v.short_description || "",
+      franchise_id: v.franchise_id || "",
     });
     fetchFacilities(v.id);
     fetchContacts(v.id);
@@ -191,6 +213,7 @@ const AdminVenues = () => {
       featured_order: form.featured_order !== "" ? parseInt(form.featured_order) : null,
       slug: (form.slug || slugify(form.name)) || null,
       short_description: form.short_description || null,
+      franchise_id: form.franchise_id || null,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -326,6 +349,20 @@ const AdminVenues = () => {
                           <p className="text-xs text-muted-foreground" style={{ fontFamily: 'var(--font-body)', textTransform: 'none', letterSpacing: 'normal' }}>
                             {v.address_line1}
                           </p>
+                          {(() => {
+                            // Franchise venues get a badge; Amie's own do not, so the four that
+                            // belong to someone else stand out rather than every row carrying one.
+                            const f = franchises.find((x) => x.id === v.franchise_id);
+                            if (!f) return v.franchise_id === null && franchises.length > 0 ? (
+                              <Badge variant="outline" className="mt-1 border-amber-500/50 text-[10px] text-amber-600 dark:text-amber-400">Franchise not set</Badge>
+                            ) : null;
+                            if (f.is_head_office) return null;
+                            return (
+                              <Badge variant="outline" className="mt-1 text-[10px]">
+                                {f.franchisee_name ? `${f.franchisee_name} · ${f.name}` : f.name}
+                              </Badge>
+                            );
+                          })()}
                         </div>
                       </div>
                     </TableCell>
@@ -471,6 +508,29 @@ const AdminVenues = () => {
                 <div className="flex items-center gap-3 pt-2">
                   <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
                   <Label>Venue is active</Label>
+                </div>
+                {/* Admin only, never shown to staff or parents: the franchise is what the
+                    money is reported by. */}
+                <div className="space-y-2">
+                  <Label>Franchise</Label>
+                  <Select
+                    value={form.franchise_id || "none"}
+                    onValueChange={(v) => setForm({ ...form, franchise_id: v === "none" ? "" : v })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Not set" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Not set</SelectItem>
+                      {franchises.map((f) => (
+                        <SelectItem key={f.id} value={f.id}>
+                          {f.name}{f.franchisee_name && !f.is_head_office ? ` — ${f.franchisee_name}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Who owns this venue. Reports group turnover by franchise, and a venue left as
+                    “Not set” is flagged there rather than counted as yours.
+                  </p>
                 </div>
 
                 <Card className="border-border/50">

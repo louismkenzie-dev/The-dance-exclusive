@@ -971,10 +971,11 @@ const MembershipsTab = () => {
       !!r.membershipId &&
       (r.statusLabel === "Active" || r.statusLabel === "Paused" || r.statusLabel === "Payment issue");
     // Anything still live can be ended — including one already scheduled to end, where Amie may
-    // want to stop the final payment too.
+    // want to stop the final payment too, and one that has stopped paying ("Not paid" is an active
+    // membership whose period has lapsed), which is exactly the family she most needs to end.
     const canCancel =
       !!r.membershipId &&
-      ["Active", "Paused", "Payment issue", "Ending"].includes(r.statusLabel);
+      ["Active", "Paused", "Payment issue", "Ending", "Not paid"].includes(r.statusLabel);
     return { rowAdjustments, canMove, canAdjust, canCancel };
   };
   const openMoveFor = (r: PlanRow) => setMoveTarget({

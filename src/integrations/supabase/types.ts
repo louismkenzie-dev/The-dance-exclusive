@@ -2090,6 +2090,116 @@ export type Database = {
           },
         ]
       }
+      payment_allocations: {
+        Row: {
+          camp_id: string | null
+          class_id: string | null
+          gross_pence: number
+          id: string
+          kind: string
+          net_pence: number
+          payment_id: string
+          platform_fee_pence: number
+          stripe_fee_pence: number
+          student_id: string | null
+          venue_id: string | null
+        }
+        Insert: {
+          camp_id?: string | null
+          class_id?: string | null
+          gross_pence: number
+          id?: string
+          kind: string
+          net_pence: number
+          payment_id: string
+          platform_fee_pence?: number
+          stripe_fee_pence?: number
+          student_id?: string | null
+          venue_id?: string | null
+        }
+        Update: {
+          camp_id?: string | null
+          class_id?: string | null
+          gross_pence?: number
+          id?: string
+          kind?: string
+          net_pence?: number
+          payment_id?: string
+          platform_fee_pence?: number
+          stripe_fee_pence?: number
+          student_id?: string | null
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_allocations_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          balance_transaction_id: string
+          charge_id: string | null
+          currency: string
+          description: string | null
+          gross_pence: number
+          id: string
+          invoice_id: string | null
+          kind: string
+          net_pence: number
+          occurred_at: string
+          parent_id: string | null
+          payment_intent_id: string | null
+          platform_fee_pence: number
+          stripe_env: string
+          stripe_fee_pence: number
+          synced_at: string
+          type: string
+        }
+        Insert: {
+          balance_transaction_id: string
+          charge_id?: string | null
+          currency?: string
+          description?: string | null
+          gross_pence: number
+          id?: string
+          invoice_id?: string | null
+          kind?: string
+          net_pence: number
+          occurred_at: string
+          parent_id?: string | null
+          payment_intent_id?: string | null
+          platform_fee_pence?: number
+          stripe_env?: string
+          stripe_fee_pence?: number
+          synced_at?: string
+          type: string
+        }
+        Update: {
+          balance_transaction_id?: string
+          charge_id?: string | null
+          currency?: string
+          description?: string | null
+          gross_pence?: number
+          id?: string
+          invoice_id?: string | null
+          kind?: string
+          net_pence?: number
+          occurred_at?: string
+          parent_id?: string | null
+          payment_intent_id?: string | null
+          platform_fee_pence?: number
+          stripe_env?: string
+          stripe_fee_pence?: number
+          synced_at?: string
+          type?: string
+        }
+        Relationships: []
+      }
       password_reset_notices: {
         Row: {
           email: string
@@ -3383,6 +3493,25 @@ export type Database = {
       refund_pass_credits: {
         Args: { p_amount: number; p_pass_id: string }
         Returns: undefined
+      }
+      report_revenue: {
+        Args: { _from: string; _to: string }
+        Returns: {
+          class_id: string | null
+          class_name: string | null
+          franchise_id: string | null
+          franchise_name: string | null
+          franchisee_name: string | null
+          gross_pence: number
+          is_head_office: boolean
+          kind: string
+          net_pence: number
+          payment_count: number
+          platform_fee_pence: number
+          stripe_fee_pence: number
+          venue_id: string | null
+          venue_name: string | null
+        }[]
       }
       staff_teaches_class: {
         Args: { _class_id: string; _staff_id: string }

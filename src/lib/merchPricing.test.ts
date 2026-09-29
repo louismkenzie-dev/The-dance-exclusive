@@ -124,8 +124,12 @@ describe("merchPricing", () => {
     });
 
     it("never produces a negative part", () => {
-      const parts = splitBundlePence(100, [1000, 1, 1]);
-      expect(parts.every((p) => p >= 0), `got ${parts}`).toBe(true);
+      // The first version of this test only tried [1000, 1, 1], which cannot trigger the bug.
+      // A small total across many components can: 5p across 7 used to give [1,1,1,1,1,1,-1].
+      for (const [total, prices] of [[100, [1000, 1, 1]], [5, [1, 1, 1, 1, 1, 1, 1]], [5, Array(8).fill(3)]] as [number, number[]][]) {
+        const parts = splitBundlePence(total, prices);
+        expect(parts.every((p) => p >= 0), `${total} across ${prices}: got ${parts}`).toBe(true);
+      }
     });
   });
 });

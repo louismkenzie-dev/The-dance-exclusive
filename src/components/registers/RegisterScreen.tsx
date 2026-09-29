@@ -15,6 +15,7 @@ import { ResponsiveSheet } from "@/components/booking/ResponsiveSheet";
 import { Bone } from "@/components/booking/Skeletons";
 import { ListRowsSkeleton } from "@/components/booking/PortalSkeletons";
 import StudentProfileDrawer from "@/components/staff/StudentProfileDrawer";
+import { isPassBooking } from "@/lib/registerPass";
 import QrScannerDialog from "@/components/staff/QrScannerDialog";
 import FamilyCheckInSheet from "@/components/staff/FamilyCheckInSheet";
 import { CollectorSheet } from "@/components/staff/CollectorSheet";
@@ -668,6 +669,7 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
               { unaccounted: 0, in: 0, out: 0, absent: 0 } as Record<RegisterState, number>,
             );
             const trialCount = rows.filter(isTrialBooking).length;
+            const passCount = rows.filter(isPassBooking).length;
             const sessionLabel = `${s.classes?.name ?? "Class"} · ${formatTimeRange(s.start_time, s.end_time)}`;
             const teachers = showAll ? s.instructors.map(firstNameOf).filter(Boolean).join(", ") : "";
             const cancelled = s.status === "cancelled";
@@ -717,6 +719,9 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
                           {trialCount === 1 ? "1 trial" : `${trialCount} trials`}
                         </span>
                       )}
+                      {passCount > 0 && (
+                        <span className="rounded-full bg-primary/15 px-2 py-0.5 text-primary">{passCount} on a class pass</span>
+                      )}
                     </div>
                   )}
                   {!cancelled && trialCount > 0 && (
@@ -759,6 +764,7 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
                       const nickname = nicknameOf(student);
                       const bd = student?.date_of_birth ? birthdayInWeekOf(student.date_of_birth, s.session_date) : null;
                       const trial = isTrialBooking(b);
+                      const pass = isPassBooking(b);
                       const statusLine =
                         state === "absent"
                           ? "Absent"
@@ -804,13 +810,14 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
                                   {[age != null ? `${age}y` : null, statusLine].filter(Boolean).join(" · ")}
                                 </span>
                               </span>
-                              {(trial || b.unpaid || student?.has_send || student?.is_self || !student) && (
+                              {(trial || b.unpaid || pass || student?.has_send || student?.is_self || !student) && (
                                 <span className="mt-1 flex flex-wrap gap-1 text-[10px] font-semibold uppercase tracking-wide">
                                   {/* First, because it's the one thing about this
                                       dancer the teacher can't work out for
                                       themselves once the class has started. */}
                                   {trial && <span className="rounded-full bg-accent px-1.5 py-0.5 text-accent-foreground">Trial — first class</span>}
                                   {b.unpaid && <span className="rounded-full bg-destructive/15 px-1.5 py-0.5 text-[hsl(var(--destructive-strong))]">Unpaid</span>}
+                                  {pass && <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-primary">Class pass</span>}
                                   {student?.has_send && <span className="rounded-full bg-warning/15 px-1.5 py-0.5 text-[hsl(var(--warning-strong))]">SEND</span>}
                                   {student?.is_self && <span className="rounded-full bg-muted px-1.5 py-0.5 text-muted-foreground">Adult</span>}
                                   {!student && <span className="rounded-full bg-muted px-1.5 py-0.5 text-muted-foreground">No profile</span>}
@@ -943,6 +950,8 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
         sessionDate={profileSession && profileSession.kind === "class" ? profileSession.session_date : null}
         sessionStart={profileSession && profileSession.kind === "class" ? profileSession.start_time : null}
         sessionLabel={profileSession ? `${profileSession.classes?.name ?? "Class"} · ${formatTimeRange(profileSession.start_time, profileSession.end_time)}` : null}
+        // Only admins can read class_passes, so only the admin register asks for the numbers.
+        showPassDetails={showAll}
         onCheckIn={() => {
           if (!profileBooking) return;
           beginManualMark(profileBooking.sessionId, profileBooking.booking);

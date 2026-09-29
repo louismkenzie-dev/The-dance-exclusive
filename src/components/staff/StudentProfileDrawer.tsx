@@ -11,6 +11,7 @@ import { ResponsiveSheet } from "@/components/booking/ResponsiveSheet";
 import { arrivalOpensLabel, arrivalsOpen, registerState } from "@/lib/registerRules";
 import { cn } from "@/lib/utils";
 import { nicknameOf } from "@/lib/studentName";
+import { isPassBooking, passIdFromNotes, passSummary, type PassDetails } from "@/lib/registerPass";
 
 interface Props {
   open: boolean;
@@ -30,6 +31,8 @@ interface Props {
   onClearAttendance?: () => void;
   /** Dancer of the Week — stored on the session's attendance row. */
   onToggleDancerOfWeek?: () => void;
+  /** Load classes-left and expiry for a pass booking. Admin only: coaches can't read class_passes. */
+  showPassDetails?: boolean;
 }
 
 const Section = ({ title, icon: Icon, children }: { title: string; icon: any; children: ReactNode }) => (
@@ -89,6 +92,7 @@ const StudentProfileDrawer = ({
   onMarkAbsent,
   onClearAttendance,
   onToggleDancerOfWeek,
+  showPassDetails = false,
 }: Props) => {
   const [loading, setLoading] = useState(false);
   const [student, setStudent] = useState<any | null>(null);
@@ -97,6 +101,9 @@ const StudentProfileDrawer = ({
   const [showQr, setShowQr] = useState(false);
   const [qrToken, setQrToken] = useState<{ token: string; validUntil: string } | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
+  const [pass, setPass] = useState<PassDetails | null>(null);
+  const onPass = isPassBooking(booking);
+  const passId = onPass ? passIdFromNotes(booking?.notes) : null;
 
   useEffect(() => {
     if (!open) return;
@@ -115,6 +122,19 @@ const StudentProfileDrawer = ({
   useEffect(() => {
     if (!open) { setShowQr(false); setQrToken(null); }
   }, [open]);
+
+  useEffect(() => {
+    setPass(null);
+    if (!open || !showPassDetails || !passId) return;
+    let cancelled = false;
+    void supabase
+      .from("class_passes")
+      .select("sessions_total, sessions_remaining, expires_at")
+      .eq("id", passId)
+      .maybeSingle()
+      .then(({ data }) => { if (!cancelled) setPass(data ?? null); });
+    return () => { cancelled = true; };
+  }, [open, showPassDetails, passId]);
 
   const load = async () => {
     setLoading(true);
@@ -279,6 +299,15 @@ const StudentProfileDrawer = ({
                 {bookingStudent?.preferred_name || bookingStudent?.first_name || "This dancer"} has booked a
                 taster, not a place yet. Make sure they know where to go and who you are, and let the studio
                 know how they got on.
+              </p>
+            </div>
+          )}
+
+          {onPass && (
+            <div className="rounded-xl border border-primary/30 bg-primary/10 px-3 py-2.5">
+              <p className="text-[15px] font-semibold text-primary">Paid with a class pass</p>
+              <p className={cn("mt-0.5 text-[13px]", pass && passSummary(pass).low ? "font-medium text-warning" : "text-muted-foreground")}>
+                {pass ? passSummary(pass).text : "This class came off their pass, so there's nothing to pay at the door."}
               </p>
             </div>
           )}

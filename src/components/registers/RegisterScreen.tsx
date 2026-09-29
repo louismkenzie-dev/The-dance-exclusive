@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { addDays, differenceInYears, format, isToday, isTomorrow, isYesterday, parseISO } from "date-fns";
 import { AlertTriangle, Cake, CalendarDays, CameraOff, Check, ChevronDown, LogIn, LogOut, MapPin, ScanLine, Search, Sparkles, Star, X, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { bookingsForSession, isPastSession } from "@/lib/registerHistory";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,7 +50,7 @@ const DAYS_AHEAD = 14;
 
 const CLASS_SELECT = `id, session_date, start_time, end_time, status, class_id, classes:class_id ( name, class_type, location_note, venue_id, venues:venue_id ( name ) )`;
 const CLASS_SELECT_WITH_STAFF = `${CLASS_SELECT}, session_instructors ( staff:staff_id ( id, first_name, last_name, full_name ) )`;
-const BOOKING_SELECT = `id, student_id, parent_id, notes, booking_type, students:student_id ( first_name, last_name, preferred_name, profile_photo, avatar_url, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info, photo_consent )`;
+const BOOKING_SELECT = `id, student_id, parent_id, notes, booking_type, status, booked_at, created_at, students:student_id ( first_name, last_name, preferred_name, profile_photo, avatar_url, date_of_birth, is_self, has_send, has_epipen, has_inhaler, allergies_list, medical_conditions_list, medical_info, photo_consent )`;
 
 interface RegisterSession {
   id: string;
@@ -236,14 +237,22 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
   // ── Bookings + attendance per session, the register's rows ─────────────
   const load = async () => {
     setLoading(true);
+    const todayIso = new Date().toISOString().slice(0, 10);
     const entries = await Promise.all(daySessions.map(async (s) => {
       // A cancelled class has no register: nobody is expected, nothing to mark.
       if (s.status === "cancelled") return [s.id, [] as any[]] as const;
       const isCamp = s.kind === "camp";
       const [{ data: bookings }, { data: att }, { data: unpaidRows }] = await Promise.all([
+        // For a past session the status filter is dropped: someone who attended and has since
+        // left still belongs on the register they were actually marked on. registerHistory
+        // decides who stays.
         isCamp
-          ? supabase.from("bookings").select(BOOKING_SELECT).eq("camp_id", s.camp_id!).eq("status", "confirmed")
-          : supabase.from("bookings").select(BOOKING_SELECT).eq("class_id", s.class_id!).eq("status", "confirmed"),
+          ? (isPastSession(s.session_date, todayIso)
+              ? supabase.from("bookings").select(BOOKING_SELECT).eq("camp_id", s.camp_id!)
+              : supabase.from("bookings").select(BOOKING_SELECT).eq("camp_id", s.camp_id!).eq("status", "confirmed"))
+          : (isPastSession(s.session_date, todayIso)
+              ? supabase.from("bookings").select(BOOKING_SELECT).eq("class_id", s.class_id!)
+              : supabase.from("bookings").select(BOOKING_SELECT).eq("class_id", s.class_id!).eq("status", "confirmed")),
         supabase.from("attendance").select("*").eq(isCamp ? "camp_session_id" : "class_session_id", s.id),
         // Families whose monthly membership payment has failed — flagged on
         // the register so the door team can catch non-payers. Camps are paid
@@ -256,14 +265,14 @@ export function RegisterScreen({ scope }: { scope: RegisterScope }) {
       const unpaidParents = new Set((unpaidRows ?? []).filter((u: any) => !u.student_id).map((u: any) => u.user_id));
       const attByBooking: Record<string, any> = {};
       (att ?? []).forEach((a: any) => (attByBooking[a.booking_id] = a));
-      // Pass/birthday bookings are per-session (the date is in their notes) —
-      // only show them on the register for their own date. Class-level
-      // bookings (memberships, trials, drop-ins) appear every week.
-      const rows = ((bookings ?? []) as any[])
-        .filter((b) => {
-          const m = /session (\d{4}-\d{2}-\d{2})/.exec(b.notes || "");
-          return !m || m[1] === s.session_date;
-        })
+      // Who actually belongs on this date — see src/lib/registerHistory.ts. A historic register
+      // used to show today's roster, so dancers who joined later appeared on it and dancers who
+      // had left vanished from the one they attended.
+      const rows = bookingsForSession(((bookings ?? []) as any[]), {
+        sessionDate: s.session_date,
+        todayIso,
+        attendanceByBooking: attByBooking,
+      })
         .map((b) => ({
           ...b,
           attendance: attByBooking[b.id] || null,

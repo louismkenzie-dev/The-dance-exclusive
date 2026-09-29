@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Ban, Edit, Trash2, CalendarDays, ChevronRight, ChevronLeft, ListChecks, ChevronDown, ChevronUp, Clock, User, Archive, X, Copy, Flag, AlertTriangle, Link as LinkIcon } from "lucide-react";
+import { Plus, Ban, Edit, Trash2, CalendarDays, ChevronRight, ChevronLeft, ListChecks, ChevronDown, ChevronUp, Clock, User, Archive, X, Copy, Flag, AlertTriangle, PoundSterling, Link as LinkIcon } from "lucide-react";
 import { classShareUrl } from "@/lib/classLinks";
 import { termsForRange } from "@/lib/termMatching";
 import SessionManager from "@/components/admin/SessionManager";
@@ -23,6 +23,8 @@ import TermSessionGroups from "@/components/TermSessionGroups";
 import { format, addDays, parseISO, eachDayOfInterval, getDay, isBefore, isWithinInterval } from "date-fns";
 import { findHeldSessions, describeHold } from "@/lib/sessionGuards";
 import { formatTimeRange } from "@/lib/bookingFormat";
+import { classForecasts, type ClassForecast } from "@/lib/classForecast";
+import { formatPounds } from "@/lib/revenueReport";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
 const DAY_INDEX_MAP: Record<string, number> = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
@@ -151,6 +153,8 @@ const AdminClasses = () => {
   /** Everyone who has EVER been on each class, cancelled included. A class
    *  with history can't be deleted (the database refuses), only cancelled. */
   const [historyCounts, setHistoryCounts] = useState<Record<string, number>>({});
+  // What each class is due to turn over a month from active memberships. Admin-only page.
+  const [forecasts, setForecasts] = useState<Map<string, ClassForecast>>(new Map());
   const [typeFilter, setTypeFilter] = useState<"all" | "children" | "adult">("all");
   const [venueFilter, setVenueFilter] = useState<string>("all");
   const [showPast, setShowPast] = useState(false);
@@ -268,10 +272,15 @@ const AdminClasses = () => {
       }
 
       // Waitlist counts (admin RLS: full read) — badge full classes with demand.
-      const [{ data: waitlistRows }, { data: historyRows }] = await Promise.all([
+      const [{ data: waitlistRows }, { data: historyRows }, { data: membershipRows }] = await Promise.all([
         (supabase.from("class_waitlist" as any) as any).select("class_id").in("class_id", ids),
         (supabase as any).rpc("get_class_history", { _class_ids: ids }),
+        supabase
+          .from("memberships")
+          .select("class_id, stripe_subscription_id, monthly_amount, status")
+          .in("status", ["active", "paused", "cancel_scheduled", "incomplete"]),
       ]);
+      if (membershipRows) setForecasts(classForecasts(membershipRows));
       if (historyRows) {
         const h: Record<string, number> = {};
         (historyRows as { class_id: string; places: number }[]).forEach((r) => { h[r.class_id] = Number(r.places) || 0; });
@@ -887,6 +896,10 @@ const AdminClasses = () => {
         <div>
           <h1 className="text-[26px] font-semibold leading-tight tracking-tight text-foreground sm:text-3xl">Classes</h1>
           <p className="mt-1 text-[14px] text-muted-foreground">Every class the studio runs, and its sessions</p>
+          <p className="mt-1 text-[12px] text-muted-foreground">
+            <PoundSterling className="mr-0.5 inline h-3 w-3 align-[-2px]" />
+            A month = what active memberships are due to pay, before fees. A family on several classes is split evenly across them.
+          </p>
         </div>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
           <DialogTrigger asChild>
@@ -1860,6 +1873,23 @@ const AdminClasses = () => {
                             <CalendarDays className="w-3 h-3" />
                             {count} session{count !== 1 ? 's' : ''}
                           </span>
+                          {(() => {
+                            const f = forecasts.get(c.id);
+                            if (!f || (f.members === 0 && f.notCounted === 0)) return null;
+                            return (
+                              <span
+                                className="text-xs text-muted-foreground flex items-start gap-1"
+                                title="What this class's active memberships are due to pay each month, before fees. A family on several classes is split evenly across them."
+                              >
+                                <PoundSterling className="w-3 h-3 mt-0.5 shrink-0" />
+                                <span>
+                                  <span className="font-medium text-foreground">{formatPounds(f.monthlyPence)}</span> a month
+                                  {" "}from {f.members} membership{f.members !== 1 ? "s" : ""}
+                                  {f.notCounted > 0 && ` · ${f.notCounted} paused or leaving not counted`}
+                                </span>
+                              </span>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>

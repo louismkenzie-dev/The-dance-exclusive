@@ -30,6 +30,7 @@ export const DEFAULT_NAV_CONFIG: NavItem[] = [
     ],
   },
   { id: "venues", label: "Venues", icon: "MapPin", path: "/admin/venues" },
+  { id: "reports", label: "Reports", icon: "ChartColumn", path: "/admin/reports" },
   { id: "settings", label: "Settings", icon: "Settings", path: "/admin/settings" },
 ];
 

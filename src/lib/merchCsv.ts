@@ -35,6 +35,9 @@ export const UTF8_BOM = "﻿";
  */
 export function csvCell(value: unknown): string {
   if (value === null || value === undefined) return "";
+  // A real number cannot be a formula, and prefixing a negative one would turn a loss of -12.50
+  // into the text '-12.50. Only strings — which a parent can type — are neutralised.
+  if (typeof value === "number") return Number.isFinite(value) ? String(value) : "";
   let text = String(value);
 
   if (FORMULA_PREFIXES.some((p) => text.startsWith(p))) {

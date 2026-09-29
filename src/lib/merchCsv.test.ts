@@ -44,6 +44,9 @@ describe("merchCsv", () => {
       expect(csvCell(undefined)).toBe("");
       expect(csvCell("")).toBe("");
       expect(csvCell(0)).toBe("0"); // a real zero quantity must survive
+      expect(csvCell(-12.5)).toBe("-12.5"); // a number is never a formula, so a loss stays a number
+      expect(csvCell("-12.5")).toBe("'-12.5"); // but the same characters as text are still neutralised
+      expect(csvCell(Number.NaN)).toBe("");
     });
   });
 
@@ -100,6 +103,9 @@ describe("the client mirror and the server copy", () => {
     const CASES = ["Evie", "=1+1", "-Evie", "+44", "@X", "Smith, Evie", 'a"b', "a\nb", "Chloé", "", "\tx"];
     for (const c of CASES) {
       expect(server.csvCell(c), `differs for ${JSON.stringify(c)}`).toBe(csvCell(c));
+    }
+    for (const n of [0, -12.5, 3.14, Number.NaN]) {
+      expect(server.csvCell(n), `differs for ${n}`).toBe(csvCell(n));
     }
     expect(server.toCsv(["A"], [["=x"]])).toBe(toCsv(["A"], [["=x"]]));
     expect(server.csvToBase64("Chloé")).toBe(csvToBase64("Chloé"));

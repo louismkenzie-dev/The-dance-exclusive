@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   cleanReason, looksLikeCancellation, daysBetween, groupPauseWarnings,
-  totalMonthlyPounds, dueWarnings, describeWarning, type PausedMembershipRow,
+  totalMonthlyPounds, dueWarnings, describeWarning, summarisePaused, type PausedMembershipRow,
 } from "./pauseWarnings";
 
 const TODAY = "2026-09-28";
@@ -163,5 +163,33 @@ describe("pauseWarnings", () => {
       const w = groupPauseWarnings([brooke(26.35, 1), brooke(26.35, 2), brooke(30.6, 3)], TODAY);
       expect(describeWarning(w[0], "5 Nov 2026")).toContain("£83.30");
     });
+  });
+});
+
+describe("summarisePaused", () => {
+  const paused = (r: PausedMembershipRow) => ({ ...r, status: "paused" });
+  const freeMonth = (i: number) => ({
+    membershipId: `f${i}`, userId: `u${i}`, dancerName: `Dancer ${i}`, pausedUntil: null,
+    pauseReason: null, monthlyAmount: 30.6, status: "paused",
+  });
+
+  it("files live's eight as two studio pauses, not the August break", () => {
+    const rows = [...[26.35, 26.35, 26.35, 30.6, 0.35, 0, 0].map((a, i) => paused(brooke(a, i))), paused(poppy)];
+    const s = summarisePaused(rows, TODAY);
+    expect(s.freeMonthCount).toBe(0);
+    expect(s.studio.map((w) => w.dancerNames.join())).toEqual(["Brooke George", "Poppy Beatwell"]);
+    expect(s.studio[0].membershipCount).toBe(7);
+    expect(s.studio[1].looksLikeCancellation).toBe(true);
+  });
+
+  it("counts free-month pauses separately", () => {
+    const s = summarisePaused([freeMonth(1), freeMonth(2), paused(poppy)], "2026-08-10");
+    expect(s.freeMonthCount).toBe(2);
+    expect(s.studio).toHaveLength(1);
+  });
+
+  it("ignores memberships that aren't paused, even with a stale pause date", () => {
+    const s = summarisePaused([{ ...poppy, status: "active" }, { ...freeMonth(3), status: "cancelled" }], TODAY);
+    expect(s).toEqual({ freeMonthCount: 0, studio: [] });
   });
 });

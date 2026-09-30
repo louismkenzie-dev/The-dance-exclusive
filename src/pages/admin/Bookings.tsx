@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { addDays, differenceInCalendarDays, format, parseISO, startOfMonth, subDays, subMonths } from "date-fns";
+import { addDays, differenceInCalendarDays, endOfMonth, format, parseISO, startOfMonth, subDays, subMonths } from "date-fns";
 import { formatTime } from "@/lib/bookingFormat";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -28,6 +28,8 @@ import { BookingActions } from "@/components/admin/BookingActions";
 import { useBookingActions } from "@/components/admin/useBookingActions";
 import { paymentRefOf, sessionDateOf } from "@/lib/bookingBreakdown";
 import { Chip, ChipRow } from "@/components/booking/Chips";
+import { describeWarning, summarisePaused, type PausedSummary } from "@/lib/pauseWarnings";
+import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/booking/EmptyState";
 import { StatusPill, TonePill, planLabel } from "@/components/admin/StatusPill";
 
@@ -474,6 +476,9 @@ interface AdminMembership {
   current_period_end: string | null;
   cancel_at: string | null;
   free_month: number | null;
+  /** Set only for a pause the studio agreed; a free-month pause leaves it null. */
+  paused_until?: string | null;
+  pause_reason?: string | null;
   students: { first_name: string; last_name: string } | null;
   classes: { name: string; day_of_week: string | null; start_time: string | null } | null;
   profile: { full_name: string; email: string } | null;
@@ -699,7 +704,11 @@ const statusBadgeText = (r: { statusLabel: string; membershipStatus: string | nu
  *  categorised so it's easy to find who's on what. */
 const MembershipsTab = () => {
   const [rows, setRows] = useState<PlanRow[]>([]);
-  const [monthlyStats, setMonthlyStats] = useState({ activeCount: 0, recurring: 0, pausedCount: 0 });
+  const [monthlyStats, setMonthlyStats] = useState<{ activeCount: number; recurring: number; paused: PausedSummary }>({
+    activeCount: 0,
+    recurring: 0,
+    paused: { freeMonthCount: 0, studio: [] },
+  });
   const [planFilter, setPlanFilter] = useState<"all" | PlanKind>("all");
   /** Show only the families with money outstanding — the whole point of the
    *  screen on most days, and impossible to find among hundreds of actives. */
@@ -850,7 +859,20 @@ const MembershipsTab = () => {
       setMonthlyStats({
         activeCount: live.length,
         recurring: live.reduce((sum, m) => sum + Number(m.monthly_amount), 0),
-        pausedCount: memberships.filter((m) => m.status === "paused").length,
+        // Two kinds of pause, told apart the way memberships-maintenance does: the family's free
+        // month (no paused_until) and a pause the studio agreed (paused_until set).
+        paused: summarisePaused(
+          memberships.map((m) => ({
+            membershipId: m.id,
+            userId: m.user_id,
+            dancerName: m.students ? `${m.students.first_name} ${m.students.last_name}` : null,
+            pausedUntil: m.paused_until ?? null,
+            pauseReason: m.pause_reason ?? null,
+            monthlyAmount: Number(m.monthly_amount),
+            status: m.status,
+          })),
+          format(new Date(), "yyyy-MM-dd"),
+        ),
       });
       setLoading(false);
     };
@@ -1092,9 +1114,24 @@ const MembershipsTab = () => {
       <p className="text-sm text-muted-foreground">
         {monthlyStats.activeCount} live monthly membership{monthlyStats.activeCount === 1 ? "" : "s"} · £
         {monthlyStats.recurring.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/month recurring
-        {monthlyStats.pausedCount > 0 && (
+        {monthlyStats.paused.freeMonthCount > 0 && (
           <span className="block text-xs mt-0.5">
-            {monthlyStats.pausedCount} paused for the August break — no payments this month, everything resumes automatically on 1 September.
+            {monthlyStats.paused.freeMonthCount} on their free month — nothing is taken this month; payments restart automatically on{" "}
+            {format(startOfMonth(addDays(endOfMonth(new Date()), 1)), "d MMMM")}.
+          </span>
+        )}
+        {monthlyStats.paused.studio.length > 0 && (
+          <span className="block text-xs mt-0.5">
+            {(() => {
+              const n = monthlyStats.paused.studio.reduce((sum, w) => sum + w.membershipCount, 0);
+              return `${n} paused by the studio — payments restart by themselves:`;
+            })()}
+            {monthlyStats.paused.studio.map((w) => (
+              <span key={w.key} className={cn("block pl-3", w.looksLikeCancellation && "text-warning")}>
+                · {describeWarning(w, format(parseISO(w.pausedUntil), "d MMM yyyy"))}
+                {w.membershipCount > 1 && ` (${w.membershipCount} classes)`}
+              </span>
+            ))}
           </span>
         )}
       </p>

@@ -145,3 +145,28 @@ export function describeWarning(w: PauseWarning, when: string): string {
   }
   return `${who}: paused payments of ${amount}/month restart ${when}`;
 }
+
+export type PausedSummary = {
+  /** Paused for the family's annual free month: no `paused_until`, resumed by the maintenance job. */
+  freeMonthCount: number;
+  /** Pauses the studio agreed, one line per family per restart date. */
+  studio: PauseWarning[];
+};
+
+/**
+ * Every paused membership, split the way memberships-maintenance tells them apart.
+ *
+ * The Bookings page used to call every paused membership "paused for the August break … resumes
+ * on 1 September" — true when that was the only kind of pause, and still printed on 30 September
+ * about Brooke's medical pause and Poppy's "Leaving" one, which restart in November and January.
+ */
+export function summarisePaused(
+  rows: (PausedMembershipRow & { status: string })[],
+  todayIso: string,
+): PausedSummary {
+  const paused = rows.filter((r) => r.status === "paused");
+  return {
+    freeMonthCount: paused.filter((r) => !r.pausedUntil).length,
+    studio: groupPauseWarnings(paused.filter((r) => !!r.pausedUntil), todayIso),
+  };
+}

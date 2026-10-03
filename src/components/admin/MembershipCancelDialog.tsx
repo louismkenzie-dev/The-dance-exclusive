@@ -79,13 +79,29 @@ const MembershipCancelDialog = ({ open, onOpenChange, membership, onDone }: Prop
       if ((data as { error?: string } | null)?.error) {
         throw new Error((data as { error: string }).error);
       }
+      const result = (data ?? {}) as {
+        siblingPriceChanges?: { studentName: string | null; className: string; to: number; nextPaymentDate: string | null }[];
+        siblingPriceUnclear?: { studentName: string | null; className: string; amount: number }[];
+        siblingPriceFailed?: { studentName: string | null; className: string; error: string }[];
+      };
+      const raised = (result.siblingPriceChanges ?? [])
+        .map((c) => `${c.studentName?.split(" ")[0] ?? "Their sibling"} is now ${money(c.to)}/month for ${c.className}${c.nextPaymentDate ? ` from ${pretty(c.nextPaymentDate)}` : ""}`)
+        .join("; ");
       toast({
         title: mode === "now" ? "Membership ended" : "Cancellation scheduled",
         description:
           mode === "now"
-            ? `${membership.childName} has been taken off ${membership.className}. Nothing further will be taken.`
+            ? `${membership.childName} has been taken off ${membership.className}. Nothing further will be taken.` +
+              (raised ? ` Sibling discount ended: ${raised}. The family has been emailed.` : "")
             : `Final payment ${finalPayment ?? "on the next billing date"}, ending ${endsOn ?? "a month later"}.`,
       });
+      const check = [
+        ...(result.siblingPriceUnclear ?? []).map((u) => `${u.studentName ?? "A sibling"} (${u.className}, ${money(u.amount)}/month) doesn't match today's prices, so it was left as it is`),
+        ...(result.siblingPriceFailed ?? []).map((f) => `${f.studentName ?? "A sibling"} (${f.className}) couldn't be updated: ${f.error}`),
+      ];
+      if (check.length) {
+        toast({ title: "Check the sibling discount by hand", description: `${check.join(". ")}.`, variant: "destructive" });
+      }
       onOpenChange(false);
       onDone();
     } catch (e) {
@@ -147,6 +163,12 @@ const MembershipCancelDialog = ({ open, onOpenChange, membership, onDone }: Prop
             "For a family who has already left, or where you're waiving the notice. The place is given up today and no further payment is taken.",
           )}
         </div>
+
+        <p className="text-xs text-muted-foreground">
+          If this is {membership.childName.split(" ")[0]}&rsquo;s last class with the family, a brother or
+          sister&rsquo;s 10% sibling discount ends too{mode === "notice" ? " when the notice runs out" : ""}. Their
+          price goes back to standard from their next payment, and the family is told by email.
+        </p>
 
         {isPaused && (
           <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">

@@ -18,6 +18,8 @@
 //  - "cancel_now" (admin only): end a membership TODAY with no further payment,
 //    for a family who has already gone. Deliberately admin-only — a parent must
 //    not be able to waive their own notice period by calling it directly.
+//    If that was the child's last class with the family, the family's sibling
+//    discount is re-checked (_shared/applySiblingDrop.ts) and the email says so.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
@@ -40,6 +42,7 @@ import {
   yearMonth,
 } from "../_shared/membershipAdjustments.ts";
 import { pauseBlockedReason, planPause } from "../_shared/membershipPause.ts";
+import { applySiblingDiscountDrop, type SiblingDropResult } from "../_shared/applySiblingDrop.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -501,6 +504,20 @@ serve(async (req) => {
         if (bookingError) console.error("Failed to retire booking for membership", membership.id, bookingError);
       }
 
+      // Was that the child's last class with the family? Then a remaining child may lose the
+      // sibling discount (Louis, 3 Oct). Never allowed to undo or block the cancellation above.
+      let siblingDrop: SiblingDropResult | null = null;
+      try {
+        siblingDrop = await applySiblingDiscountDrop(supabase, stripe, connectOpts, {
+          userId: ownerId,
+          leavingStudentId: membership.student_id ?? null,
+          env,
+          todayIso: nowIso,
+        });
+      } catch (e) {
+        console.error("Sibling discount re-check failed after cancel_now:", membership.id, e);
+      }
+
       try {
         const [{ data: student }, { data: cls }] = await Promise.all([
           membership.student_id
@@ -522,6 +539,7 @@ serve(async (req) => {
                 className: cls?.name ?? "your class",
                 endDate: nowIso,
                 scheduled: false,
+                siblingPriceChanges: siblingDrop?.changes ?? [],
               },
             },
           });
@@ -530,7 +548,13 @@ serve(async (req) => {
         console.error("cancel_now email failed:", e);
       }
 
-      return jsonResponse({ ok: true, endedAt: nowIso });
+      return jsonResponse({
+        ok: true,
+        endedAt: nowIso,
+        siblingPriceChanges: siblingDrop?.changes ?? [],
+        siblingPriceUnclear: siblingDrop?.unclear ?? [],
+        siblingPriceFailed: siblingDrop?.failed ?? [],
+      });
     }
 
     if (action === "cancel") {

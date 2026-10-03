@@ -2,7 +2,9 @@
 //  1. Ends memberships whose one-month notice period is up — removes the
 //     subscription item (or lets Stripe's own cancel_at finish the job when
 //     the whole subscription is ending), marks them cancelled and emails the
-//     family.
+//     family. "Up" means the London DAY the notice ends, so the class comes off
+//     at 06:10 on the 5th, before that morning's payment is raised. If it was
+//     the child's last class, the family's sibling discount is re-checked.
 //  2. Syncs membership statuses/periods with Stripe (past-due, cancelled).
 //  3. Pauses collection across each subscription's annual FREE MONTH
 //     (memberships.free_month — the 12th month families don't pay) and
@@ -22,7 +24,8 @@ import {
   connectRequestOptions,
   createStripeClient,
 } from "../_shared/stripe.ts";
-import { londonYMD, resumeAfterFreeMonth } from "../_shared/billing.ts";
+import { londonYMD, noticeEndsByToday, resumeAfterFreeMonth } from "../_shared/billing.ts";
+import { applySiblingDiscountDrop } from "../_shared/applySiblingDrop.ts";
 import {
   activateMembershipSetup,
   ensureMembershipRows,
@@ -59,6 +62,7 @@ serve(async (_req) => {
     adopted: 0,
     unadoptable: 0,
     adjustmentsApplied: 0,
+    siblingDiscountsEnded: 0,
     errors: 0,
   };
   const nowIso = new Date().toISOString();
@@ -166,13 +170,18 @@ serve(async (_req) => {
     const connectOpts = connectRequestOptions(env);
 
     // ── 1. End memberships whose notice period is complete ──────────────
-    const { data: due } = await supabase
+    // By London calendar day, not by instant: a notice ends at 07:00 UTC on the
+    // 5th, the same moment Stripe raises that month's invoice, and this job runs
+    // at 06:10. Comparing instants skipped the 5th and removed the class on the
+    // 6th — after the leaving child had been charged a month more than promised.
+    const { data: scheduled } = await supabase
       .from("memberships")
       .select("*")
       .eq("stripe_env", env)
       .eq("status", "cancel_scheduled")
-      .lte("cancel_at", nowIso);
-    for (const m of due ?? []) {
+      .not("cancel_at", "is", null);
+    const due = (scheduled ?? []).filter((m: any) => noticeEndsByToday(m.cancel_at));
+    for (const m of due) {
       try {
         let sub: any = null;
         try {
@@ -200,8 +209,38 @@ serve(async (_req) => {
           .eq("id", m.id);
         await retireBooking(m);
         summary.endedNow++;
+
+        // That child's last class with the family? A remaining child may lose the
+        // sibling discount (Louis, 3 Oct). Runs before 07:00, so the new price is
+        // on this morning's payment. Never allowed to stop the ending above.
+        let siblingPriceChanges: unknown[] = [];
+        try {
+          const drop = await applySiblingDiscountDrop(supabase, stripe, connectOpts, {
+            userId: m.user_id,
+            leavingStudentId: m.student_id ?? null,
+            env,
+            todayIso: nowIso,
+          });
+          siblingPriceChanges = drop.changes;
+          summary.siblingDiscountsEnded += drop.changes.length;
+          if (drop.unclear.length || drop.failed.length) {
+            await notifyOwner({
+              title: "Check a family's sibling discount",
+              intro: `${await describeFamily(m.user_id)}: a child's last monthly class has just ended, so the 10% sibling discount on the rest of the family was re-checked. ${drop.reason}`,
+              listTitle: "Needs a look",
+              list: [
+                ...drop.unclear.map((u) => `Left as it is — £${u.amount.toFixed(2)}/month doesn't match today's price list: ${u.studentName ?? "child"}, ${u.className}`),
+                ...drop.failed.map((f) => `Couldn't update: ${f.studentName ?? "child"}, ${f.className} — ${f.error}`),
+              ],
+              urgent: drop.failed.length > 0,
+            });
+          }
+        } catch (e) {
+          console.error("Sibling discount re-check failed after notice ended:", m.id, e);
+        }
+
         const desc = await describeMembership(m);
-        await sendEmail(m.user_id, "membership_ended", { ...desc, endDate: m.cancel_at, scheduled: true });
+        await sendEmail(m.user_id, "membership_ended", { ...desc, endDate: m.cancel_at, scheduled: true, siblingPriceChanges });
       } catch (e) {
         summary.errors++;
         console.error("Failed to end membership", m.id, e);

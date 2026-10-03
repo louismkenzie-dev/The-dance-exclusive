@@ -5,6 +5,7 @@ import {
   freeMonthFor,
   isAugustLondon,
   londonYMD,
+  noticeEndsByToday,
   resumeAfterFreeMonth,
 } from "./billing";
 
@@ -84,5 +85,39 @@ describe("resumeAfterFreeMonth", () => {
 
   it("a January free month observed in January resumes on 1 February", () => {
     expect(resumeAfterFreeMonth(1, JAN_10).toISOString()).toBe("2027-02-01T00:00:00.000Z");
+  });
+});
+
+describe("noticeEndsByToday — remove the class before the 5th's payment is raised", () => {
+  const NOTICE_END = "2026-11-05T07:00:00.000Z"; // as cancel stores it: the next billing instant
+
+  it("THE BUG: at 06:10 on the 5th the notice has run out, though it is 50 minutes before 07:00", () => {
+    expect(noticeEndsByToday(NOTICE_END, new Date("2026-11-05T06:10:00Z"))).toBe(true);
+  });
+
+  it("is not due the day before, nor a month earlier", () => {
+    expect(noticeEndsByToday(NOTICE_END, new Date("2026-11-04T06:10:00Z"))).toBe(false);
+    expect(noticeEndsByToday(NOTICE_END, new Date("2026-10-05T06:10:00Z"))).toBe(false);
+  });
+
+  it("stays due afterwards, so a missed run catches up", () => {
+    expect(noticeEndsByToday(NOTICE_END, new Date("2026-11-06T06:10:00Z"))).toBe(true);
+  });
+
+  it("uses London's calendar day, including across the BST boundary", () => {
+    // 23:30 UTC on 4 Oct is 00:30 on 5 Oct in London (BST).
+    expect(noticeEndsByToday("2026-10-05T07:00:00Z", new Date("2026-10-04T23:30:00Z"))).toBe(true);
+  });
+
+  it("is never due without a date", () => {
+    expect(noticeEndsByToday(null)).toBe(false);
+    expect(noticeEndsByToday("not a date")).toBe(false);
+  });
+
+  it("agrees with the server copy", async () => {
+    const server = await import("../../supabase/functions/_shared/billing.ts");
+    for (const now of ["2026-11-05T06:10:00Z", "2026-11-04T06:10:00Z", "2026-10-04T23:30:00Z"]) {
+      expect(server.noticeEndsByToday(NOTICE_END, new Date(now))).toBe(noticeEndsByToday(NOTICE_END, new Date(now)));
+    }
   });
 });

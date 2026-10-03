@@ -66,3 +66,22 @@ export function resumeAfterFreeMonth(freeMonth: number, from: Date = new Date())
   const resumeY = resumeM >= m ? y : y + 1;
   return new Date(Date.UTC(resumeY, resumeM - 1, 1, 0, 0, 0));
 }
+
+/**
+ * Has a notice period run out, for the purposes of removing that child's class?
+ *
+ * A notice ends at the same instant the next payment is due — 07:00 UTC on the 5th — and Stripe
+ * raises that payment's invoice from whatever items are on the subscription at that moment. The
+ * maintenance job runs at 06:10 UTC, so comparing instants made it skip the 5th (50 minutes early)
+ * and remove the class on the 6th — after the invoice had charged the leaving child one month more
+ * than the notice promised. So: due on the London calendar DAY the notice ends, which removes the
+ * class at 06:10 on the 5th, before the payment is raised.
+ */
+export function noticeEndsByToday(cancelAtIso: string | null | undefined, now: Date = new Date()): boolean {
+  if (!cancelAtIso) return false;
+  const end = new Date(cancelAtIso);
+  if (Number.isNaN(end.getTime())) return false;
+  const a = londonYMD(end);
+  const b = londonYMD(now);
+  return a.y * 10_000 + a.m * 100 + a.day <= b.y * 10_000 + b.m * 100 + b.day;
+}
